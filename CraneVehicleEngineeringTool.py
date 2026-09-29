@@ -2507,23 +2507,28 @@ class App(QMainWindow):
         {self.design_check_html()}<hr>{self.winch_duty_html()}""")
 
     def export_final_engineering_report(self):
-        filename,_=QFileDialog.getSaveFileName(self,"Export Final Engineering Report","Crane_Vehicle_Final_Engineering_Report.pdf","PDF (*.pdf)")
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        default_path=str(Path(docs)/"Crane_Vehicle_Final_Engineering_Report.pdf")
+        filename,_=QFileDialog.getSaveFileName(self,"Export Final Engineering Report",default_path,"PDF (*.pdf)")
         if not filename:return
-        if not filename.lower().endswith('.pdf'):filename+='.pdf'
+        if not filename.lower().endswith(".pdf"):filename+=".pdf"
+        tmp=Path(tempfile.mkdtemp(prefix="cvet_final_report_"))
         try:
             self._core_recalculate();self.update_project_tools()
             t=self.torque_results();e=self.electrical_results();w=self.winch_results();worst=self.stability_worst_record()
-            tmp=Path(tempfile.gettempdir())/'crane_vehicle_v51_report';tmp.mkdir(parents=True,exist_ok=True)
             images=[]
-            for name,widget in (("vehicle",getattr(self,'view',None)),("fbd",getattr(self,'forceDiagram',None)),("stability_map",getattr(self,'graph',None)),("motor_operating",getattr(self,'motorOpGraph',None))):
+            for name,widget in (("vehicle",getattr(self,"view",None)),("fbd",getattr(self,"forceDiagram",None)),
+                                ("stability_map",getattr(self,"graph",None)),("motor_operating",getattr(self,"motorOpGraph",None))):
                 if widget is not None:
-                    fp=tmp/f'{name}.png';widget.grab().save(str(fp));images.append((name,fp.as_uri()))
-            img_html=''.join([f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in images])
+                    fp=tmp/f"{name}.png"
+                    if widget.grab().save(str(fp)):images.append((name,fp.as_uri()))
+            img_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in images)
             page="<div style='page-break-before:always'></div>"
             winch_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_html(w),flags=re.I)
             winch_speed_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_speed_html(self.winch_speed_results()),flags=re.I)
-            html=f"""<html><body style=\"font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:10pt\">
-            <h1>CRANE VEHICLE — FINAL ENGINEERING REPORT</h1><p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+            html=f"""<html><body style="font-family:'Leelawadee UI',Tahoma,'Segoe UI',Arial;font-size:10pt">
+            <h1>CRANE VEHICLE — FINAL ENGINEERING REPORT</h1>
+            <p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
             <p><b>Scope:</b> Drive Torque, Electrical/Battery, Winch, Stability, Worst Case, FBD, Motor Operating, Battery/BMS, Duty Cycle and integrated design checks.</p>
             {self.design_check_html()}{page}
             <h1>1. DRIVE TORQUE</h1>{self.torque_formula_html(t)}{page}
@@ -2533,13 +2538,19 @@ class App(QMainWindow):
             <h1>5. WORST CASE</h1><p>SF_worst = {worst[0]:.3f} at θ={worst[1]}° ({worst[2]}), target SF={self.req.value():.2f}</p>{page}
             <h1>6. BATTERY + BMS</h1>{self.bms_check_html()}{page}
             <h1>7. FIGURES</h1>{img_html}
-            <h2>Engineering limitations</h2><p>ผลทั้งหมดเป็น Preliminary Engineering Calculation. ต้องยืนยันด้วยน้ำหนัก/CG จริง, datasheet และการทดสอบกระแส/แรงบิด/ความเร็วจริง, โครงสร้างและจุดยึด, สภาพพื้น, การกระแทก, เบรกวินช์ และข้อกำหนดผู้ผลิตก่อนผลิตหรือใช้งานจริง.</p>
+            <h2>Engineering limitations</h2>
+            <p>ผลทั้งหมดเป็น Preliminary Engineering Calculation. ต้องยืนยันด้วยน้ำหนัก/CG จริง, datasheet, Torque-Speed curve, การทดสอบกระแส/แรงบิด/ความเร็วจริง, โครงสร้างและจุดยึด, สภาพพื้น, การถ่ายน้ำหนัก, Dynamic Shock, เบรกวินช์ และข้อกำหนดผู้ผลิตก่อนผลิตหรือใช้งานจริง.</p>
             </body></html>"""
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
-            printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat);printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
-            shutil.rmtree(tmp,ignore_errors=True)
+            printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
+            if not Path(filename).exists() or Path(filename).stat().st_size<1000:
+                raise RuntimeError("PDF file was not created correctly")
             QMessageBox.information(self,"Final Report","บันทึกรายงานเรียบร้อย:\n"+filename)
-        except Exception as exc:QMessageBox.critical(self,"Final Report ไม่สำเร็จ",str(exc))
+        except Exception as exc:
+            QMessageBox.critical(self,"Final Report ไม่สำเร็จ",str(exc))
+        finally:
+            shutil.rmtree(tmp,ignore_errors=True)
 
     def update_project_tools(self):
         if not hasattr(self,"projectTabs"):return
@@ -3891,7 +3902,9 @@ Auto FBD จะเลือก Side หรือ Front-Rear ตามค่า S
 
     def calc_components(self):
         rows,sm,xg,yg,zg=self.component_values()
-        if sm<=0:self.compout.setPlainText("กรุณากรอกมวลให้มากกว่า 0 kg");return
+        if sm<=0:
+            self.compout.setPlainText("กรุณากรอกมวลให้มากกว่า 0 kg")
+            return
         mode="B: Sum Components" if self.massModeSum.isChecked() else "A: Fixed Total Mass"
         diff=sm-self.mt.value()
         self.compout.setPlainText(f"""ผลการคำนวณ Component Mass & CG
@@ -3901,23 +3914,27 @@ Auto FBD จะเลือก Side หรือ Front-Rear ตามค่า S
 1) มวลรวมจากอุปกรณ์
 m_sum = Σm_i = {sm:.2f} kg
 
-2) CG รวมแกน x
-x_CG = Σ(m_i x_i) / Σm_i = {xg:.3f} m
+2) Combined CG แกน x
+x_CG,combined = Σ(m_i x_i) / Σm_i = {xg:.3f} m
 
-3) CG รวมแกน y
-y_CG = Σ(m_i y_i) / Σm_i = {yg:.3f} m
+3) Combined CG แกน y
+y_CG,combined = Σ(m_i y_i) / Σm_i = {yg:.3f} m
 
-4) CG รวมแกน z
-z_CG = Σ(m_i z_i) / Σm_i = {zg:.3f} m
+4) Combined CG แกน z
+z_CG,combined = Σ(m_i z_i) / Σm_i = {zg:.3f} m
 
 Total mass ใน Crane Mode = {self.mt.value():.2f} kg
 ผลต่าง Component sum - Total mass = {diff:+.2f} kg
 
-โหมด A: โปรแกรมใช้ Total mass ที่ผู้ใช้กำหนดเอง
-โหมด B: กด Apply แล้ว m_sum, x_CG และ z_CG จะถูกส่งไปใช้ในการคำนวณหลัก
-""")
-        if self.massModeSum.isChecked(): self.apply_mass_mode()
+โหมด A: ใช้ Total mass ที่ผู้ใช้กำหนดเอง
+โหมด B: กด Apply แล้ว m_sum, x_CG,combined และ z_CG,combined
+จะถูกส่งไปใช้เป็น Total mass, Driving combined CG x และ CG height
 
+Base vehicle CG x ใน Crane tipping เป็นคนละตัวแปร
+เพราะ Payload และ Boom ถูกจำลองตำแหน่งแยกตามมุมเครนอยู่แล้ว
+""")
+        if self.massModeSum.isChecked():
+            self.apply_mass_mode()
 
     def make_worstcase(self):
         w=QWidget();self.worstPage=w
@@ -3945,11 +3962,22 @@ Total mass ใน Crane Mode = {self.mt.value():.2f} kg
         xload=xc+d["L"]*math.cos(math.radians(th))
         xboom=xc+(d["L"]/2)*math.cos(math.radians(th))
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        ml_eff=d["kd"]*d["ml"]
+
         def chk(pivot,direction):
-            masses=[(mveh,d["xCG"]),(ml_eff,xload),(d["mb"],xboom)]
-            mo=sum(m*G*max(0.0,direction*(x-pivot)) for m,x in masses)
-            mr=sum(m*G*max(0.0,-direction*(x-pivot)) for m,x in masses)
+            # Vehicle + boom use static weight. Payload uses Kdyn only when it
+            # is on the overturning side; resisting payload uses static weight.
+            mo=0.0;mr=0.0
+            for mass,x,is_payload in (
+                (mveh,d["xCG"],False),
+                (d["ml"],xload,True),
+                (d["mb"],xboom,False),
+            ):
+                signed=direction*(x-pivot)
+                if signed>0:
+                    factor=d["kd"] if is_payload else 1.0
+                    mo+=factor*mass*G*signed
+                elif signed<0:
+                    mr+=mass*G*(-signed)
             return mr/mo if mo>1e-12 else 999
         return chk(front,1),chk(rear,-1)
 
@@ -4014,141 +4042,112 @@ Total mass ใน Crane Mode = {self.mt.value():.2f} kg
         self.tabs.addTab(w,"6. วิธีคำนวณ / Calculation Steps")
 
     def update_calc_steps(self,d,sf,MO,MR,sfF,sfR):
-        th=math.radians(d["th"]); g=G
+        th=math.radians(d["th"]);g=G
+        pivot=d["W"]/2
         FL=d["kd"]*d["ml"]*g
-        yL=abs(d["L"]*math.sin(th)); pivot=d["W"]/2; dL=max(0,yL-pivot)
-        yB=abs((d["L"]/2)*math.sin(th)); dB=max(0,yB-pivot)
-        MOL=FL*dL; MOB=d["mb"]*g*dB
-        mR=max(0,d["mt"]-d["ml"]-d["mb"])
+        yL=abs(d["L"]*math.sin(th));yB=abs((d["L"]/2)*math.sin(th))
+        dL=max(0.0,yL-pivot);rL=max(0.0,pivot-yL)
+        dB=max(0.0,yB-pivot);rB=max(0.0,pivot-yB)
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        MOL=FL*dL
+        MOB=d["mb"]*g*dB
+        MRveh=mveh*g*pivot
+        MRL=d["ml"]*g*rL
+        MRB=d["mb"]*g*rB
         rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
         xload=xc+d["L"]*math.cos(th);xboom=xc+(d["L"]/2)*math.cos(th)
-        alpha=math.radians(self.slope.value()); h=self.hcg.value(); acc=self.acc.value()
-        Wslope=d["mt"]*g
-        Fpar=Wslope*math.sin(alpha);Fnorm=Wslope*math.cos(alpha);Facc=d["mt"]*acc
+        sr=self.slope_stability_results(d)
+        sf_text="∞" if sf>=999 else f"{sf:.3f}"
+        sfF_text="∞" if sfF>=999 else f"{sfF:.3f}"
+        sfR_text="∞" if sfR>=999 else f"{sfR:.3f}"
+        slope_text="∞" if sr["sf"]>=999 else f"{sr['sf']:.3f}"
+
         self.steps.setPlainText(f"""A) SIDE TIPPING / การคว่ำด้านข้าง
 
-ขั้นที่ 1 หาแรงโหลดออกแบบ
-ความหมาย: แรง = มวล × ความเร่ง และเผื่อ Dynamic Factor
-F_L = Kdyn × m_L × g
-    = {d['kd']:.2f} × {d['ml']:.2f} × 9.81
-    = {FL:.2f} N
+1) แรง Payload สำหรับด้านที่ทำให้คว่ำ
+F_L,design = Kdyn × m_L × g
+           = {d['kd']:.2f} × {d['ml']:.2f} × 9.81
+           = {FL:.2f} N
 
-ขั้นที่ 2 หาตำแหน่งโหลดในแนวด้านข้าง
-y_L = |L × sin(theta)|
-    = |{d['L']:.3f} × sin({d['th']:.1f}°)|
-    = {yL:.3f} m
+หมายเหตุ: Kdyn ใช้เพิ่มเฉพาะโมเมนต์ด้านที่เป็นผลเสีย
+ถ้า Payload ยังอยู่ด้านใน Pivot จะใช้มวลจริง m_L ในโมเมนต์ต้าน
+เพื่อไม่ให้ Dynamic Factor สร้างความเสถียรเพิ่มแบบไม่สมเหตุผล
 
-ขั้นที่ 3 หาแนวคว่ำ
-ระยะจากกึ่งกลางรถถึงแนวล้อ = W/2
-= {d['W']:.3f}/2
-= {pivot:.3f} m
+2) ตำแหน่งด้านข้าง
+y_L = |L sinθ| = {yL:.3f} m
+y_B = |(L/2) sinθ| = {yB:.3f} m
+Pivot = W/2 = {d['W']:.3f}/2 = {pivot:.3f} m
 
-ขั้นที่ 4 หาระแขนโมเมนต์ของโหลด
-d_L = max(0, y_L - W/2)
-    = max(0, {yL:.3f} - {pivot:.3f})
-    = {dL:.3f} m
+3) แขนโมเมนต์คว่ำ
+d_L = max(0, y_L-Pivot) = {dL:.3f} m
+d_B = max(0, y_B-Pivot) = {dB:.3f} m
 
-ขั้นที่ 5 หาโมเมนต์ทำให้คว่ำจาก Payload
-M_OL = F_L × d_L
-     = {FL:.2f} × {dL:.3f}
-     = {MOL:.2f} N·m
+4) โมเมนต์คว่ำ
+M_OL = F_L,design × d_L = {FL:.2f} × {dL:.3f} = {MOL:.2f} N·m
+M_OB = m_B × g × d_B = {d['mb']:.2f} × 9.81 × {dB:.3f} = {MOB:.2f} N·m
+M_O = M_OL + M_OB = {MO:.2f} N·m
 
-ขั้นที่ 6 หาโมเมนต์จากน้ำหนักแขนเครน
-ตำแหน่ง CG แขนโดยประมาณ = L/2
-d_B = max(0, |(L/2)sin(theta)| - W/2)
-    = {dB:.3f} m
-M_OB = m_B × g × d_B
-     = {d['mb']:.2f} × 9.81 × {dB:.3f}
-     = {MOB:.2f} N·m
+5) โมเมนต์ต้าน
+m_vehicle = m_total - m_L - m_B
+          = {d['mt']:.2f} - {d['ml']:.2f} - {d['mb']:.2f}
+          = {mveh:.2f} kg
 
-ขั้นที่ 7 รวมโมเมนต์ทำให้คว่ำ
-M_O = M_OL + M_OB
-    = {MOL:.2f} + {MOB:.2f}
-    = {MO:.2f} N·m
+M_R,vehicle = m_vehicle × g × Pivot = {MRveh:.2f} N·m
+M_R,payload = m_L × g × max(0,Pivot-y_L) = {MRL:.2f} N·m
+M_R,boom    = m_B × g × max(0,Pivot-y_B) = {MRB:.2f} N·m
+M_R,total   = {MR:.2f} N·m
 
-ขั้นที่ 8 หามวลส่วนที่ใช้ต้านในโมเดลเบื้องต้น
-m_R = m_total - m_L - m_B
-    = {d['mt']:.2f} - {d['ml']:.2f} - {d['mb']:.2f}
-    = {mR:.2f} kg
-
-ขั้นที่ 9 หาโมเมนต์ต้าน
-M_R = m_R × g × (W/2)
-    = {mR:.2f} × 9.81 × {pivot:.3f}
-    = {MR:.2f} N·m
-
-ขั้นที่ 10 หา Safety Factor
-SF = M_R / M_O
-   = {MR:.2f} / {MO:.2f}
-   = {'∞' if MO==0 else f'{sf:.3f}'}
-
-เกณฑ์ที่ตั้งไว้ = {d['req']:.2f}
-ผล = {'PASS / ผ่านเกณฑ์เบื้องต้น' if sf>=d['req'] else 'FAIL / ไม่ผ่านเกณฑ์'}
+6) Safety Factor
+SF_side = M_R / M_O = {sf_text}
+Target SF = {d['req']:.2f}
+Result = {'PASS / ผ่านเกณฑ์เบื้องต้น' if sf>=d['req'] else 'FAIL / ต้องปรับแบบ'}
 
 ------------------------------------------------------------
 
 B) FRONT / REAR TIPPING / การคว่ำหน้า-หลัง
 
-ขั้นที่ 1 กำหนดตำแหน่งแนวล้อ
-x_rear  = -WB/2 = -{d['WB']:.3f}/2 = {rear:.3f} m
-x_front = +WB/2 = +{d['WB']:.3f}/2 = {front:.3f} m
+x_rear  = -WB/2 = {rear:.3f} m
+x_front = +WB/2 = {front:.3f} m
+x_crane = x_rear + x_C = {xc:.3f} m
+x_load  = x_crane + L cosθ = {xload:.3f} m
+x_boom  = x_crane + (L/2)cosθ = {xboom:.3f} m
 
-ขั้นที่ 2 ตำแหน่งแกนเครน
-x_crane = x_rear + x_C
-        = {rear:.3f} + {d['xC']:.3f}
-        = {xc:.3f} m
+หลักการ:
+- แต่ละมวลถูกจัดเป็นโมเมนต์คว่ำหรือโมเมนต์ต้านตามด้านของ Pivot
+- Payload ใช้ Kdyn เฉพาะเมื่อเป็นโมเมนต์คว่ำ
+- ถ้า Payload เป็นโมเมนต์ต้าน ใช้น้ำหนักจริงของ Payload
 
-ขั้นที่ 3 ตำแหน่ง Payload ตามแนวยาว
-x_load = x_crane + L cos(theta)
-       = {xc:.3f} + {d['L']:.3f} cos({d['th']:.1f}°)
-       = {xload:.3f} m
-
-ขั้นที่ 4 ตำแหน่ง CG แขน
-x_boom = x_crane + (L/2)cos(theta)
-       = {xboom:.3f} m
-
-จากนั้นหาโมเมนต์ของมวลแต่ละก้อนรอบแนวล้อหน้าและแนวล้อหลัง:
-M = F × d
-SF_front = M_R(front) / M_O(front) = {'∞' if sfF>=999 else f'{sfF:.3f}'}
-SF_rear  = M_R(rear)  / M_O(rear)  = {'∞' if sfR>=999 else f'{sfR:.3f}'}
+SF_front = {sfF_text}
+SF_rear  = {sfR_text}
 
 ------------------------------------------------------------
 
-C) DRIVING ON SLOPE / รถวิ่งบนทางลาด
+C) UPHILL DRIVING STABILITY / รถวิ่งขึ้นทางลาด
 
-ขั้นที่ 1 น้ำหนักรวม
-W = m × g
-  = {d['mt']:.2f} × 9.81
-  = {Wslope:.2f} N
+ใช้ Combined driving CG เพราะในโหมดวิ่ง โหลดวางอยู่บนรถ ไม่ได้แขวนที่ปลายเครน
 
-ขั้นที่ 2 แตกแรงน้ำหนักตามแนวทางลาด
-F_parallel = mg sin(alpha)
-           = {d['mt']:.2f} × 9.81 × sin({self.slope.value():.1f}°)
-           = {Fpar:.2f} N
+x_CG,drive = {sr['xcg']:.3f} m
+x_rear     = {sr['rear']:.3f} m
+d_rear     = x_CG,drive - x_rear = {sr['rear_arm']:.3f} m
 
-ขั้นที่ 3 แตกแรงตั้งฉากทางลาด
-F_normal = mg cos(alpha)
-         = {d['mt']:.2f} × 9.81 × cos({self.slope.value():.1f}°)
-         = {Fnorm:.2f} N
+d_slope = h_CG tanα
+        = {sr['h']:.3f} × tan({self.slope.value():.1f}°)
+        = {sr['shift_slope']:.3f} m
 
-ขั้นที่ 4 แรงจากความเร่งของรถ
-F_acc = m × a
-      = {d['mt']:.2f} × {acc:.3f}
-      = {Facc:.2f} N
+d_acc = h_CG × a/(g cosα)
+      = {sr['shift_acc']:.3f} m
 
-ขั้นที่ 5 การเลื่อนแนวแรงจากความลาด
-d_slope = h_CG × tan(alpha)
-        = {h:.3f} × tan({self.slope.value():.1f}°)
-        = {h*math.tan(alpha):.3f} m
+d_total = {sr['shift_total']:.3f} m
+Margin to rear pivot = {sr['margin']:.3f} m
 
-ขั้นที่ 6 การเลื่อนแนวแรงจากความเร่ง
-d_acc = h_CG × a/g
-      = {h:.3f} × {acc:.3f}/9.81
-      = {h*(acc/g):.3f} m
+SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
+         = {slope_text}
 
 หมายเหตุ:
-ทุกผลเป็น Preliminary Engineering Calculation
-ควรแทนมวลและตำแหน่ง CG จริงจากรถประกอบก่อนใช้ตัดสินแบบสุดท้าย
+ผลทั้งหมดเป็น Preliminary Engineering Calculation
+ต้องยืนยันมวล/CG จริง, การถ่ายน้ำหนัก, ยาง/พื้น, โครงสร้าง และแรงกระแทกก่อนผลิตจริง
 """)
+
     def make_design(self):
         w=QWidget();self.designPage=w;l=QVBoxLayout(w);self.designout=QPlainTextEdit();self.designout.setReadOnly(True);self.designout.setStyleSheet("font-size:13px");l.addWidget(QLabel("Automatic preliminary sizing / คำนวณขนาดเบื้องต้นจากโหลดและมุมปัจจุบัน"));l.addWidget(self.designout);self.tabs.addTab(w,"3. Width / Counterweight / ความกว้าง-ตุ้มน้ำหนัก")
 
@@ -4221,76 +4220,90 @@ d_acc = h_CG × a/g
             shutil.rmtree(tmpdir,ignore_errors=True)
 
     def make_thai_help(self):
-        w=QWidget();self.helpPage=w; l=QVBoxLayout(w)
-        txt=QPlainTextEdit(); txt.setReadOnly(True); txt.setStyleSheet("font-size:13px")
+        w=QWidget();self.helpPage=w;l=QVBoxLayout(w)
+        txt=QPlainTextEdit();txt.setReadOnly(True);txt.setStyleSheet("font-size:13px")
         txt.setPlainText("""คู่มือภาษาไทย / คำอธิบายตัวแปร
 
-โปรแกรมนี้ใช้ตรวจสอบเสถียรภาพการคว่ำเบื้องต้นของรถขนซากสัตว์ที่ติดเครนรูปตัว L อยู่บริเวณท้ายรถ
-เครนไม่มีการก้ม-เงย แขนอยู่แนวนอนคงที่ และหมุนซ้าย-ขวาได้ -90° ถึง +90°
+โปรแกรมนี้เป็น Preliminary Engineering Tool สำหรับรถขนซากสัตว์พร้อมเครนรูปตัว L
+เครนไม่ก้ม-เงย แขนแนวนอนคงที่ และหมุนซ้าย-ขวา -90° ถึง +90°
 
 1) Total mass (m_total)
-มวลรวมทั้งระบบขณะใช้งาน รวมโครงรถ แบตเตอรี่ มอเตอร์ เครน วินช์ ตะกร้า และสัตว์
-ตัวอย่างของโครงการนี้ใช้ 300 kg ดังนั้นห้ามนำ Payload 100 kg ไปบวกกับ 300 kg ซ้ำอีกครั้ง
+มวลรวมทั้งระบบขณะใช้งาน รวมรถ เครน วินช์ แบตเตอรี่ ตะกร้า และ Payload
+ห้ามบวก Payload ซ้ำถ้า Total mass รวม Payload อยู่แล้ว
 
 2) Payload (m_L)
-มวลของโหลดที่แขวนปลายเครน เช่น สัตว์และตะกร้า หน่วย kg
+มวลที่แขวนปลายเครน เช่น สัตว์และตะกร้า
 
 3) Boom mass (m_B)
-มวลของแขนเครนส่วนแนวนอนที่ทำให้เกิดโมเมนต์รอบแนวคว่ำ
+มวลแขนเครนส่วนแนวนอนที่โปรแกรมจำลองตำแหน่งตามมุมเครน
 
 4) Track width (W)
-ระยะระหว่างศูนย์กลางล้อซ้ายกับศูนย์กลางล้อขวา
-ค่านี้มีผลโดยตรงต่อการคว่ำด้านข้าง ยิ่งฐานกว้าง ระยะแขนโมเมนต์ต้านโดยทั่วไปยิ่งมาก
+ระยะศูนย์กลางล้อซ้าย-ขวา ใช้กำหนด Pivot ด้านข้างที่ W/2
 
 5) Wheelbase (WB)
-ระยะระหว่างแนวศูนย์กลางล้อหน้าและแนวศูนย์กลางล้อหลัง ใช้ตรวจการคว่ำหน้า-หลัง
+ระยะศูนย์กลางแนวล้อหน้า-หลัง ใช้กำหนด Pivot Front/Rear
 
 6) Boom length (L)
-ระยะในแนวนอนจากแกนหมุนเสาเครนถึงจุดแขวนโหลด
+ระยะจากแกนหมุนเครนถึง Payload
 
 7) Crane x from rear axle
-ตำแหน่งแกนเสาเครนตามแนวยาว วัดจากแนวเพลาหลัง
-ค่าบวกหมายถึงขยับจากเพลาหลังเข้าหาด้านหน้ารถ
+ตำแหน่งแกนเสาเครน วัดจากแนวเพลาหลัง ค่าบวกคือเข้าหาด้านหน้ารถ
 
-8) Vehicle CG x
-ตำแหน่งจุดศูนย์ถ่วงของส่วนรถตามแนวยาวเทียบกับกึ่งกลางฐานล้อ
-ควรใช้ค่าที่ได้จากแบบประกอบจริงเมื่อทราบน้ำหนักและตำแหน่งอุปกรณ์
+8) Base vehicle CG x (x_CG,base)
+CG ตามแนวยาวของ “ส่วนรถหลัก” หลังแยก Payload และ Boom ออกจากมวลรวมแล้ว
+ใช้ใน Crane Front/Rear tipping เพื่อป้องกันการนับ Payload/Boom ซ้ำ
 
-9) Kdyn — Dynamic Factor
-ตัวคูณเผื่อแรงกระชากจากการเริ่มยก หยุดยก หรือการแกว่ง
-แรงโหลดออกแบบ: F_L = Kdyn × m_L × g
-เช่น Kdyn=1.20 หมายถึงเพิ่มแรงโหลดสำหรับการคำนวณ 20%
+9) Driving combined CG x (x_CG,drive)
+CG รวมของรถเมื่อโหลดวางอยู่บนรถ ใช้ใน Driving/Slope Mode
+ถ้าใช้ Mass Mode B โปรแกรมจะส่ง Combined CG จากตารางอุปกรณ์มาที่ตัวแปรนี้
 
-10) Overturning Moment (M_O)
-โมเมนต์ที่พยายามทำให้รถคว่ำ หน่วย N·m
+10) CG height (h_CG)
+ความสูง Combined CG จากพื้น ใช้ตรวจเสถียรภาพขณะขึ้นทางลาด
 
-11) Resisting Moment (M_R)
-โมเมนต์จากน้ำหนักรถที่ช่วยต้านการคว่ำ หน่วย N·m
+11) Kdyn — Dynamic Factor
+ใช้เพิ่ม Payload เฉพาะเมื่อ Payload สร้างโมเมนต์คว่ำ
+ถ้า Payload อยู่ด้านต้าน โปรแกรมใช้มวลจริง ไม่ใช้ Kdyn เพิ่มโมเมนต์ต้าน
 
-12) Safety Factor (SF)
+12) Overturning Moment (M_O)
+ผลรวมโมเมนต์ที่พยายามทำให้รถคว่ำ
+
+13) Resisting Moment (M_R)
+ผลรวมโมเมนต์ของมวลที่อยู่ด้านต้าน Pivot
+Payload/Boom ที่ยังอยู่ภายในฐานรองรับสามารถช่วยต้านการคว่ำได้
+
+14) Safety Factor (SF)
 SF = M_R / M_O
-โปรแกรมเปรียบเทียบกับ Required SF ที่ผู้ใช้กำหนด เช่น 1.50
-PASS ในโปรแกรมหมายถึงผ่านเกณฑ์ของโมเดลคำนวณเบื้องต้น ไม่ใช่การรับรองความปลอดภัยของรถจริง
+PASS หมายถึงผ่านเกณฑ์ของแบบจำลองเบื้องต้นเท่านั้น ไม่ใช่การรับรองความปลอดภัย
 
 CRANE MODE
-ใช้ตรวจตอนรถหยุดและกำลังยกโหลด โปรแกรมตรวจ Side / Front / Rear ตามมุมหมุนของเครน
+ใช้ตอนรถหยุดและกำลังยกโหลด ตรวจ Side / Front / Rear ตามมุมหมุนเครน
+Payload ใช้ Dynamic Factor เฉพาะด้านที่เป็นผลเสียต่อการคว่ำ
 
 DRIVING / SLOPE MODE
-ใช้ตอนโหลดวางอยู่บนรถ ไม่ได้แขวนปลายเครน
-โปรแกรมใช้มุมทางลาด ความสูง CG และความเร่ง เพื่อประเมินการเคลื่อนของแนวแรงลัพธ์เบื้องต้น
+ใช้ตอนโหลดวางบนรถ โปรแกรมใช้ Driving combined CG x, h_CG, มุมทางลาด และความเร่ง
+เพื่อตรวจโมเมนต์รอบเพลาหลังขณะเร่งขึ้นทางลาด
+
+DRIVE TORQUE / TRACTION
+แรงยึดเกาะใช้ N_drive ไม่ใช่ N_total ทั้งคัน
+ค่า “สัดส่วนแรงกดที่ล้อขับ” เป็นสมมติฐานจนกว่าจะคำนวณ/วัด load transfer จริง
+
+CONTROL LOGIC
+- E-stop และ RC failsafe ทำให้คำสั่งเคลื่อนที่เป็น Safe State
+- Drive และ Crane ห้ามทำพร้อมกัน
+- Differential steering รองรับ Pivot Turn ด้วย Steering แม้ Throttle = 0
+- Battery Low + Inhibit ล็อก Drive ตามชื่อ policy
+- Limit ±90° ห้ามหมุนเข้า Limit ต่อ แต่หมุนย้อนออกได้
 
 WIDTH / COUNTERWEIGHT
-ช่วยประมาณความกว้างฐานล้อขั้นต่ำและน้ำหนักถ่วงแบบวางกึ่งกลาง
-การออกแบบจริงต้องใส่ตำแหน่ง x, y, z ของตุ้มน้ำหนักด้วย
-
-SF vs ANGLE
-แสดงว่าเมื่อหมุนเครนจาก -90° ถึง +90° ค่า SF ด้านข้างเปลี่ยนอย่างไร
+เป็น numerical preliminary sizing เท่านั้น
+ตุ้มน้ำหนักจริงต้องใส่ตำแหน่ง x/y/z และตรวจโครงสร้างด้วย
 
 ข้อควรระวัง
-ผลจากโปรแกรมเป็น Preliminary Engineering Calculation
-ก่อนสร้างรถจริงควรใช้มวลจริง ตำแหน่ง CG จริง ขนาดล้อจริง และตรวจโครงสร้าง/จุดยึด/พื้น/แรงกระแทกเพิ่มเติม
+โปรแกรมนี้ไม่แทนมาตรฐานรับรองเครื่องจักร
+ก่อนผลิตจริงต้องใช้มวล/CG จริง ตรวจโครงสร้าง จุดยึด Slewing Bearing ระบบเบรกวินช์
+ยาง/พื้น การถ่ายน้ำหนัก กระแสจริง Torque-Speed curve และ Dynamic Shock
 """)
-        l.addWidget(txt); self.tabs.addTab(w,"6. คำอธิบายภาษาไทย")
+        l.addWidget(txt);self.tabs.addTab(w,"6. คำอธิบายภาษาไทย")
 
     def calc_side(self,d,W=None,theta=None,extra=0):
         W=d["W"] if W is None else W
@@ -4300,16 +4313,17 @@ SF vs ANGLE
         y_boom=abs((d["L"]/2)*math.sin(math.radians(th)))
         m_vehicle=max(0.0,d["mt"]-d["ml"]-d["mb"])+max(0.0,extra)
 
-        # Every mass contributes either overturning or resisting moment about
-        # the outer support line. This fixes the old model that accidentally
-        # omitted Payload/Boom weight when their CG was still inside the base.
-        masses=[
-            (m_vehicle,0.0),
-            (d["kd"]*d["ml"],y_load),
-            (d["mb"],y_boom),
-        ]
-        MO=sum(m*G*max(0.0,y-pivot) for m,y in masses)
-        MR=sum(m*G*max(0.0,pivot-y) for m,y in masses)
+        # Static masses inside the support polygon contribute to resistance.
+        # Kdyn is applied only when Payload produces an adverse overturning
+        # moment, so a dynamic factor never creates artificial extra stability.
+        vehicle_MR=m_vehicle*G*pivot
+        payload_over=d["kd"]*d["ml"]*G*max(0.0,y_load-pivot)
+        payload_res=d["ml"]*G*max(0.0,pivot-y_load)
+        boom_over=d["mb"]*G*max(0.0,y_boom-pivot)
+        boom_res=d["mb"]*G*max(0.0,pivot-y_boom)
+
+        MO=payload_over+boom_over
+        MR=vehicle_MR+payload_res+boom_res
         sf=MR/MO if MO>1e-12 else 999
         return sf,MO,MR
 
@@ -4349,7 +4363,7 @@ SF vs ANGLE
 
 4) โมเมนต์ต้านการคว่ำ (Resisting Moment)
    ผลลัพธ์: M_R = {MR:.2f} N·m
-   อธิบาย: M_R เกิดจากน้ำหนักส่วนที่เหลือของรถที่ช่วยต้านการพลิกคว่ำ
+   อธิบาย: M_R รวมรถส่วนหลัก และ Payload/Boom ที่ยังอยู่ด้านในแนว Pivot
 
 5) Safety Factor ด้านข้าง
    ความหมาย: SF = โมเมนต์ต้าน ÷ โมเมนต์ทำให้คว่ำ\n   สูตร: SF_side = M_R / M_O
@@ -4393,6 +4407,7 @@ SF vs ANGLE
 """)
         # Uphill driving stability — single source of truth.
         sr=self.slope_stability_results(d)
+        sr_text="∞" if sr["sf"]>=999 else f"{sr['sf']:.3f}"
         self.slopeout.setPlainText(f"""การคำนวณขณะรถวิ่งขึ้นทางลาด / UPHILL DRIVING STABILITY
 หมายเหตุ: โหมดนี้ใช้ Combined driving CG และโหลดวางอยู่บนรถ ไม่ได้แขวนที่ปลายเครน
 
@@ -4422,7 +4437,7 @@ Margin to rear pivot = d_rear - d_total
 
 5) Safety Factor เชิงโมเมนต์
 SF_slope = [g cosα × d_rear] / [hCG × (g sinα + a)]
-         = {'∞' if sr['sf']>=999 else f"{sr['sf']:.3f}"}
+         = {sr_text}
 
 คำอธิบาย:
 - Margin > 0 หมายถึงแนวแรงลัพธ์ยังอยู่ด้านในเพลาหลังในแบบจำลองนี้
