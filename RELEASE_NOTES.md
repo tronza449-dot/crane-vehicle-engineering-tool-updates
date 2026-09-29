@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V51.0.0
+# Crane Vehicle Engineering Tool V51.0.1
 
 ## Modern & Readable Interface
 - เพิ่มเมนูนำทางด้านซ้ายแบบถาวร สลับ Torque / Battery / Winch / Stability / Control Logic ได้เร็วขึ้น
