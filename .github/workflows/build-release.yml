@@ -149,6 +149,41 @@ jobs:
           w.eaccel.setValue(10.0); slow=w.electrical_results()["Icalc_peak"]
           assert fast >= slow, "Shorter acceleration time should not reduce peak current"
 
+          # ---------- V52.2 Battery Selection regression ----------
+          br=w.battery_selection_results()
+          finite(br["energy_min"],br["cont_req"],br["peak_calc"],br["design_ah"],br["suggested"])
+          assert br["suggested"]+1e-9 >= br["design_ah"]
+          assert br["design_ah"]+1e-9 >= br["energy_min"]
+          assert w.bselCompareTable.rowCount() >= 10
+
+          w.apply_suggested_battery_capacity()
+          assert abs(w.eCandidateAh.value()-br["suggested"]) < 1e-9
+          assert abs(w.mainSelectedAh.value()-w.eCandidateAh.value()) < 1e-9
+
+          # Candidate current ratings at or above calculated requirements must pass.
+          w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
+          w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
+          w.update_battery_selection()
+          QApplication.processEvents()
+          assert "READY TO VERIFY DATASHEET" in w.batterySelectionView.toPlainText()
+
+          # Project Tools and Electrical candidate fields must stay synchronized both ways.
+          candidate_test=min(200.0,max(br["suggested"],20.0))
+          w.mainSelectedAh.setValue(candidate_test)
+          QApplication.processEvents()
+          assert abs(w.eCandidateAh.value()-candidate_test) < 1e-9
+          w.eCandidateAh.setValue(candidate_test+1.0)
+          QApplication.processEvents()
+          assert abs(w.mainSelectedAh.value()-w.eCandidateAh.value()) < 1e-9
+
+          # Too-small battery must not be presented as ready.
+          w.eCandidateAh.setValue(max(0.1,min(1.0,br["energy_min"]*0.25)))
+          w.update_battery_selection()
+          assert "NOT READY" in w.batterySelectionView.toPlainText()
+          w.apply_suggested_battery_capacity()
+          w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
+          w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
+
           # ---------- Winch regression ----------
           for method in (0,1):
               w.wspeedmethod.setCurrentIndex(method)
