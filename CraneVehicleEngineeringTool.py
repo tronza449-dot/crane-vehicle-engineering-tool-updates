@@ -2579,7 +2579,10 @@ class App(QMainWindow):
         return dict(rope_up=rope_up,rope_down=rope_down,load_up=load_up,load_down=load_down,
                     time_up=h/load_up*60,time_down=h/load_down*60,diameter=d,parts=parts,
                     tension=tension,drum_torque=drum_torque,shaft_torque=shaft_torque,
-                    drum_rpm_up=rope_up/(math.pi*d),drum_rpm_down=rope_down/(math.pi*d))
+                    drum_rpm_up=rope_up/(math.pi*d),drum_rpm_down=rope_down/(math.pi*d),
+                    # Backward-compatible aliases used by the Variable Dictionary.
+                    motor_up=self.wrpmup.value(),motor_down=self.wrpmdown.value(),
+                    drum_up=rope_up/(math.pi*d),drum_down=rope_down/(math.pi*d))
 
     def winch_speed_html(self,x):
         def frac(top,bottom):
