@@ -1,6 +1,6 @@
 {
-  "latest_version": "51.0.2",
-  "download_url": "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/download/v51.0.2/CraneVehicleEngineeringTool_Setup.exe",
-  "sha256": "f290758707324aac10d6ca5a75e5bd56e5be20f1243dae8bbcbd7b01e9f4262a",
-  "notes": "# Crane Vehicle Engineering Tool V51.0.2\r\n\r\n## Modern & Readable Interface\r\n- เพิ่มเมนูนำทางด้านซ้ายแบบถาวร สลับ Torque / Battery / Winch / Stability / Control Logic ได้เร็วขึ้น\r\n- ปรับหน้า Home ใหม่ให้เป็น Dashboard ที่อ่านง่ายและมี 6 โมดูลชัดเจน\r\n- รวม Auto Save และ Update Center เป็นการ์ดสถานะที่มองง่าย\r\n- เพิ่มแถบสถานะด้านล่างพร้อมปุ่มซ่อน/แสดงเมนู\r\n- เพิ่มปุ่ม A− / A+ / Reset เพื่อปรับขนาดตัวอักษรได้ทั้งโปรแกรม\r\n- จำค่า Font Scale และสถานะเมนูไว้ในเครื่อง\r\n- ปรับ Font, Input, Button, Tab, Table, Report และ Scrollbar ให้ใหญ่และสบายตาขึ้น\r\n- ปรับ Page Header ให้ชื่อหน้าและคำอธิบายชัดขึ้น\r\n- รองรับหน้าจอเล็กขึ้นด้วย Home แบบ Scroll\r\n\r\n## Existing Engineering Features Preserved\r\n- Drive Torque + Motor Check + FBD\r\n- Electrical / Battery + BMS\r\n- Winch calculation\r\n- Stability / Worst Case / Mass & CG\r\n- Interactive 3D Crane\r\n- Safety Logic Simulator\r\n- Variable Dictionary\r\n- Auto Save\r\n- GitHub Built-in Updater\r\n- Project Tools / Final Report"
+  "latest_version": "51.0.3",
+  "download_url": "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/download/v51.0.3/CraneVehicleEngineeringTool_Setup.exe",
+  "sha256": "9ac8311f7f4b8ecd063021b27be6a84526902f8bd709ae31dbfe825c55daef83",
+  "notes": "# Crane Vehicle Engineering Tool V51.0.3\r\n\r\n## Hotfix\r\n- แก้โปรแกรมเปิดไม่ได้จาก KeyError: motor_up ในหน้า Winch Variable Dictionary\r\n- เพิ่ม backward-compatible keys สำหรับ Winch Speed เพื่อป้องกันชื่อ key ไม่ตรงกัน\r\n- ปรับ GitHub build ให้ใช้ source ปัจจุบันใน repository โดยตรง เพื่อไม่ให้ source เก่าจาก payload ทับแพตช์ใหม่\r\n- คง Modern UI, Sidebar, Font Scale, Auto Save, GitHub Update และฟังก์ชันคำนวณเดิมทั้งหมด"
 }
