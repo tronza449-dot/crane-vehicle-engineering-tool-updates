@@ -85,7 +85,7 @@ jobs:
           modes = (
               w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
               w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
-              w.show_variable_dictionary_mode,w.show_project_tools_mode
+              w.show_hardware_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
           )
           for width,height in ((1024,650),(1280,720),(1366,768),(1600,900)):
               w.resize(width,height)
@@ -191,12 +191,65 @@ jobs:
           w.run_safety_self_tests()
           assert "13/13" in w.safetyTestResults.toPlainText()
 
+          # ---------- V52 Hardware I/O / Wiring regression ----------
+          assert hasattr(w,"hwRows") and len(w.hwRows)>=9
+          initial=w.hardware_check_results()
+          assert len(initial["missing"])>=1
+          assert initial["ready"] is False
+
+          w.apply_suggested_hardware_map()
+          w.hwBoardVerified.setChecked(True)
+          w.hwReservedPins.setText("")
+          hw=w.hardware_check_results()
+          assert not hw["conflicts"], hw["conflicts"]
+          assert not hw["voltage"], hw["voltage"]
+          assert not hw["missing"], hw["missing"]
+          assert not hw["protection_missing"], hw["protection_missing"]
+          assert hw["ready"] is True
+          header=w.generate_hardware_header_text()
+          for macro in ("PIN_IBUS_RX","PIN_CAN_TX","PIN_CAN_RX","PIN_I2C_SDA","PIN_I2C_SCL","PIN_LIMIT_LEFT","PIN_LIMIT_RIGHT","PIN_BUZZER","PIN_LED"):
+              assert macro in header, f"Missing generated macro {macro}"
+          assert "Ready for code: YES" in header
+
+          # Duplicate pin must be caught.
+          w.hwRows[1]["gpio"].setCurrentText(w.hwRows[0]["gpio"].currentText())
+          conflict=w.hardware_check_results()
+          assert conflict["conflicts"] and conflict["ready"] is False
+          w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
+
+          # Reserved pin must be caught.
+          first_pin=int(w.hwRows[0]["gpio"].currentText().split()[-1])
+          w.hwReservedPins.setText(str(first_pin))
+          reserved=w.hardware_check_results()
+          assert reserved["conflicts"] and reserved["ready"] is False
+          w.hwReservedPins.setText("")
+
+          # Unsafe direct 5 V iBUS logic must be caught.
+          w.hwRows[0]["protection"].setCurrentText("Direct")
+          unsafe=w.hardware_check_results()
+          assert unsafe["voltage"] and unsafe["ready"] is False
+          w.hwRows[0]["protection"].setCurrentText("Level Shifter / Divider")
+          assert w.hardware_check_results()["ready"] is True
+
+          # Waveshare board profile requires explicit reserved GPIO verification list.
+          w.hwBoardProfile.setCurrentIndex(1)
+          waveshare=w.hardware_check_results()
+          assert waveshare["protection_missing"] and waveshare["ready"] is False
+          w.hwReservedPins.setText("45,46")
+          w.hwBoardVerified.setChecked(True)
+          # Suggested map does not use 45/46, so readiness should recover.
+          assert w.hardware_check_results()["ready"] is True
+          w.hwBoardProfile.setCurrentIndex(0);w.hwReservedPins.setText("")
+
           # ---------- Project state round-trip ----------
           original=w.tgrade.value()
+          original_hw=w.hwRows[0]["gpio"].currentText()
           state=w.capture_project_state()
           w.tgrade.setValue(7.0 if original != 7.0 else 8.0)
+          w.hwRows[0]["gpio"].setCurrentText("GPIO 1" if original_hw!="GPIO 1" else "GPIO 2")
           w.apply_project_state(state,recalculate=True)
           assert abs(w.tgrade.value()-original)<1e-9
+          assert w.hwRows[0]["gpio"].currentText()==original_hw
 
           # ---------- Local updater / SHA regression ----------
           with tempfile.TemporaryDirectory() as td:
@@ -242,7 +295,7 @@ jobs:
 
           # ---------- Final broad calculation refresh ----------
           w.calc_torque();w.calc_electrical();w.calc_winch();w.calc_all();w.calc_worst()
-          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False)
+          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False);w.update_hardware_manager()
           QApplication.processEvents()
 
           print("CVET_FULL_REGRESSION_OK")
