@@ -1,5 +1,5 @@
 #define MyAppName "Crane Vehicle Engineering Tool"
-#define MyAppVersion "51.0.3"
+#define MyAppVersion "51.0.4"
 #define MyAppPublisher "Mechatronics Engineering Project"
 #define MyAppExeName "CraneEngineeringTool.exe"
 
@@ -33,7 +33,7 @@ DisableReadyPage=yes
 DisableFinishedPage=yes
 AllowNoIcons=no
 
-VersionInfoVersion=51.0.3.0
+VersionInfoVersion=51.0.4.0
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 
@@ -49,5 +49,6 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Flags: nowait skipifsilent
+
 
 
