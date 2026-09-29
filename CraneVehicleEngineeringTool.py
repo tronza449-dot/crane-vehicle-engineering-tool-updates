@@ -31,7 +31,7 @@ QTabWidget::pane {
     border:1px solid #d7e1eb; background:#ffffff; border-radius:12px; top:-1px;
 }
 QTabBar::tab {
-    background:#eef3f8; color:#53677d; padding:11px 18px; margin-right:4px;
+    background:#eef3f8; color:#53677d; padding:9px 14px; margin-right:4px;
     min-height:30px; font-weight:750; font-size:10.4pt;
     border-top-left-radius:9px; border-top-right-radius:9px;
 }
@@ -64,7 +64,7 @@ QFrame#navPanel {
 
 /* ---------- Inputs ---------- */
 QDoubleSpinBox,QSpinBox,QComboBox,QLineEdit {
-    min-height:40px; font-size:10.8pt;
+    min-height:36px; font-size:10.8pt;
     border:1px solid #c7d4e1; border-radius:9px; padding:4px 9px;
     background:#ffffff; selection-background-color:#2f6fd1;
 }
@@ -85,7 +85,7 @@ QRadioButton::indicator { width:19px; height:19px; }
 
 /* ---------- Buttons ---------- */
 QPushButton {
-    min-height:41px; border-radius:9px; padding:7px 15px;
+    min-height:39px; border-radius:9px; padding:7px 15px;
     background:#ffffff; border:1px solid #c8d5e2;
     color:#183a57; font-size:10.3pt; font-weight:750;
 }
@@ -685,7 +685,7 @@ class App(QMainWindow):
     updateTaskFinished=Signal(object)
     updateProgressChanged=Signal(int)
     def __init__(self):
-        super().__init__();self.setStyleSheet(APP_STYLE);self.setWindowTitle(f"{APP_NAME} — V{APP_VERSION}"); self.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))));self.setMinimumSize(1120,720);self.resize(1500,920)
+        super().__init__();self.setStyleSheet(APP_STYLE);self.setWindowTitle(f"{APP_NAME} — V{APP_VERSION}"); self.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))));self.setMinimumSize(1024,650);self.resize(1440,860)
         app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
@@ -855,7 +855,7 @@ class App(QMainWindow):
         dock=QDockWidget("",self);self.navDock=dock
         dock.setAllowedAreas(Qt.LeftDockWidgetArea)
         dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        dock.setFixedWidth(205)
+        dock.setFixedWidth(185)
         dock.setTitleBarWidget(QWidget())
 
         panel=QFrame();panel.setObjectName("navPanel")
@@ -920,6 +920,13 @@ class App(QMainWindow):
 
     def setup_dynamic_tabs(self):
         """Top-level navigation uses one active page only; the top tab bar is hidden."""
+        # Keep long internal tab sets usable on 1366×768 and smaller windows.
+        for tab in self.findChildren(QTabWidget):
+            try:
+                tab.tabBar().setUsesScrollButtons(True)
+                tab.setElideMode(Qt.ElideRight)
+            except Exception:
+                pass
         self._mode_pages={
             "home":self.homePage,"torque":self.torquePage,"electrical":self.electricalPage,"winch":self.winchPage,"crane":self.cranePage,
             "slope":self.slopePage,"fbd":self.fbdPage,"components":self.componentsPage,
@@ -1624,10 +1631,12 @@ class App(QMainWindow):
         note.setStyleSheet("background:#fff8ed;color:#6b3b0d;padding:9px 12px;border:1px solid #f3d3aa;border-radius:9px;")
         root.addWidget(note)
 
-        body=QHBoxLayout();body.setSpacing(12)
+        body=QSplitter(Qt.Horizontal);body.setChildrenCollapsible(False);body.setHandleWidth(6)
 
         inp=QGroupBox("INPUT SIMULATOR / จำลองสัญญาณเข้า")
         il=QFormLayout(inp);il.setLabelAlignment(Qt.AlignRight);il.setFormAlignment(Qt.AlignTop)
+        il.setRowWrapPolicy(QFormLayout.WrapLongRows);il.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        il.setVerticalSpacing(7);il.setHorizontalSpacing(9)
 
         self.safetyEStop=QCheckBox("E-STOP ACTIVE")
         self.safetyRCSignal=QCheckBox("RC / IBUS signal OK");self.safetyRCSignal.setChecked(True)
@@ -1669,9 +1678,11 @@ class App(QMainWindow):
         reset=QPushButton("Reset Simulator Inputs")
         reset.setObjectName("secondaryButton");reset.clicked.connect(self.reset_safety_simulator)
         il.addRow("",reset)
-        body.addWidget(inp,11)
+        inpScroll=QScrollArea();inpScroll.setWidgetResizable(True);inpScroll.setFrameShape(QFrame.NoFrame)
+        inpScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff);inpScroll.setWidget(inp);inpScroll.setMinimumWidth(250)
+        body.addWidget(inpScroll)
 
-        stateBox=QGroupBox("SYSTEM STATE / สถานะ Logic")
+        stateBox=QGroupBox("SYSTEM STATE / สถานะ Logic");stateBox.setMinimumWidth(275)
         sl=QVBoxLayout(stateBox);sl.setSpacing(9)
         self.safetyStateLabel=QLabel("READY")
         self.safetyStateLabel.setAlignment(Qt.AlignCenter);self.safetyStateLabel.setMinimumHeight(64)
@@ -1696,10 +1707,12 @@ class App(QMainWindow):
         <p><b>8. Buzzer + LED</b> → ON ขณะเคลื่อนที่ หรือเมื่อเกิด Fault/Warning</p>
         """)
         sl.addWidget(self.safetyLogicFlow,1)
-        body.addWidget(stateBox,10)
+        body.addWidget(stateBox)
 
-        out=QGroupBox("OUTPUT / ผลจาก Logic")
+        out=QGroupBox("OUTPUT / ผลจาก Logic");out.setMinimumWidth(220)
         ol=QFormLayout(out);ol.setLabelAlignment(Qt.AlignRight)
+        ol.setRowWrapPolicy(QFormLayout.WrapLongRows);ol.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        ol.setVerticalSpacing(7);ol.setHorizontalSpacing(8)
 
         def out_label():
             x=QLabel("-");x.setMinimumWidth(125);x.setAlignment(Qt.AlignCenter)
@@ -1725,8 +1738,10 @@ class App(QMainWindow):
         test=QPushButton("RUN SAFETY SELF-TEST")
         test.setObjectName("primaryButton");test.clicked.connect(self.run_safety_self_tests)
         ol.addRow("",test)
-        body.addWidget(out,9)
-        root.addLayout(body,2)
+        body.addWidget(out)
+        body.setStretchFactor(0,11);body.setStretchFactor(1,10);body.setStretchFactor(2,8)
+        body.setSizes([330,360,260])
+        root.addWidget(body,3)
 
         lower=QTabWidget()
         logPage=QWidget();ll=QVBoxLayout(logPage);ctl=QHBoxLayout()
@@ -1745,6 +1760,7 @@ class App(QMainWindow):
         self.safetyVars=QTextEdit();self.safetyVars.setReadOnly(True);vl.addWidget(self.safetyVars)
         lower.addTab(varPage,"ตัวแปร / Variables")
         self.safetyLowerTabs=lower
+        lower.setMinimumHeight(170)
         root.addWidget(lower,1)
 
         for obj in (self.safetyEStop,self.safetyRCSignal,self.safetyDriveEnable,
@@ -1784,7 +1800,7 @@ class App(QMainWindow):
         clamp=lambda x:max(-100,min(100,int(round(x))))
         result={
             "state":"READY","reason":"ระบบพร้อมรับคำสั่ง",
-            "drive_permit":False,"left_motor":0,"right_motor":0,
+            "drive_permit":False,"drive_active":False,"left_motor":0,"right_motor":0,
             "crane":"STOP","winch":"STOP","buzzer":False,"led":False
         }
 
@@ -1806,6 +1822,7 @@ class App(QMainWindow):
         crane_req=crane!="STOP"
         winch_req=winch!="STOP"
         tilt_fault=abs(float(v.get("tilt",0)))>=float(v.get("tilt_limit",12))
+        drive_enabled=bool(v.get("drive_enable",True))
 
         if drive_req and crane_req:
             result.update(
@@ -1815,22 +1832,26 @@ class App(QMainWindow):
             )
             return result
 
+        # Permit indicates that Drive is currently allowed, even when throttle = 0.
+        result["drive_permit"]=drive_enabled and not tilt_fault and not crane_req
+
         if drive_req:
-            if not v.get("drive_enable",True):
-                result.update(state="DRIVE DISABLED",reason="CH5 / Drive Enable = OFF")
+            if not drive_enabled:
+                result.update(state="DRIVE DISABLED",reason="CH5 / Drive Enable = OFF",drive_permit=False)
             elif tilt_fault:
-                result.update(state="TILT INHIBIT",reason=f"IMU tilt {float(v.get('tilt',0)):.1f}° ถึง/เกิน Limit {float(v.get('tilt_limit',12)):.1f}° — ห้าม Drive",buzzer=True,led=True)
+                result.update(state="TILT INHIBIT",reason=f"IMU tilt {float(v.get('tilt',0)):.1f}° ถึง/เกิน Limit {float(v.get('tilt_limit',12)):.1f}° — ห้าม Drive",drive_permit=False,buzzer=True,led=True)
             else:
                 left=clamp(throttle+steer)
                 right=clamp(throttle-steer)
                 result.update(
                     state="DRIVE",
                     reason="Drive Enable ผ่าน และไม่มี Fault / Crane command",
-                    drive_permit=True,left_motor=left,right_motor=right,
+                    drive_permit=True,drive_active=True,left_motor=left,right_motor=right,
                     buzzer=True,led=True
                 )
 
         elif crane_req:
+            result["drive_permit"]=False
             blocked=False
             if crane.startswith("LEFT") and v.get("left_limit",False):
                 blocked=True
@@ -1843,16 +1864,18 @@ class App(QMainWindow):
 
         else:
             if tilt_fault:
-                result.update(state="TILT WARNING",reason=f"IMU tilt {float(v.get('tilt',0)):.1f}° ถึง/เกิน Limit — Drive จะถูก Inhibit",buzzer=True,led=True)
+                result.update(state="TILT WARNING",reason=f"IMU tilt {float(v.get('tilt',0)):.1f}° ถึง/เกิน Limit — Drive จะถูก Inhibit",drive_permit=False,buzzer=True,led=True)
             elif v.get("battery_low",False):
                 result.update(state="BATTERY WARNING",reason="Battery Low — แจ้งเตือน แต่ยังไม่ Inhibit เพราะ Battery Policy = Warning only",buzzer=True,led=True)
 
         if winch_req:
-            movement_active=result["drive_permit"] or result["crane"]!="STOP" or drive_req or crane_req
+            movement_active=result["drive_active"] or result["crane"]!="STOP" or drive_req or crane_req
             if v.get("winch_stationary_only",True) and movement_active:
                 result["reason"] += " | Winch ถูกปฏิเสธเพราะกำหนดให้ใช้เฉพาะตอนรถ/เครนหยุด"
             else:
                 result["winch"]=winch
+                # Keep vehicle stationary while Winch is active.
+                result["drive_permit"]=False
                 if result["state"] in ("READY","BATTERY WARNING","TILT WARNING"):
                     result["state"]="WINCH"
                     result["reason"]=f"อนุญาต Winch {winch} ขณะรถและเครนหยุด"
@@ -1943,7 +1966,7 @@ class App(QMainWindow):
             "battery_inhibit":False,"winch_stationary_only":True
         }
         tests=[
-            ("READY — ไม่มีคำสั่ง",{},lambda r:r["state"]=="READY"),
+            ("READY — ไม่มีคำสั่ง",{},lambda r:r["state"]=="READY" and r["drive_permit"]),
             ("DRIVE — Throttle 50%",{"throttle":50},lambda r:r["state"]=="DRIVE" and r["drive_permit"]),
             ("INTERLOCK — Drive + Crane",{"throttle":40,"crane":"RIGHT (+)"},lambda r:r["state"]=="INTERLOCK CONFLICT" and not r["drive_permit"] and r["crane"]=="STOP"),
             ("E-STOP",{"estop":True,"throttle":60},lambda r:r["state"]=="E-STOP" and not r["drive_permit"]),
@@ -1951,7 +1974,7 @@ class App(QMainWindow):
             ("IMU TILT INHIBIT",{"throttle":50,"tilt":15},lambda r:r["state"]=="TILT INHIBIT" and not r["drive_permit"]),
             ("RIGHT LIMIT BLOCK",{"crane":"RIGHT (+)","right_limit":True},lambda r:r["state"]=="RIGHT LIMIT STOP" and r["crane"]=="STOP"),
             ("MOVE AWAY FROM RIGHT LIMIT",{"crane":"LEFT (-)","right_limit":True},lambda r:r["state"]=="CRANE" and r["crane"].startswith("LEFT")),
-            ("WINCH STATIONARY",{"winch":"UP"},lambda r:r["state"]=="WINCH" and r["winch"]=="UP"),
+            ("WINCH STATIONARY",{"winch":"UP"},lambda r:r["state"]=="WINCH" and r["winch"]=="UP" and not r["drive_permit"]),
             ("WINCH BLOCKED WHILE DRIVE",{"throttle":50,"winch":"UP"},lambda r:r["state"]=="DRIVE" and r["winch"]=="STOP"),
         ]
         rows=[];passed=0
@@ -2783,19 +2806,22 @@ class App(QMainWindow):
         self.eTabs=QTabWidget();root.addWidget(self.eTabs)
 
         def ds(v,lo,hi,dec=2):
-            q=QDoubleSpinBox();q.setRange(lo,hi);q.setDecimals(dec);q.setValue(v);return q
+            q=QDoubleSpinBox();q.setRange(lo,hi);q.setDecimals(dec);q.setValue(v)
+            q.setMinimumWidth(150);q.setMaximumWidth(250);return q
 
         inp=QWidget();hl=QHBoxLayout(inp)
         left=QWidget();form=QFormLayout(left)
+        form.setVerticalSpacing(7);form.setHorizontalSpacing(12);form.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
+        form.setVerticalSpacing(7);form.setHorizontalSpacing(12);form.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
         self.emass=ds(290,1,5000,1); self.evolt=ds(72,1,200,1)
         self.espeed=ds(1,.05,50,2); self.eoneway=ds(30,.1,10000,2)
         self.eslopeLen=ds(2.9,0,1000,2); self.eslopeDeg=ds(12,0,45,1)
         self.eruntime=ds(3,.01,48,2); self.err=ds(.02,0,1,3)
-        self.eaccel=ds(5,.1,120,2); self.estops=QSpinBox();self.estops.setRange(0,20);self.estops.setValue(2)
+        self.eaccel=ds(5,.1,120,2); self.estops=QSpinBox();self.estops.setRange(0,20);self.estops.setValue(2);self.estops.setMinimumWidth(150);self.estops.setMaximumWidth(250)
         self.estopTime=ds(0,0,3600,1)
         self.edriveEff=ds(60,1,100,1); self.eaux=ds(50,0,5000,1)
         self.edod=ds(80,1,100,1); self.ereserve=ds(20,0,200,1)
-        self.emotorRated=ds(1500,1,50000,0); self.enmot=QSpinBox();self.enmot.setRange(1,8);self.enmot.setValue(2)
+        self.emotorRated=ds(1500,1,50000,0); self.enmot=QSpinBox();self.enmot.setRange(1,8);self.enmot.setValue(2);self.enmot.setMinimumWidth(150);self.enmot.setMaximumWidth(250)
         self.eupEff=ds(80,1,100,1)
         self.euseTorqueMass=QCheckBox("ใช้ Total mass จาก Stability / Mass & CG");self.euseTorqueMass.setChecked(False)
         for lab,q in [
@@ -2809,9 +2835,9 @@ class App(QMainWindow):
             ("Battery reserve (%)",self.ereserve),("Motor rated power / motor (W)",self.emotorRated),
             ("จำนวนมอเตอร์",self.enmot),("Worst-case slope efficiency (%)",self.eupEff)
         ]: form.addRow(lab,q)
-        form.addRow(self.euseTorqueMass);hl.addWidget(left,1)
+        form.addRow(self.euseTorqueMass);left.setMinimumWidth(410);hl.addWidget(left,1)
 
-        right=QWidget();rv=QVBoxLayout(right)
+        right=QWidget();right.setMinimumWidth(340);rv=QVBoxLayout(right)
         modeBox=QGroupBox("Slope Energy Model / วิธีคิดช่วงขึ้นทางลาด");mb=QVBoxLayout(modeBox)
         self.ecalcRadio=QRadioButton("Calculated model: F = mg sinθ + Crr·mg cosθ (+ acceleration)")
         self.eworstRadio=QRadioButton("Worst-case model: ใช้ Rated Power ของมอเตอร์เต็มช่วงขึ้นลาด")
@@ -2827,7 +2853,8 @@ class App(QMainWindow):
         rv.addWidget(note)
         b=QPushButton("คำนวณใหม่ / Calculate");b.setObjectName("primaryButton");b.clicked.connect(self.calc_electrical);rv.addWidget(b)
         rv.addStretch();hl.addWidget(right,1)
-        self.eTabs.addTab(inp,"Input / ข้อมูล")
+        eInputScroll=QScrollArea();eInputScroll.setWidgetResizable(True);eInputScroll.setFrameShape(QFrame.NoFrame)
+        eInputScroll.setWidget(inp);self.eTabs.addTab(eInputScroll,"Input / ข้อมูล")
         self.eVars=QTextEdit();self.eVars.setReadOnly(True);self.eTabs.addTab(self.eVars,"ตัวแปร / Variables")
 
         step=QWidget();sv=QVBoxLayout(step);self.eSteps=QTextEdit();self.eSteps.setReadOnly(True);self.eSteps.setStyleSheet("font-size:13px");sv.addWidget(self.eSteps)
@@ -2908,7 +2935,7 @@ class App(QMainWindow):
         Ah=Edesign/V if V>0 else 0
 
         # Peak-current indicators (energy sizing and current sizing are separate).
-        Icalc_up=(Pup_mech/up_eff)/V if V>0 else 0
+        Icalc_up=(Pup_mech/eff)/V if V>0 else 0
         Iworst=Pworst_batt/V if V>0 else 0
 
         return locals()
@@ -3173,7 +3200,8 @@ class App(QMainWindow):
         inp=QWidget();il=QHBoxLayout(inp)
         left=QWidget();form=QFormLayout(left)
         def ds(v,lo,hi,dec=3):
-            q=QDoubleSpinBox();q.setRange(lo,hi);q.setDecimals(dec);q.setValue(v);return q
+            q=QDoubleSpinBox();q.setRange(lo,hi);q.setDecimals(dec);q.setValue(v)
+            q.setMinimumWidth(145);q.setMaximumWidth(240);return q
         self.tm=ds(300,1,5000,1); self.tgrade=ds(19,0,45,1)
         self.tspeed=ds(5,.1,50,2); self.tmu=ds(.02,0,1,3)
         self.tmotors=QSpinBox();self.tmotors.setRange(1,8);self.tmotors.setValue(2)
@@ -3192,9 +3220,9 @@ class App(QMainWindow):
             ("แรงดันแบตเตอรี่ (V)",self.tvoltage)]: form.addRow(lab,q)
         self.tUseMain=QCheckBox("ใช้ Total mass จาก Stability / Mass & CG mode")
         self.tUseMain.setChecked(True);form.addRow(self.tUseMain)
-        il.addWidget(left,1)
+        left.setMinimumWidth(360);il.addWidget(left,1)
 
-        right=QWidget();rl=QVBoxLayout(right)
+        right=QWidget();right.setMinimumWidth(360);rl=QVBoxLayout(right)
         wheelBox=QGroupBox("Wheel Comparison / เปรียบเทียบขนาดล้อ");wl=QVBoxLayout(wheelBox)
         self.wheelTable=QTableWidget(5,4)
         self.wheelTable.setHorizontalHeaderLabels(["ล้อ","Radius (m)","Torque (N·m)","RPM"])
@@ -3215,7 +3243,8 @@ class App(QMainWindow):
         calc=QPushButton("คำนวณใหม่ / Calculate");calc.setObjectName("primaryButton")
         calc.clicked.connect(self.calc_torque);rl.addWidget(calc)
         il.addWidget(right,2)
-        self.torqueTabs.addTab(inp,"Input / ข้อมูล")
+        torqueInputScroll=QScrollArea();torqueInputScroll.setWidgetResizable(True);torqueInputScroll.setFrameShape(QFrame.NoFrame)
+        torqueInputScroll.setWidget(inp);self.torqueTabs.addTab(torqueInputScroll,"Input / ข้อมูล")
         self.torqueVars=QTextEdit();self.torqueVars.setReadOnly(True);self.torqueTabs.addTab(self.torqueVars,"ตัวแปร / Variables")
 
         # --- STEP CALC ---
@@ -3597,9 +3626,12 @@ class App(QMainWindow):
               ("Wheelbase WB / ระยะฐานล้อหน้า-หลัง (m)",self.WB),("Boom length L / ความยาวแขนเครน (m)",self.L),("Column height / ความสูงเสาเครน (m)",self.H),
               ("Crane x from rear axle / ตำแหน่งเครนจากเพลาหลัง (m)",self.xC),("Vehicle CG x / ตำแหน่ง CG รถจากกึ่งกลาง (m)",self.xCG),
               ("Rotation angle θ / มุมหมุนเครน (deg)",self.th),("Dynamic factor Kdyn / ตัวคูณแรงไดนามิก",self.kd),("Required SF / ค่า SF ที่ต้องการ",self.req)]
+        f.setVerticalSpacing(7);f.setHorizontalSpacing(10);f.setRowWrapPolicy(QFormLayout.WrapLongRows)
         for a,b in rows:f.addRow(a,b);b.valueChanged.connect(self.calc_all)
         self.sl=QSlider(Qt.Horizontal);self.sl.setRange(-90,90);self.sl.setValue(90);self.sl.valueChanged.connect(lambda v:self.th.setValue(v));self.th.valueChanged.connect(lambda v:self.sl.setValue(int(v)));f.addRow("Rotate crane / เลื่อนเพื่อหมุนเครน",self.sl)
-        m.addWidget(box);r=QVBoxLayout()
+        craneInputScroll=QScrollArea();craneInputScroll.setWidgetResizable(True);craneInputScroll.setFrameShape(QFrame.NoFrame)
+        craneInputScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff);craneInputScroll.setWidget(box);craneInputScroll.setMinimumWidth(300)
+        m.addWidget(craneInputScroll);r=QVBoxLayout()
 
         viewbar=QHBoxLayout();viewbar.setSpacing(7)
         viewbar.addWidget(QLabel("3D View:"))
