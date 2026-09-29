@@ -1160,13 +1160,21 @@ class App(QMainWindow):
                     profile=("generic_s3" if idx==0 else "custom_s3"),
                     source="Espressif ESP32-S3 GPIO summary")
 
-    def _profile_compatible_pin(self,key,pin):
+    def _profile_compatible_pin(self,key,pin,row=None):
         data=self.gpio_profile_data();profile=data.get("profile")
         if profile=="waveshare7b":
-            compatible={
-                "I2C_SDA":8,"I2C_SCL":9,"CAN_RX":19,"CAN_TX":20,"IBUS_RX":44,
-            }
-            return compatible.get(key)==pin or (key in ("LIMIT_LEFT","LIMIT_RIGHT","BUZZER","LED") and pin==6)
+            compatible={"I2C_SDA":8,"I2C_SCL":9,"CAN_RX":19,"CAN_TX":20,"IBUS_RX":44}
+            if key in compatible:return compatible[key]==pin
+            if row and row.get("custom",False):
+                iface=str(row.get("interface",""))
+                if pin in (8,9) and iface in ("I2C SDA","I2C SCL"):return (pin==8 and iface=="I2C SDA") or (pin==9 and iface=="I2C SCL")
+                if pin==43 and iface=="UART TX":return True
+                if pin==44 and iface=="UART RX":return True
+                if pin==19 and iface=="CAN RX":return True
+                if pin==20 and iface=="CAN TX":return True
+                if pin==6:return True
+                return False
+            return key in ("LIMIT_LEFT","LIMIT_RIGHT","BUZZER","LED") and pin==6
         return True
 
     def refresh_gpio_combo_items(self):
@@ -1198,7 +1206,7 @@ class App(QMainWindow):
                 base=snap[pin]["status"]
                 if len(users)>1:
                     snap[pin].update(status="CONFLICT",function="GPIO conflict",users=users)
-                elif base in ("BOARD","MEMORY") or (base in ("CAUTION","SHARED") and not self._profile_compatible_pin(users[0],pin)):
+                elif base in ("BOARD","MEMORY") or (base in ("CAUTION","SHARED") and not self._profile_compatible_pin(users[0],pin,next((r for r in self.hwRows if r["key"]==users[0]),None))):
                     snap[pin].update(status="CONFLICT",function=f"{snap[pin]['function']} / {users[0]}",users=users)
                 else:
                     snap[pin].update(status="USED",function=users[0],users=users)
@@ -1230,6 +1238,201 @@ class App(QMainWindow):
         self.refresh_gpio_combo_items()
         if hasattr(self,"hwBoardVerified"):self.hwBoardVerified.setChecked(False)
         self.update_hardware_manager()
+
+    def _hardware_interface_items(self):
+        return ["Digital IN","Digital OUT","ADC IN","PWM OUT","UART RX","UART TX",
+                "I2C SDA","I2C SCL","CAN RX","CAN TX","SPI MISO","SPI MOSI","SPI SCK",
+                "Interrupt IN","Other"]
+
+    def _hardware_supply_items(self):
+        return ["3.3V","5V","12V","24V","72V","External / Other"]
+
+    def _hardware_logic_items(self):
+        return ["3.3V","5V","12V","24V","72V","Isolated / Other"]
+
+    def _hardware_protection_items(self):
+        return ["Direct","Level Shifter / Divider","PC817 Isolation","MOSFET / Driver",
+                "CAN Transceiver","Optocoupler / Isolator","Relay / Contactor","Other"]
+
+    @staticmethod
+    def _hardware_key(text,existing=None):
+        key=re.sub(r"[^A-Za-z0-9]+","_",str(text).upper()).strip("_") or "CUSTOM_IO"
+        existing=set(existing or [])
+        base=key;i=2
+        while key in existing:
+            key=f"{base}_{i}";i+=1
+        return key
+
+    def _append_hardware_row(self,d,select=False):
+        r=self.hwTable.rowCount();self.hwTable.insertRow(r)
+        en=QCheckBox();en.setChecked(bool(d.get("enabled",True)))
+        ec=QWidget();el=QHBoxLayout(ec);el.setContentsMargins(0,0,0,0);el.setAlignment(Qt.AlignCenter);el.addWidget(en)
+        self.hwTable.setCellWidget(r,0,ec)
+        for c,key in ((1,"device"),(2,"signal"),(3,"interface")):
+            item=QTableWidgetItem(str(d.get(key,"")))
+            if d.get("custom"):item.setToolTip("Custom I/O — ดับเบิลคลิก Edit Selected เพื่อแก้ข้อมูล")
+            self.hwTable.setItem(r,c,item)
+
+        supply=QComboBox();supply.addItems(self._hardware_supply_items())
+        if supply.findText(str(d.get("supply","3.3V")))<0:supply.addItem(str(d.get("supply")))
+        supply.setCurrentText(str(d.get("supply","3.3V")));self.hwTable.setCellWidget(r,4,supply)
+
+        logic=QComboBox();logic.addItems(self._hardware_logic_items())
+        if logic.findText(str(d.get("logic","3.3V")))<0:logic.addItem(str(d.get("logic")))
+        logic.setCurrentText(str(d.get("logic","3.3V")));self.hwTable.setCellWidget(r,5,logic)
+
+        gpio=QComboBox();gpio.addItems(self._gpio_items())
+        gpio_text=str(d.get("gpio","Not assigned") or "Not assigned")
+        gpio.setCurrentText(gpio_text if gpio.findText(gpio_text)>=0 else "Not assigned")
+        self.hwTable.setCellWidget(r,6,gpio)
+
+        prot=QComboBox();prot.addItems(self._hardware_protection_items())
+        if prot.findText(str(d.get("protection","Direct"))) < 0:prot.addItem(str(d.get("protection")))
+        prot.setCurrentText(str(d.get("protection","Direct")));self.hwTable.setCellWidget(r,7,prot)
+
+        st=QLabel("CHECK");st.setAlignment(Qt.AlignCenter);self.hwTable.setCellWidget(r,8,st)
+        row=dict(d)
+        row.setdefault("allowed_supply",tuple(self._hardware_supply_items()) if d.get("custom") else (str(d.get("supply","3.3V")),))
+        row.setdefault("note","")
+        row["custom"]=bool(d.get("custom",False))
+        row.update(enabled=en,supply=supply,logic=logic,gpio=gpio,protection=prot,status=st)
+        self.hwRows.append(row)
+
+        en.stateChanged.connect(self.update_hardware_manager)
+        supply.currentIndexChanged.connect(self.update_hardware_manager)
+        logic.currentIndexChanged.connect(self.update_hardware_manager)
+        gpio.currentIndexChanged.connect(self.update_hardware_manager)
+        prot.currentIndexChanged.connect(self.update_hardware_manager)
+
+        # Custom-row values live in dictionaries, so connect them explicitly to autosave if available.
+        if hasattr(self,"easyAutosaveTimer"):
+            for sig in (en.toggled,supply.currentIndexChanged,logic.currentIndexChanged,gpio.currentIndexChanged,prot.currentIndexChanged):
+                try:sig.connect(self.schedule_easy_autosave)
+                except Exception:pass
+
+        if select:
+            self.hwTable.selectRow(r);self.hwTable.scrollToItem(self.hwTable.item(r,1))
+        return row
+
+    def _selected_hardware_row(self):
+        if not hasattr(self,"hwTable"):return None,None
+        r=self.hwTable.currentRow()
+        if r<0 or r>=len(self.hwRows):return None,None
+        return r,self.hwRows[r]
+
+    def _hardware_io_dialog(self,title,row=None):
+        dlg=QDialog(self);dlg.setWindowTitle(title);dlg.resize(570,610)
+        root=QVBoxLayout(dlg)
+        info=QLabel("เพิ่ม Input/Output ใหม่แล้วระบบจะนำไปตรวจ GPIO, Voltage, Conflict, Board Animation และ Generate ESP32 Pin Map ให้อัตโนมัติ")
+        info.setWordWrap(True);info.setStyleSheet("background:#eef6ff;color:#274c77;padding:10px;border:1px solid #cfe2f5;border-radius:8px;")
+        root.addWidget(info)
+        form=QFormLayout();form.setLabelAlignment(Qt.AlignRight);form.setVerticalSpacing(9)
+        device=QLineEdit();device.setPlaceholderText("เช่น Proximity Sensor, Relay Board, Encoder")
+        signal=QLineEdit();signal.setPlaceholderText("เช่น SENSOR_IN, RELAY_ENABLE, ENCODER_A")
+        interface=QComboBox();interface.addItems(self._hardware_interface_items())
+        supply=QComboBox();supply.addItems(self._hardware_supply_items())
+        logic=QComboBox();logic.addItems(self._hardware_logic_items())
+        gpio=QComboBox();gpio.addItems(self._gpio_items())
+        protection=QComboBox();protection.addItems(self._hardware_protection_items())
+        note=QPlainTextEdit();note.setPlaceholderText("หมายเหตุ เช่น Active LOW, ต้อง Pull-up 10k, ผ่าน Optocoupler");note.setMaximumHeight(100)
+
+        if row:
+            device.setText(str(row.get("device","")));signal.setText(str(row.get("signal","")))
+            interface.setCurrentText(str(row.get("interface","Digital IN")))
+            supply.setCurrentText(row["supply"].currentText() if hasattr(row.get("supply"),"currentText") else str(row.get("supply","3.3V")))
+            logic.setCurrentText(row["logic"].currentText() if hasattr(row.get("logic"),"currentText") else str(row.get("logic","3.3V")))
+            gpio.setCurrentText(row["gpio"].currentText() if hasattr(row.get("gpio"),"currentText") else str(row.get("gpio","Not assigned")))
+            protection.setCurrentText(row["protection"].currentText() if hasattr(row.get("protection"),"currentText") else str(row.get("protection","Direct")))
+            note.setPlainText(str(row.get("note","")))
+        else:
+            interface.setCurrentText("Digital IN");supply.setCurrentText("5V");logic.setCurrentText("3.3V")
+            protection.setCurrentText("Direct");gpio.setCurrentText("Not assigned")
+
+        form.addRow("Device / อุปกรณ์",device)
+        form.addRow("Signal / ชื่อ Input-Output",signal)
+        form.addRow("Interface",interface)
+        form.addRow("Device supply",supply)
+        form.addRow("Signal logic to ESP32",logic)
+        form.addRow("ESP32 GPIO",gpio)
+        form.addRow("Protection / Driver",protection)
+        form.addRow("Note",note)
+        root.addLayout(form)
+
+        hint=QLabel("ตัวอย่าง: Sensor 12V + Digital IN → Logic 3.3V + Optocoupler/Divider ก่อนเข้า ESP32. ห้ามเอา 12V เข้า GPIO โดยตรง")
+        hint.setWordWrap(True);hint.setStyleSheet("color:#8a4b08;background:#fff8e9;padding:9px;border:1px solid #ead39a;border-radius:8px")
+        root.addWidget(hint)
+
+        buttons=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dlg.accept);buttons.rejected.connect(dlg.reject);root.addWidget(buttons)
+
+        if dlg.exec()!=QDialog.Accepted:return None
+        if not device.text().strip() or not signal.text().strip():
+            QMessageBox.warning(self,"Add Hardware I/O","กรุณากรอกชื่ออุปกรณ์และชื่อ Signal")
+            return self._hardware_io_dialog(title,row)
+
+        existing=[x["key"] for x in self.hwRows if x is not row]
+        key=row.get("key") if row and not row.get("custom",False) else self._hardware_key(signal.text().strip(),existing)
+        return dict(key=key,device=device.text().strip(),signal=signal.text().strip(),
+                    interface=interface.currentText(),supply=supply.currentText(),logic=logic.currentText(),
+                    gpio=gpio.currentText(),protection=protection.currentText(),note=note.toPlainText().strip(),
+                    allowed_supply=tuple(self._hardware_supply_items()),custom=True,enabled=True)
+
+    def add_custom_hardware_io(self):
+        data=self._hardware_io_dialog("Add New Device / Input / Output")
+        if not data:return
+        self._append_hardware_row(data,select=True)
+        self.update_hardware_manager()
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.statusBar().showMessage(f"เพิ่ม {data['device']} / {data['signal']} แล้ว",3500)
+
+    def edit_selected_hardware_io(self):
+        r,row=self._selected_hardware_row()
+        if row is None:
+            QMessageBox.information(self,"Edit Hardware I/O","เลือกแถวที่ต้องการแก้ก่อน")
+            return
+        if not row.get("custom",False):
+            QMessageBox.information(self,"Edit Hardware I/O","รายการมาตรฐานแก้ชื่อ/Interface ไม่ได้ แต่สามารถเปลี่ยน Supply, Logic, GPIO และ Protection ได้จากตาราง\nถ้าต้องการรายการใหม่ให้กด Add New I/O")
+            return
+        data=self._hardware_io_dialog("Edit Custom Device / I/O",row)
+        if not data:return
+        # Keep the existing key stable so project mappings remain compatible.
+        data["key"]=row["key"]
+        row.update({k:v for k,v in data.items() if k not in ("supply","logic","gpio","protection")})
+        self.hwTable.item(r,1).setText(data["device"]);self.hwTable.item(r,2).setText(data["signal"]);self.hwTable.item(r,3).setText(data["interface"])
+        row["supply"].setCurrentText(data["supply"]);row["logic"].setCurrentText(data["logic"])
+        row["gpio"].setCurrentText(data["gpio"]);row["protection"].setCurrentText(data["protection"])
+        self.update_hardware_manager()
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    def duplicate_selected_hardware_io(self):
+        r,row=self._selected_hardware_row()
+        if row is None:
+            QMessageBox.information(self,"Duplicate Hardware I/O","เลือกแถวก่อน")
+            return
+        existing=[x["key"] for x in self.hwRows]
+        data=dict(key=self._hardware_key(str(row.get("signal","IO"))+"_COPY",existing),
+                  device=str(row.get("device","Custom Device")),
+                  signal=str(row.get("signal","IO"))+"_COPY",
+                  interface=str(row.get("interface","Digital IN")),
+                  supply=row["supply"].currentText(),logic=row["logic"].currentText(),
+                  gpio="Not assigned",protection=row["protection"].currentText(),
+                  note=str(row.get("note","")),allowed_supply=tuple(self._hardware_supply_items()),
+                  custom=True,enabled=row["enabled"].isChecked())
+        self._append_hardware_row(data,select=True);self.update_hardware_manager()
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    def delete_selected_hardware_io(self):
+        r,row=self._selected_hardware_row()
+        if row is None:
+            QMessageBox.information(self,"Delete Hardware I/O","เลือกแถวที่ต้องการลบก่อน")
+            return
+        if not row.get("custom",False):
+            QMessageBox.information(self,"Delete Hardware I/O","รายการมาตรฐานลบไม่ได้ — หากไม่ใช้ให้เอาเครื่องหมาย Use ออก")
+            return
+        if QMessageBox.question(self,"Delete Hardware I/O",f"ลบ {row.get('device')} / {row.get('signal')} ?",QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:
+            return
+        self.hwTable.removeRow(r);self.hwRows.pop(r);self.update_hardware_manager()
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
 
     def _make_hw_status_card(self,title):
         box=QFrame();box.setObjectName("metricPanel");box.setMinimumHeight(82)
@@ -1305,7 +1508,7 @@ class App(QMainWindow):
         self.hwTabs.addTab(boardPage,"Board Animation / GPIO Map")
 
         pinPage=QWidget();pinLay=QVBoxLayout(pinPage);pinLay.setContentsMargins(8,8,8,8)
-        hint=QLabel("เปิด/ปิดอุปกรณ์และกำหนด GPIO ได้เอง • โปรแกรมตรวจ GPIO ซ้ำ, Reserved pin และระดับสัญญาณก่อนต่อ ESP32")
+        hint=QLabel("เพิ่มอุปกรณ์/Input/Output ใหม่ได้เองด้วย + Add New I/O • โปรแกรมตรวจ GPIO ซ้ำ, Reserved pin, Voltage และแสดงบน Board Animation อัตโนมัติ")
         hint.setWordWrap(True);hint.setStyleSheet("color:#60758b;font-weight:650;");pinLay.addWidget(hint)
         defs=self._hardware_defs();self.hwRows=[]
         self.hwTable=QTableWidget(len(defs),9)
@@ -1316,27 +1519,16 @@ class App(QMainWindow):
         self.hwTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.hwTable.horizontalHeader().setSectionResizeMode(1,QHeaderView.Stretch)
         self.hwTable.horizontalHeader().setSectionResizeMode(2,QHeaderView.Stretch)
-        supplies=["3.3V","5V","12V","72V","External / Other"]
-        logics=["3.3V","5V","12V","72V","Isolated / Other"]
-        protections=["Direct","Level Shifter / Divider","PC817 Isolation","MOSFET / Driver","CAN Transceiver","Other"]
-        for r,d in enumerate(defs):
-            en=QCheckBox();en.setChecked(True)
-            ec=QWidget();el=QHBoxLayout(ec);el.setContentsMargins(0,0,0,0);el.setAlignment(Qt.AlignCenter);el.addWidget(en)
-            self.hwTable.setCellWidget(r,0,ec)
-            for c,key in ((1,"device"),(2,"signal"),(3,"interface")):
-                self.hwTable.setItem(r,c,QTableWidgetItem(d[key]))
-            supply=QComboBox();supply.addItems(supplies);supply.setCurrentText(d["supply"]);self.hwTable.setCellWidget(r,4,supply)
-            logic=QComboBox();logic.addItems(logics);logic.setCurrentText(d["logic"]);self.hwTable.setCellWidget(r,5,logic)
-            gpio=QComboBox();gpio.addItems(self._gpio_items());gpio.setCurrentText("Not assigned");self.hwTable.setCellWidget(r,6,gpio)
-            prot=QComboBox();prot.addItems(protections);prot.setCurrentText(d["protection"]);self.hwTable.setCellWidget(r,7,prot)
-            st=QLabel("CHECK");st.setAlignment(Qt.AlignCenter);self.hwTable.setCellWidget(r,8,st)
-            row=dict(d);row.update(enabled=en,supply=supply,logic=logic,gpio=gpio,protection=prot,status=st)
-            self.hwRows.append(row)
-            en.stateChanged.connect(self.update_hardware_manager)
-            supply.currentIndexChanged.connect(self.update_hardware_manager)
-            logic.currentIndexChanged.connect(self.update_hardware_manager)
-            gpio.currentIndexChanged.connect(self.update_hardware_manager)
-            prot.currentIndexChanged.connect(self.update_hardware_manager)
+        # Build standard project signals using the same row factory used by Custom I/O.
+        self.hwTable.setRowCount(0)
+        for d in defs:self._append_hardware_row(d)
+        toolbar=QHBoxLayout()
+        addIo=QPushButton("+ Add New I/O");addIo.setObjectName("primaryButton");addIo.clicked.connect(self.add_custom_hardware_io)
+        editIo=QPushButton("Edit Selected");editIo.clicked.connect(self.edit_selected_hardware_io)
+        dupIo=QPushButton("Duplicate");dupIo.clicked.connect(self.duplicate_selected_hardware_io)
+        delIo=QPushButton("Delete Custom");delIo.setObjectName("secondaryButton");delIo.clicked.connect(self.delete_selected_hardware_io)
+        toolbar.addWidget(addIo);toolbar.addWidget(editIo);toolbar.addWidget(dupIo);toolbar.addWidget(delIo);toolbar.addStretch(1)
+        pinLay.addLayout(toolbar)
         pinLay.addWidget(self.hwTable,1)
         self.hwTabs.addTab(pinPage,"GPIO / Device Manager")
 
@@ -1393,6 +1585,8 @@ class App(QMainWindow):
 • Winch 12 V เป็นระบบกำลังแยกจาก 72 V traction battery ตามแบบปัจจุบัน
 • สำหรับ Waveshare 7B พอร์ตภายนอกที่เหลือมีจำกัดมาก; GPIO6 เป็น GP6 โดยตรง, GPIO8/9 เป็น I2C shared, GPIO43/44 เป็น UART0, GPIO19/20 แชร์ CAN/USB
 • ค่าที่ขึ้น READY FOR CODE เป็น Preliminary Wiring Check — ต้องตรวจ datasheet, pinout, fuse/current rating และ wiring จริงก่อนจ่ายไฟ
+• กด + Add New I/O เพื่อเพิ่ม Sensor, Relay, Encoder, Switch หรืออุปกรณ์ใหม่เองได้ โดยเลือก Input/Output, Voltage, GPIO และ Protection
+• Custom I/O จะถูก Save/Load พร้อม Project และขึ้นบน Board Animation เหมือนอุปกรณ์มาตรฐาน
 • Data source: Espressif ESP32/ESP32-S3 GPIO documentation + Waveshare ESP32-S3-Touch-LCD-7B official interface documentation
 """)
         self.hwTabs.addTab(notes,"Notes / Safety")
@@ -1469,7 +1663,7 @@ class App(QMainWindow):
             if profile=="waveshare7b":
                 if board_status in ("BOARD","MEMORY"):
                     conflicts.append(f"{row['key']} uses GPIO {pin} reserved by board: {board_fn}")
-                elif board_status in ("SHARED","CAUTION") and not self._profile_compatible_pin(row["key"],pin):
+                elif board_status in ("SHARED","CAUTION") and not self._profile_compatible_pin(row["key"],pin,row):
                     conflicts.append(f"{row['key']} cannot use GPIO {pin} on Waveshare 7B: {board_fn}")
             elif profile=="classic":
                 if board_status=="CAUTION" and "Input only" in board_fn and row["interface"] in ("Digital OUT","CAN TX","I2C SCL"):
@@ -1481,7 +1675,7 @@ class App(QMainWindow):
             supply=row["supply"].currentText()
             logic=row["logic"].currentText()
             prot=row["protection"].currentText()
-            if supply not in row["allowed_supply"]:
+            if not row.get("custom",False) and supply not in row["allowed_supply"]:
                 voltage.append(f"{row['device']} / {row['signal']}: supply {supply} not in expected {', '.join(row['allowed_supply'])}")
             lv=self._logic_voltage_value(logic)
             if lv is not None and lv>3.6 and prot=="Direct":
@@ -1538,7 +1732,8 @@ class App(QMainWindow):
                 lines.append(f"// {row['key']}: NOT ASSIGNED")
             else:
                 pin=int(re.search(r"\d+",gpio).group())
-                lines.append(f"#define PIN_{row['key']} {pin}")
+                macro=re.sub(r"[^A-Z0-9_]+","_",str(row["key"]).upper()).strip("_")
+                lines.append(f"#define PIN_{macro} {pin}")
         lines+=["","// Interface summary"]
         for row in self.hwRows:
             if row["enabled"].isChecked():
@@ -2976,10 +3171,15 @@ class App(QMainWindow):
                 hardware.append({
                     "key":row["key"],
                     "enabled":row["enabled"].isChecked(),
+                    "device":row.get("device",""),
+                    "signal":row.get("signal",""),
+                    "interface":row.get("interface",""),
                     "supply":row["supply"].currentText(),
                     "logic":row["logic"].currentText(),
                     "gpio":row["gpio"].currentText(),
                     "protection":row["protection"].currentText(),
+                    "note":row.get("note",""),
+                    "custom":bool(row.get("custom",False)),
                 })
         return {"format":"CraneVehicleEngineeringToolProject","version":APP_VERSION,
                 "saved_at":datetime.now().isoformat(timespec="seconds"),"widgets":widgets,
@@ -3013,7 +3213,24 @@ class App(QMainWindow):
             for r,row in enumerate(comps[:self.comp.rowCount()]):
                 for c,val in enumerate(row[:self.comp.columnCount()]):self.comp.setItem(r,c,QTableWidgetItem(str(val)))
         if hasattr(self,"hwRows"):
-            saved={x.get("key"):x for x in state.get("hardware",[]) if isinstance(x,dict)}
+            saved_list=[x for x in state.get("hardware",[]) if isinstance(x,dict)]
+            # Remove current custom rows first, then rebuild them from the project file.
+            for i in range(len(self.hwRows)-1,-1,-1):
+                if self.hwRows[i].get("custom",False):
+                    self.hwRows.pop(i);self.hwTable.removeRow(i)
+            existing={x["key"] for x in self.hwRows}
+            for data in saved_list:
+                if not data.get("custom",False) or data.get("key") in existing:continue
+                definition=dict(key=str(data.get("key") or self._hardware_key(data.get("signal","CUSTOM_IO"),existing)),
+                                device=str(data.get("device","Custom Device")),
+                                signal=str(data.get("signal","Custom I/O")),
+                                interface=str(data.get("interface","Digital IN")),
+                                supply=str(data.get("supply","3.3V")),logic=str(data.get("logic","3.3V")),
+                                gpio=str(data.get("gpio","Not assigned")),protection=str(data.get("protection","Direct")),
+                                note=str(data.get("note","")),allowed_supply=tuple(self._hardware_supply_items()),
+                                custom=True,enabled=bool(data.get("enabled",True)))
+                self._append_hardware_row(definition);existing.add(definition["key"])
+            saved={x.get("key"):x for x in saved_list}
             for row in self.hwRows:
                 data=saved.get(row["key"])
                 if not data: continue
@@ -3021,6 +3238,8 @@ class App(QMainWindow):
                 for field in ("supply","logic","gpio","protection"):
                     combo=row[field];value=str(data.get(field,""))
                     idx=combo.findText(value)
+                    if idx<0 and field in ("supply","logic","protection") and value:
+                        combo.addItem(value);idx=combo.findText(value)
                     if idx>=0:
                         combo.blockSignals(True);combo.setCurrentIndex(idx);combo.blockSignals(False)
             self.update_hardware_manager()
