@@ -681,6 +681,143 @@ class TorqueGraphWidget(QWidget):
             val=ymax*i/4;py=H-bottom-(H-top-bottom)*i/4;p.drawText(8,int(py+4),f"{val:.0f} N·m")
         p.drawText(left,H-15,"Slope angle / ความชัน")
 
+
+class Esp32AnimatedBoardWidget(QWidget):
+    """Interactive vector GPIO board view. It intentionally draws a schematic-style
+    board instead of a photo so statuses can be animated and updated live."""
+    def __init__(self,owner):
+        super().__init__();self.o=owner;self.phase=0.0;self.hover_pin=None;self.selected_pin=None
+        self.pinRects={};self.setMouseTracking(True);self.setMinimumHeight(620)
+        self.timer=QTimer(self);self.timer.timeout.connect(self._tick);self.timer.start(45)
+
+    def _tick(self):
+        self.phase=(self.phase+0.12)%(math.pi*2);self.update()
+
+    def set_animation_enabled(self,on):
+        if on and not self.timer.isActive():self.timer.start(45)
+        elif not on and self.timer.isActive():self.timer.stop()
+        self.update()
+
+    def mouseMoveEvent(self,e):
+        pos=e.position();pin=None
+        for k,r in self.pinRects.items():
+            if r.contains(pos):pin=k;break
+        if pin!=self.hover_pin:
+            self.hover_pin=pin;self.update()
+        super().mouseMoveEvent(e)
+
+    def leaveEvent(self,e):
+        self.hover_pin=None;self.update();super().leaveEvent(e)
+
+    def mousePressEvent(self,e):
+        pos=e.position()
+        for pin,r in self.pinRects.items():
+            if r.contains(pos):
+                self.selected_pin=pin
+                if hasattr(self.o,"on_board_pin_clicked"):self.o.on_board_pin_clicked(pin)
+                self.update();break
+        super().mousePressEvent(e)
+
+    @staticmethod
+    def _status_color(status):
+        return {
+            "USED":"#22c55e","FREE":"#2f80ed","BOARD":"#f59e0b","CAUTION":"#fb923c",
+            "CONFLICT":"#ef4444","INVALID":"#7f1d1d","MEMORY":"#a855f7","SHARED":"#06b6d4",
+        }.get(status,"#64748b")
+
+    def paintEvent(self,e):
+        p=QPainter(self);p.setRenderHint(QPainter.Antialiasing)
+        p.fillRect(self.rect(),QColor("#07182b"))
+        W,H=self.width(),self.height()
+        data=self.o.gpio_profile_data() if hasattr(self.o,"gpio_profile_data") else {"pins":[],"name":"ESP32","layout":"portrait"}
+        snapshot=self.o.hardware_pin_snapshot() if hasattr(self.o,"hardware_pin_snapshot") else {}
+        pins=data.get("pins",[])
+        landscape=data.get("layout")=="landscape"
+
+        # Header
+        p.setPen(QColor("#eaf6ff"));p.setFont(QFont(choose_ui_font_family(),14,QFont.Bold))
+        p.drawText(QRectF(18,10,W-36,30),Qt.AlignLeft|Qt.AlignVCenter,data.get("name","ESP32 GPIO MAP"))
+        p.setFont(QFont(choose_ui_font_family(),9))
+        p.setPen(QColor("#8db6d8"))
+        p.drawText(QRectF(18,39,W-36,22),Qt.AlignLeft|Qt.AlignVCenter,
+                   f"Physical GPIO: {len(pins)}  •  click a pin for details  •  pulsing = project used")
+
+        top=76;bottom=72
+        if landscape:
+            board=QRectF(W*0.27,top+30,W*0.46,H-top-bottom-45)
+        else:
+            bw=min(W*0.34,330);board=QRectF(W/2-bw/2,top+12,bw,H-top-bottom-18)
+
+        # Board body / screen / MCU
+        p.setPen(QPen(QColor("#2f80ed"),2));p.setBrush(QColor("#102d46"));p.drawRoundedRect(board,22,22)
+        if landscape:
+            screen=QRectF(board.left()+board.width()*0.24,board.top()+28,board.width()*0.57,board.height()*0.53)
+            p.setPen(QPen(QColor("#5ba8ff"),2));p.setBrush(QColor("#07111d"));p.drawRoundedRect(screen,10,10)
+            p.setPen(QColor("#2b8cff"));p.setFont(QFont("Arial",18,QFont.Bold));p.drawText(screen,Qt.AlignCenter,"7-inch LCD\n1024 × 600")
+            chip=QRectF(board.left()+board.width()*0.06,board.bottom()-board.height()*0.31,board.width()*0.23,board.height()*0.20)
+        else:
+            chip=QRectF(board.left()+board.width()*0.19,board.top()+board.height()*0.18,board.width()*0.62,board.height()*0.32)
+
+        p.setPen(QPen(QColor("#9aa8b6"),1));p.setBrush(QColor("#dfe7ef"));p.drawRoundedRect(chip,8,8)
+        p.setPen(QColor("#24384a"));p.setFont(QFont("Arial",11,QFont.Bold))
+        p.drawText(chip,Qt.AlignCenter,data.get("module","ESP32-S3\nWROOM"))
+
+        # USB and buttons for board feeling
+        usb=QRectF(board.center().x()-35,board.bottom()-24,70,28)
+        p.setPen(QPen(QColor("#93a4b5"),1));p.setBrush(QColor("#c8d2dc"));p.drawRoundedRect(usb,5,5)
+        p.setPen(QColor("#26394a"));p.setFont(QFont("Arial",7,QFont.Bold));p.drawText(usb,Qt.AlignCenter,"USB-C")
+        for x,label in ((board.left()+35,"BOOT"),(board.right()-65,"RESET")):
+            rr=QRectF(x,board.bottom()-58,42,22);p.setBrush(QColor("#273b4c"));p.setPen(QColor("#7d91a3"));p.drawRoundedRect(rr,5,5)
+            p.setPen(QColor("#dce8f2"));p.setFont(QFont("Arial",6,QFont.Bold));p.drawText(rr,Qt.AlignCenter,label)
+
+        # Split physical GPIOs into left/right columns.
+        half=(len(pins)+1)//2;leftPins=pins[:half];rightPins=pins[half:]
+        maxRows=max(len(leftPins),len(rightPins),1)
+        y0=top+5;avail=H-bottom-y0;rowH=max(19,min(28,avail/maxRows))
+        labelW=min(220,max(130,W*0.20))
+        self.pinRects={}
+        for side,arr in ((0,leftPins),(1,rightPins)):
+            for i,pin in enumerate(arr):
+                y=y0+i*rowH
+                info=snapshot.get(pin,{"status":data.get("pin_info",{}).get(pin,{}).get("status","FREE"),
+                                       "function":data.get("pin_info",{}).get(pin,{}).get("function","Available"),
+                                       "users":[]})
+                status=info.get("status","FREE");color=QColor(self._status_color(status))
+                if side==0:
+                    rr=QRectF(12,y,labelW,rowH-3);node=QPointF(board.left()-7,y+rowH/2-1)
+                    lineStart=QPointF(rr.right(),rr.center().y())
+                else:
+                    rr=QRectF(W-12-labelW,y,labelW,rowH-3);node=QPointF(board.right()+7,y+rowH/2-1)
+                    lineStart=QPointF(rr.left(),rr.center().y())
+                self.pinRects[pin]=rr
+
+                # line from label toward board
+                p.setPen(QPen(color,1.5));p.drawLine(lineStart,node)
+                p.setBrush(color);p.setPen(Qt.NoPen);p.drawEllipse(node,4.2,4.2)
+
+                # pulse project-used/conflict pins
+                if status in ("USED","CONFLICT"):
+                    pulse=7+3*(0.5+0.5*math.sin(self.phase+i*0.25))
+                    pc=QColor(color);pc.setAlpha(70)
+                    p.setBrush(pc);p.drawEllipse(node,pulse,pulse)
+
+                bg=QColor(color);bg.setAlpha(55 if pin not in (self.hover_pin,self.selected_pin) else 95)
+                p.setBrush(bg);p.setPen(QPen(color,1.2));p.drawRoundedRect(rr,7,7)
+                p.setPen(QColor("#f3f8fc"));p.setFont(QFont("Arial",8,QFont.Bold))
+                pinText=f"GPIO{pin}"
+                p.drawText(QRectF(rr.left()+6,rr.top(),52,rr.height()),Qt.AlignLeft|Qt.AlignVCenter,pinText)
+                func=str(info.get("function",""))[:28]
+                p.setFont(QFont(choose_ui_font_family(),7))
+                p.setPen(QColor("#d9e8f5"))
+                p.drawText(QRectF(rr.left()+58,rr.top(),rr.width()-64,rr.height()),Qt.AlignLeft|Qt.AlignVCenter,func)
+
+        # Legend
+        legendY=H-52;x=18
+        for label,status in (("USED","USED"),("FREE","FREE"),("ONBOARD","BOARD"),("SHARED","SHARED"),("CAUTION","CAUTION"),("CONFLICT","CONFLICT")):
+            c=QColor(self._status_color(status));p.setBrush(c);p.setPen(Qt.NoPen);p.drawEllipse(QPointF(x+5,legendY+8),5,5)
+            p.setPen(QColor("#cfe2f2"));p.setFont(QFont("Arial",7,QFont.Bold));p.drawText(x+14,legendY+13,label);x+=78
+
+
 class App(QMainWindow):
     updateTaskFinished=Signal(object)
     updateProgressChanged=Signal(int)
