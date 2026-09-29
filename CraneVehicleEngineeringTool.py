@@ -689,7 +689,7 @@ class App(QMainWindow):
         app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
-        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
+        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
         self.calc_all()
         # Automatically restore the most recently entered values.
         self.restore_last_values(silent=True)
@@ -749,7 +749,7 @@ class App(QMainWindow):
             ("รอบล้อและความเร็วเชิงมุม", "รอบล้อ = ความเร็วรถ ÷ เส้นรอบวงล้อ × 60<br>ความเร็วเชิงมุม = 2π × รอบล้อ ÷ 60"),
             ("กำลังกล", "กำลังกล = แรง × ความเร็ว = แรงบิด × ความเร็วเชิงมุม"),
             ("กำลังไฟฟ้าและกระแสแบตเตอรี่", "กำลังไฟฟ้า = กำลังกล ÷ ประสิทธิภาพระบบขับ<br>กระแสแบตเตอรี่ = กำลังไฟฟ้า ÷ แรงดันแบตเตอรี่"),
-            ("ขีดจำกัดแรงยึดเกาะ", "แรงกดตั้งฉาก = มวลรวมรถ × g × cos(มุมทางลาด)<br>แรงยึดเกาะสูงสุด = สัมประสิทธิ์แรงเสียดทาน × แรงกดตั้งฉาก"),
+            ("ขีดจำกัดแรงยึดเกาะ", "แรงกดล้อขับ = สัดส่วนแรงกดล้อขับ × มวลรวมรถ × g × cos(มุมทางลาด)<br>แรงยึดเกาะสูงสุด = สัมประสิทธิ์แรงเสียดทาน × แรงกดล้อขับ"),
             ("ตรวจมอเตอร์และ Controller", "Margin = ค่าพิกัดอุปกรณ์ ÷ ค่าที่ระบบต้องการ"),
             ("แรงโหลดออกแบบ", "แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g"),
             ("ตำแหน่งโหลดด้านข้างและแนวคว่ำ", "ระยะโหลดด้านข้าง = |ความยาวแขน × sin(มุมเครน)|<br>ตำแหน่งแนวคว่ำ = ความกว้างฐานล้อ ÷ 2<br>แขนโมเมนต์โหลด = ระยะโหลดด้านข้าง − ตำแหน่งแนวคว่ำ"),
@@ -876,6 +876,7 @@ class App(QMainWindow):
         lay.addWidget(self._make_nav_button("winch","W   Winch",self.show_winch_mode))
         lay.addWidget(self._make_nav_button("stability","S   Stability",self.show_stability_mode))
         lay.addWidget(self._make_nav_button("safety","C   Control Logic",self.show_safety_logic_mode))
+        lay.addWidget(self._make_nav_button("hardware","H   Hardware I/O",self.show_hardware_mode))
 
         s2=QLabel("REFERENCE & OUTPUT");s2.setObjectName("navSection");lay.addWidget(s2)
         lay.addWidget(self._make_nav_button("variables","A–Z   Variables",self.show_variable_dictionary_mode))
@@ -936,6 +937,348 @@ class App(QMainWindow):
         prefs=self.load_ui_preferences()
         self.apply_ui_scale(prefs.get("font_scale",1.0),save=False)
 
+
+    # =====================================================================
+    # V52 HARDWARE I/O & WIRING MANAGER
+    # =====================================================================
+    def _hardware_defs(self):
+        return [
+            dict(key="IBUS_RX",device="FlySky RC Receiver",signal="iBUS OUT",interface="UART RX",
+                 supply="5V",logic="5V",gpio="",protection="Level Shifter / Divider",
+                 allowed_supply=("5V",),note="Receiver supply 5 V; verify iBUS signal level before ESP32."),
+            dict(key="CAN_TX",device="SN65HVD230",signal="TXD",interface="CAN TX",
+                 supply="3.3V",logic="3.3V",gpio="",protection="CAN Transceiver",
+                 allowed_supply=("3.3V",),note="ESP32 logic side of CAN transceiver."),
+            dict(key="CAN_RX",device="SN65HVD230",signal="RXD",interface="CAN RX",
+                 supply="3.3V",logic="3.3V",gpio="",protection="CAN Transceiver",
+                 allowed_supply=("3.3V",),note="ESP32 logic side of CAN transceiver."),
+            dict(key="I2C_SDA",device="BNO086 IMU",signal="SDA",interface="I2C SDA",
+                 supply="3.3V",logic="3.3V",gpio="",protection="Direct",
+                 allowed_supply=("3.3V","5V"),note="Breakout-board supply capability must be verified from its datasheet."),
+            dict(key="I2C_SCL",device="BNO086 IMU",signal="SCL",interface="I2C SCL",
+                 supply="3.3V",logic="3.3V",gpio="",protection="Direct",
+                 allowed_supply=("3.3V","5V"),note="Breakout-board supply capability must be verified from its datasheet."),
+            dict(key="LIMIT_LEFT",device="OMRON D4N-112G + PC817",signal="Left limit -90°",interface="Digital IN",
+                 supply="5V",logic="3.3V",gpio="",protection="PC817 Isolation",
+                 allowed_supply=("3.3V","5V","12V"),note="ESP32 side must remain 3.3 V after isolation/pull-up."),
+            dict(key="LIMIT_RIGHT",device="OMRON D4N-112G + PC817",signal="Right limit +90°",interface="Digital IN",
+                 supply="5V",logic="3.3V",gpio="",protection="PC817 Isolation",
+                 allowed_supply=("3.3V","5V","12V"),note="ESP32 side must remain 3.3 V after isolation/pull-up."),
+            dict(key="BUZZER",device="5 V Buzzer + MOSFET",signal="Buzzer command",interface="Digital OUT",
+                 supply="5V",logic="3.3V",gpio="",protection="MOSFET / Driver",
+                 allowed_supply=("5V",),note="Do not drive a high-current buzzer directly from GPIO."),
+            dict(key="LED",device="Status LED / Lamp",signal="LED command",interface="Digital OUT",
+                 supply="5V",logic="3.3V",gpio="",protection="MOSFET / Driver",
+                 allowed_supply=("3.3V","5V"),note="Use resistor/driver appropriate to the actual indicator."),
+        ]
+
+    def _gpio_items(self):
+        return ["Not assigned"]+[f"GPIO {i}" for i in range(0,49)]
+
+    def _make_hw_status_card(self,title):
+        box=QFrame();box.setObjectName("metricPanel");box.setMinimumHeight(82)
+        lay=QVBoxLayout(box);lay.setContentsMargins(12,9,12,9);lay.setSpacing(3)
+        t=QLabel(title);t.setStyleSheet("color:#60758b;font-size:8.8pt;font-weight:900;")
+        v=QLabel("—");v.setStyleSheet("color:#17324d;font-size:15pt;font-weight:900;")
+        lay.addWidget(t);lay.addWidget(v)
+        return box,v
+
+    def make_hardware_io_manager(self):
+        w=QWidget();self.hardwarePage=w
+        root=QVBoxLayout(w);root.setContentsMargins(18,14,18,16);root.setSpacing(12)
+        root.addWidget(make_page_header(
+            "HARDWARE I/O & WIRING MANAGER",
+            "GPIO conflict • Voltage level • Protection • Wiring check • ESP32 Pin Map",
+            self.show_home_mode,"V52 HARDWARE","#e4fbf5","#08705e"
+        ))
+
+        cfg=QFrame();cfg.setObjectName("softPanel")
+        cl=QGridLayout(cfg);cl.setContentsMargins(14,10,14,10);cl.setHorizontalSpacing(10);cl.setVerticalSpacing(7)
+        cl.addWidget(QLabel("ESP32 board profile"),0,0)
+        self.hwBoardProfile=QComboBox()
+        self.hwBoardProfile.addItems([
+            "Generic ESP32-S3 — verify pinout",
+            "Waveshare ESP32-S3 7-inch Type B — verify display-reserved GPIOs",
+            "Custom / Other ESP32 — manual pinout",
+        ])
+        cl.addWidget(self.hwBoardProfile,0,1)
+        cl.addWidget(QLabel("Reserved GPIOs"),0,2)
+        self.hwReservedPins=QLineEdit()
+        self.hwReservedPins.setPlaceholderText("เช่น 0, 3, 19, 20, 45, 46 — ใส่ตาม datasheet ของบอร์ดจริง")
+        cl.addWidget(self.hwReservedPins,0,3)
+        self.hwBoardVerified=QCheckBox("ฉันตรวจ GPIO กับ pinout/datasheet ของบอร์ดจริงแล้ว")
+        cl.addWidget(self.hwBoardVerified,1,0,1,2)
+        bSuggest=QPushButton("Apply Suggested Map");bSuggest.setObjectName("primaryButton");bSuggest.clicked.connect(self.apply_suggested_hardware_map)
+        bClear=QPushButton("Clear GPIO");bClear.clicked.connect(self.clear_hardware_gpio)
+        cl.addWidget(bSuggest,1,2);cl.addWidget(bClear,1,3)
+        cl.setColumnStretch(1,1);cl.setColumnStretch(3,2)
+        root.addWidget(cfg)
+
+        status=QGridLayout();status.setHorizontalSpacing(10)
+        c1,self.hwConflictLabel=self._make_hw_status_card("GPIO CONFLICT")
+        c2,self.hwVoltageLabel=self._make_hw_status_card("VOLTAGE ERROR")
+        c3,self.hwMissingLabel=self._make_hw_status_card("MISSING PIN")
+        c4,self.hwProtectionLabel=self._make_hw_status_card("PROTECTION")
+        c5,self.hwReadyLabel=self._make_hw_status_card("READY FOR CODE")
+        for i,c in enumerate((c1,c2,c3,c4,c5)):status.addWidget(c,0,i)
+        root.addLayout(status)
+
+        self.hwTabs=QTabWidget();root.addWidget(self.hwTabs,1)
+
+        pinPage=QWidget();pinLay=QVBoxLayout(pinPage);pinLay.setContentsMargins(8,8,8,8)
+        hint=QLabel("เปิด/ปิดอุปกรณ์และกำหนด GPIO ได้เอง • โปรแกรมตรวจ GPIO ซ้ำ, Reserved pin และระดับสัญญาณก่อนต่อ ESP32")
+        hint.setWordWrap(True);hint.setStyleSheet("color:#60758b;font-weight:650;");pinLay.addWidget(hint)
+        defs=self._hardware_defs();self.hwRows=[]
+        self.hwTable=QTableWidget(len(defs),9)
+        self.hwTable.setHorizontalHeaderLabels(["Use","Device","Signal","Interface","Supply","Logic","ESP32 GPIO","Protection","Status"])
+        self.hwTable.verticalHeader().setVisible(False);self.hwTable.setAlternatingRowColors(True)
+        self.hwTable.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.hwTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.hwTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.hwTable.horizontalHeader().setSectionResizeMode(1,QHeaderView.Stretch)
+        self.hwTable.horizontalHeader().setSectionResizeMode(2,QHeaderView.Stretch)
+        supplies=["3.3V","5V","12V","72V","External / Other"]
+        logics=["3.3V","5V","12V","72V","Isolated / Other"]
+        protections=["Direct","Level Shifter / Divider","PC817 Isolation","MOSFET / Driver","CAN Transceiver","Other"]
+        for r,d in enumerate(defs):
+            en=QCheckBox();en.setChecked(True)
+            ec=QWidget();el=QHBoxLayout(ec);el.setContentsMargins(0,0,0,0);el.setAlignment(Qt.AlignCenter);el.addWidget(en)
+            self.hwTable.setCellWidget(r,0,ec)
+            for c,key in ((1,"device"),(2,"signal"),(3,"interface")):
+                self.hwTable.setItem(r,c,QTableWidgetItem(d[key]))
+            supply=QComboBox();supply.addItems(supplies);supply.setCurrentText(d["supply"]);self.hwTable.setCellWidget(r,4,supply)
+            logic=QComboBox();logic.addItems(logics);logic.setCurrentText(d["logic"]);self.hwTable.setCellWidget(r,5,logic)
+            gpio=QComboBox();gpio.addItems(self._gpio_items());gpio.setCurrentText("Not assigned");self.hwTable.setCellWidget(r,6,gpio)
+            prot=QComboBox();prot.addItems(protections);prot.setCurrentText(d["protection"]);self.hwTable.setCellWidget(r,7,prot)
+            st=QLabel("CHECK");st.setAlignment(Qt.AlignCenter);self.hwTable.setCellWidget(r,8,st)
+            row=dict(d);row.update(enabled=en,supply=supply,logic=logic,gpio=gpio,protection=prot,status=st)
+            self.hwRows.append(row)
+            en.stateChanged.connect(self.update_hardware_manager)
+            supply.currentIndexChanged.connect(self.update_hardware_manager)
+            logic.currentIndexChanged.connect(self.update_hardware_manager)
+            gpio.currentIndexChanged.connect(self.update_hardware_manager)
+            prot.currentIndexChanged.connect(self.update_hardware_manager)
+        pinLay.addWidget(self.hwTable,1)
+        self.hwTabs.addTab(pinPage,"GPIO / Device Manager")
+
+        wirePage=QWidget();wl=QHBoxLayout(wirePage);wl.setContentsMargins(10,10,10,10);wl.setSpacing(12)
+        protection=QGroupBox("Protection Checklist / การป้องกัน")
+        pl=QVBoxLayout(protection)
+        checks=[
+            ("hwMainBMS","Main 72 V battery has BMS",True),
+            ("hwMainFuse","Main fuse installed near 72 V battery",True),
+            ("hwEstopHardware","Hardware E-stop cuts traction power / enable",True),
+            ("hwDc72to5","72 V → regulated 5 V supply for controller/logic",True),
+            ("hwRcRegulated","RC receiver supplied from regulated 5 V",True),
+            ("hwLimitIsolation","Limit switches isolated/conditioned before ESP32",True),
+            ("hwBuzzerMosfet","5 V buzzer driven through MOSFET/driver",True),
+            ("hwWinchSeparate","Winch uses separate 12 V battery",True),
+            ("hwWinchFuse","12 V winch battery has appropriate fuse",True),
+            ("hwWinchContactor","Winch reversing contactor/relay rated for actual current",True),
+        ]
+        self.hwProtectionChecks=[]
+        for attr,label,default in checks:
+            cb=QCheckBox(label);cb.setChecked(default);setattr(self,attr,cb);self.hwProtectionChecks.append(cb)
+            cb.stateChanged.connect(self.update_hardware_manager);pl.addWidget(cb)
+        pl.addStretch(1);wl.addWidget(protection,1)
+
+        wiring=QGroupBox("Wiring Check / เส้นทางไฟ")
+        wr=QVBoxLayout(wiring)
+        self.hwWiringSummary=QTextEdit();self.hwWiringSummary.setReadOnly(True);wr.addWidget(self.hwWiringSummary,1)
+        wl.addWidget(wiring,2)
+        self.hwTabs.addTab(wirePage,"Voltage & Wiring")
+
+        genPage=QWidget();gl=QVBoxLayout(genPage);gl.setContentsMargins(10,10,10,10);gl.setSpacing(8)
+        bar=QHBoxLayout()
+        refresh=QPushButton("Refresh Code");refresh.setObjectName("primaryButton");refresh.clicked.connect(self.update_hardware_manager)
+        copy=QPushButton("Copy");copy.clicked.connect(self.copy_hardware_code)
+        export=QPushButton("Export .h");export.clicked.connect(self.export_hardware_header)
+        bar.addWidget(refresh);bar.addWidget(copy);bar.addWidget(export);bar.addStretch(1);gl.addLayout(bar)
+        self.hwCode=QPlainTextEdit();self.hwCode.setReadOnly(True)
+        self.hwCode.setStyleSheet("font-family:Consolas,'Courier New',monospace;font-size:10.5pt;")
+        gl.addWidget(self.hwCode,1)
+        self.hwTabs.addTab(genPage,"Generate ESP32 Pin Map")
+
+        notes=QPlainTextEdit();notes.setReadOnly(True)
+        notes.setPlainText("""V52 HARDWARE I/O NOTES
+
+• GPIO Manager ตรวจ “การจัดสรรขา” แต่ไม่ได้แทน pinout ของบอร์ดจริง
+• สำหรับ Waveshare ESP32-S3 7-inch Type B ต้องนำ GPIO ที่จอ/Touch/SD/USB ใช้อยู่จริงใส่ใน Reserved GPIOs
+• ESP32 GPIO เป็น 3.3 V logic — ห้ามป้อน 5/12/72 V เข้า GPIO โดยตรง
+• FlySky iBUS: ต้องยืนยันระดับสัญญาณจริงของ Receiver; ค่าเริ่มต้นในโปรแกรมถือว่า 5 V logic และต้องมี level shifting
+• SN65HVD230 ใช้เป็น CAN transceiver ระหว่าง ESP32 กับ VESC; CANH/CANL ไม่ต่อเข้าขา GPIO ตรง
+• Limit switch OMRON + PC817: โปรแกรมถือว่าฝั่ง ESP32 ถูก pull-up เป็น 3.3 V
+• Buzzer 5 V: ใช้ MOSFET/driver ไม่ดึงกระแสโหลดจาก GPIO โดยตรง
+• Winch 12 V เป็นระบบกำลังแยกจาก 72 V traction battery ตามแบบปัจจุบัน
+• ค่าที่ขึ้น READY FOR CODE เป็น Preliminary Wiring Check — ต้องตรวจ datasheet, pinout, fuse/current rating และ wiring จริงก่อนจ่ายไฟ
+""")
+        self.hwTabs.addTab(notes,"Notes / Safety")
+
+        self.hwBoardProfile.currentIndexChanged.connect(self.update_hardware_manager)
+        self.hwReservedPins.textChanged.connect(self.update_hardware_manager)
+        self.hwBoardVerified.stateChanged.connect(self.update_hardware_manager)
+        self.tabs.addTab(w,"")
+        self.update_hardware_manager()
+
+    def _reserved_gpio_set(self):
+        if not hasattr(self,"hwReservedPins"):return set()
+        return {int(x) for x in re.findall(r"\d+",self.hwReservedPins.text()) if 0<=int(x)<=48}
+
+    @staticmethod
+    def _logic_voltage_value(text):
+        m=re.match(r"\s*(\d+(?:\.\d+)?)",str(text))
+        return float(m.group(1)) if m else None
+
+    def apply_suggested_hardware_map(self):
+        suggested={
+            "IBUS_RX":18,"CAN_TX":21,"CAN_RX":22,"I2C_SDA":8,"I2C_SCL":9,
+            "LIMIT_LEFT":10,"LIMIT_RIGHT":11,"BUZZER":12,"LED":13
+        }
+        for row in self.hwRows:
+            pin=suggested.get(row["key"])
+            if pin is not None:
+                row["gpio"].setCurrentText(f"GPIO {pin}")
+        self.hwBoardVerified.setChecked(False)
+        self.update_hardware_manager()
+
+    def clear_hardware_gpio(self):
+        for row in self.hwRows:row["gpio"].setCurrentText("Not assigned")
+        self.hwBoardVerified.setChecked(False)
+        self.update_hardware_manager()
+
+    def hardware_check_results(self):
+        reserved=self._reserved_gpio_set();used={};conflicts=[];missing=[];voltage=[];row_status={}
+        for row in self.hwRows:
+            if not row["enabled"].isChecked():
+                row_status[row["key"]]=("OFF","#64748b");continue
+            gpio=row["gpio"].currentText()
+            if gpio=="Not assigned":
+                missing.append(row["key"]);row_status[row["key"]]=("MISSING","#b54708")
+            else:
+                pin=int(re.search(r"\d+",gpio).group())
+                if pin in reserved:conflicts.append(f"{row['key']} uses reserved GPIO {pin}")
+                used.setdefault(pin,[]).append(row["key"])
+
+            supply=row["supply"].currentText()
+            logic=row["logic"].currentText()
+            prot=row["protection"].currentText()
+            if supply not in row["allowed_supply"]:
+                voltage.append(f"{row['device']} / {row['signal']}: supply {supply} not in expected {', '.join(row['allowed_supply'])}")
+            lv=self._logic_voltage_value(logic)
+            if lv is not None and lv>3.6 and prot=="Direct":
+                voltage.append(f"{row['device']} / {row['signal']}: {logic} logic cannot go directly to ESP32 GPIO")
+            if lv is not None and lv>=12:
+                voltage.append(f"{row['device']} / {row['signal']}: {logic} signal requires isolation/conditioning")
+            if row["key"]=="IBUS_RX" and lv is not None and lv>3.6 and prot not in ("Level Shifter / Divider","PC817 Isolation","Other"):
+                voltage.append("iBUS input above 3.3 V requires level shifting/conditioning")
+            if row["key"].startswith("LIMIT_") and prot!="PC817 Isolation":
+                voltage.append(f"{row['key']}: current project expects PC817 isolation")
+            if row["key"]=="BUZZER" and prot!="MOSFET / Driver":
+                voltage.append("BUZZER: current project expects MOSFET/driver")
+
+        for pin,keys in used.items():
+            if len(keys)>1:conflicts.append(f"GPIO {pin} duplicated: "+", ".join(keys))
+        for row in self.hwRows:
+            if row_status.get(row["key"],("",""))[0] in ("OFF","MISSING"):continue
+            pin=int(re.search(r"\d+",row["gpio"].currentText()).group())
+            related=[x for x in conflicts if f"GPIO {pin}" in x or f"GPIO {pin} " in x]
+            rowVoltage=[x for x in voltage if row["device"] in x or row["key"] in x]
+            if related:row_status[row["key"]]=("CONFLICT","#b42318")
+            elif rowVoltage:row_status[row["key"]]=("VOLTAGE","#b42318")
+            else:row_status[row["key"]]=("OK","#176337")
+
+        protection_missing=[cb.text() for cb in self.hwProtectionChecks if not cb.isChecked()]
+        if not self.hwBoardVerified.isChecked():
+            protection_missing.append("Board GPIO pinout not verified")
+        board_manual=(self.hwBoardProfile.currentIndex()==1 and not reserved)
+        if board_manual:
+            protection_missing.append("Waveshare profile: enter display/touch reserved GPIOs")
+
+        ready=not conflicts and not missing and not voltage and not protection_missing
+        return dict(conflicts=conflicts,missing=missing,voltage=voltage,
+                    protection_missing=protection_missing,row_status=row_status,ready=ready)
+
+    def _set_hw_metric(self,label,text,ok):
+        label.setText(str(text))
+        label.setStyleSheet(f"color:{'#176337' if ok else '#b42318'};font-size:15pt;font-weight:900;")
+
+    def generate_hardware_header_text(self):
+        result=self.hardware_check_results()
+        lines=[
+            "#pragma once",
+            "// Auto-generated by Crane Vehicle Engineering Tool",
+            f"// Version {APP_VERSION}",
+            f"// Board: {self.hwBoardProfile.currentText()}",
+            "// Verify this file against the actual ESP32 board pinout before flashing.",
+            "",
+        ]
+        for row in self.hwRows:
+            if not row["enabled"].isChecked():continue
+            gpio=row["gpio"].currentText()
+            if gpio=="Not assigned":
+                lines.append(f"// {row['key']}: NOT ASSIGNED")
+            else:
+                pin=int(re.search(r"\d+",gpio).group())
+                lines.append(f"#define PIN_{row['key']} {pin}")
+        lines+=["","// Interface summary"]
+        for row in self.hwRows:
+            if row["enabled"].isChecked():
+                lines.append(f"// {row['key']}: {row['device']} | {row['interface']} | supply {row['supply'].currentText()} | logic {row['logic'].currentText()} | {row['protection'].currentText()}")
+        lines+=["",f"// GPIO conflicts: {len(result['conflicts'])}",
+                f"// Voltage errors: {len(result['voltage'])}",
+                f"// Missing pins: {len(result['missing'])}",
+                f"// Protection issues: {len(result['protection_missing'])}",
+                f"// Ready for code: {'YES' if result['ready'] else 'NO'}"]
+        return "\n".join(lines)
+
+    def update_hardware_manager(self,*_):
+        if not hasattr(self,"hwRows"):return
+        result=self.hardware_check_results()
+        for row in self.hwRows:
+            text,color=result["row_status"].get(row["key"],("CHECK","#64748b"))
+            row["status"].setText(text);row["status"].setStyleSheet(f"color:{color};font-weight:900;")
+        self._set_hw_metric(self.hwConflictLabel,len(result["conflicts"]),not result["conflicts"])
+        self._set_hw_metric(self.hwVoltageLabel,len(result["voltage"]),not result["voltage"])
+        self._set_hw_metric(self.hwMissingLabel,len(result["missing"]),not result["missing"])
+        self._set_hw_metric(self.hwProtectionLabel,"PASS" if not result["protection_missing"] else f"{len(result['protection_missing'])} CHECK",not result["protection_missing"])
+        self._set_hw_metric(self.hwReadyLabel,"YES" if result["ready"] else "NO",result["ready"])
+
+        issues=[]
+        if result["conflicts"]:issues+=["GPIO: "+x for x in result["conflicts"]]
+        if result["voltage"]:issues+=["VOLTAGE: "+x for x in result["voltage"]]
+        if result["missing"]:issues+=["MISSING PIN: "+x for x in result["missing"]]
+        if result["protection_missing"]:issues+=["PROTECTION: "+x for x in result["protection_missing"]]
+        issue_text="\n".join("• "+x for x in issues) if issues else "• ไม่พบ Conflict / Voltage Error / Missing Pin / Protection issue"
+
+        main_chain="72 V Battery → BMS → Main Fuse → Hardware E-stop / Enable → Flipsky Dual 75100 → QS Hub Motors ×2"
+        logic_chain="72 V Battery → DC-DC 5 V → ESP32 / RC Receiver / Logic"
+        can_chain="ESP32 CAN TX/RX → SN65HVD230 → CANH/CANL → VESC"
+        limit_chain="OMRON Limit ±90° → PC817 → 3.3 V ESP32 Digital IN"
+        winch_chain="Separate 12 V Battery → Winch Fuse → Reversing Contactor → 12 V Winch"
+        self.hwWiringSummary.setPlainText(
+            "WIRING PATH — CURRENT PROJECT\n\n"
+            +main_chain+"\n\n"+logic_chain+"\n\n"+can_chain+"\n\n"+limit_chain+"\n\n"+winch_chain
+            +"\n\nSYSTEM CHECK\n"+issue_text
+            +"\n\nหมายเหตุ: ตรวจ datasheet, fuse/current rating, wire gauge, grounding และ actual board pinout ก่อนจ่ายไฟจริง"
+        )
+        self.hwCode.setPlainText(self.generate_hardware_header_text())
+
+    def copy_hardware_code(self):
+        QApplication.clipboard().setText(self.generate_hardware_header_text())
+        self.statusBar().showMessage("คัดลอก ESP32 Pin Map แล้ว",3000)
+
+    def export_hardware_header(self):
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        default=str(Path(docs)/"cvet_hardware_pins.h")
+        filename,_=QFileDialog.getSaveFileName(self,"Export ESP32 Pin Map",default,"C/C++ Header (*.h);;Text (*.txt)")
+        if not filename:return
+        if not Path(filename).suffix:filename+=".h"
+        try:
+            Path(filename).write_text(self.generate_hardware_header_text(),encoding="utf-8")
+            QMessageBox.information(self,"Hardware Pin Map","บันทึกไฟล์เรียบร้อย:\n"+filename)
+        except Exception as exc:
+            QMessageBox.critical(self,"Hardware Pin Map",str(exc))
+
     def setup_dynamic_tabs(self):
         """Top-level navigation uses one active page only; the top tab bar is hidden."""
         # Keep long internal tab sets usable on 1366×768 and smaller windows.
@@ -949,7 +1292,7 @@ class App(QMainWindow):
             "home":self.homePage,"torque":self.torquePage,"electrical":self.electricalPage,"winch":self.winchPage,"crane":self.cranePage,
             "slope":self.slopePage,"fbd":self.fbdPage,"components":self.componentsPage,
             "worst":self.worstPage,"steps":self.stepsPage,"design":self.designPage,
-            "graph":getattr(self,"graphPage",None),"report":self.reportPage,"help":self.helpPage,"tools":self.projectToolsPage,"safety":self.safetyPage,"variables":self.variableDictionaryPage}
+            "graph":getattr(self,"graphPage",None),"report":self.reportPage,"help":self.helpPage,"tools":self.projectToolsPage,"safety":self.safetyPage,"variables":self.variableDictionaryPage,"hardware":self.hardwarePage}
         self.show_home_mode()
 
     def _show_only_page(self,page):
@@ -988,6 +1331,11 @@ class App(QMainWindow):
         self._show_only_page(self.projectToolsPage)
         self._set_active_nav("tools")
         self.update_project_tools()
+
+    def show_hardware_mode(self):
+        self._show_only_page(self.hardwarePage)
+        self._set_active_nav("hardware")
+        self.update_hardware_manager()
 
     def show_safety_logic_mode(self):
         self._show_only_page(self.safetyPage)
@@ -1043,7 +1391,7 @@ class App(QMainWindow):
         hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
         left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        chips.addWidget(make_chip("V51  MODERN UI","#ffffff","#174a74"))
+        chips.addWidget(make_chip("V52  HARDWARE I/O","#ffffff","#174a74"))
         chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
         chips.addStretch(1);left.addLayout(chips)
 
@@ -1052,7 +1400,7 @@ class App(QMainWindow):
         title.setStyleSheet("color:white;background:transparent;")
         left.addWidget(title)
 
-        sub=QLabel("คำนวณระบบขับ • แบตเตอรี่ • วินช์ • เสถียรภาพ • Control Logic ในโปรแกรมเดียว")
+        sub=QLabel("คำนวณระบบขับ • แบตเตอรี่ • วินช์ • เสถียรภาพ • Control Logic • Hardware I/O ในโปรแกรมเดียว")
         sub.setWordWrap(True);sub.setStyleSheet("color:#e1eff9;font-size:10.5pt;font-weight:650;background:transparent;")
         left.addWidget(sub)
         hint=QLabel("เริ่มจากเลือกโมดูลด้านล่าง หรือใช้เมนูซ้ายเพื่อสลับหน้าได้ทันที")
@@ -1116,10 +1464,12 @@ class App(QMainWindow):
         bs=ModeCardButton("STABILITY","Side / Front / Rear tipping • Worst Case • CG","04","#7c3aed")
         bc=ModeCardButton("CONTROL LOGIC","E-stop • RC Failsafe • IMU • Limit • Interlock","05","#c45114")
         bv=ModeCardButton("VARIABLE DICTIONARY","ความหมายตัวแปร • หน่วย • ค่าปัจจุบัน","06","#4b647a")
+        bh=ModeCardButton("HARDWARE I/O & WIRING","GPIO • Voltage • Protection • ESP32 Pin Map","07","#0b7a75")
 
         cards.addWidget(bt,0,0);cards.addWidget(be,0,1)
         cards.addWidget(bw,1,0);cards.addWidget(bs,1,1)
         cards.addWidget(bc,2,0);cards.addWidget(bv,2,1)
+        cards.addWidget(bh,3,0,1,2)
         cards.setColumnStretch(0,1);cards.setColumnStretch(1,1)
         root.addLayout(cards)
 
@@ -1129,6 +1479,7 @@ class App(QMainWindow):
         bs.clicked.connect(self.show_stability_mode)
         bc.clicked.connect(self.show_safety_logic_mode)
         bv.clicked.connect(self.show_variable_dictionary_mode)
+        bh.clicked.connect(self.show_hardware_mode)
 
         footer=QFrame();footer.setObjectName("softPanel")
         fl=QHBoxLayout(footer);fl.setContentsMargins(14,9,14,9)
@@ -2249,8 +2600,20 @@ class App(QMainWindow):
         if hasattr(self,"comp"):
             for r in range(self.comp.rowCount()):
                 components.append([self.comp.item(r,c).text() if self.comp.item(r,c) else "" for c in range(self.comp.columnCount())])
+        hardware=[]
+        if hasattr(self,"hwRows"):
+            for row in self.hwRows:
+                hardware.append({
+                    "key":row["key"],
+                    "enabled":row["enabled"].isChecked(),
+                    "supply":row["supply"].currentText(),
+                    "logic":row["logic"].currentText(),
+                    "gpio":row["gpio"].currentText(),
+                    "protection":row["protection"].currentText(),
+                })
         return {"format":"CraneVehicleEngineeringToolProject","version":APP_VERSION,
-                "saved_at":datetime.now().isoformat(timespec="seconds"),"widgets":widgets,"components":components}
+                "saved_at":datetime.now().isoformat(timespec="seconds"),"widgets":widgets,
+                "components":components,"hardware":hardware}
 
     def apply_project_state(self,state,recalculate=True):
         if not isinstance(state,dict) or state.get("format")!="CraneVehicleEngineeringToolProject":
@@ -2279,6 +2642,18 @@ class App(QMainWindow):
         if hasattr(self,"comp") and comps:
             for r,row in enumerate(comps[:self.comp.rowCount()]):
                 for c,val in enumerate(row[:self.comp.columnCount()]):self.comp.setItem(r,c,QTableWidgetItem(str(val)))
+        if hasattr(self,"hwRows"):
+            saved={x.get("key"):x for x in state.get("hardware",[]) if isinstance(x,dict)}
+            for row in self.hwRows:
+                data=saved.get(row["key"])
+                if not data: continue
+                row["enabled"].blockSignals(True);row["enabled"].setChecked(bool(data.get("enabled",True)));row["enabled"].blockSignals(False)
+                for field in ("supply","logic","gpio","protection"):
+                    combo=row[field];value=str(data.get(field,""))
+                    idx=combo.findText(value)
+                    if idx>=0:
+                        combo.blockSignals(True);combo.setCurrentIndex(idx);combo.blockSignals(False)
+            self.update_hardware_manager()
         # Sync derived wheel radius and mass mode after blocking signals.
         self.update_wheel_from_inches()
         if hasattr(self,"massModeSum") and self.massModeSum.isChecked(): self.apply_mass_mode()
