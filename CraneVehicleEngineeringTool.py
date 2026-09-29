@@ -3669,7 +3669,7 @@ class App(QMainWindow):
                   "ระยะจาก CG ถึงเพลาหลัง = x_CG,drive - x_rear; การเลื่อนแนวแรง = h[tanα + a/(g cosα)]",
                   "d_shift=h tanα + h a/(g cosα); SF_slope=[g cosα·d_rear]/[h(g sinα+a)]",
                   f"d_rear={slope['rear_arm']:.3f} m<br>d_slope={slope['shift_slope']:.3f} m<br>d_acc={slope['shift_acc']:.3f} m<br>margin={slope['margin']:.3f} m",
-                  f"SF_slope={'∞' if slope['sf']>=999 else f'{slope['sf']:.3f}'}")
+                  ("SF_slope=∞" if slope["sf"]>=999 else f"SF_slope={slope['sf']:.3f}"))
         if sm>0:
             contrib="<br>".join([f"{name}: m={m:.2f} kg, x={x:.3f}, y={y:.3f}, z={z:.3f}" for name,m,x,y,z in rows])
             html+=sec(7,"Combined CG จากตารางมวล","ใช้ค่าเฉลี่ยถ่วงน้ำหนักของมวลรายชิ้นสำหรับ Driving CG และ CG height",
@@ -4188,6 +4188,7 @@ d_acc = h_CG × a/g
                 f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>"
                 for name,uri in figures
             )
+            slope_sf_text="∞" if slope["sf"]>=999 else f"{slope['sf']:.3f}"
             summary=f"""
             <h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
             <p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
@@ -4198,7 +4199,7 @@ d_acc = h_CG × a/g
             <tr><td>Boom mass</td><td>{d['mb']:.2f} kg</td></tr>
             <tr><td>Track / Wheelbase</td><td>{d['W']:.3f} / {d['WB']:.3f} m</td></tr>
             <tr><td>Worst stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
-            <tr><td>Uphill driving stability</td><td>{'∞' if slope['sf']>=999 else f"{slope['sf']:.3f}"}</td></tr>
+            <tr><td>Uphill driving stability</td><td>{slope_sf_text}</td></tr>
             </table>
             <p><b>Scope:</b> Preliminary tipping/stability calculation. Use measured mass/CG and validate the real structure, tires, ground, brakes, slewing bearing and lifting system before fabrication/use.</p>
             """
