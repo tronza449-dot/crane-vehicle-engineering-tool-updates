@@ -1448,7 +1448,7 @@ class App(QMainWindow):
         root.addWidget(make_page_header(
             "HARDWARE I/O & WIRING MANAGER",
             "GPIO conflict • Voltage level • Protection • Wiring check • ESP32 Pin Map",
-            self.show_home_mode,"V52.3 GPIO VISUAL","#e4fbf5","#08705e"
+            self.show_home_mode,"V52.4 CUSTOM I/O","#e4fbf5","#08705e"
         ))
 
         cfg=QFrame();cfg.setObjectName("softPanel")
@@ -1935,7 +1935,7 @@ class App(QMainWindow):
         hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
         left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        chips.addWidget(make_chip("V52.3  GPIO BOARD","#ffffff","#174a74"))
+        chips.addWidget(make_chip("V52.4  CUSTOM I/O","#ffffff","#174a74"))
         chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
         chips.addStretch(1);left.addLayout(chips)
 
