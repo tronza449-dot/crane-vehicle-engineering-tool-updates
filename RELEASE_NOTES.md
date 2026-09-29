@@ -1,61 +1,84 @@
-# Crane Vehicle Engineering Tool V51.0.6
+# Crane Vehicle Engineering Tool V52.0.0
 
-## Full Program Audit / ตรวจระบบทั้งโปรแกรม
+## Hardware I/O & Wiring Manager
 
-รอบนี้เป็นการตรวจทั้ง UI, สูตรวิศวกรรม, Control Logic, PDF, Auto Update และ Windows build ก่อนให้ผู้ใช้อัปเดต
+V52 เพิ่มระบบสำหรับวางแผนการต่อ ESP32 และตรวจความผิดพลาดของ Hardware ก่อนประกอบจริง โดยยังคงระบบ Torque, Battery, Winch, Stability, Control Logic, Report และ Auto Update จาก V51 ครบทั้งหมด
 
-### Engineering calculation fixes
-- แก้ Side Stability ให้ Payload และ Boom ที่ยังอยู่ด้านในแนว Pivot ช่วยสร้างโมเมนต์ต้านอย่างถูกต้อง
-- Dynamic Factor ของ Payload ใช้เฉพาะด้านที่ทำให้คว่ำ ไม่ใช้เพิ่มโมเมนต์ต้าน เพื่อไม่สร้าง Safety Factor สูงเกินจริง
-- แก้ Front/Rear Stability ให้ใช้หลักเดียวกัน: Payload ใช้ Kdyn เฉพาะเมื่อเป็นโมเมนต์คว่ำ
-- แยก Base vehicle CG x ออกจาก Driving combined CG x เพื่อไม่ให้ Payload/Boom ถูกนับซ้ำใน Crane tipping
-- Mass Mode B ส่ง Combined CG ไปใช้กับ Driving/Slope Mode โดยไม่เขียนทับ Base vehicle CG
-- แก้ Slope Stability ให้ใช้ตำแหน่ง Combined CG จริงเทียบกับเพลาหลัง ไม่สมมติว่า CG อยู่กึ่งกลางรถเสมอ
-- แก้ผลความเร่งบนทางลาดให้ใช้ a/(g cosα) และเพิ่ม Safety Factor เชิงโมเมนต์สำหรับ uphill driving
-- แก้ Traction limit ให้ใช้แรงกดบน “ล้อขับ” N_drive แทน N_total ทั้งคัน
-- เพิ่ม Driven-wheel load fraction (%) ค่าเริ่มต้น 50% เพื่อให้ตรวจ traction ไม่สูงเกินจริง
-- Electrical/Battery เพิ่มพลังงานขาลงเมื่อ rolling resistance ยังต้องใช้แรงขับ และยังคง No Regen ไม่หักพลังงานคืน
-- เวลาเร่ง t_acc ถูกนำไปใช้ตรวจ Peak acceleration force/current จริง
-- BMS Peak Check รวม calculated acceleration peak current
-- เพิ่ม Design Check ตรวจ m_total ≥ m_payload + m_boom
+### Device / GPIO Manager
+- ตารางอุปกรณ์ FlySky iBUS, SN65HVD230 CAN TX/RX, BNO086 SDA/SCL, OMRON Limit ±90°, Buzzer และ LED
+- เปิด/ปิดอุปกรณ์แต่ละรายการได้
+- เลือก ESP32 GPIO ได้เอง
+- ตรวจ GPIO ซ้ำอัตโนมัติ
+- รองรับ Reserved GPIO list สำหรับขาที่จอ/Touch/USB/SD หรือวงจรบนบอร์ดใช้อยู่แล้ว
+- มี Board Profile สำหรับ Generic ESP32-S3, Waveshare ESP32-S3 7-inch Type B และ Custom ESP32
+- Suggested Generic Map เป็นเพียงจุดเริ่มต้น และจะยกเลิกสถานะ Board Verified ทุกครั้งจนกว่าผู้ใช้ตรวจ pinout จริง
 
-### Control Logic fixes
-- Differential steering รองรับ Pivot Turn ด้วย Steering แม้ Throttle = 0
-- Battery Low + Inhibit ล็อกเฉพาะ Drive ตามชื่อ policy; Crane/Winch ยังผ่าน interlock ของตน
-- เพิ่ม Safety regression cases สำหรับ Pivot Turn และ Low Battery behavior
-- E-stop, RC Failsafe, IMU Tilt, Drive/Crane Interlock และ Limit ±90° ยังคงตรวจครบ
+### Voltage & Signal Checker
+- ตรวจ Supply rail 3.3 V / 5 V / 12 V / 72 V
+- ตรวจ Logic level ก่อนเข้า ESP32 3.3 V
+- เตือนเมื่อ 5/12/72 V ถูกตั้งให้ต่อ Direct เข้า GPIO
+- iBUS 5 V logic ต้องมี Level Shifter / Divider หรือวงจร conditioning
+- Limit ±90° ใช้ PC817 isolation ตาม architecture ของโปรเจกต์
+- Buzzer 5 V ใช้ MOSFET / Driver
+- CAN ใช้ SN65HVD230 ระหว่าง ESP32 กับ VESC
 
-### UI / usability fixes
-- ลด minimum height ของ 3D/FBD/Graphs เพื่อใช้งานบนจอ Laptop ได้ดีขึ้น
-- Crane right panel เลื่อนได้ และปุ่ม 3D View จัดเป็น Grid ไม่ล้นหน้าจอ
-- แยกชื่อ Base vehicle CG และ Driving combined CG ให้ชัดเจน
-- ปรับคำอธิบาย/Calculation Steps/Help ให้ตรงกับสูตรล่าสุด
-- คง Responsive UI, Sidebar, Font Scale A-/A+/100% และ Scrollable Inputs จากรุ่นก่อน
+### Wiring Protection Checker
+ตรวจ checklist:
+- Main 72 V BMS
+- Main fuse
+- Hardware E-stop / traction enable cut
+- 72 V → regulated 5 V
+- Regulated 5 V for RC receiver
+- Limit switch isolation
+- Buzzer MOSFET
+- Separate 12 V winch battery
+- Winch fuse
+- Reversing contactor current rating
 
-### PDF / report fixes
-- แก้ปุ่ม Export PDF หน้า Torque ที่เดิมเรียก Stability report ผิดหน้า
-- เพิ่ม Drive Torque PDF exporter โดยตรง
-- Stability PDF เปลี่ยนเป็น Qt PDF และให้ผู้ใช้เลือกโฟลเดอร์ ไม่เขียนลง Program Files
-- ถอด ReportLab/Korean CID font ที่ไม่เหมาะกับภาษาไทยออก
-- Winch/Battery/Torque/Stability/Final Report ใช้ฟอนต์ UI ที่มีใน Windows
-- Temp report files ถูกล้างด้วย finally และตรวจว่า PDF ถูกสร้างจริง
+พร้อมสรุปเส้นทาง:
+72 V Battery → BMS → Main Fuse → E-stop → Flipsky Dual 75100 → QS Hub Motors
+72 V → DC-DC 5 V → ESP32 / RC / Logic
+ESP32 → SN65HVD230 → CANH/CANL → VESC
+Limit ±90° → PC817 → ESP32
+Separate 12 V Battery → Fuse → Reversing Contactor → Winch
 
-### Updater / installer fixes
-- Installer silent update จะเปิดโปรแกรมกลับหลังอัปเดตเสร็จ
-- ชื่อ Setup ภายใน build ถูกทำให้คงที่
-- คง AppId เดิม จึงติดตั้งทับ V51 เดิมได้โดยไม่ต้องถอน
-- SHA256 verification และ HTTPS update channel ยังทำงานเหมือนเดิม
+### System Check Dashboard
+แสดง:
+- GPIO CONFLICT
+- VOLTAGE ERROR
+- MISSING PIN
+- PROTECTION
+- READY FOR CODE
 
-### Release gate
-ก่อนสร้าง Setup.exe รุ่นนี้ GitHub Actions จะ:
-- py_compile + AST duplicate-method audit
-- เปิด App จริงบน Windows แบบ offscreen
-- ทดสอบหน้าต่าง 1024×650, 1280×720, 1366×768, 1600×900
-- ทดสอบ Font Scale 90%, 100%, 120%, 130%
-- เปิดทุก Main Mode และทุก Internal Tab
-- ทดสอบ Torque / Battery / Winch / Stability / Safety Logic
-- ทดสอบ Project state round-trip
-- ทดสอบ Local updater + SHA256
-- สร้าง PDF จริงครบ 5 แบบและตรวจขนาดไฟล์
+READY FOR CODE จะเป็น YES เมื่อไม่มี conflict/error/missing protection และผู้ใช้ยืนยันว่าได้ตรวจ GPIO กับ pinout/datasheet ของบอร์ดจริงแล้ว
 
-หมายเหตุ: ผลทางวิศวกรรมยังเป็น Preliminary Engineering Calculation ต้องยืนยันมวล/CG จริง, Torque-Speed curve, กระแสจริง, โครงสร้าง, จุดยึด, Slewing Bearing, ระบบเบรกวินช์, ยาง/พื้น และ Dynamic Shock ก่อนผลิตจริง
+### ESP32 Pin Map Generator
+- สร้าง C/C++ header อัตโนมัติ
+- #define PIN_IBUS_RX
+- PIN_CAN_TX / PIN_CAN_RX
+- PIN_I2C_SDA / PIN_I2C_SCL
+- PIN_LIMIT_LEFT / PIN_LIMIT_RIGHT
+- PIN_BUZZER / PIN_LED
+- Copy code ได้
+- Export เป็น .h ได้
+
+### Project Integration
+- Hardware mapping ถูกบันทึกใน Project JSON
+- Auto Save จดจำ GPIO, voltage, protection และ enable state
+- Hardware readiness ถูกเพิ่มเข้า Integrated Design Check / Final Project Verification
+- เพิ่ม Hardware I/O เป็นเมนูด้านซ้ายและ Card หน้า Home
+
+### Regression Gate
+GitHub Actions จะทดสอบก่อนออก Setup.exe:
+- เปิด Hardware page บน Windows
+- Suggested map ต้องไม่มี duplicate/missing/voltage error
+- Duplicate GPIO ต้องถูกตรวจพบ
+- Reserved GPIO ต้องถูกตรวจพบ
+- Direct 5 V iBUS → ESP32 ต้องถูกเตือน
+- Waveshare profile ต้องมี reserved GPIO verification
+- Generated header ต้องมี macro ครบ
+- Hardware state ต้อง Save/Load Project ได้
+- ทดสอบ UI ทุกความละเอียดและทุก Font Scale
+- ทดสอบ Torque/Battery/Winch/Stability/Safety/PDF/Updater เดิมครบก่อน Release
+
+หมายเหตุ: Hardware checker เป็น Preliminary Wiring Design Tool ไม่แทน datasheet/pinout จริงของ ESP32 board, FlySky receiver, BNO086 breakout, VESC หรืออุปกรณ์กำลัง ต้องตรวจพิกัดแรงดัน/กระแส/สายไฟ/Fuse/grounding ก่อนจ่ายไฟจริง
