@@ -8,7 +8,7 @@ from PySide6.QtPrintSupport import QPrinter
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "50.0.0"
+APP_VERSION = "51.0.2"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -17,83 +17,156 @@ def resource_path(relative_path):
     return base / relative_path
 
 APP_STYLE = """
-/* ---------- Application shell ---------- */
-QMainWindow { background:#f4f7fb; }
-QWidget { color:#1f2937; }
-QLabel { font-size:10.5pt; }
-QTextEdit,QPlainTextEdit { font-size:10.5pt; line-height:1.35; }
-QTableWidget { font-size:10pt; gridline-color:#dbe3ee; alternate-background-color:#f8fbff; }
-QHeaderView::section { background:#eaf1f8; color:#17324d; font-weight:800; font-size:10pt; padding:8px; border:0; border-right:1px solid #d5e0ec; border-bottom:1px solid #d5e0ec; }
-QFormLayout QLabel { font-size:10.5pt; }
-
-QToolTip { background:#0f2742; color:white; border:0; padding:6px 9px; border-radius:5px; }
+/* ==================== V51 MODERN / READABLE UI ==================== */
+QMainWindow { background:#edf3f8; }
+QWidget { color:#203246; }
+QLabel { color:#2a3d50; font-size:10.8pt; }
+QToolTip {
+    background:#102a43; color:white; border:0; padding:7px 10px;
+    border-radius:6px; font-size:10pt;
+}
 
 /* ---------- Tabs ---------- */
 QTabWidget::pane {
-    border:1px solid #dbe3ee; background:#ffffff; border-radius:10px; top:-1px;
+    border:1px solid #d7e1eb; background:#ffffff; border-radius:12px; top:-1px;
 }
 QTabBar::tab {
-    background:#edf2f7; color:#526175; padding:10px 17px; margin-right:4px;
-    min-height:28px; font-weight:700; font-size:10pt; border-top-left-radius:8px; border-top-right-radius:8px;
+    background:#eef3f8; color:#53677d; padding:11px 18px; margin-right:4px;
+    min-height:30px; font-weight:750; font-size:10.4pt;
+    border-top-left-radius:9px; border-top-right-radius:9px;
 }
-QTabBar::tab:hover { background:#e2eaf4; color:#17324d; }
-QTabBar::tab:selected { background:#2463eb; color:white; }
+QTabBar::tab:hover { background:#e4edf6; color:#17324d; }
+QTabBar::tab:selected { background:#245fbb; color:white; }
 
-/* ---------- Section cards ---------- */
+/* ---------- Cards / sections ---------- */
 QGroupBox {
-    font-weight:800; font-size:10.5pt; color:#17324d; border:1px solid #d8e1ec; border-radius:10px;
-    margin-top:13px; padding:15px 12px 12px 12px; background:#ffffff;
+    font-weight:800; font-size:11pt; color:#17324d;
+    border:1px solid #d8e2ec; border-radius:12px;
+    margin-top:14px; padding:17px 14px 14px 14px; background:#ffffff;
 }
 QGroupBox::title {
-    subcontrol-origin:margin; left:14px; padding:0 7px; background:#ffffff; color:#17324d;
+    subcontrol-origin:margin; left:15px; padding:0 8px;
+    background:#ffffff; color:#17324d;
 }
 QFrame#topHeader {
-    background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #0f2742,stop:1 #194d7a);
-    border:0; border-radius:14px;
+    background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #123554,stop:1 #1d638f);
+    border:0; border-radius:15px;
 }
-QFrame#softPanel { background:#ffffff; border:1px solid #dbe3ee; border-radius:12px; }
-QFrame#metricPanel { background:#f8fbff; border:1px solid #d7e6f6; border-radius:11px; }
+QFrame#softPanel {
+    background:#ffffff; border:1px solid #d8e3ed; border-radius:13px;
+}
+QFrame#metricPanel {
+    background:#f6faff; border:1px solid #d7e5f3; border-radius:12px;
+}
+QFrame#navPanel {
+    background:#f8fbfe; border-right:1px solid #d8e3ed;
+}
 
 /* ---------- Inputs ---------- */
-QLabel { color:#2a3a4d; }
 QDoubleSpinBox,QSpinBox,QComboBox,QLineEdit {
-    min-height:36px; font-size:10.5pt; border:1px solid #c9d5e3; border-radius:7px; padding:3px 8px;
-    background:#ffffff; selection-background-color:#2463eb;
+    min-height:40px; font-size:10.8pt;
+    border:1px solid #c7d4e1; border-radius:9px; padding:4px 9px;
+    background:#ffffff; selection-background-color:#2f6fd1;
+}
+QDoubleSpinBox:hover,QSpinBox:hover,QComboBox:hover,QLineEdit:hover {
+    border-color:#8baed1;
 }
 QDoubleSpinBox:focus,QSpinBox:focus,QComboBox:focus,QLineEdit:focus {
-    border:2px solid #4b8df8; padding:2px 7px;
+    border:2px solid #3d7bd8; padding:3px 8px;
 }
-QDoubleSpinBox:hover,QSpinBox:hover,QComboBox:hover,QLineEdit:hover { border-color:#93b4da; }
-QComboBox::drop-down { border:0; width:25px; }
-QCheckBox { spacing:8px; }
-QCheckBox::indicator { width:18px; height:18px; }
+QDoubleSpinBox:disabled,QSpinBox:disabled,QComboBox:disabled,QLineEdit:disabled {
+    background:#f2f5f8; color:#8392a3;
+}
+QComboBox::drop-down { border:0; width:28px; }
+QCheckBox { spacing:9px; font-size:10.6pt; }
+QCheckBox::indicator { width:20px; height:20px; }
+QRadioButton { spacing:8px; font-size:10.6pt; }
+QRadioButton::indicator { width:19px; height:19px; }
 
 /* ---------- Buttons ---------- */
 QPushButton {
-    min-height:40px; font-size:10pt; border-radius:8px; padding:7px 14px; background:#ffffff;
-    border:1px solid #c9d5e3; color:#17324d; font-weight:700;
+    min-height:41px; border-radius:9px; padding:7px 15px;
+    background:#ffffff; border:1px solid #c8d5e2;
+    color:#183a57; font-size:10.3pt; font-weight:750;
 }
-QPushButton:hover { background:#f2f7fc; border-color:#8eb2d7; }
-QPushButton:pressed { background:#e5eef8; }
+QPushButton:hover { background:#f2f7fc; border-color:#84a9ce; }
+QPushButton:pressed { background:#e4edf7; }
+QPushButton:disabled { background:#f2f4f6; color:#9ba6b2; border-color:#dce2e8; }
+
 QPushButton#primaryButton {
-    color:white; border:0; background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #2463eb,stop:1 #1687e8);
-    font-weight:800;
+    color:white; border:0;
+    background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #245fbb,stop:1 #2382c7);
+    font-weight:850;
 }
-QPushButton#primaryButton:hover { background:#1f6ed7; }
-QPushButton#secondaryButton { background:#f5f8fc; border:1px solid #c7d5e5; color:#24415d; }
-QPushButton#dangerButton { background:#fff5f5; color:#b42318; border:1px solid #f1b8b3; }
+QPushButton#primaryButton:hover { background:#1d64b8; }
+QPushButton#secondaryButton {
+    background:#f5f8fc; border:1px solid #c8d5e2; color:#24445f;
+}
+QPushButton#dangerButton {
+    background:#fff4f4; color:#b42318; border:1px solid #efb6b1;
+}
+
+/* ---------- Persistent left navigation ---------- */
+QPushButton#navButton {
+    min-height:46px; max-height:50px; text-align:left;
+    padding:7px 12px; border-radius:10px; border:1px solid transparent;
+    background:transparent; color:#41566c; font-size:10.4pt; font-weight:750;
+}
+QPushButton#navButton:hover {
+    background:#edf4fb; color:#173f63; border-color:#d8e6f3;
+}
+QPushButton#navButton[active="true"] {
+    background:#e7f0ff; color:#174f96; border:1px solid #c8ddfa;
+    font-weight:900;
+}
+QLabel#navSection {
+    color:#8291a1; font-size:8.5pt; font-weight:900;
+    padding:9px 8px 3px 8px;
+}
 
 /* ---------- Text / reports ---------- */
 QPlainTextEdit,QTextEdit {
-    background:#ffffff; border:1px solid #d8e1ec; border-radius:9px; padding:6px;
-    selection-background-color:#d9e9ff; selection-color:#17324d;
+    background:#ffffff; border:1px solid #d7e1eb; border-radius:10px;
+    padding:9px; font-size:10.8pt;
+    selection-background-color:#d8e9ff; selection-color:#17324d;
 }
 QScrollArea { border:0; background:transparent; }
 QScrollArea > QWidget > QWidget { background:transparent; }
-QHeaderView::section { background:#eef4fa; color:#17324d; padding:7px; border:0; border-bottom:1px solid #d5deea; font-weight:700; }
-QTableWidget { background:white; alternate-background-color:#f8fafc; gridline-color:#e3e9f0; border:1px solid #d8e1ec; border-radius:8px; }
-QProgressBar { border:1px solid #cbd8e6; border-radius:7px; background:#eef3f8; text-align:center; min-height:18px; }
-QProgressBar::chunk { border-radius:6px; background:#2463eb; }
+
+/* ---------- Tables ---------- */
+QTableWidget {
+    background:white; alternate-background-color:#f7fafc;
+    gridline-color:#e0e7ef; border:1px solid #d7e1eb;
+    border-radius:9px; font-size:10.5pt;
+}
+QTableWidget::item { padding:6px; }
+QHeaderView::section {
+    background:#eaf1f8; color:#17324d; padding:9px;
+    border:0; border-right:1px solid #d5e0ea; border-bottom:1px solid #d5e0ea;
+    font-weight:850; font-size:10.3pt;
+}
+
+/* ---------- Progress / sliders / scrollbars ---------- */
+QProgressBar {
+    border:1px solid #cbd8e5; border-radius:7px;
+    background:#eef3f7; text-align:center; min-height:18px;
+}
+QProgressBar::chunk { border-radius:6px; background:#2f6fd1; }
+QSlider::groove:horizontal { height:7px; background:#dce6f0; border-radius:3px; }
+QSlider::handle:horizontal {
+    width:20px; margin:-7px 0; border-radius:10px;
+    background:#2f6fd1; border:2px solid white;
+}
+QScrollBar:vertical { width:12px; background:#eef3f7; margin:0; }
+QScrollBar::handle:vertical { background:#b9c8d8; min-height:32px; border-radius:6px; }
+QScrollBar::handle:vertical:hover { background:#95aac0; }
+QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical { height:0; }
+
+/* ---------- Status bar ---------- */
+QStatusBar {
+    background:#ffffff; color:#5f7387;
+    border-top:1px solid #d8e3ed; font-size:9.5pt;
+}
 """
 
 G=9.81
@@ -433,72 +506,71 @@ def add_soft_shadow(widget, blur=22, y=5, alpha=30):
 def make_chip(text, bg="#eaf2ff", fg="#2457a6"):
     label=QLabel(text)
     label.setAlignment(Qt.AlignCenter)
-    label.setStyleSheet(f"background:{bg};color:{fg};border-radius:10px;padding:4px 10px;font-size:9pt;font-weight:700;")
+    label.setStyleSheet(f"background:{bg};color:{fg};border-radius:11px;padding:5px 11px;font-size:9.4pt;font-weight:800;")
     label.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Fixed)
     return label
 
 
 def make_page_header(title, subtitle, back_callback, tag_text=None, tag_bg="#eaf2ff", tag_fg="#2457a6", action_text=None, action_callback=None):
-    """Consistent dark engineering header used by calculation modules."""
-    frame=QFrame();frame.setObjectName("topHeader");frame.setMinimumHeight(92);add_soft_shadow(frame,20,4,24)
-    row=QHBoxLayout(frame);row.setContentsMargins(18,13,18,13);row.setSpacing(14)
-    back=QPushButton("←  เมนูหลัก");back.setObjectName("secondaryButton");back.setMinimumWidth(116);back.clicked.connect(back_callback);row.addWidget(back)
-    col=QVBoxLayout();col.setSpacing(1)
-    h=QLabel(title);hf=QFont();hf.setPointSize(14);hf.setBold(True);h.setFont(hf);h.setStyleSheet("color:white;background:transparent;")
-    sh=QLabel(subtitle);sh.setWordWrap(True);sh.setStyleSheet("color:#dbeafe;font-size:9pt;font-weight:600;background:transparent;")
+    """Readable V51 page header with clear hierarchy and compact actions."""
+    frame=QFrame();frame.setObjectName("topHeader");frame.setMinimumHeight(98);add_soft_shadow(frame,20,4,22)
+    row=QHBoxLayout(frame);row.setContentsMargins(18,14,18,14);row.setSpacing(14)
+    back=QPushButton("⌂  หน้าแรก");back.setObjectName("secondaryButton");back.setMinimumWidth(112);back.clicked.connect(back_callback);row.addWidget(back)
+    col=QVBoxLayout();col.setSpacing(3)
+    h=QLabel(title);hf=QFont();hf.setPointSize(16);hf.setBold(True);h.setFont(hf);h.setStyleSheet("color:white;background:transparent;")
+    sh=QLabel(subtitle);sh.setWordWrap(True);sh.setStyleSheet("color:#d9ebf8;font-size:10pt;font-weight:650;background:transparent;")
     col.addWidget(h);col.addWidget(sh);row.addLayout(col,1)
     if tag_text:
         row.addWidget(make_chip(tag_text,tag_bg,tag_fg))
     if action_text and action_callback:
-        action=QPushButton(action_text);action.setObjectName("primaryButton");action.setMinimumWidth(180);action.clicked.connect(action_callback);row.addWidget(action)
+        action=QPushButton(action_text);action.setObjectName("primaryButton");action.setMinimumWidth(178);action.clicked.connect(action_callback);row.addWidget(action)
     return frame
 
 
+
 class ModeCardButton(QPushButton):
-    """Polished clickable home card with a compact engineering badge and accent line."""
+    """V51 home module card: larger text, simpler hierarchy, clear click target."""
     def __init__(self,title,subtitle,badge="01",accent="#2463eb",parent=None):
         super().__init__("",parent)
         self.setObjectName("modeCard")
-        # Keep the dashboard card tall enough for all child labels.
-        # APP_STYLE defines a generic QPushButton min-height of 37 px; without
-        # an explicit local/fixed height Qt can collapse this composite button.
-        self.setFixedHeight(174)
+        self.setFixedHeight(158)
         self.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Fixed)
         self.setCursor(Qt.PointingHandCursor)
         self.setStyleSheet(f"""
             QPushButton#modeCard {{
-                background:#ffffff; border:1px solid #d9e3ef; border-radius:16px; padding:0;
-                min-height:174px; max-height:174px;
+                background:#ffffff; border:1px solid #d8e3ed; border-radius:15px; padding:0;
+                min-height:158px; max-height:158px;
             }}
             QPushButton#modeCard:hover {{ background:#fbfdff; border:2px solid {accent}; }}
-            QPushButton#modeCard:pressed {{ background:#f2f7fc; }}
+            QPushButton#modeCard:pressed {{ background:#f2f7fb; }}
         """)
-        add_soft_shadow(self,24,5,26)
+        add_soft_shadow(self,20,4,22)
 
         outer=QVBoxLayout(self);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
-        accent_line=QFrame();accent_line.setFixedHeight(6)
-        accent_line.setStyleSheet(f"background:{accent};border-top-left-radius:16px;border-top-right-radius:16px;")
+        accent_line=QFrame();accent_line.setFixedHeight(5)
+        accent_line.setStyleSheet(f"background:{accent};border-top-left-radius:15px;border-top-right-radius:15px;")
         accent_line.setAttribute(Qt.WA_TransparentForMouseEvents,True);outer.addWidget(accent_line)
 
-        body=QVBoxLayout();body.setContentsMargins(20,17,20,18);body.setSpacing(8);outer.addLayout(body)
+        body=QVBoxLayout();body.setContentsMargins(18,14,18,15);body.setSpacing(7);outer.addLayout(body)
         top=QHBoxLayout();top.setSpacing(8)
-        badge_label=QLabel(badge);badge_label.setAlignment(Qt.AlignCenter);badge_label.setFixedSize(38,30)
-        badge_label.setStyleSheet(f"background:{accent};color:white;border-radius:9px;font-weight:900;font-size:9pt;")
-        status=QLabel("ENGINEERING MODULE");status.setStyleSheet("color:#7b8ca1;font-size:8pt;font-weight:700;background:transparent;")
+        badge_label=QLabel(badge);badge_label.setAlignment(Qt.AlignCenter);badge_label.setFixedSize(40,31)
+        badge_label.setStyleSheet(f"background:{accent};color:white;border-radius:9px;font-weight:900;font-size:9.3pt;")
+        status=QLabel("MODULE");status.setStyleSheet("color:#8795a6;font-size:8.5pt;font-weight:800;background:transparent;")
         top.addWidget(badge_label);top.addWidget(status);top.addStretch(1);body.addLayout(top)
 
         title_label=QLabel(title);title_label.setWordWrap(True)
-        tf=QFont();tf.setPointSize(13);tf.setBold(True);title_label.setFont(tf)
-        title_label.setStyleSheet("color:#102a43;background:transparent;")
+        tf=QFont();tf.setPointSize(13.5);tf.setBold(True);title_label.setFont(tf)
+        title_label.setStyleSheet("color:#102f4a;background:transparent;")
         sub_label=QLabel(subtitle);sub_label.setWordWrap(True)
-        sf=QFont();sf.setPointSize(9);sf.setWeight(QFont.DemiBold);sub_label.setFont(sf)
-        sub_label.setStyleSheet("color:#52667c;background:transparent;line-height:1.3;")
+        sf=QFont();sf.setPointSize(9.6);sf.setWeight(QFont.DemiBold);sub_label.setFont(sf)
+        sub_label.setStyleSheet("color:#52697e;background:transparent;")
         body.addWidget(title_label);body.addWidget(sub_label);body.addStretch(1)
 
-        action=QLabel("เปิดการคำนวณ  →");action.setStyleSheet(f"color:{accent};font-size:9pt;font-weight:800;background:transparent;")
+        action=QLabel("เปิดโมดูล  →");action.setStyleSheet(f"color:{accent};font-size:9.4pt;font-weight:850;background:transparent;")
         body.addWidget(action)
         for x in (accent_line,badge_label,status,title_label,sub_label,action):
             x.setAttribute(Qt.WA_TransparentForMouseEvents,True)
+
 
 
 class TorqueFBDWidget(QWidget):
@@ -613,11 +685,11 @@ class App(QMainWindow):
     updateTaskFinished=Signal(object)
     updateProgressChanged=Signal(int)
     def __init__(self):
-        super().__init__();self.setStyleSheet(APP_STYLE);self.setWindowTitle(f"{APP_NAME} — V{APP_VERSION}"); self.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))));self.setMinimumSize(980,680);self.resize(1380,900)
-        app_font=QFont(choose_ui_font_family(),11);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
+        super().__init__();self.setStyleSheet(APP_STYLE);self.setWindowTitle(f"{APP_NAME} — V{APP_VERSION}"); self.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))));self.setMinimumSize(1120,720);self.resize(1500,920)
+        app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
-        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.setup_dynamic_tabs()
+        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
         self.calc_all()
         # Automatically restore the most recently entered values.
         self.restore_last_values(silent=True)
@@ -702,6 +774,150 @@ class App(QMainWindow):
 
 
 
+
+    # =====================================================================
+    # V51 APPLICATION SHELL — NAVIGATION + READABILITY
+    # =====================================================================
+    def ui_preferences_path(self):
+        base=QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation)
+        folder=Path(base) if base else (Path.home()/".CraneVehicleEngineeringTool")
+        folder.mkdir(parents=True,exist_ok=True)
+        return folder/"ui_preferences.json"
+
+    def load_ui_preferences(self):
+        default={"font_scale":1.00,"navigation_visible":True}
+        try:
+            p=self.ui_preferences_path()
+            if not p.exists():return default
+            d=json.loads(p.read_text(encoding="utf-8"))
+            return {
+                "font_scale":max(.90,min(1.30,float(d.get("font_scale",1.00)))),
+                "navigation_visible":bool(d.get("navigation_visible",True)),
+            }
+        except Exception:
+            return default
+
+    def save_ui_preferences(self):
+        try:
+            data={
+                "font_scale":float(getattr(self,"uiFontScale",1.0)),
+                "navigation_visible":bool(getattr(self,"navDock",None) and self.navDock.isVisible()),
+            }
+            self.ui_preferences_path().write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding="utf-8")
+        except Exception:
+            pass
+
+    def _font_scale_css(self,scale):
+        s=max(.90,min(1.30,float(scale)))
+        return f"""
+        QLabel {{ font-size:{10.8*s:.2f}pt; }}
+        QPushButton {{ font-size:{10.3*s:.2f}pt; }}
+        QDoubleSpinBox,QSpinBox,QComboBox,QLineEdit {{ font-size:{10.8*s:.2f}pt; }}
+        QCheckBox,QRadioButton {{ font-size:{10.5*s:.2f}pt; }}
+        QTextEdit,QPlainTextEdit {{ font-size:{10.8*s:.2f}pt; }}
+        QTableWidget {{ font-size:{10.5*s:.2f}pt; }}
+        QHeaderView::section {{ font-size:{10.3*s:.2f}pt; }}
+        """
+
+    def apply_ui_scale(self,scale,save=True):
+        self.uiFontScale=max(.90,min(1.30,float(scale)))
+        font=QFont(choose_ui_font_family())
+        font.setPointSizeF(11.5*self.uiFontScale)
+        font.setStyleStrategy(QFont.PreferAntialias)
+        QApplication.instance().setFont(font)
+        self.setFont(font)
+        self.setStyleSheet(APP_STYLE+self._font_scale_css(self.uiFontScale))
+        if hasattr(self,"fontScaleLabel"):
+            self.fontScaleLabel.setText(f"{round(self.uiFontScale*100):d}%")
+        if save:self.save_ui_preferences()
+
+    def change_ui_scale(self,delta):
+        self.apply_ui_scale(getattr(self,"uiFontScale",1.0)+float(delta))
+
+    def reset_ui_scale(self):
+        self.apply_ui_scale(1.0)
+
+    def _make_nav_button(self,key,text,callback):
+        b=QPushButton(text);b.setObjectName("navButton");b.setProperty("active",False)
+        b.setCursor(Qt.PointingHandCursor);b.clicked.connect(callback)
+        self.navButtons[key]=b
+        return b
+
+    def _set_active_nav(self,key):
+        if not hasattr(self,"navButtons"):return
+        for k,b in self.navButtons.items():
+            active=(k==key)
+            b.setProperty("active",active)
+            b.style().unpolish(b);b.style().polish(b);b.update()
+
+    def setup_navigation_dock(self):
+        self.navButtons={}
+        dock=QDockWidget("",self);self.navDock=dock
+        dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        dock.setFixedWidth(205)
+        dock.setTitleBarWidget(QWidget())
+
+        panel=QFrame();panel.setObjectName("navPanel")
+        lay=QVBoxLayout(panel);lay.setContentsMargins(11,12,11,12);lay.setSpacing(5)
+
+        brand=QLabel("CVET")
+        bf=QFont();bf.setPointSize(17);bf.setBold(True);brand.setFont(bf)
+        brand.setStyleSheet("color:#173e61;padding:2px 7px;")
+        ver=QLabel(f"Crane Engineering  •  V{APP_VERSION}")
+        ver.setWordWrap(True);ver.setStyleSheet("color:#708397;font-size:8.8pt;font-weight:700;padding:0 7px 8px 7px;")
+        lay.addWidget(brand);lay.addWidget(ver)
+
+        s=QLabel("MAIN");s.setObjectName("navSection");lay.addWidget(s)
+        lay.addWidget(self._make_nav_button("home","⌂   หน้าแรก / Home",self.show_home_mode))
+        lay.addWidget(self._make_nav_button("torque","T   Drive Torque",self.show_torque_mode))
+        lay.addWidget(self._make_nav_button("electrical","B   Battery / Electrical",self.show_electrical_mode))
+        lay.addWidget(self._make_nav_button("winch","W   Winch",self.show_winch_mode))
+        lay.addWidget(self._make_nav_button("stability","S   Stability",self.show_stability_mode))
+        lay.addWidget(self._make_nav_button("safety","C   Control Logic",self.show_safety_logic_mode))
+
+        s2=QLabel("REFERENCE & OUTPUT");s2.setObjectName("navSection");lay.addWidget(s2)
+        lay.addWidget(self._make_nav_button("variables","A–Z   Variables",self.show_variable_dictionary_mode))
+        lay.addWidget(self._make_nav_button("tools","R   Project / Report",self.show_project_tools_mode))
+        lay.addStretch(1)
+
+        autosave=QLabel("● Auto Save ON")
+        autosave.setStyleSheet("color:#177245;background:#eaf7ef;border:1px solid #c8e7d2;border-radius:8px;padding:7px;font-size:9pt;font-weight:800;")
+        update=QLabel("● GitHub Update ON")
+        update.setStyleSheet("color:#245f9e;background:#edf5ff;border:1px solid #d0e2f7;border-radius:8px;padding:7px;font-size:9pt;font-weight:800;")
+        lay.addWidget(autosave);lay.addWidget(update)
+
+        dock.setWidget(panel)
+        self.addDockWidget(Qt.LeftDockWidgetArea,dock)
+        prefs=self.load_ui_preferences()
+        dock.setVisible(bool(prefs.get("navigation_visible",True)))
+
+    def toggle_navigation(self):
+        if hasattr(self,"navDock"):
+            self.navDock.setVisible(not self.navDock.isVisible())
+            self.save_ui_preferences()
+
+    def setup_status_bar_ui(self):
+        bar=QStatusBar(self);self.setStatusBar(bar)
+        bar.showMessage("พร้อมใช้งาน • ค่าที่กรอกจะบันทึกอัตโนมัติ",5000)
+
+        nav=QPushButton("☰ เมนู");nav.setMaximumHeight(28);nav.setMinimumHeight(26);nav.clicked.connect(self.toggle_navigation)
+        bar.addWidget(nav)
+
+        bar.addPermanentWidget(QLabel("ขนาดตัวอักษร"))
+        minus=QPushButton("A−");minus.setFixedSize(38,28);minus.clicked.connect(lambda:self.change_ui_scale(-.10))
+        self.fontScaleLabel=QLabel("100%");self.fontScaleLabel.setAlignment(Qt.AlignCenter);self.fontScaleLabel.setMinimumWidth(44)
+        plus=QPushButton("A+");plus.setFixedSize(38,28);plus.clicked.connect(lambda:self.change_ui_scale(.10))
+        reset=QPushButton("Reset");reset.setFixedSize(52,28);reset.clicked.connect(self.reset_ui_scale)
+        bar.addPermanentWidget(minus);bar.addPermanentWidget(self.fontScaleLabel);bar.addPermanentWidget(plus);bar.addPermanentWidget(reset)
+
+        version=QLabel(f"  V{APP_VERSION}  ")
+        version.setStyleSheet("font-weight:900;color:#31506b;")
+        bar.addPermanentWidget(version)
+
+        prefs=self.load_ui_preferences()
+        self.apply_ui_scale(prefs.get("font_scale",1.0),save=False)
+
     def setup_dynamic_tabs(self):
         """Top-level navigation uses one active page only; the top tab bar is hidden."""
         self._mode_pages={
@@ -720,34 +936,42 @@ class App(QMainWindow):
 
     def show_home_mode(self):
         self._show_only_page(self.homePage)
+        self._set_active_nav("home")
 
     def show_torque_mode(self):
         self._show_only_page(self.torquePage)
+        self._set_active_nav("torque")
         self.calc_torque()
 
     def show_electrical_mode(self):
         self._show_only_page(self.electricalPage)
+        self._set_active_nav("electrical")
         self.calc_electrical()
 
     def show_winch_mode(self):
         self._show_only_page(self.winchPage)
+        self._set_active_nav("winch")
         self.calc_winch()
 
     def show_stability_mode(self):
         # Stability uses its own internal navigation created below.
         self._show_only_page(self.stabilityHubPage)
+        self._set_active_nav("stability")
         self.calc_all()
 
     def show_project_tools_mode(self):
         self._show_only_page(self.projectToolsPage)
+        self._set_active_nav("tools")
         self.update_project_tools()
 
     def show_safety_logic_mode(self):
         self._show_only_page(self.safetyPage)
+        self._set_active_nav("safety")
         self.update_safety_logic(log_event=False)
 
     def show_variable_dictionary_mode(self):
         self._show_only_page(self.variableDictionaryPage)
+        self._set_active_nav("variables")
         self.update_all_variable_tables()
 
     def make_stability_hub(self):
@@ -783,111 +1007,113 @@ class App(QMainWindow):
 
     def make_home(self):
         w=QWidget();self.homePage=w
-        root=QVBoxLayout(w);root.setContentsMargins(30,22,30,22);root.setSpacing(14)
+        outer=QVBoxLayout(w);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
 
-        # Hero header
-        hero=QFrame();hero.setObjectName("topHeader");hero.setMinimumHeight(154);hero.setMaximumHeight(168);add_soft_shadow(hero,28,6,34)
-        hl=QHBoxLayout(hero);hl.setContentsMargins(28,24,28,24);hl.setSpacing(22)
-        left=QVBoxLayout();left.setSpacing(7);hl.addLayout(left,1)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame)
+        content=QWidget();root=QVBoxLayout(content);root.setContentsMargins(24,20,24,22);root.setSpacing(14)
+        scroll.setWidget(content);outer.addWidget(scroll)
+
+        # Hero
+        hero=QFrame();hero.setObjectName("topHeader");hero.setMinimumHeight(142);add_soft_shadow(hero,24,5,28)
+        hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
+        left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        version=make_chip("V50  BUILT-IN UPDATER", "#ffffff", "#174a74")
-        project=make_chip("CRANE VEHICLE PROJECT", "#dcedff", "#174a74")
-        chips.addWidget(version);chips.addWidget(project);chips.addStretch(1);left.addLayout(chips)
-        title=QLabel("ENGINEERING CALCULATION TOOL")
-        tf=QFont();tf.setPointSize(21);tf.setBold(True);title.setFont(tf)
+        chips.addWidget(make_chip("V51  MODERN UI","#ffffff","#174a74"))
+        chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
+        chips.addStretch(1);left.addLayout(chips)
+
+        title=QLabel("CRANE VEHICLE ENGINEERING TOOL")
+        tf=QFont();tf.setPointSize(20);tf.setBold(True);title.setFont(tf)
         title.setStyleSheet("color:white;background:transparent;")
         left.addWidget(title)
-        sub=QLabel("เครื่องมือคำนวณสำหรับรถขนซากสัตว์พร้อมเครน • Torque • Battery • Winch • Stability")
-        sub.setWordWrap(True);sub.setStyleSheet("color:#dbeafe;font-size:10pt;font-weight:600;background:transparent;")
+
+        sub=QLabel("คำนวณระบบขับ • แบตเตอรี่ • วินช์ • เสถียรภาพ • Control Logic ในโปรแกรมเดียว")
+        sub.setWordWrap(True);sub.setStyleSheet("color:#e1eff9;font-size:10.5pt;font-weight:650;background:transparent;")
         left.addWidget(sub)
-        hint=QLabel("เลือกโมดูลด้านล่างเพื่อเริ่มคำนวณ  •  ทุกค่าหลักสามารถปรับได้")
-        hint.setStyleSheet("color:#a9c9e6;font-size:9pt;background:transparent;");left.addWidget(hint)
+        hint=QLabel("เริ่มจากเลือกโมดูลด้านล่าง หรือใช้เมนูซ้ายเพื่อสลับหน้าได้ทันที")
+        hint.setStyleSheet("color:#b9d5e8;font-size:9.4pt;background:transparent;");left.addWidget(hint)
 
         side=QFrame();side.setObjectName("metricPanel");side.setFixedWidth(255)
-        side.setStyleSheet("QFrame#metricPanel{background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.20);border-radius:12px;}")
-        sl=QVBoxLayout(side);sl.setContentsMargins(16,14,16,14);sl.setSpacing(5)
-        ss=QLabel("PROJECT BASELINE");ss.setStyleSheet("color:#dbeafe;font-size:8pt;font-weight:800;background:transparent;");sl.addWidget(ss)
-        for txt in ("Vehicle mass target  ≤ 300 kg","Crane rotation  ±90°","Main drive  72 V","Winch battery  12 V separate"):
-            q=QLabel(txt);q.setStyleSheet("color:white;font-size:9pt;font-weight:600;background:transparent;");q.setWordWrap(True);sl.addWidget(q)
+        side.setStyleSheet("QFrame#metricPanel{background:rgba(255,255,255,0.11);border:1px solid rgba(255,255,255,0.22);border-radius:13px;}")
+        sl=QVBoxLayout(side);sl.setContentsMargins(16,13,16,13);sl.setSpacing(5)
+        ss=QLabel("PROJECT BASELINE");ss.setStyleSheet("color:#dcecf8;font-size:8.5pt;font-weight:900;background:transparent;");sl.addWidget(ss)
+        for txt in ("Mass target ≤ 300 kg","Crane rotation ±90°","Main drive 72 V","Winch battery 12 V separate"):
+            q=QLabel("•  "+txt);q.setStyleSheet("color:white;font-size:9.2pt;font-weight:650;background:transparent;");q.setWordWrap(True);sl.addWidget(q)
         hl.addWidget(side)
         root.addWidget(hero)
 
-        row=QHBoxLayout();row.setContentsMargins(2,0,2,0)
-        sec=QLabel("CALCULATION MODULES");sec.setStyleSheet("color:#17324d;font-size:11pt;font-weight:900;letter-spacing:0.6px;")
-        row.addWidget(sec);row.addStretch(1)
-        note=QLabel("เลือก 1 หัวข้อเพื่อเปิดหน้าคำนวณ");note.setStyleSheet("color:#77889b;font-size:9.5pt;");row.addWidget(note)
-        varsBtn=QPushButton("ตารางตัวแปรทั้งหมด");varsBtn.setObjectName("secondaryButton");varsBtn.setMinimumWidth(175);varsBtn.clicked.connect(self.show_variable_dictionary_mode);row.addWidget(varsBtn)
-        toolsBtn=QPushButton("เครื่องมือเพิ่มเติม / Final Report");toolsBtn.setObjectName("primaryButton");toolsBtn.setMinimumWidth(220);toolsBtn.clicked.connect(self.show_project_tools_mode);row.addWidget(toolsBtn)
-        root.addLayout(row)
-
-        # V44 QUICK SAVE — no need to open Project Tools just to keep input values.
+        # System status cards
+        system=QHBoxLayout();system.setSpacing(12)
         quick=QFrame();quick.setObjectName("softPanel")
-        ql=QHBoxLayout(quick);ql.setContentsMargins(14,10,14,10);ql.setSpacing(10)
-        qs=QVBoxLayout();qs.setSpacing(2)
-        qtitle=QLabel("บันทึกค่าที่กรอกอัตโนมัติ")
-        qtitle.setStyleSheet("color:#17324d;font-size:10pt;font-weight:900;")
-        self.quickSaveStatus=QLabel("โปรแกรมจะจำค่าล่าสุดให้อัตโนมัติ และโหลดกลับมาเมื่อเปิดโปรแกรมครั้งถัดไป")
-        self.quickSaveStatus.setWordWrap(True)
-        self.quickSaveStatus.setStyleSheet("color:#66788a;font-size:8.5pt;")
-        qs.addWidget(qtitle);qs.addWidget(self.quickSaveStatus);ql.addLayout(qs,1)
-        qsave=QPushButton("บันทึกตอนนี้")
-        qsave.setObjectName("primaryButton")
-        qsave.clicked.connect(lambda:self.save_last_values(silent=False))
-        qload=QPushButton("โหลดค่าล่าสุด")
-        qload.clicked.connect(lambda:self.restore_last_values(silent=False))
-        qclear=QPushButton("ล้างค่าที่จำ")
-        qclear.setObjectName("secondaryButton")
-        qclear.clicked.connect(self.clear_last_values)
-        ql.addWidget(qsave);ql.addWidget(qload);ql.addWidget(qclear)
-        root.addWidget(quick)
+        ql=QVBoxLayout(quick);ql.setContentsMargins(15,11,15,11);ql.setSpacing(7)
+        qtitle=QLabel("AUTO SAVE")
+        qtitle.setStyleSheet("color:#173f5f;font-size:10.5pt;font-weight:900;")
+        self.quickSaveStatus=QLabel("จำค่าที่กรอกล่าสุดให้อัตโนมัติ")
+        self.quickSaveStatus.setWordWrap(True);self.quickSaveStatus.setStyleSheet("color:#667b8e;font-size:9.2pt;")
+        ql.addWidget(qtitle);ql.addWidget(self.quickSaveStatus)
+        qr=QHBoxLayout()
+        qsave=QPushButton("บันทึกตอนนี้");qsave.setObjectName("primaryButton");qsave.clicked.connect(lambda:self.save_last_values(silent=False))
+        qload=QPushButton("โหลดค่าล่าสุด");qload.clicked.connect(lambda:self.restore_last_values(silent=False))
+        qclear=QPushButton("ล้างค่าที่จำ");qclear.setObjectName("secondaryButton");qclear.clicked.connect(self.clear_last_values)
+        qr.addWidget(qsave);qr.addWidget(qload);qr.addWidget(qclear);ql.addLayout(qr)
+        system.addWidget(quick,1)
 
         updatePanel=QFrame();updatePanel.setObjectName("softPanel")
-        upl=QHBoxLayout(updatePanel);upl.setContentsMargins(14,10,14,10);upl.setSpacing(10)
-        upText=QVBoxLayout();upText.setSpacing(2)
-        upTitle=QLabel(f"UPDATE CENTER   •   Current V{APP_VERSION}")
-        upTitle.setStyleSheet("color:#17324d;font-size:10.5pt;font-weight:900;")
-        self.updateStatusLabel=QLabel("เชื่อม GitHub Update Channel แล้ว • โปรแกรมจะตรวจเวอร์ชันใหม่อัตโนมัติ")
-        self.updateStatusLabel.setWordWrap(True)
-        self.updateStatusLabel.setStyleSheet("color:#66788a;font-size:9.5pt;")
+        upl=QVBoxLayout(updatePanel);upl.setContentsMargins(15,11,15,11);upl.setSpacing(7)
+        upTitle=QLabel(f"UPDATE CENTER  •  V{APP_VERSION}")
+        upTitle.setStyleSheet("color:#173f5f;font-size:10.5pt;font-weight:900;")
+        self.updateStatusLabel=QLabel("เชื่อม GitHub แล้ว • ตรวจเวอร์ชันใหม่อัตโนมัติ")
+        self.updateStatusLabel.setWordWrap(True);self.updateStatusLabel.setStyleSheet("color:#667b8e;font-size:9.2pt;")
         self.updateProgress=QProgressBar();self.updateProgress.setRange(0,100);self.updateProgress.setValue(0)
         self.updateProgress.setMaximumHeight(8);self.updateProgress.setTextVisible(False);self.updateProgress.hide()
-        upText.addWidget(upTitle);upText.addWidget(self.updateStatusLabel);upText.addWidget(self.updateProgress)
-        upl.addLayout(upText,1)
-        checkUpdate=QPushButton("Check for Update");checkUpdate.setObjectName("primaryButton");checkUpdate.clicked.connect(lambda:self.check_for_update(False))
+        upl.addWidget(upTitle);upl.addWidget(self.updateStatusLabel);upl.addWidget(self.updateProgress)
+        ur=QHBoxLayout()
+        checkUpdate=QPushButton("Check Update");checkUpdate.setObjectName("primaryButton");checkUpdate.clicked.connect(lambda:self.check_for_update(False))
         self.updateNowButton=QPushButton("Update Now");self.updateNowButton.setEnabled(False);self.updateNowButton.clicked.connect(self.download_pending_update)
-        updateSettings=QPushButton("Update Settings");updateSettings.setObjectName("secondaryButton");updateSettings.clicked.connect(self.show_update_settings)
-        upl.addWidget(checkUpdate);upl.addWidget(self.updateNowButton);upl.addWidget(updateSettings)
-        root.addWidget(updatePanel)
+        updateSettings=QPushButton("Settings");updateSettings.setObjectName("secondaryButton");updateSettings.clicked.connect(self.show_update_settings)
+        ur.addWidget(checkUpdate);ur.addWidget(self.updateNowButton);ur.addWidget(updateSettings);upl.addLayout(ur)
+        system.addWidget(updatePanel,1)
+        root.addLayout(system)
 
-        cards=QGridLayout();cards.setHorizontalSpacing(18);cards.setVerticalSpacing(18)
-        bt=ModeCardButton("DRIVE TORQUE","แรงขับ • Torque • Motor Check • Engineering FBD","01","#2463eb")
-        be=ModeCardButton("ELECTRICAL / BATTERY","Route Energy • Wh • Ah • Peak Current","02","#0f8a73")
-        bw=ModeCardButton("WINCH CALCULATION","ยกของ • เวลา • ความเร็ว • พลังงาน • แบตเตอรี่ 12 V","03","#d97706")
-        bs=ModeCardButton("STABILITY ANALYSIS","การคว่ำ • ทางลาด • FBD • Mass & CG","04","#7c3aed")
-        cards.addWidget(bt,0,0);cards.addWidget(be,0,1);cards.addWidget(bw,1,0);cards.addWidget(bs,1,1)
-        cards.setColumnStretch(0,1);cards.setColumnStretch(1,1);root.addLayout(cards)
+        # Modules heading
+        row=QHBoxLayout();row.setContentsMargins(2,3,2,0)
+        sec=QLabel("เลือกโมดูล / ENGINEERING MODULES")
+        sec.setStyleSheet("color:#17324d;font-size:11.5pt;font-weight:900;")
+        row.addWidget(sec);row.addStretch(1)
+        reportBtn=QPushButton("Project / Final Report");reportBtn.setObjectName("secondaryButton");reportBtn.clicked.connect(self.show_project_tools_mode)
+        row.addWidget(reportBtn)
+        root.addLayout(row)
 
-        safetyBtn=QPushButton("05   CONTROL LOGIC SIMULATOR     •     E-stop • RC Failsafe • IMU Tilt • Interlock • Limit ±90°")
-        safetyBtn.setMinimumHeight(58)
-        safetyBtn.setCursor(Qt.PointingHandCursor)
-        safetyBtn.setStyleSheet("""
-            QPushButton {
-                background:#fff7ed;color:#7c2d12;border:1px solid #fdba74;border-radius:12px;
-                font-size:10.5pt;font-weight:900;text-align:left;padding:10px 18px;
-            }
-            QPushButton:hover {background:#ffedd5;border:2px solid #f97316;}
-            QPushButton:pressed {background:#fed7aa;}
-        """)
-        safetyBtn.clicked.connect(self.show_safety_logic_mode)
-        root.addWidget(safetyBtn)
+        cards=QGridLayout();cards.setHorizontalSpacing(14);cards.setVerticalSpacing(14)
+        bt=ModeCardButton("DRIVE TORQUE","แรงขับ • Torque • Motor Check • FBD","01","#2463eb")
+        be=ModeCardButton("ELECTRICAL / BATTERY","Route Energy • Wh • Ah • Current • BMS","02","#0f8a73")
+        bw=ModeCardButton("WINCH","แรงยก • ความเร็ว • เวลา • 12 V Battery","03","#d97706")
+        bs=ModeCardButton("STABILITY","Side / Front / Rear tipping • Worst Case • CG","04","#7c3aed")
+        bc=ModeCardButton("CONTROL LOGIC","E-stop • RC Failsafe • IMU • Limit • Interlock","05","#c45114")
+        bv=ModeCardButton("VARIABLE DICTIONARY","ความหมายตัวแปร • หน่วย • ค่าปัจจุบัน","06","#4b647a")
 
-        footer=QHBoxLayout();footer.setContentsMargins(4,2,4,0)
-        ft=QLabel("Engineering calculation aid • ตรวจสอบข้อมูลจริงของอุปกรณ์ก่อนผลิตหรือใช้งาน")
-        ft.setStyleSheet("color:#7b8a9b;font-size:8.5pt;");footer.addWidget(ft);footer.addStretch(1)
-        root.addLayout(footer);root.addStretch(1)
-        bt.clicked.connect(self.show_torque_mode);be.clicked.connect(self.show_electrical_mode);bw.clicked.connect(self.show_winch_mode);bs.clicked.connect(self.show_stability_mode)
+        cards.addWidget(bt,0,0);cards.addWidget(be,0,1)
+        cards.addWidget(bw,1,0);cards.addWidget(bs,1,1)
+        cards.addWidget(bc,2,0);cards.addWidget(bv,2,1)
+        cards.setColumnStretch(0,1);cards.setColumnStretch(1,1)
+        root.addLayout(cards)
+
+        bt.clicked.connect(self.show_torque_mode)
+        be.clicked.connect(self.show_electrical_mode)
+        bw.clicked.connect(self.show_winch_mode)
+        bs.clicked.connect(self.show_stability_mode)
+        bc.clicked.connect(self.show_safety_logic_mode)
+        bv.clicked.connect(self.show_variable_dictionary_mode)
+
+        footer=QFrame();footer.setObjectName("softPanel")
+        fl=QHBoxLayout(footer);fl.setContentsMargins(14,9,14,9)
+        ft=QLabel("Tip: ใช้ปุ่ม A− / A+ ด้านล่างเพื่อปรับขนาดตัวอักษรได้ทั้งโปรแกรม")
+        ft.setStyleSheet("color:#6d7f90;font-size:9.2pt;");fl.addWidget(ft);fl.addStretch(1)
+        helpBtn=QPushButton("Project Tools");helpBtn.setObjectName("secondaryButton");helpBtn.clicked.connect(self.show_project_tools_mode);fl.addWidget(helpBtn)
+        root.addWidget(footer)
+        root.addStretch(1)
+
         self.tabs.addTab(w,"")
-
 
 
 
@@ -1755,7 +1981,7 @@ class App(QMainWindow):
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
         root.addWidget(make_page_header("PROJECT TOOLS / ENGINEERING SUITE",
             "Save/Load • Presets • Compare Design • Design Check • Motor • BMS • Winch Duty • Final Report",
-            self.show_home_mode,"V50 TOOLS","#e8f4ff","#174a74"))
+            self.show_home_mode,"V51 TOOLS","#e8f4ff","#174a74"))
         self.projectTabs=QTabWidget();root.addWidget(self.projectTabs)
         self.compareA=None;self.compareB=None
 
@@ -2212,7 +2438,7 @@ class App(QMainWindow):
         try:
             self._core_recalculate();self.update_project_tools()
             t=self.torque_results();e=self.electrical_results();w=self.winch_results();worst=self.stability_worst_record()
-            tmp=Path(tempfile.gettempdir())/'crane_vehicle_v50_report';tmp.mkdir(parents=True,exist_ok=True)
+            tmp=Path(tempfile.gettempdir())/'crane_vehicle_v51_report';tmp.mkdir(parents=True,exist_ok=True)
             images=[]
             for name,widget in (("vehicle",getattr(self,'view',None)),("fbd",getattr(self,'forceDiagram',None)),("stability_map",getattr(self,'graph',None)),("motor_operating",getattr(self,'motorOpGraph',None))):
                 if widget is not None:
@@ -2259,7 +2485,7 @@ class App(QMainWindow):
         back=QPushButton("←  เมนูหลัก");back.setObjectName("secondaryButton");back.setMinimumWidth(120);back.clicked.connect(self.show_home_mode);nav.addWidget(back)
         textcol=QVBoxLayout();textcol.setSpacing(2)
         head=QLabel("WINCH CALCULATION");hf=QFont();hf.setPointSize(15);hf.setBold(True);head.setFont(hf);head.setStyleSheet("color:white;background:transparent;")
-        subhead=QLabel("คำนวณแรง • ความเร็ว • เวลา • พลังงาน • แบตเตอรี่ 12 V แยกจากรถ");subhead.setWordWrap(True);subhead.setStyleSheet("color:#dbeafe;font-size:9pt;font-weight:600;background:transparent;")
+        subhead=QLabel("คำนวณแรง • ความเร็ว • เวลา • พลังงาน • แบตเตอรี่ 12 V แยกจากรถ");subhead.setWordWrap(True);subhead.setStyleSheet("color:#dbeafe;font-size:10pt;font-weight:600;background:transparent;")
         textcol.addWidget(head);textcol.addWidget(subhead);nav.addLayout(textcol,1)
         tag=make_chip("12 V WINCH", "#fff1dd", "#9a5800");nav.addWidget(tag)
         export=QPushButton("Export PDF / ส่งออกรายงาน");export.setObjectName("primaryButton");export.setMinimumWidth(190);export.clicked.connect(self.export_winch_pdf);nav.addWidget(export)
@@ -3034,7 +3260,7 @@ class App(QMainWindow):
         # --- REPORT ---
         rp=QWidget();rpl=QVBoxLayout(rp)
         exp=QPushButton("Export PDF / ส่งออกรายงาน PDF");exp.setObjectName("primaryButton")
-        exp.setStyleSheet("font-size:10pt")
+        exp.setStyleSheet("font-size:11pt")
         exp.clicked.connect(self.export_pdf_report);rpl.addWidget(exp)
         self.torqueReportPreview=QPlainTextEdit();self.torqueReportPreview.setReadOnly(True);rpl.addWidget(self.torqueReportPreview)
         self.torqueTabs.addTab(rp,"▤  Report")
@@ -3597,7 +3823,7 @@ Total mass ใน Crane Mode = {self.mt.value():.2f} kg
         top.addWidget(self.worstButton)
         l.addLayout(top)
         hint=QLabel("ตรวจมุมเครน -90° ถึง +90° ทุก 1° และเปรียบเทียบ Side / Front / Rear Safety Factor")
-        hint.setWordWrap(True);hint.setStyleSheet("color:#52606d;font-size:10pt")
+        hint.setWordWrap(True);hint.setStyleSheet("color:#52606d;font-size:11pt")
         l.addWidget(hint)
         self.worstout=QTextEdit();self.worstout.setReadOnly(True)
         self.worstout.setStyleSheet("font-size:12px;background:white")
@@ -4611,7 +4837,8 @@ if __name__=="__main__":
     a.setOrganizationName("Mechatronics Engineering Project")
     a.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))))
     a.setStyle("Fusion")
-    ui_font=QFont(choose_ui_font_family(),11)
+    ui_font=QFont(choose_ui_font_family());ui_font.setPointSizeF(11.5)
     ui_font.setStyleStrategy(QFont.PreferAntialias)
     a.setFont(ui_font)
     w=App();w.show();sys.exit(a.exec())
+

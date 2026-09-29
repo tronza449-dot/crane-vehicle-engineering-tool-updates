@@ -1,5 +1,5 @@
 #define MyAppName "Crane Vehicle Engineering Tool"
-#define MyAppVersion "50.0.0"
+#define MyAppVersion "51.0.2"
 #define MyAppPublisher "Mechatronics Engineering Project"
 #define MyAppExeName "CraneEngineeringTool.exe"
 
@@ -15,7 +15,7 @@ DefaultDirName={autopf}\Crane Vehicle Engineering Tool
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=admin
 OutputDir={#MyOutputDir}
-OutputBaseFilename=CraneVehicleEngineeringTool_Setup
+OutputBaseFilename=CraneVehicleEngineeringTool_Setup_V51
 SetupIconFile=..\assets\CraneEngineeringTool.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/max
@@ -23,6 +23,8 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+
+; One-click behavior
 DisableStartupPrompt=yes
 DisableWelcomePage=yes
 DisableDirPage=yes
@@ -30,7 +32,8 @@ DisableProgramGroupPage=yes
 DisableReadyPage=yes
 DisableFinishedPage=yes
 AllowNoIcons=no
-VersionInfoVersion=50.0.0.0
+
+VersionInfoVersion=51.0.2.0
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 
@@ -46,3 +49,4 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Flags: nowait skipifsilent
+
