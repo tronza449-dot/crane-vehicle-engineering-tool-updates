@@ -1110,7 +1110,126 @@ class App(QMainWindow):
         ]
 
     def _gpio_items(self):
-        return ["Not assigned"]+[f"GPIO {i}" for i in range(0,49)]
+        data=self.gpio_profile_data() if hasattr(self,"hwBoardProfile") else {"pins":list(range(0,49))}
+        return ["Not assigned"]+[f"GPIO {i}" for i in data.get("pins",[])]
+
+
+    def gpio_profile_data(self):
+        idx=self.hwBoardProfile.currentIndex() if hasattr(self,"hwBoardProfile") else 0
+        s3pins=list(range(0,22))+list(range(26,49))
+        if idx==3:
+            pins=list(range(0,20))+[21,22,23,25,26,27]+list(range(32,40))
+            info={p:{"status":"FREE","function":"Available GPIO","note":""} for p in pins}
+            for p in (34,35,36,39):info[p]={"status":"CAUTION","function":"Input only","note":"Classic ESP32 input-only GPIO"}
+            for p in (0,2,5,12,15):info[p]={"status":"CAUTION","function":"Boot / strapping","note":"Use with boot-state care"}
+            info[1]={"status":"SHARED","function":"UART0 TX","note":"Serial/programming"}
+            info[3]={"status":"SHARED","function":"UART0 RX","note":"Serial/programming"}
+            return dict(name="ESP32 DevKit V1 / ESP-WROOM-32",module="ESP-WROOM-32",pins=pins,pin_info=info,
+                        layout="portrait",profile="classic",source="Espressif ESP32 GPIO summary")
+        if idx==1:
+            info={p:{"status":"CAUTION","function":"Not exposed / verify","note":"Not a general external header pin on this board"} for p in s3pins}
+            lcd={0:"LCD G3",1:"LCD R3",2:"LCD R4",3:"LCD VSYNC",5:"LCD DE",7:"LCD PCLK",10:"LCD B7",
+                 14:"LCD B3",17:"LCD B6",18:"LCD B5",21:"LCD G7",38:"LCD B4",39:"LCD G2",40:"LCD R7",
+                 41:"LCD R6",42:"LCD R5",45:"LCD G4",46:"LCD HSYNC",47:"LCD G6",48:"LCD G5"}
+            for p,fn in lcd.items():info[p]={"status":"BOARD","function":fn,"note":"Used by onboard RGB LCD"}
+            info[4]={"status":"BOARD","function":"Touch IRQ","note":"GT911 touch interrupt"}
+            info[8]={"status":"SHARED","function":"I2C SDA / Touch","note":"Exposed I2C header; shared with touch and IO extension"}
+            info[9]={"status":"SHARED","function":"I2C SCL / Touch","note":"Exposed I2C header; shared with touch and IO extension"}
+            for p,fn in ((11,"TF MOSI"),(12,"TF SCK"),(13,"TF MISO")):info[p]={"status":"BOARD","function":fn,"note":"Used by TF/microSD"}
+            info[15]={"status":"BOARD","function":"RS485 UART RX","note":"Connected to onboard RS485 transceiver"}
+            info[16]={"status":"BOARD","function":"RS485 UART TX","note":"Connected to onboard RS485 transceiver"}
+            info[19]={"status":"SHARED","function":"CAN RX / USB D-","note":"Board mux selects CAN or USB"}
+            info[20]={"status":"SHARED","function":"CAN TX / USB D+","note":"Board mux selects CAN or USB"}
+            info[43]={"status":"SHARED","function":"UART0 TX","note":"UART header / USB-UART selected by switch"}
+            info[44]={"status":"SHARED","function":"UART0 RX","note":"UART header / USB-UART selected by switch"}
+            info[6]={"status":"FREE","function":"GP6 external GPIO","note":"Dedicated GPIO header; best general-purpose external pin"}
+            for p in range(26,38):
+                info[p]={"status":"MEMORY","function":"Flash / PSRAM module","note":"Not for project GPIO on N16R8 module"}
+            return dict(name="Waveshare ESP32-S3-Touch-LCD-7B",module="ESP32-S3-WROOM-1\nN16R8",pins=s3pins,pin_info=info,
+                        layout="landscape",profile="waveshare7b",
+                        source="Waveshare 7B official interface map + Espressif S3 GPIO summary",
+                        exposed={6,8,9,43,44,19,20})
+        info={p:{"status":"FREE","function":"Available GPIO","note":""} for p in s3pins}
+        for p in (0,3,45,46):info[p]={"status":"CAUTION","function":"Strapping pin","note":"Boot-state sensitive"}
+        info[19]={"status":"SHARED","function":"USB-JTAG D-","note":"USB-JTAG by default"}
+        info[20]={"status":"SHARED","function":"USB-JTAG D+","note":"USB-JTAG by default"}
+        for p in range(26,33):info[p]={"status":"MEMORY","function":"Flash / PSRAM dependent","note":"Usually memory-related on S3 modules"}
+        for p in range(33,38):info[p]={"status":"CAUTION","function":"PSRAM dependent","note":"May be used by octal PSRAM depending on module"}
+        return dict(name=("Generic ESP32-S3" if idx==0 else "Custom ESP32-S3"),
+                    module="ESP32-S3",pins=s3pins,pin_info=info,layout="portrait",
+                    profile=("generic_s3" if idx==0 else "custom_s3"),
+                    source="Espressif ESP32-S3 GPIO summary")
+
+    def _profile_compatible_pin(self,key,pin):
+        data=self.gpio_profile_data();profile=data.get("profile")
+        if profile=="waveshare7b":
+            compatible={
+                "I2C_SDA":8,"I2C_SCL":9,"CAN_RX":19,"CAN_TX":20,"IBUS_RX":44,
+            }
+            return compatible.get(key)==pin or (key in ("LIMIT_LEFT","LIMIT_RIGHT","BUZZER","LED") and pin==6)
+        return True
+
+    def refresh_gpio_combo_items(self):
+        if not hasattr(self,"hwRows"):return
+        items=self._gpio_items();valid={x for x in items}
+        for row in self.hwRows:
+            combo=row["gpio"];old=combo.currentText()
+            block=combo.blockSignals(True);combo.clear();combo.addItems(items)
+            combo.setCurrentText(old if old in valid else "Not assigned");combo.blockSignals(block)
+
+    def hardware_pin_snapshot(self):
+        data=self.gpio_profile_data();snap={p:dict(data.get("pin_info",{}).get(p,{"status":"FREE","function":"Available","note":""}),users=[]) for p in data.get("pins",[])}
+        manual=self._manual_reserved_gpio_set() if hasattr(self,"hwReservedPins") else set()
+        for p in manual:
+            if p in snap:snap[p].update(status="CAUTION",function="Manual reserved",note="Reserved by user")
+        if hasattr(self,"hwRows"):
+            used={}
+            for row in self.hwRows:
+                if not row["enabled"].isChecked():continue
+                txt=row["gpio"].currentText()
+                if txt=="Not assigned":continue
+                m=re.search(r"\d+",txt)
+                if not m:continue
+                pin=int(m.group());used.setdefault(pin,[]).append(row["key"])
+            for pin,users in used.items():
+                if pin not in snap:
+                    snap[pin]={"status":"INVALID","function":"Invalid for profile","note":"","users":users}
+                    continue
+                base=snap[pin]["status"]
+                if len(users)>1:
+                    snap[pin].update(status="CONFLICT",function="GPIO conflict",users=users)
+                elif base in ("BOARD","MEMORY") or (base in ("CAUTION","SHARED") and not self._profile_compatible_pin(users[0],pin)):
+                    snap[pin].update(status="CONFLICT",function=f"{snap[pin]['function']} / {users[0]}",users=users)
+                else:
+                    snap[pin].update(status="USED",function=users[0],users=users)
+        return snap
+
+    def gpio_profile_summary(self):
+        data=self.gpio_profile_data();snap=self.hardware_pin_snapshot()
+        counts={k:0 for k in ("USED","FREE","BOARD","SHARED","CAUTION","MEMORY","CONFLICT","INVALID")}
+        for x in snap.values():counts[x.get("status","FREE")]=counts.get(x.get("status","FREE"),0)+1
+        return data,counts,snap
+
+    def on_board_pin_clicked(self,pin):
+        data,counts,snap=self.gpio_profile_summary();info=snap.get(pin,{})
+        users=info.get("users",[])
+        self.hwBoardPinInfo.setHtml(
+            f"<h2>GPIO{pin}</h2>"
+            f"<p><b>Status:</b> {info.get('status','—')}</p>"
+            f"<p><b>Board function:</b> {info.get('function','—')}</p>"
+            f"<p><b>Project assignment:</b> {', '.join(users) if users else 'None'}</p>"
+            f"<p><b>Note:</b> {info.get('note','')}</p>"
+            f"<p><b>Profile:</b> {data.get('name')}</p>"
+        )
+        # Select corresponding Device Manager row when this GPIO is assigned.
+        if users and hasattr(self,"hwTable"):
+            for i,row in enumerate(self.hwRows):
+                if row["key"] in users:self.hwTable.selectRow(i);break
+
+    def on_hardware_profile_changed(self,*_):
+        self.refresh_gpio_combo_items()
+        if hasattr(self,"hwBoardVerified"):self.hwBoardVerified.setChecked(False)
+        self.update_hardware_manager()
 
     def _make_hw_status_card(self,title):
         box=QFrame();box.setObjectName("metricPanel");box.setMinimumHeight(82)
@@ -1257,9 +1376,15 @@ class App(QMainWindow):
         self.tabs.addTab(w,"")
         self.update_hardware_manager()
 
-    def _reserved_gpio_set(self):
+    def _manual_reserved_gpio_set(self):
         if not hasattr(self,"hwReservedPins"):return set()
-        return {int(x) for x in re.findall(r"\d+",self.hwReservedPins.text()) if 0<=int(x)<=48}
+        valid=set(self.gpio_profile_data().get("pins",[]))
+        return {int(x) for x in re.findall(r"\d+",self.hwReservedPins.text()) if int(x) in valid}
+
+    def _reserved_gpio_set(self):
+        # Backward-compatible name: manual reservations only. Board-level usage is
+        # represented by gpio_profile_data()/hardware_pin_snapshot().
+        return self._manual_reserved_gpio_set()
 
     @staticmethod
     def _logic_voltage_value(text):
@@ -1267,14 +1392,19 @@ class App(QMainWindow):
         return float(m.group(1)) if m else None
 
     def apply_suggested_hardware_map(self):
-        suggested={
-            "IBUS_RX":18,"CAN_TX":21,"CAN_RX":22,"I2C_SDA":8,"I2C_SCL":9,
-            "LIMIT_LEFT":10,"LIMIT_RIGHT":11,"BUZZER":12,"LED":13
-        }
+        profile=self.gpio_profile_data().get("profile")
+        if profile=="waveshare7b":
+            suggested={"IBUS_RX":44,"CAN_TX":20,"CAN_RX":19,"I2C_SDA":8,"I2C_SCL":9,
+                       "LIMIT_LEFT":6,"LIMIT_RIGHT":None,"BUZZER":None,"LED":None}
+        elif profile=="classic":
+            suggested={"IBUS_RX":16,"CAN_TX":21,"CAN_RX":22,"I2C_SDA":18,"I2C_SCL":19,
+                       "LIMIT_LEFT":32,"LIMIT_RIGHT":33,"BUZZER":25,"LED":26}
+        else:
+            suggested={"IBUS_RX":18,"CAN_TX":17,"CAN_RX":16,"I2C_SDA":8,"I2C_SCL":9,
+                       "LIMIT_LEFT":10,"LIMIT_RIGHT":11,"BUZZER":12,"LED":13}
         for row in self.hwRows:
             pin=suggested.get(row["key"])
-            if pin is not None:
-                row["gpio"].setCurrentText(f"GPIO {pin}")
+            row["gpio"].setCurrentText(f"GPIO {pin}" if pin is not None else "Not assigned")
         self.hwBoardVerified.setChecked(False)
         self.update_hardware_manager()
 
