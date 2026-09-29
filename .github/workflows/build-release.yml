@@ -39,56 +39,218 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-build.txt
 
-      - name: Smoke-test UI startup and core calculations
+      - name: Full regression audit — syntax, calculations, UI, updater and PDF
         shell: pwsh
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
+          python -m py_compile CraneVehicleEngineeringTool.py
+
           @'
-          import sys
-          from PySide6.QtWidgets import QApplication
+          import ast
+          import hashlib
+          import math
+          import tempfile
+          from pathlib import Path
+          from unittest.mock import patch
+
+          from PySide6.QtWidgets import QApplication, QTabWidget, QPushButton
           import CraneVehicleEngineeringTool as cvet
 
+          # ---------- Static source audit ----------
+          source = Path("CraneVehicleEngineeringTool.py").read_text(encoding="utf-8-sig")
+          tree = ast.parse(source)
+          for node in [n for n in tree.body if isinstance(n, ast.ClassDef)]:
+              seen = {}
+              for item in node.body:
+                  if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                      if item.name in seen:
+                          raise AssertionError(f"Duplicate method {node.name}.{item.name}: lines {seen[item.name]} and {item.lineno}")
+                      seen[item.name] = item.lineno
+
+          assert "reportlab" not in source.lower(), "Unused ReportLab code remained"
+          assert "UnicodeCIDFont" not in source, "Wrong CID PDF font code remained"
+
           app = QApplication.instance() or QApplication([])
+          app.setApplicationName(cvet.APP_NAME)
           w = cvet.App()
+          w.show()
           QApplication.processEvents()
 
-          # Exercise pages/calculations that previously caused startup/runtime crashes.
-          w.calc_torque()
-          w.calc_electrical()
-          w.calc_winch()
-          w.calc_all()
-          w.update_all_variable_tables()
-          w.update_project_tools()
-          w.update_safety_logic(log_event=False)
+          def finite(*vals):
+              for value in vals:
+                  assert math.isfinite(float(value)), f"Non-finite calculation: {value}"
 
-          # Explicitly verify important dictionary/API contracts.
-          sp = w.winch_speed_results()
-          for key in ("motor_up","drum_up","tension","drum_torque","load_up","load_down"):
-              assert key in sp, f"Missing winch_speed_results key: {key}"
+          # ---------- Responsive UI / all main modes ----------
+          modes = (
+              w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
+              w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
+              w.show_variable_dictionary_mode,w.show_project_tools_mode
+          )
+          for width,height in ((1024,650),(1280,720),(1366,768),(1600,900)):
+              w.resize(width,height)
+              for scale in (0.90,1.00,1.20,1.30):
+                  w.apply_ui_scale(scale,save=False)
+                  for method in modes:
+                      method()
+                      QApplication.processEvents()
+                  # Visit every internal tab to catch lazy page errors.
+                  for tab in w.findChildren(QTabWidget):
+                      for index in range(tab.count()):
+                          tab.setCurrentIndex(index)
+                          QApplication.processEvents()
+                  # Force real paint paths without displaying a desktop window.
+                  shot = w.grab()
+                  assert not shot.isNull(), f"Window grab failed at {width}x{height}, scale={scale}"
 
-          ready = w.evaluate_safety_logic({
+          # Font controls must never collapse to the old unreadable symbol.
+          texts=[b.text() for b in w.statusBar().findChildren(QPushButton)]
+          for expected in ("A-","A+","100%"):
+              assert expected in texts, f"Missing status font control: {expected}"
+          for b in w.statusBar().findChildren(QPushButton):
+              if b.text() in ("A-","A+","100%"):
+                  assert b.width() >= 40, f"Font button squeezed: {b.text()} width={b.width()}"
+
+          # ---------- Torque regression ----------
+          w.tUseMain.setChecked(False)
+          w.tm.setValue(300)
+          w.tDriveLoadFrac.setValue(50)
+          for slope in (0,12,19,30):
+              w.tgrade.setValue(slope)
+              q=w.torque_results()
+              finite(q["T"],q["rpm"],q["Pwheel"],q["Ibatt"],q["Ftraction"],q["Ndrive"])
+              assert abs(q["Ndrive"]-0.5*q["Ntotal"]) < 1e-6
+              assert q["Fdesign"] >= 0 and q["T"] >= 0
+          w.tUseMain.setChecked(True)
+
+          # ---------- Electrical regression ----------
+          for slope in (0,1,12,19):
+              w.eslopeDeg.setValue(slope)
+              e=w.electrical_results()
+              finite(e["Ah"],e["Edesign"],e["Icalc_peak"],e["Iworst"],e["Pdown_mech"])
+              assert e["Edesign"] >= 0 and e["Pdown_mech"] >= 0
+              assert e["Icalc_peak"] >= e["Icalc_up"]-1e-9
+          # Acceleration time must affect calculated peak current.
+          w.eaccel.setValue(2.0); fast=w.electrical_results()["Icalc_peak"]
+          w.eaccel.setValue(10.0); slow=w.electrical_results()["Icalc_peak"]
+          assert fast >= slow, "Shorter acceleration time should not reduce peak current"
+
+          # ---------- Winch regression ----------
+          for method in (0,1):
+              w.wspeedmethod.setCurrentIndex(method)
+              for parts in (1,2):
+                  w.wparts.setValue(parts)
+                  sp=w.winch_speed_results()
+                  for key in ("motor_up","drum_up","tension","drum_torque","load_up","load_down","time_up","time_down"):
+                      assert key in sp, f"Missing winch key: {key}"
+                      finite(sp[key])
+                  wr=w.winch_results()
+                  finite(wr["ah"],wr["tu"],wr["td"],wr["total"])
+                  assert wr["ah"] >= 0
+
+          # ---------- Stability regression ----------
+          d=w.inputs()
+          assert d["mt"] >= 0
+          side0,mo0,mr0=w.calc_side(d,theta=0)
+          assert abs(mo0) < 1e-9, f"Side MO at theta=0 should be zero, got {mo0}"
+          assert mr0 > 0
+          side90,mo90,mr90=w.calc_side(d,theta=90)
+          assert mo90 > 0 and mr90 >= 0
+          finite(side90,mo90,mr90)
+          ff,rr=w.longitudinal_sf_at(d,0)
+          finite(ff,rr)
+          scan=w.stability_worst_scan()
+          assert len(scan)==543, f"Worst-case scan should contain 543 records, got {len(scan)}"
+          assert scan[0][0] <= scan[-1][0]
+          sr=w.slope_stability_results(d)
+          finite(sr["sf"],sr["shift_total"],sr["rear_arm"])
+          assert "Driving combined CG x" in w.craneout.toPlainText() or hasattr(w,"driveXCG")
+
+          # ---------- Safety logic regression ----------
+          base={
               "estop":False,"rc_ok":True,"drive_enable":True,"throttle":0,"steer":0,
               "crane":"STOP","winch":"STOP","tilt":0.0,"tilt_limit":12.0,
               "left_limit":False,"right_limit":False,"battery_low":False,
               "battery_inhibit":False,"winch_stationary_only":True
-          })
-          assert ready["state"] == "READY"
-          assert ready["drive_permit"] is True
+          }
+          def ev(**changes):
+              v=dict(base);v.update(changes);return w.evaluate_safety_logic(v)
+          assert ev()["state"]=="READY" and ev()["drive_permit"]
+          assert ev(throttle=50)["state"]=="DRIVE"
+          pivot=ev(steer=40)
+          assert pivot["state"]=="DRIVE" and pivot["left_motor"]==40 and pivot["right_motor"]==-40
+          assert ev(estop=True,throttle=50)["state"]=="E-STOP"
+          assert ev(rc_ok=False,throttle=50)["state"]=="RC FAILSAFE"
+          assert ev(tilt=15,throttle=50)["state"]=="TILT INHIBIT"
+          assert ev(crane="RIGHT (+)",right_limit=True)["state"]=="RIGHT LIMIT STOP"
+          assert ev(crane="LEFT (-)",right_limit=True)["state"]=="CRANE"
+          assert ev(battery_low=True,battery_inhibit=True,throttle=40)["state"]=="LOW BATTERY INHIBIT"
+          assert ev(battery_low=True,battery_inhibit=True,crane="LEFT (-)")["state"]=="CRANE"
+          assert ev(winch="UP")["state"]=="WINCH"
+          assert ev(throttle=50,winch="UP")["winch"]=="STOP"
+          w.run_safety_self_tests()
+          assert "13/13" in w.safetyTestResults.toPlainText()
 
-          # Open each major mode at least once.
-          for method in (
-              w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
-              w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
-              w.show_variable_dictionary_mode,w.show_project_tools_mode
-          ):
-              method()
-              QApplication.processEvents()
+          # ---------- Project state round-trip ----------
+          original=w.tgrade.value()
+          state=w.capture_project_state()
+          w.tgrade.setValue(7.0 if original != 7.0 else 8.0)
+          w.apply_project_state(state,recalculate=True)
+          assert abs(w.tgrade.value()-original)<1e-9
 
-          print("CVET_SMOKE_TEST_OK")
+          # ---------- Local updater / SHA regression ----------
+          with tempfile.TemporaryDirectory() as td:
+              td=Path(td)
+              dummy=td/"Dummy_Setup.exe"
+              dummy.write_bytes(b"MZ-CVET-REGRESSION-DUMMY")
+              sha=hashlib.sha256(dummy.read_bytes()).hexdigest()
+              manifest=td/"latest.json"
+              manifest.write_text(
+                  '{"latest_version":"999.0.0","download_url":'+
+                  repr(str(dummy)).replace("'",'"')+
+                  ',"sha256":"'+sha+'","notes":"test"}',
+                  encoding="utf-8"
+              )
+              data=w._read_update_manifest(str(manifest))
+              out=w._download_update_installer(data)
+              assert hashlib.sha256(out.read_bytes()).hexdigest()==sha
+              out.unlink(missing_ok=True)
+
+          # ---------- PDF regression ----------
+          with tempfile.TemporaryDirectory() as td:
+              td=Path(td)
+              targets={
+                  "torque":td/"torque.pdf",
+                  "battery":td/"battery.pdf",
+                  "winch":td/"winch.pdf",
+                  "stability":td/"stability.pdf",
+                  "final":td/"final.pdf",
+              }
+              with patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok),                    patch.object(cvet.QMessageBox,"warning",return_value=cvet.QMessageBox.Ok),                    patch.object(cvet.QMessageBox,"critical",return_value=cvet.QMessageBox.Ok):
+                  exporters=(
+                      (w.export_torque_pdf,targets["torque"]),
+                      (w.export_electrical_pdf,targets["battery"]),
+                      (w.export_winch_pdf,targets["winch"]),
+                      (w.export_pdf_report,targets["stability"]),
+                      (w.export_final_engineering_report,targets["final"]),
+                  )
+                  for exporter,target in exporters:
+                      with patch.object(cvet.QFileDialog,"getSaveFileName",return_value=(str(target),"PDF (*.pdf)")):
+                          exporter()
+                      assert target.exists(), f"PDF not created by {exporter.__name__}"
+                      assert target.stat().st_size>1000, f"PDF too small from {exporter.__name__}: {target.stat().st_size}"
+
+          # ---------- Final broad calculation refresh ----------
+          w.calc_torque();w.calc_electrical();w.calc_winch();w.calc_all();w.calc_worst()
+          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False)
+          QApplication.processEvents()
+
+          print("CVET_FULL_REGRESSION_OK")
           w.close()
-          '@ | Set-Content smoke_test.py -Encoding UTF8
-          python smoke_test.py
+          app.processEvents()
+          '@ | Set-Content full_regression.py -Encoding UTF8
+
+          python full_regression.py
 
       - name: Generate application icon
         shell: pwsh
