@@ -1740,7 +1740,7 @@ class App(QMainWindow):
         hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
         left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        chips.addWidget(make_chip("V52.2  BATTERY + I/O","#ffffff","#174a74"))
+        chips.addWidget(make_chip("V52.3  GPIO BOARD","#ffffff","#174a74"))
         chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
         chips.addStretch(1);left.addLayout(chips)
 
@@ -1813,7 +1813,7 @@ class App(QMainWindow):
         bs=ModeCardButton("STABILITY","Side / Front / Rear tipping • Worst Case • CG","04","#7c3aed")
         bc=ModeCardButton("CONTROL LOGIC","E-stop • RC Failsafe • IMU • Limit • Interlock","05","#c45114")
         bv=ModeCardButton("VARIABLE DICTIONARY","ความหมายตัวแปร • หน่วย • ค่าปัจจุบัน","06","#4b647a")
-        bh=ModeCardButton("HARDWARE I/O & WIRING","GPIO • Voltage • Protection • ESP32 Pin Map","07","#0b7a75")
+        bh=ModeCardButton("HARDWARE I/O & WIRING","Animated Board • All GPIO • Used/Free/Conflict","07","#0b7a75")
 
         cards.addWidget(bt,0,0);cards.addWidget(be,0,1)
         cards.addWidget(bw,1,0);cards.addWidget(bs,1,1)
