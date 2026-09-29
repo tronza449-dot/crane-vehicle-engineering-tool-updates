@@ -1,20 +1,29 @@
 # Crane Vehicle Engineering Tool — Update Channel
 
-Repository นี้ใช้เป็นช่องทางตรวจสอบเวอร์ชันใหม่ของโปรแกรม **Crane Vehicle Engineering Tool**
+Repository นี้ใช้เป็นช่องทางตรวจสอบและแจกจ่ายเวอร์ชันใหม่ของ **Crane Vehicle Engineering Tool**
 
 ## Current version
 - **V50.0.0**
 
-## โปรแกรมตรวจอัปเดตอย่างไร
-โปรแกรมจะอ่านไฟล์ `latest.json` จาก branch `main` แล้วเปรียบเทียบค่า `latest_version` กับเวอร์ชันที่ติดตั้งอยู่ในเครื่อง
-
-Manifest URL:
-
+## Manifest URL ที่โปรแกรมใช้
 `https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json`
 
-เมื่อมีเวอร์ชันใหม่ ให้แก้ `latest.json` เป็นเวอร์ชันใหม่ พร้อม:
-- `download_url` ของ Setup.exe
-- `sha256` ของ Setup.exe
-- `notes` รายละเอียดการเปลี่ยนแปลง
+## Stable Setup URL
+`https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/latest/download/CraneVehicleEngineeringTool_Setup.exe`
 
-> ตอนนี้ V50 เป็นเวอร์ชันล่าสุด และยังไม่ได้ผูกไฟล์ Setup.exe จริง จึงเว้น `download_url` และ `sha256` ไว้ก่อน
+โปรแกรมจะอ่าน `latest.json` แล้วเปรียบเทียบ `latest_version` กับเวอร์ชันที่ติดตั้งอยู่ในเครื่อง
+
+ถ้าเวอร์ชันบน GitHub ใหม่กว่า โปรแกรมจะ:
+1. แจ้งว่ามี Update
+2. ดาวน์โหลด Setup.exe จาก GitHub Release
+3. ตรวจ SHA256 เมื่อมีค่า
+4. ปิดโปรแกรมและเรียก Installer เพื่ออัปเดตทับเวอร์ชันเดิม
+
+## สำหรับเวอร์ชันใหม่
+ทุกครั้งที่มี Release ใหม่ต้อง:
+- เปลี่ยน `latest_version`
+- อัปโหลดไฟล์ Release asset ชื่อ **CraneVehicleEngineeringTool_Setup.exe**
+- ใส่ SHA256 ของ Setup.exe
+- ใส่ Release notes
+
+> ตอนนี้ตัว Update Channel ถูกผูกกับ GitHub แล้ว แต่ Stable Setup URL จะใช้งานได้หลังจากมี GitHub Release ที่แนบไฟล์ `CraneVehicleEngineeringTool_Setup.exe` อย่างน้อย 1 ครั้ง
