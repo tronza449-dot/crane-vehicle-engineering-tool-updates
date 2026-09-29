@@ -123,6 +123,20 @@ jobs:
               assert q["Fdesign"] >= 0 and q["T"] >= 0
           w.tUseMain.setChecked(True)
 
+          # ---------- Trip Energy Summary regression ----------
+          w.show_electrical_mode()
+          QApplication.processEvents()
+          assert hasattr(w,"tripEnergyLabel") and hasattr(w,"tripBatteryLabel")
+          q=w.electrical_results()
+          cycles=max(q["cycles"],1e-12)
+          expected_trip=q["Edrive"]/cycles
+          assert f"{expected_trip:.2f}" in w.tripEnergyLabel.text()
+          assert f"{q['Ah']:.2f}" in w.tripBatteryLabel.text()
+          assert "Wh / รอบ" in w.tripEnergyLabel.text()
+          assert "Ah @" in w.tripBatteryLabel.text()
+          assert "พลังงานขับ / 1 รอบ" in w.findChild(QTabWidget).parent().window().windowTitle() or hasattr(w,"tripEnergyExplain")
+          assert "พลังงานขับต่อรอบ" in w.tripEnergyExplain.toPlainText()
+
           # ---------- Electrical regression ----------
           for slope in (0,1,12,19):
               w.eslopeDeg.setValue(slope)
