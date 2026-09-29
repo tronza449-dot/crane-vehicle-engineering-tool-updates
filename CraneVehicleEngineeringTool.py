@@ -1,5 +1,5 @@
 from pathlib import Path
-import sys, math, os, json, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse
+import sys, math, os, json, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil
 from datetime import datetime
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer, QStandardPaths, Signal
 from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon
@@ -183,7 +183,7 @@ class Model3D(QWidget):
     def __init__(self):
         super().__init__()
         self.d={}
-        self.setMinimumHeight(500)
+        self.setMinimumHeight(300)
         self.setMouseTracking(True)
         self.setCursor(Qt.OpenHandCursor)
         self.yaw=math.radians(38)
@@ -576,7 +576,7 @@ class ModeCardButton(QPushButton):
 class TorqueFBDWidget(QWidget):
     """Engineering FBD for a vehicle climbing an incline."""
     def __init__(self,owner):
-        super().__init__(); self.o=owner; self.setMinimumHeight(720)
+        super().__init__(); self.o=owner; self.setMinimumHeight(460)
 
     def arrow(self,p,a,b,color,label):
         A=QPointF(float(a[0]),float(a[1])); B=QPointF(float(b[0]),float(b[1]))
@@ -660,7 +660,7 @@ class TorqueFBDWidget(QWidget):
 
 class TorqueGraphWidget(QWidget):
     def __init__(self,owner):
-        super().__init__();self.o=owner;self.setMinimumHeight(480)
+        super().__init__();self.o=owner;self.setMinimumHeight(360)
     def paintEvent(self,e):
         p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("white"))
         W=self.width();H=self.height();left=75;right=35;top=50;bottom=65
@@ -695,7 +695,7 @@ class App(QMainWindow):
         self.restore_last_values(silent=True)
         self.setup_easy_autosave()
 
-        # V50 updater: all network/file work happens in a background thread.
+        # Built-in updater: all network/file work happens in a background thread.
         self.updateTaskFinished.connect(self._handle_update_task_result)
         self.updateProgressChanged.connect(self._set_update_progress)
         self.pending_update_manifest=None
@@ -770,7 +770,8 @@ class App(QMainWindow):
 
     def inputs(self):
         return dict(mt=self.mt.value(),ml=self.ml.value(),mb=self.mb.value(),W=self.W.value(),L=self.L.value(),H=self.H.value(),
-                    th=self.th.value(),kd=self.kd.value(),req=self.req.value(),WB=self.WB.value(),xC=self.xC.value(),xCG=self.xCG.value())
+                    th=self.th.value(),kd=self.kd.value(),req=self.req.value(),WB=self.WB.value(),xC=self.xC.value(),
+                    xCG=self.xCG.value(),driveXCG=self.driveXCG.value() if hasattr(self,"driveXCG") else self.xCG.value())
 
 
 
@@ -1467,6 +1468,8 @@ class App(QMainWindow):
             ("a","ความเร่งรถ","m/s²",f"{q['a']:.5f}","ใช้ Fa = ma"),
             ("η","ประสิทธิภาพระบบขับ","%",f"{self.teff.value():.1f}","ใช้แปลงกำลังกลเป็นกำลังไฟฟ้า"),
             ("μ","สัมประสิทธิ์แรงยึดเกาะ","-",f"{self.ttraction.value():.2f}","ใช้ตรวจ Traction limit"),
+            ("λ_drive","สัดส่วนแรงกดปกติที่อยู่บนล้อขับ","%",f"{self.tDriveLoadFrac.value():.1f}","ค่าเริ่มต้น 50% สำหรับ 2 ล้อขับ + 2 ล้อรองรับ"),
+            ("N_drive","แรงกดปกติรวมบนล้อขับ","N",f"{q['Ndrive']:.2f}","N_total × λ_drive"),
             ("V","แรงดันแบตเตอรี่หลัก","V",f"{self.tvoltage.value():.1f}","ใช้ประมาณกระแสจาก P/V"),
             ("Fgrade","แรงจากความชัน","N",f"{q['Fg']:.2f}","m g sinθ"),
             ("Frr","แรงต้านการกลิ้ง","N",f"{q['Fr']:.2f}","Crr m g cosθ"),
@@ -1491,7 +1494,10 @@ class App(QMainWindow):
             ("θ","มุมทางลาด","deg",f"{self.eslopeDeg.value():.1f}","ใช้หาแรงโน้มถ่วงตามทางลาด"),
             ("t_runtime","เวลาทำงานรวม","h",f"{q['runtime_h']:.2f}","ใช้คำนวณจำนวนรอบและ Aux energy"),
             ("Crr","สัมประสิทธิ์แรงต้านการกลิ้ง","-",f"{q['crr']:.3f}","แรงสูญเสียจากยาง/พื้น"),
-            ("t_acc","เวลาเร่ง","s",f"{self.eaccel.value():.2f}","ใช้คำนวณพลังงานออกตัว"),
+            ("t_acc","เวลาเร่ง","s",f"{self.eaccel.value():.2f}","พลังงานจลน์ไม่ขึ้นกับเวลา แต่เวลานี้ใช้ตรวจ Peak force/current"),
+            ("a_acc","ความเร่งช่วงออกตัว","m/s²",f"{q['accel_a']:.4f}","v ÷ t_acc"),
+            ("P_down","กำลังขับขาลงแบบ No Regen","W",f"{q['Pdown_mech']:.2f}","เป็น 0 เมื่อแรงโน้มถ่วงพอให้รถไหลลงเอง"),
+            ("I_peak,calc","กระแสคำนวณสูงสุดจากขึ้นลาด/เร่ง","A",f"{q['Icalc_peak']:.2f}","ใช้ประกอบการเลือก BMS/สาย"),
             ("N_start","จำนวนครั้งออกตัวต่อรอบ","ครั้ง",str(self.estops.value()),"พลังงานจลน์ถูกคิดตามจำนวนครั้งนี้"),
             ("t_stop","เวลาหยุดต่อรอบ","s",f"{q['stop_s']:.1f}","มีผลต่อจำนวนรอบในเวลาทำงาน"),
             ("η_drive","ประสิทธิภาพระบบขับสมมติ","%",f"{self.edriveEff.value():.1f}","ใช้แปลง Mechanical → Electrical"),
@@ -1552,7 +1558,8 @@ class App(QMainWindow):
             ("L","ความยาวแขนเครน","m",f"{d['L']:.3f}","ระยะจากแกนหมุนถึงปลายแขน"),
             ("H","ความสูงเสาเครน","m",f"{d['H']:.3f}","ใช้ในโมเดล/ภาพ 3D และการจัดวาง"),
             ("x_C","ตำแหน่งแกนเครนจากเพลาหลัง","m",f"{d['xC']:.3f}","ใช้หาโมเมนต์หน้า/หลัง"),
-            ("x_CG","ตำแหน่ง CG รถตามแนวยาวจากกึ่งกลาง","m",f"{d['xCG']:.3f}","ค่าบวก/ลบมีผลต่อ Front/Rear SF"),
+            ("x_CG,base","ตำแหน่ง CG ของรถส่วนหลักที่ไม่รวม Payload+Boom","m",f"{d['xCG']:.3f}","ใช้ใน Front/Rear crane tipping"),
+            ("x_CG,drive","ตำแหน่ง CG รวมตอนรถวิ่ง","m",f"{d['driveXCG']:.3f}","ใช้ใน Slope driving stability"),
             ("θ","มุมหมุนเครน","deg",f"{d['th']:.1f}","ช่วงใช้งาน -90° ถึง +90°"),
             ("Kdyn","Dynamic factor ของ Payload","-",f"{d['kd']:.2f}","เผื่อแรงกระชากในการวิเคราะห์เบื้องต้น"),
             ("SF_req","Safety Factor เป้าหมาย","-",f"{d['req']:.2f}","ใช้เทียบ PASS/FAIL เชิงแบบจำลอง"),
@@ -1721,7 +1728,9 @@ class App(QMainWindow):
         <p><b>5. รถกำลังวิ่ง</b> → ห้ามหมุนเครน</p>
         <p><b>6. เครนกำลังหมุน</b> → ห้าม Drive</p>
         <p><b>7. Limit ±90°</b> → ห้ามหมุนต่อเข้า Limit แต่ยังหมุนย้อนออกได้</p>
-        <p><b>8. Buzzer + LED</b> → ON ขณะเคลื่อนที่ หรือเมื่อเกิด Fault/Warning</p>
+        <p><b>8. Differential steering</b> → Steering อย่างเดียวสามารถ Pivot Turn (L/R motor คนละทิศ)</p>
+        <p><b>9. Battery Low policy</b> → ถ้าเลือก Inhibit จะล็อก Drive; Crane/Winch ยังผ่าน interlock ของตน</p>
+        <p><b>10. Buzzer + LED</b> → ON ขณะเคลื่อนที่ หรือเมื่อเกิด Fault/Warning</p>
         """)
         sl.addWidget(self.safetyLogicFlow,1)
         body.addWidget(stateBox)
@@ -1827,19 +1836,18 @@ class App(QMainWindow):
         if not v.get("rc_ok",True):
             result.update(state="RC FAILSAFE",reason="สัญญาณ RC / IBUS หาย — คำสั่งทั้งหมดกลับ Safe State",buzzer=True,led=True)
             return result
-        if v.get("battery_low",False) and v.get("battery_inhibit",False):
-            result.update(state="LOW BATTERY INHIBIT",reason="Battery Low และตั้งค่าให้อินฮิบิตการเคลื่อนที่",buzzer=True,led=True)
-            return result
 
         throttle=int(v.get("throttle",0))
         steer=int(v.get("steer",0))
         crane=str(v.get("crane","STOP"))
         winch=str(v.get("winch","STOP"))
-        drive_req=abs(throttle)>2
+        # Differential steering allows pivot-turn with steering even at zero throttle.
+        drive_req=abs(throttle)>2 or abs(steer)>2
         crane_req=crane!="STOP"
         winch_req=winch!="STOP"
         tilt_fault=abs(float(v.get("tilt",0)))>=float(v.get("tilt_limit",12))
         drive_enabled=bool(v.get("drive_enable",True))
+        battery_drive_inhibit=bool(v.get("battery_low",False) and v.get("battery_inhibit",False))
 
         if drive_req and crane_req:
             result.update(
@@ -1849,12 +1857,13 @@ class App(QMainWindow):
             )
             return result
 
-        # Permit indicates that Drive is currently allowed, even when throttle = 0.
-        result["drive_permit"]=drive_enabled and not tilt_fault and not crane_req
+        result["drive_permit"]=drive_enabled and not tilt_fault and not crane_req and not battery_drive_inhibit
 
         if drive_req:
             if not drive_enabled:
                 result.update(state="DRIVE DISABLED",reason="CH5 / Drive Enable = OFF",drive_permit=False)
+            elif battery_drive_inhibit:
+                result.update(state="LOW BATTERY INHIBIT",reason="Battery Low — ล็อกเฉพาะ Drive ตาม Battery Policy",drive_permit=False,buzzer=True,led=True)
             elif tilt_fault:
                 result.update(state="TILT INHIBIT",reason=f"IMU tilt {float(v.get('tilt',0)):.1f}° ถึง/เกิน Limit {float(v.get('tilt_limit',12)):.1f}° — ห้าม Drive",drive_permit=False,buzzer=True,led=True)
             else:
@@ -1880,7 +1889,11 @@ class App(QMainWindow):
                 result.update(state="CRANE",reason=f"อนุญาตให้เครนหมุน {crane}",crane=crane,buzzer=True,led=True)
 
         else:
-            if tilt_fault:
+            if not drive_enabled:
+                result.update(state="DRIVE DISABLED",reason="CH5 / Drive Enable = OFF — Crane/Winch ยังตรวจตาม interlock ของตน",drive_permit=False)
+            elif battery_drive_inhibit:
+                result.update(state="LOW BATTERY INHIBIT",reason="Battery Low — Drive ถูกล็อกตาม Battery Policy",drive_permit=False,buzzer=True,led=True)
+            elif tilt_fault:
                 result.update(state="TILT WARNING",reason=f"IMU tilt {float(v.get('tilt',0)):.1f}° ถึง/เกิน Limit — Drive จะถูก Inhibit",drive_permit=False,buzzer=True,led=True)
             elif v.get("battery_low",False):
                 result.update(state="BATTERY WARNING",reason="Battery Low — แจ้งเตือน แต่ยังไม่ Inhibit เพราะ Battery Policy = Warning only",buzzer=True,led=True)
@@ -1891,9 +1904,8 @@ class App(QMainWindow):
                 result["reason"] += " | Winch ถูกปฏิเสธเพราะกำหนดให้ใช้เฉพาะตอนรถ/เครนหยุด"
             else:
                 result["winch"]=winch
-                # Keep vehicle stationary while Winch is active.
                 result["drive_permit"]=False
-                if result["state"] in ("READY","BATTERY WARNING","TILT WARNING"):
+                if result["state"] in ("READY","BATTERY WARNING","TILT WARNING","DRIVE DISABLED","LOW BATTERY INHIBIT"):
                     result["state"]="WINCH"
                     result["reason"]=f"อนุญาต Winch {winch} ขณะรถและเครนหยุด"
                 result["buzzer"]=True;result["led"]=True
@@ -1984,13 +1996,16 @@ class App(QMainWindow):
         }
         tests=[
             ("READY — ไม่มีคำสั่ง",{},lambda r:r["state"]=="READY" and r["drive_permit"]),
-            ("DRIVE — Throttle 50%",{"throttle":50},lambda r:r["state"]=="DRIVE" and r["drive_permit"]),
-            ("INTERLOCK — Drive + Crane",{"throttle":40,"crane":"RIGHT (+)"},lambda r:r["state"]=="INTERLOCK CONFLICT" and not r["drive_permit"] and r["crane"]=="STOP"),
+            ("DRIVE — Throttle 50%",{"throttle":50},lambda r:r["state"]=="DRIVE" and r["left_motor"]==50 and r["right_motor"]==50),
+            ("PIVOT TURN — Steering only",{"steer":40},lambda r:r["state"]=="DRIVE" and r["left_motor"]==40 and r["right_motor"]==-40),
+            ("INTERLOCK — Drive + Crane",{"steer":40,"crane":"RIGHT (+)"},lambda r:r["state"]=="INTERLOCK CONFLICT" and not r["drive_permit"] and r["crane"]=="STOP"),
             ("E-STOP",{"estop":True,"throttle":60},lambda r:r["state"]=="E-STOP" and not r["drive_permit"]),
             ("RC FAILSAFE",{"rc_ok":False,"throttle":60},lambda r:r["state"]=="RC FAILSAFE" and not r["drive_permit"]),
             ("IMU TILT INHIBIT",{"throttle":50,"tilt":15},lambda r:r["state"]=="TILT INHIBIT" and not r["drive_permit"]),
             ("RIGHT LIMIT BLOCK",{"crane":"RIGHT (+)","right_limit":True},lambda r:r["state"]=="RIGHT LIMIT STOP" and r["crane"]=="STOP"),
             ("MOVE AWAY FROM RIGHT LIMIT",{"crane":"LEFT (-)","right_limit":True},lambda r:r["state"]=="CRANE" and r["crane"].startswith("LEFT")),
+            ("LOW BATTERY DRIVE INHIBIT",{"battery_low":True,"battery_inhibit":True,"throttle":40},lambda r:r["state"]=="LOW BATTERY INHIBIT" and not r["drive_permit"]),
+            ("LOW BATTERY STILL ALLOWS CRANE",{"battery_low":True,"battery_inhibit":True,"crane":"LEFT (-)"},lambda r:r["state"]=="CRANE" and r["crane"].startswith("LEFT")),
             ("WINCH STATIONARY",{"winch":"UP"},lambda r:r["state"]=="WINCH" and r["winch"]=="UP" and not r["drive_permit"]),
             ("WINCH BLOCKED WHILE DRIVE",{"throttle":50,"winch":"UP"},lambda r:r["state"]=="DRIVE" and r["winch"]=="STOP"),
         ]
@@ -2013,9 +2028,6 @@ class App(QMainWindow):
         )
         self.safetyLowerTabs.setCurrentIndex(1)
 
-    # =====================================================================
-    # PROJECT TOOLS / INTEGRATED ENGINEERING WORKFLOW
-    # =====================================================================
     def make_project_tools(self):
         w=QWidget();self.projectToolsPage=w
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
@@ -2290,6 +2302,28 @@ class App(QMainWindow):
             self.projectStatus.setHtml(f"<h3>เปิดโครงการเรียบร้อย</h3><p>{filename}</p><p>Saved version: {state.get('version','-')} | Saved at: {state.get('saved_at','-')}</p>")
         except Exception as exc:QMessageBox.critical(self,"Load Project ไม่สำเร็จ",str(exc))
 
+    def slope_stability_results(self,d=None):
+        """Uphill forward-driving tipping model about the rear axle."""
+        d=self.inputs() if d is None else d
+        alpha=math.radians(self.slope.value())
+        h=max(0.0,self.hcg.value())
+        acc=max(0.0,self.acc.value())
+        xcg=d.get("driveXCG",d.get("xCG",0.0))
+        rear=-d["WB"]/2
+        rear_arm=xcg-rear
+        normal_g=G*math.cos(alpha)
+        tangential_g=G*math.sin(alpha)+acc
+        overturn_per_mass=h*tangential_g
+        resist_per_mass=max(0.0,rear_arm)*normal_g
+        sf=resist_per_mass/overturn_per_mass if overturn_per_mass>1e-12 else 999
+        shift_slope=h*math.tan(alpha)
+        shift_acc=h*acc/max(G*math.cos(alpha),1e-9)
+        shift_total=shift_slope+shift_acc
+        margin=rear_arm-shift_total
+        return dict(alpha=alpha,h=h,acc=acc,xcg=xcg,rear=rear,rear_arm=rear_arm,
+                    shift_slope=shift_slope,shift_acc=shift_acc,shift_total=shift_total,
+                    margin=margin,sf=sf,normal_g=normal_g,tangential_g=tangential_g)
+
     def stability_worst_scan(self):
         """Single source of truth for -90°..+90° Side/Front/Rear worst-case search."""
         d=self.inputs()
@@ -2387,7 +2421,7 @@ class App(QMainWindow):
 
     def bms_check_html(self):
         t=self.torque_results();e=self.electrical_results();w=self.winch_results()
-        main_cont_req=max(t['Ibatt'],e['Icalc_up']);main_peak_ind=max(e['Iworst'],self.controllerCurrent.value()*t['n'])
+        main_cont_req=max(t['Ibatt'],e['Icalc_up']);main_peak_ind=max(e['Iworst'],e.get('Icalc_peak',0),self.controllerCurrent.value()*t['n'])
         winch_cont_req=w['iup'];label_current=self.wrated.value()/max(self.wvolt.value(),.1);winch_peak_ind=max(w['iup'],label_current)
         def st(sel,req):
             if sel<=0:return "NOT SET / กรุณากรอก"
@@ -2398,7 +2432,7 @@ class App(QMainWindow):
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Required design capacity</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td><td>Selected {self.mainSelectedAh.value():.1f} Ah → {st(self.mainSelectedAh.value(),e['Ah'])}</td></tr>
         <tr><td>Continuous-current indicator</td><td>max(Torque model {t['Ibatt']:.1f}, Calculated uphill {e['Icalc_up']:.1f}) = {main_cont_req:.1f} A</td><td>BMS {self.mainBMSCont.value():.1f} A → {st(self.mainBMSCont.value(),main_cont_req)}</td></tr>
-        <tr><td>Peak/conservative indicator</td><td>max(Worst battery {e['Iworst']:.1f}, controller-limit indicator {self.controllerCurrent.value()*t['n']:.1f}) = {main_peak_ind:.1f} A</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → {st(self.mainBMSPeak.value(),main_peak_ind)}</td></tr></table>
+        <tr><td>Peak/conservative indicator</td><td>max(Worst battery {e['Iworst']:.1f}, calculated accel {e.get('Icalc_peak',0):.1f}, controller-limit indicator {self.controllerCurrent.value()*t['n']:.1f}) = {main_peak_ind:.1f} A</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → {st(self.mainBMSPeak.value(),main_peak_ind)}</td></tr></table>
         <h3>Winch 12 V Separate Battery</h3>
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Required design capacity</td><td>{w['ah']:.2f} Ah @ {w['v']:.1f} V</td><td>Selected {self.winchSelectedAh.value():.1f} Ah → {st(self.winchSelectedAh.value(),w['ah'])}</td></tr>
@@ -2417,12 +2451,13 @@ class App(QMainWindow):
             status="CHECK" if unknown else ("PASS" if passed else "FAIL")
             rows.append((system,item,required,available,status,note))
         add("Vehicle","Total mass ≤ 300 kg",f"≤ 300 kg",f"{d['mt']:.1f} kg",d['mt']<=300,"Project mass limit")
+        add("Vehicle","Mass decomposition valid",f"m_total ≥ m_payload + m_boom",f"{d['mt']:.1f} ≥ {d['ml']+d['mb']:.1f} kg",d['mt']>=d['ml']+d['mb'],"ป้องกันมวลส่วนรถติดลบในโมเดล")
         add("Drive","Wheel torque / motor",f"{t['T']:.1f} N·m",f"Peak input {self.motorPeakTorque.value():.1f} N·m",self.motorPeakTorque.value()>=t['T'],"ใช้ค่าพิกัดที่ผู้ใช้กรอก")
         add("Drive","Mechanical power / motor",f"{t['Pmech_per']*self.powerReserve.value():.1f} W incl. reserve",f"Rated {self.motorRatedPower.value():.1f} W",self.motorRatedPower.value()>=t['Pmech_per']*self.powerReserve.value(),"Power reserve factor applied")
         add("Drive","Wheel RPM",f"{t['rpm']:.1f} rpm",f"Max input {self.motorMaxRPM.value():.1f} rpm",self.motorMaxRPM.value()>=t['rpm'])
         per_current=t['Ibatt']/max(1,t['n'])
         add("Drive","Controller current indicator / motor",f"{per_current:.1f} A",f"Limit {self.controllerCurrent.value():.1f} A",self.controllerCurrent.value()>=per_current,"preliminary")
-        add("Drive","Traction",f"Fdesign {t['Fdesign']:.1f} N",f"Ftraction,max {t['Ftraction']:.1f} N",t['Ftraction']>=t['Fdesign'],"ต้องใช้โหลดกดล้อขับจริงสำหรับ final")
+        add("Drive","Traction",f"Fdesign {t['Fdesign']:.1f} N",f"Ftraction,max {t['Ftraction']:.1f} N",t['Ftraction']>=t['Fdesign'],f"ใช้แรงกดล้อขับ {t['drive_load_fraction']*100:.1f}% ของ N_total; final ต้องยืนยันจาก CG/load transfer")
         add("Stability","Worst-case SF",f"≥ {d['req']:.2f}",f"{worst[0]:.3f} @ {worst[1]}° {worst[2]}",worst[0]>=d['req'])
         if self.mainSelectedAh.value()>0:add("Main Battery","Energy capacity",f"≥ {e['Ah']:.2f} Ah",f"{self.mainSelectedAh.value():.1f} Ah",self.mainSelectedAh.value()>=e['Ah'])
         else:add("Main Battery","Energy capacity",f"{e['Ah']:.2f} Ah required","Selected not set",False,"กรอกใน Battery+BMS",True)
@@ -2502,6 +2537,7 @@ class App(QMainWindow):
             </body></html>"""
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat);printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
+            shutil.rmtree(tmp,ignore_errors=True)
             QMessageBox.information(self,"Final Report","บันทึกรายงานเรียบร้อย:\n"+filename)
         except Exception as exc:QMessageBox.critical(self,"Final Report ไม่สำเร็จ",str(exc))
 
@@ -2809,7 +2845,7 @@ class App(QMainWindow):
         if not filename:return
         if not filename.lower().endswith(".pdf"):filename+=".pdf"
         try:
-            q=self.winch_results();doc=QTextDocument();doc.setDefaultFont(QFont("Noto Sans Thai",10))
+            q=self.winch_results();doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10))
             doc.setHtml(self.winch_html(q)+"<hr/>"+self.winch_speed_html(self.winch_speed_results())+"<hr/>"+self.wGuide.toHtml()+"<hr/>"+self.wResult.toHtml())
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
@@ -2898,9 +2934,8 @@ class App(QMainWindow):
         self.calc_electrical()
 
     def electrical_results(self):
-        import math
         m=self.mt.value() if self.euseTorqueMass.isChecked() and hasattr(self,"mt") else self.emass.value()
-        g=9.81; V=self.evolt.value(); v=self.espeed.value()/3.6
+        g=G; V=self.evolt.value(); v=self.espeed.value()/3.6
         one=self.eoneway.value(); Ls=min(self.eslopeLen.value(),one); theta=math.radians(self.eslopeDeg.value())
         runtime_h=self.eruntime.value(); runtime_s=runtime_h*3600.0
         stop_s=self.estopTime.value()
@@ -2921,25 +2956,37 @@ class App(QMainWindow):
         Fup=Fgrade+Frrs
         Pup_mech=Fup*v
 
+        # Downhill: with no regen we never subtract energy from the battery.
+        # If gravity is stronger than rolling resistance, traction power is 0
+        # and the excess energy must be dissipated by braking/coasting losses.
+        Fdown=max(0.0,Frrs-Fgrade)
+        Pdown_mech=Fdown*v
+
         eff=max(self.edriveEff.value()/100.0,.01)
         up_eff=max(self.eupEff.value()/100.0,.01)
         Eflat_mech_cycle=Pflat_mech*flat_time_h
         Eup_mech_cycle=Pup_mech*up_time_h
+        Edown_mech_cycle=Pdown_mech*down_time_h
 
-        # Acceleration kinetic energy; count requested starts per cycle.
+        # Acceleration kinetic energy. Acceleration time affects peak force/power,
+        # while ideal kinetic energy 1/2 mv² is independent of acceleration time.
         starts=self.estops.value()
+        accel_time=max(self.eaccel.value(),.01)
+        accel_a=v/accel_time
+        Facc_peak=m*accel_a
+        Pacc_peak_mech=(Fup+Facc_peak)*v
         Eacc_mech_cycle=(0.5*m*v*v/3600.0)*starts
 
-        Emech_total=(Eflat_mech_cycle+Eup_mech_cycle+Eacc_mech_cycle)*cycles
+        Emech_total=(Eflat_mech_cycle+Eup_mech_cycle+Edown_mech_cycle+Eacc_mech_cycle)*cycles
         Ecalc_drive=Emech_total/eff
 
         rated_total=self.emotorRated.value()*self.enmot.value()
         Pworst_batt=rated_total/up_eff
         Eworst_up_cycle=Pworst_batt*up_time_h
-        # Worst case keeps flat/accel at estimated efficiency, replaces calculated uphill battery energy.
         Eflat_batt_cycle=Eflat_mech_cycle/eff
+        Edown_batt_cycle=Edown_mech_cycle/eff
         Eacc_batt_cycle=Eacc_mech_cycle/eff
-        Eworst_drive=(Eflat_batt_cycle+Eacc_batt_cycle+Eworst_up_cycle)*cycles
+        Eworst_drive=(Eflat_batt_cycle+Edown_batt_cycle+Eacc_batt_cycle+Eworst_up_cycle)*cycles
 
         use_worst=self.eworstRadio.isChecked()
         Edrive=Eworst_drive if use_worst else Ecalc_drive
@@ -2951,8 +2998,9 @@ class App(QMainWindow):
         Edesign=Enom*(1.0+reserve)
         Ah=Edesign/V if V>0 else 0
 
-        # Peak-current indicators (energy sizing and current sizing are separate).
         Icalc_up=(Pup_mech/eff)/V if V>0 else 0
+        Icalc_accel=(Pacc_peak_mech/eff)/V if V>0 else 0
+        Icalc_peak=max(Icalc_up,Icalc_accel)
         Iworst=Pworst_batt/V if V>0 else 0
 
         return locals()
@@ -3004,35 +3052,39 @@ class App(QMainWindow):
                    f"Frr,slope = {q['crr']:.3f} × {m:.1f} × 9.81 × cos({self.eslopeDeg.value():.1f}°) = {q['Frrs']:.2f} N<br/>"
                    f"Pup = ({q['Fgrade']:.2f} + {q['Frrs']:.2f}) × {v:.5f}",
                    f"{q['Pup_mech']:.2f} W; พลังงานกลขึ้นลาด {q['Eup_mech_cycle']:.4f} Wh/รอบ")
-        h+=section("5. พลังงานออกตัว","คิดพลังงานจลน์เมื่อรถเร่งจากหยุดนิ่งถึงความเร็วเป้าหมาย (ยังไม่รวม loss ช่วงกระแสกระชาก)",
+        h+=section("5. พลังงานขาลงแบบ No Regen","ขาลงไม่หักพลังงานคืนแบตเตอรี่ หากแรงโน้มถ่วงมากกว่าแรงต้านการกลิ้งให้ถือว่ากำลังขับเป็นศูนย์และระบบเบรก/การไหลเป็นผู้รับพลังงานส่วนเกิน",
+                   "Fdown = max(0, Frr,slope - Fgrade)<br>Pdown = Fdown × v",
+                   f"Fdown = max(0,{q['Frrs']:.2f}-{q['Fgrade']:.2f}) = {q['Fdown']:.2f} N<br>Pdown = {q['Fdown']:.2f} × {v:.5f} = {q['Pdown_mech']:.2f} W",
+                   f"พลังงานกลขาลงที่ต้องขับ = {q['Edown_mech_cycle']:.4f} Wh/รอบ")
+        h+=section("6. พลังงานออกตัว","คิดพลังงานจลน์เมื่อรถเร่งจากหยุดนิ่งถึงความเร็วเป้าหมาย (ยังไม่รวม loss ช่วงกระแสกระชาก)",
                    "Ek = ½ × m × v²<br/>Eacc/cycle = "+frac("Ek × จำนวนครั้งออกตัว","3600 J/Wh"),
                    f"Ek = ½ × {m:.1f} × {v:.5f}² = {0.5*m*v*v:.4f} J<br/>"+
                    frac(f"{0.5*m*v*v:.4f} × {q['starts']}","3600"),
                    f"{q['Eacc_mech_cycle']:.6f} Wh/รอบ")
-        h+=section("6. พลังงานกลรวมและไฟฟ้าประมาณ","รวมพลังงานกลทุกช่วงที่คิดเป็นงานบวกแล้วหารด้วยประสิทธิภาพโดยประมาณ",
-                   "Emech = (Eflat + Eup + Eacc) × จำนวนรอบ<br/>Edrive = "+
+        h+=section("7. พลังงานกลรวมและไฟฟ้าประมาณ","รวมพลังงานกลทุกช่วงที่คิดเป็นงานบวกแล้วหารด้วยประสิทธิภาพโดยประมาณ",
+                   "Emech = (Eflat + Eup + Edown + Eacc) × จำนวนรอบ<br/>Edrive = "+
                    frac("Emech","ηdrive"),
-                   f"Emech = ({q['Eflat_mech_cycle']:.4f} + {q['Eup_mech_cycle']:.4f} + "
+                   f"Emech = ({q['Eflat_mech_cycle']:.4f} + {q['Eup_mech_cycle']:.4f} + {q['Edown_mech_cycle']:.4f} + "
                    f"{q['Eacc_mech_cycle']:.6f}) × {q['cycles']:.2f} = {q['Emech_total']:.2f} Wh<br/>"+
                    frac(f"{q['Emech_total']:.2f} Wh",f"{q['eff']:.3f}"),
                    f"Calculated Drive = {q['Ecalc_drive']:.2f} Wh")
-        h+=section("7. กรณี Worst-case ตอนขึ้นลาด","สมมติให้มอเตอร์ใช้กำลังกลพิกัดเต็มเฉพาะช่วงขึ้นทางลาด ไม่ใช่การใช้ไฟจริงที่ยืนยันแล้ว",
+        h+=section("8. กรณี Worst-case ตอนขึ้นลาด","สมมติให้มอเตอร์ใช้กำลังกลพิกัดเต็มเฉพาะช่วงขึ้นทางลาด ไม่ใช่การใช้ไฟจริงที่ยืนยันแล้ว",
                    "Pworst,battery = "+frac("กำลังพิกัดต่อมอเตอร์ × จำนวนมอเตอร์","ηup"),
                    frac(f"{self.emotorRated.value():.0f} × {self.enmot.value()}",f"{q['up_eff']:.3f}"),
                    f"{q['Pworst_batt']:.2f} W; Worst-case Drive = {q['Eworst_drive']:.2f} Wh")
-        h+=section("8. พลังงานโหลดทั้งหมด","เพิ่มพลังงานไฟเลี้ยงอุปกรณ์อื่นตลอดเวลาที่เปิดระบบ",
+        h+=section("9. พลังงานโหลดทั้งหมด","เพิ่มพลังงานไฟเลี้ยงอุปกรณ์อื่นตลอดเวลาที่เปิดระบบ",
                    "Eaux = Paux × T<br/>Eload = Edrive + Eaux",
                    f"Eaux = {self.eaux.value():.1f} × {q['runtime_h']:.2f} = {q['Eaux']:.2f} Wh<br/>"
                    f"Eload = {q['Edrive']:.2f} + {q['Eaux']:.2f}",
                    f"{q['Eload']:.2f} Wh ({'Worst-case' if q['use_worst'] else 'Calculated'})")
-        h+=section("9. ความจุแบตเตอรี่หลังเผื่อ DoD และ Reserve","หารด้วย DoD เพื่อให้เหลือความจุสำรอง และคูณเผื่อ Reserve เพิ่ม",
+        h+=section("10. ความจุแบตเตอรี่หลังเผื่อ DoD และ Reserve","หารด้วย DoD เพื่อให้เหลือความจุสำรอง และคูณเผื่อ Reserve เพิ่ม",
                    "Enominal = "+frac("Eload","DoD")+"Edesign = Enominal × (1 + Reserve)<br/>Ah = "+
                    frac("Edesign","แรงดันแบตเตอรี่"),
                    frac(f"{q['Eload']:.2f}",f"{q['dod']:.3f}")+
                    f"Edesign = {q['Enom']:.2f} × (1 + {q['reserve']:.3f}) = {q['Edesign']:.2f} Wh<br/>"+
                    frac(f"{q['Edesign']:.2f} Wh",f"{V:.1f} V"),
                    f"{q['Ah']:.2f} Ah")
-        h+=section("10. กระแสและ BMS","Ah คือความจุพลังงาน ส่วน A คือกระแสที่แบตเตอรี่/BMS ต้องจ่าย ต้องตรวจแยกกัน",
+        h+=section("11. กระแสและ BMS","Ah คือความจุพลังงาน ส่วน A คือกระแสที่แบตเตอรี่/BMS ต้องจ่าย ต้องตรวจแยกกัน",
                    "Iup = "+frac("Pup / ηup","Vbattery")+"Iworst = "+frac("Pworst,battery","Vbattery"),
                    frac(f"{q['Pup_mech']:.2f} / {q['up_eff']:.3f}",f"{V:.1f}")+
                    frac(f"{q['Pworst_batt']:.2f}",f"{V:.1f}"),
@@ -3226,7 +3278,7 @@ class App(QMainWindow):
         self.tradius=ds(.127,.0127,.762,4); self.tradius.setReadOnly(True)
         self.tsf=ds(1.30,1,3,2)
         self.taccel=ds(5,.1,60,2); self.teff=ds(85,1,100,1)
-        self.ttraction=ds(.70,.05,2,2); self.tvoltage=ds(72,12,120,1)
+        self.ttraction=ds(.70,.05,2,2); self.tDriveLoadFrac=ds(50,10,100,1); self.tvoltage=ds(72,12,120,1)
         for lab,q in [
             ("มวลรวม m (kg)",self.tm),("ความชัน θ (deg)",self.tgrade),
             ("ความเร็ว v (km/h)",self.tspeed),("Rolling resistance μr",self.tmu),
@@ -3234,6 +3286,7 @@ class App(QMainWindow):
             ("รัศมีล้อ r (m) — Auto",self.tradius),
             ("Safety Factor",self.tsf),("เวลาเร่ง 0→v (s)",self.taccel),
             ("ประสิทธิภาพ η (%)",self.teff),("สัมประสิทธิ์ยึดเกาะ μ",self.ttraction),
+            ("สัดส่วนแรงกดที่ล้อขับ (%) [สมมติ]",self.tDriveLoadFrac),
             ("แรงดันแบตเตอรี่ (V)",self.tvoltage)]: form.addRow(lab,q)
         self.tUseMain=QCheckBox("ใช้ Total mass จาก Stability / Mass & CG mode")
         self.tUseMain.setChecked(True);form.addRow(self.tUseMain)
@@ -3310,12 +3363,12 @@ class App(QMainWindow):
         rp=QWidget();rpl=QVBoxLayout(rp)
         exp=QPushButton("Export PDF / ส่งออกรายงาน PDF");exp.setObjectName("primaryButton")
         exp.setStyleSheet("font-size:11pt")
-        exp.clicked.connect(self.export_pdf_report);rpl.addWidget(exp)
+        exp.clicked.connect(self.export_torque_pdf);rpl.addWidget(exp)
         self.torqueReportPreview=QPlainTextEdit();self.torqueReportPreview.setReadOnly(True);rpl.addWidget(self.torqueReportPreview)
         self.torqueTabs.addTab(rp,"▤  Report")
 
         controls=[self.tm,self.tgrade,self.tspeed,self.tmu,self.tradius,self.tsf,self.taccel,
-                  self.teff,self.ttraction,self.tvoltage,self.motorRatedPower,self.motorRatedTorque,
+                  self.teff,self.ttraction,self.tDriveLoadFrac,self.tvoltage,self.motorRatedPower,self.motorRatedTorque,
                   self.motorPeakTorque,self.motorMaxRPM,self.controllerCurrent,self.powerReserve]
         for q in controls:q.valueChanged.connect(self.calc_torque)
         self.tmotors.valueChanged.connect(self.calc_torque);self.tUseMain.toggled.connect(self.calc_torque)
@@ -3338,8 +3391,8 @@ class App(QMainWindow):
         r=self.tradius.value() if radius is None else radius
         deg=self.tgrade.value() if slope is None else slope
         th=math.radians(deg);v=self.tspeed.value()/3.6
-        n=self.tmotors.value();eta=self.teff.value()/100.0
-        a=v/self.taccel.value()
+        n=max(1,self.tmotors.value());eta=max(self.teff.value()/100.0,.01)
+        a=v/max(self.taccel.value(),.01)
         Fg=m*G*math.sin(th)
         Fr=self.tmu.value()*m*G*math.cos(th)
         Fa=m*a
@@ -3357,16 +3410,22 @@ class App(QMainWindow):
         Ptorque_total=Ptorque_per*n
         Ptotal=Pwheel/eta
         Pelec_per=Ptotal/n
-        Ibatt=Ptotal/self.tvoltage.value()
-        # preliminary traction model: evenly distributed normal load among driven wheels
+        Ibatt=Ptotal/max(self.tvoltage.value(),.1)
+
+        # Traction limit must use normal load carried by the driven wheels,
+        # not the total vehicle normal load. Default assumption = 50% for
+        # two driven hub wheels + two support wheels; user can edit it.
         Ntotal=m*G*math.cos(th)
-        Ftraction=self.ttraction.value()*Ntotal
+        drive_load_fraction=max(0.0,min(1.0,self.tDriveLoadFrac.value()/100.0))
+        Ndrive=Ntotal*drive_load_fraction
+        Ftraction=self.ttraction.value()*Ndrive
         return dict(m=m,r=r,deg=deg,v=v,a=a,Fg=Fg,Fr=Fr,Fa=Fa,Fsum=Fsum,Fdesign=Fdesign,
                     Fmotor=Fmotor,T=T,rpm=rpm,Pcalc_total=Pcalc_total,Pcalc_per=Pcalc_per,
                     Pwheel=Pwheel,Pmech_per=Pmech_per,
                     omega=omega,Ptorque_per=Ptorque_per,Ptorque_total=Ptorque_total,
                     Ptotal=Ptotal,Pelec_per=Pelec_per,Ibatt=Ibatt,
-                    Ntotal=Ntotal,Ftraction=Ftraction,n=n,eta=eta)
+                    Ntotal=Ntotal,Ndrive=Ndrive,drive_load_fraction=drive_load_fraction,
+                    Ftraction=Ftraction,n=n,eta=eta)
 
     def torque_formula_html(self,q):
         def frac(a,b):
@@ -3425,9 +3484,9 @@ class App(QMainWindow):
         h+=sec(11,"กำลังไฟฟ้าและกระแสแบตเตอรี่","กำลังไฟฟ้าต้องมากกว่ากำลังกลเมื่อมีการสูญเสีย",
                "P<sub>elec,total</sub> = "+frac("P_mech,total","η")+"<br>I<sub>batt</sub> = "+frac("P_elec,total","V"),
                frac(f"{q['Pwheel']:.2f}",f"{q['eta']:.3f}")+"<br>I = "+frac(f"{q['Ptotal']:.2f}",f"{self.tvoltage.value():.1f}"),f"Pelec ≈ {q['Ptotal']:.2f} W, Ibatt ≈ {q['Ibatt']:.2f} A")
-        h+=sec(12,"ขีดจำกัดแรงยึดเกาะ","แรงขับจริงไม่ควรเกินแรงยึดเกาะที่ล้อส่งลงพื้นได้",
-               "N = mg cosθ<br>F<sub>traction,max</sub> = μN<br>Margin = "+frac("F_traction,max","F_design"),
-               f"N = {q['m']:.2f}×9.81×cos({q['deg']:.2f}°) = {q['Ntotal']:.2f} N<br>Fmax = {self.ttraction.value():.3f}×{q['Ntotal']:.2f} = {q['Ftraction']:.2f} N<br>Margin = "+frac(f"{q['Ftraction']:.2f}",f"{q['Fdesign']:.2f}"),f"Traction margin = {traction_margin:.3f}×")
+        h+=sec(12,"ขีดจำกัดแรงยึดเกาะ","แรงยึดเกาะต้องคำนวณจากแรงกดที่อยู่บนล้อขับจริง ไม่ใช่น้ำหนักรถทั้งหมด",
+               "N<sub>total</sub> = mg cosθ<br>N<sub>drive</sub> = λ<sub>drive</sub>N<sub>total</sub><br>F<sub>traction,max</sub> = μN<sub>drive</sub><br>Margin = "+frac("F_traction,max","F_design"),
+               f"Ntotal = {q['Ntotal']:.2f} N<br>Ndrive = {self.tDriveLoadFrac.value():.1f}% × {q['Ntotal']:.2f} = {q['Ndrive']:.2f} N<br>Fmax = {self.ttraction.value():.3f}×{q['Ndrive']:.2f} = {q['Ftraction']:.2f} N<br>Margin = "+frac(f"{q['Ftraction']:.2f}",f"{q['Fdesign']:.2f}"),f"Traction margin = {traction_margin:.3f}×")
         h+=sec(13,"ตรวจมอเตอร์และ Controller","เปรียบเทียบค่าที่ต้องการกับพิกัดที่กรอก โดยค่า margin ≥ 1 เป็นเพียงการผ่านเชิงตัวเลขเบื้องต้น",
                "Torque margin = "+frac("T_peak","T_required")+"Power margin = "+frac("P_rated","P_required")+"RPM margin = "+frac("RPM_max","RPM_required")+"Current margin = "+frac("I_controller","I_motor"),
                frac(f"{self.motorPeakTorque.value():.1f}",f"{q['T']:.2f}")+frac(f"{self.motorRatedPower.value():.0f}",f"{q['Pmech_per']:.2f}")+frac(f"{self.motorMaxRPM.value():.0f}",f"{q['rpm']:.2f}")+frac(f"{self.controllerCurrent.value():.1f}",f"{current_per:.2f}"),f"Torque {tq_margin:.2f}× | Power {power_margin:.2f}× | RPM {rpm_margin:.2f}× | Current {current_margin:.2f}×; กำลังแนะนำ ≈ {recommended:.1f} W/motor")
@@ -3441,8 +3500,31 @@ class App(QMainWindow):
         <p><b>แรงบิด:</b> หลังรู้แรงต่อมอเตอร์แล้วจึงคูณรัศมีล้อ ได้แรงบิดที่ Hub Motor แต่ละตัวต้องสร้างที่ล้อ หากใช้ล้อใหญ่ขึ้น แรงบิดที่ต้องการจะเพิ่มขึ้นเมื่อแรงขับเท่าเดิม</p>
         <p><b>กำลัง:</b> ใช้ P=Fv เป็นวิธีหลัก และตรวจซ้ำด้วย P=Tω เพื่อจับความผิดพลาดของหน่วย จากค่าปัจจุบันกำลังกลออกแบบต่อมอเตอร์คือ <b>{q['Pmech_per']:.2f} W</b></p>
         <p><b>กระแส:</b> ประมาณจากกำลังไฟฟ้ารวม ÷ แรงดันแบตเตอรี่ ได้ประมาณ <b>{q['Ibatt']:.2f} A</b> แต่กระแสจริงขึ้นกับ Controller, efficiency และจุดทำงานของมอเตอร์</p>
-        <p><b>Traction:</b> ต่อให้มอเตอร์แรงพอ รถก็อาจล้อฟรีได้ถ้าแรงยึดเกาะไม่พอ จึงตรวจ μN เพิ่มอีกชั้นหนึ่ง</p>
+        <p><b>Traction:</b> ต่อให้มอเตอร์แรงพอ รถก็อาจล้อฟรีได้ถ้าแรงยึดเกาะไม่พอ จึงตรวจ μN_drive เพิ่มอีกชั้นหนึ่ง โดยใช้สัดส่วนแรงกดที่ล้อขับ</p>
         <p><b>หมายเหตุ:</b> ค่า PASS/CHECK เป็นการตรวจเบื้องต้นจากค่าที่กรอก ไม่ใช่การรับรองความปลอดภัยหรือการรับรองสมรรถนะของผู้ผลิต</p>"""
+
+    def export_torque_pdf(self):
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        default_path=str(Path(docs)/"Drive_Torque_Engineering_Report.pdf")
+        filename,_=QFileDialog.getSaveFileName(self,"Export Drive Torque PDF",default_path,"PDF (*.pdf)")
+        if not filename:return
+        if not filename.lower().endswith(".pdf"):filename+=".pdf"
+        try:
+            q=self.torque_results()
+            html=(
+                f"<h1>DRIVE TORQUE ENGINEERING REPORT</h1><p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>"
+                +self.torque_formula_html(q)
+                +"<hr><h2>คำอธิบายเพิ่มเติม</h2>"+self.torque_guide_html(q)
+                +"<hr><h2>Motor Check</h2>"+self.motorCheckText.toHtml()
+            )
+            doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
+            printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
+            if not Path(filename).exists() or Path(filename).stat().st_size<1000:
+                raise RuntimeError("PDF file was not created correctly")
+            QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\n"+filename)
+        except Exception as exc:
+            QMessageBox.critical(self,"Export PDF ไม่สำเร็จ",str(exc))
 
     def calc_torque(self):
         if not hasattr(self,"torqueSteps"):return
@@ -3531,19 +3613,20 @@ class App(QMainWindow):
 
 
     def stability_formula_html(self):
-        d=self.inputs();g=G
-        th=math.radians(d['th'])
-        FL=d['kd']*d['ml']*g
-        yL=abs(d['L']*math.sin(th));pivot=d['W']/2;dL=max(0,yL-pivot)
-        yB=abs((d['L']/2)*math.sin(th));dB=max(0,yB-pivot)
-        MOL=FL*dL;MOB=d['mb']*g*dB;MO=MOL+MOB
-        mveh=max(.001,d['mt']-d['ml']-d['mb']);MR=mveh*g*pivot;sf=MR/MO if MO else 999
-        rear=-d['WB']/2;front=d['WB']/2;xc=rear+d['xC']
-        xload=xc+d['L']*math.cos(th);xboom=xc+(d['L']/2)*math.cos(th)
-        sfF,sfR=self.longitudinal_sf_at(d,d['th'])
-        alpha=math.radians(self.slope.value());hcg=self.hcg.value();acc=self.acc.value()
-        ds=hcg*math.tan(alpha);da=hcg*(acc/g);dt=ds+da;half=d['WB']/2;sratio=half/dt if dt>1e-9 else 999
-        rows,sm,xg,yg,zg=self.component_values() if hasattr(self,'comp') else ([],0,0,0,0)
+        d=self.inputs();g=G;th=math.radians(d["th"])
+        sf,MO,MR=self.calc_side(d)
+        pivot=d["W"]/2
+        yL=abs(d["L"]*math.sin(th));yB=abs((d["L"]/2)*math.sin(th))
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        FL=d["kd"]*d["ml"]*g
+        dL=max(0.0,yL-pivot);rL=max(0.0,pivot-yL)
+        dB=max(0.0,yB-pivot);rB=max(0.0,pivot-yB)
+        MOL=FL*dL;MRL=FL*rL;MOB=d["mb"]*g*dB;MRB=d["mb"]*g*rB;MRV=mveh*g*pivot
+        rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
+        xload=xc+d["L"]*math.cos(th);xboom=xc+(d["L"]/2)*math.cos(th)
+        sfF,sfR=self.longitudinal_sf_at(d,d["th"])
+        slope=self.slope_stability_results(d)
+        rows,sm,xg,yg,zg=self.component_values() if hasattr(self,"comp") else ([],0,0,0,0)
 
         def frac(a,b):
             return ("<table cellspacing='0' cellpadding='2' style='display:inline-table;margin:3px 8px;vertical-align:middle'>"
@@ -3551,97 +3634,68 @@ class App(QMainWindow):
                     f"<tr><td align='center' style='padding:2px 8px'><b>{b}</b></td></tr></table>")
         def sec(n,title,meaning,thai_formula,var_formula,sub,result):
             return (f"<div style='border:1px solid #d6e0ea;padding:14px 16px;margin:12px 0;background:#fbfdff'>"
-                    f"<h3 style='color:#17456b'>{n}. {title}</h3>"
-                    f"<p><b>คำอธิบายภาษาไทย:</b> {meaning}</p>"
+                    f"<h3 style='color:#17456b'>{n}. {title}</h3><p><b>คำอธิบายภาษาไทย:</b> {meaning}</p>"
                     f"<p><b>สูตรภาษาไทย</b></p><div style='margin-left:18px;font-size:12pt'><b>{thai_formula}</b></div>"
                     f"<p><b>สูตรตัวแปร</b></p><div style='margin-left:18px;font-size:12pt'>{var_formula}</div>"
                     f"<p><b>แทนค่า</b></p><div style='margin-left:18px'>{sub}</div>"
                     f"<p style='color:#176337'><b>คำตอบ: {result}</b></p></div>")
 
         html="<h2>STABILITY ANALYSIS — สูตรครบ + แทนค่า</h2>"
-        html+="<p>จัดให้อ่านแบบเดียวกับหน้า Torque: <b>คำอธิบาย → สูตรภาษาไทย → สูตรตัวแปร → แทนค่า → คำตอบ</b></p>"
-        html+=sec(1,"แรงโหลดออกแบบ",
-                  "หาแรงจาก Payload โดยเผื่อ Dynamic Factor ก่อนนำไปคิดโมเมนต์",
-                  "แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g",
-                  "F<sub>L</sub> = Kdyn × m<sub>L</sub> × g",
-                  f"F<sub>L</sub> = {d['kd']:.2f} × {d['ml']:.2f} × 9.81 = {FL:.2f} N",
-                  f"F<sub>L</sub> = {FL:.2f} N")
-        html+=sec(2,"ระยะโหลดด้านข้าง",
-                  "หาตำแหน่งโหลดตามแนวซ้าย-ขวา และหาระยะที่เลยแนวล้อด้านนอกซึ่งเป็นแนวคว่ำ",
-                  "ระยะโหลดด้านข้าง = |ความยาวแขน × sin(มุมเครน)|; ระยะแขนคว่ำ = ระยะโหลดด้านข้าง − ครึ่งความกว้างฐานล้อ",
-                  "y<sub>L</sub> = |L sinθ|<br>d<sub>L</sub> = max(0,y<sub>L</sub> - W/2)",
-                  f"y<sub>L</sub> = |{d['L']:.3f} × sin({d['th']:.1f}°)| = {yL:.3f} m<br>W/2 = {d['W']:.3f}/2 = {pivot:.3f} m<br>d<sub>L</sub> = max(0,{yL:.3f}-{pivot:.3f}) = {dL:.3f} m",
-                  f"d<sub>L</sub> = {dL:.3f} m")
-        html+=sec(3,"โมเมนต์คว่ำด้านข้าง",
-                  "โมเมนต์คว่ำเกิดจากแรงโหลดและน้ำหนักแขนเครนที่มีระยะแขนเลยแนวคว่ำ",
-                  "โมเมนต์คว่ำรวม = โมเมนต์จากโหลด + โมเมนต์จากแขนเครน",
-                  "M<sub>O</sub> = F<sub>L</sub>d<sub>L</sub> + m<sub>B</sub>gd<sub>B</sub>",
-                  f"M<sub>OL</sub> = {FL:.2f} × {dL:.3f} = {MOL:.2f} N·m<br>M<sub>OB</sub> = {d['mb']:.2f} × 9.81 × {dB:.3f} = {MOB:.2f} N·m<br>M<sub>O</sub> = {MOL:.2f}+{MOB:.2f} = {MO:.2f} N·m",
-                  f"M<sub>O</sub> = {MO:.2f} N·m")
-        html+=sec(4,"โมเมนต์ต้านและ Safety Factor ด้านข้าง",
-                  "ใช้มวลส่วนรถที่เหลือเป็นตัวต้านการคว่ำในโมเดลเบื้องต้น",
-                  "มวลต้าน = มวลรวม − มวลโหลด − มวลแขน; โมเมนต์ต้าน = มวลต้าน × g × ครึ่งความกว้างฐานล้อ; Safety Factor = โมเมนต์ต้าน ÷ โมเมนต์คว่ำ",
-                  "m<sub>R</sub> = m<sub>total</sub>-m<sub>L</sub>-m<sub>B</sub><br>M<sub>R</sub> = m<sub>R</sub>g(W/2)<br>SF<sub>side</sub> = "+frac("M_R","M_O"),
-                  f"m<sub>R</sub> = {d['mt']:.2f}-{d['ml']:.2f}-{d['mb']:.2f} = {mveh:.2f} kg<br>M<sub>R</sub> = {mveh:.2f} × 9.81 × {pivot:.3f} = {MR:.2f} N·m<br>SF<sub>side</sub> = "+frac(f"{MR:.2f}",f"{MO:.2f}"),
-                  f"SF<sub>side</sub> = {'∞' if sf>=999 else f'{sf:.3f}'}")
-        html+=sec(5,"ตำแหน่งตามแนวยาว",
-                  "คำนวณตำแหน่งเพลาหน้า เพลาหลัง จุดยึดเครน Payload และ CG แขนเพื่อใช้คิดคว่ำหน้า-หลัง",
-                  "ตำแหน่งโหลด = ตำแหน่งเครน + ความยาวแขน × cos(มุมเครน)",
-                  "x<sub>load</sub> = x<sub>crane</sub> + L cosθ<br>x<sub>boom</sub> = x<sub>crane</sub> + (L/2)cosθ",
-                  f"x<sub>rear</sub> = {rear:.3f} m<br>x<sub>front</sub> = {front:.3f} m<br>x<sub>crane</sub> = {rear:.3f}+{d['xC']:.3f} = {xc:.3f} m<br>x<sub>load</sub> = {xload:.3f} m<br>x<sub>boom</sub> = {xboom:.3f} m",
-                  f"SF_front = {'∞' if sfF>=999 else f'{sfF:.3f}'}, SF_rear = {'∞' if sfR>=999 else f'{sfR:.3f}'}")
-
-        def moment_rows(pivotx,direction):
-            details=[];over=res=0
-            for name,m,x in (("Vehicle",mveh,d['xCG']),("Payload(Kdyn)",d['kd']*d['ml'],xload),("Boom",d['mb'],xboom)):
-                do=max(0,direction*(x-pivotx));dr=max(0,-direction*(x-pivotx));mo=m*g*do;mr=m*g*dr
-                over+=mo;res+=mr
-                details.append(f"{name}: M<sub>O</sub> = {m:.2f}×9.81×{do:.3f} = {mo:.2f} N·m; M<sub>R</sub> = {m:.2f}×9.81×{dr:.3f} = {mr:.2f} N·m")
-            return '<br><br>'.join(details),over,res
-        fr,fo,frs=moment_rows(front,1);rr,ro,rrs=moment_rows(rear,-1)
-        html+=sec(6,"Safety Factor ด้านหน้า",
-                  "ใช้แนวเพลาหน้าเป็นจุดหมุนและรวมโมเมนต์ต้านกับโมเมนต์คว่ำของทุกมวล",
-                  "Safety Factor ด้านหน้า = ผลรวมโมเมนต์ต้านรอบเพลาหน้า ÷ ผลรวมโมเมนต์คว่ำรอบเพลาหน้า",
-                  "SF<sub>front</sub> = "+frac("ΣM_R","ΣM_O"),
-                  fr+f"<br><br>ΣM<sub>O</sub>={fo:.2f} N·m<br>ΣM<sub>R</sub>={frs:.2f} N·m",
-                  f"SF<sub>front</sub> = {'∞' if fo==0 else f'{frs/fo:.3f}'}")
-        html+=sec(7,"Safety Factor ด้านหลัง",
-                  "ใช้แนวเพลาหลังเป็นจุดหมุนและรวมโมเมนต์ต้านกับโมเมนต์คว่ำของทุกมวล",
-                  "Safety Factor ด้านหลัง = ผลรวมโมเมนต์ต้านรอบเพลาหลัง ÷ ผลรวมโมเมนต์คว่ำรอบเพลาหลัง",
-                  "SF<sub>rear</sub> = "+frac("ΣM_R","ΣM_O"),
-                  rr+f"<br><br>ΣM<sub>O</sub>={ro:.2f} N·m<br>ΣM<sub>R</sub>={rrs:.2f} N·m",
-                  f"SF<sub>rear</sub> = {'∞' if ro==0 else f'{rrs/ro:.3f}'}")
-        html+=sec(8,"รถวิ่งบนทางลาด",
-                  "ประเมินการเลื่อนแนวแรงลัพธ์จากความลาดและความเร่งด้วยความสูง CG",
-                  "ระยะเลื่อนรวม = ระยะเลื่อนจากทางลาด + ระยะเลื่อนจากความเร่ง",
-                  "d<sub>slope</sub> = h<sub>CG</sub>tanα<br>d<sub>acc</sub> = h<sub>CG</sub>(a/g)<br>d<sub>total</sub> = d<sub>slope</sub>+d<sub>acc</sub>",
-                  f"d<sub>slope</sub>={hcg:.3f}×tan({self.slope.value():.1f}°)={ds:.3f} m<br>d<sub>acc</sub>={hcg:.3f}×({acc:.3f}/9.81)={da:.3f} m<br>d<sub>total</sub>={dt:.3f} m",
-                  f"Stability ratio = {'∞' if sratio>=999 else f'{sratio:.3f}'}")
+        html+="<p><b>หลักสำคัญ:</b> มวลทุกก้อนต้องถูกนับเป็น Overturning หรือ Resisting รอบแนว Pivot เพียงครั้งเดียว และ Total mass ต้องไม่บวก Payload ซ้ำ</p>"
+        html+=sec(1,"แรงโหลดออกแบบ","ใช้ Dynamic Factor กับ Payload ก่อนคิดโมเมนต์",
+                  "แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g","F_L = Kdyn × m_L × g",
+                  f"F_L = {d['kd']:.2f} × {d['ml']:.2f} × 9.81 = {FL:.2f} N",f"{FL:.2f} N")
+        html+=sec(2,"ตำแหน่งด้านข้างและ Pivot","หาระยะ Payload/Boom จากกึ่งกลางรถและเทียบกับ W/2",
+                  "ตำแหน่งด้านข้าง = |ระยะแขน × sinθ|; Pivot = W/2",
+                  "y_L=|Lsinθ|, y_B=|(L/2)sinθ|, p=W/2",
+                  f"y_L={yL:.3f} m, y_B={yB:.3f} m, p={pivot:.3f} m",
+                  f"Payload {'เลย' if yL>pivot else 'ยังอยู่ใน'} แนวรองรับ")
+        html+=sec(3,"โมเมนต์คว่ำด้านข้าง","มวลที่อยู่นอก Pivot เท่านั้นที่สร้างโมเมนต์คว่ำ",
+                  "โมเมนต์คว่ำ = ผลรวม(น้ำหนัก × ระยะที่เลย Pivot)",
+                  "M_O = F_L max(0,y_L-p) + m_B g max(0,y_B-p)",
+                  f"M_OL={FL:.2f}×{dL:.3f}={MOL:.2f}<br>M_OB={d['mb']:.2f}×9.81×{dB:.3f}={MOB:.2f}",
+                  f"M_O={MO:.2f} N·m")
+        html+=sec(4,"โมเมนต์ต้านด้านข้าง","มวลส่วนรถ รวมถึง Payload/Boom ที่ยังอยู่ด้านใน Pivot ต้องช่วยต้าน ไม่ควรถูกละทิ้ง",
+                  "โมเมนต์ต้าน = รถส่วนหลัก + Payload ที่อยู่ด้านใน + Boom ที่อยู่ด้านใน",
+                  "M_R = m_vehicle g p + F_L max(0,p-y_L) + m_B g max(0,p-y_B)",
+                  f"M_vehicle={mveh:.2f}×9.81×{pivot:.3f}={MRV:.2f}<br>M_payload,res={FL:.2f}×{rL:.3f}={MRL:.2f}<br>M_boom,res={d['mb']:.2f}×9.81×{rB:.3f}={MRB:.2f}",
+                  f"M_R={MR:.2f} N·m; SF_side={'∞' if sf>=999 else f'{sf:.3f}'}")
+        html+=sec(5,"การคว่ำหน้า-หลัง","ใช้เพลาหน้า/หลังเป็น Pivot และรวมโมเมนต์ทุกมวลตามตำแหน่งจริงในแนวยาว",
+                  "Safety Factor = ผลรวมโมเมนต์ต้าน ÷ ผลรวมโมเมนต์คว่ำ",
+                  "SF_front=ΣM_R/ΣM_O; SF_rear=ΣM_R/ΣM_O",
+                  f"x_rear={rear:.3f}, x_front={front:.3f}, x_crane={xc:.3f}, x_load={xload:.3f}, x_boom={xboom:.3f}",
+                  f"SF_front={'∞' if sfF>=999 else f'{sfF:.3f}'}, SF_rear={'∞' if sfR>=999 else f'{sfR:.3f}'}")
+        html+=sec(6,"เสถียรภาพขณะวิ่งขึ้นทางลาด","ใช้ CG รวมตอนวิ่ง, ความสูง CG, ความชัน และความเร่ง ตรวจโมเมนต์รอบเพลาหลัง",
+                  "ระยะจาก CG ถึงเพลาหลัง = x_CG,drive - x_rear; การเลื่อนแนวแรง = h[tanα + a/(g cosα)]",
+                  "d_shift=h tanα + h a/(g cosα); SF_slope=[g cosα·d_rear]/[h(g sinα+a)]",
+                  f"d_rear={slope['rear_arm']:.3f} m<br>d_slope={slope['shift_slope']:.3f} m<br>d_acc={slope['shift_acc']:.3f} m<br>margin={slope['margin']:.3f} m",
+                  f"SF_slope={'∞' if slope['sf']>=999 else f'{slope['sf']:.3f}'}")
         if sm>0:
-            contrib='<br>'.join([f"{name}: m={m:.2f} kg, m×x={m*x:.3f}, m×y={m*y:.3f}, m×z={m*z:.3f}" for name,m,x,y,z in rows])
-            html+=sec(9,"Combined CG",
-                      "หาศูนย์ถ่วงรวมจากค่าเฉลี่ยถ่วงน้ำหนักของมวลทุกชิ้น",
-                      "ตำแหน่ง CG รวม = ผลรวม(มวล × ตำแหน่ง) ÷ มวลรวม",
-                      "x<sub>CG</sub> = "+frac("Σ(m_i x_i)","Σm_i")+"<br>y<sub>CG</sub> = "+frac("Σ(m_i y_i)","Σm_i")+"<br>z<sub>CG</sub> = "+frac("Σ(m_i z_i)","Σm_i"),
-                      contrib+f"<br><br>Σm = {sm:.2f} kg",
-                      f"xCG={xg:.3f} m, yCG={yg:.3f} m, zCG={zg:.3f} m")
+            contrib="<br>".join([f"{name}: m={m:.2f} kg, x={x:.3f}, y={y:.3f}, z={z:.3f}" for name,m,x,y,z in rows])
+            html+=sec(7,"Combined CG จากตารางมวล","ใช้ค่าเฉลี่ยถ่วงน้ำหนักของมวลรายชิ้นสำหรับ Driving CG และ CG height",
+                      "CG รวม = Σ(m_i × ตำแหน่ง_i) ÷ Σm_i",
+                      "x_CG=Σ(m_i x_i)/Σm_i; y_CG=Σ(m_i y_i)/Σm_i; z_CG=Σ(m_i z_i)/Σm_i",
+                      contrib+f"<br>Σm={sm:.2f} kg",f"x={xg:.3f}, y={yg:.3f}, z={zg:.3f} m")
         best=self.stability_worst_record()
-        html+=sec(10,"Worst Case",
-                  "ค้นหาค่า Safety Factor ต่ำสุดในช่วงที่เครนหมุนได้",
-                  "Safety Factor วิกฤต = ค่า Safety Factor ต่ำสุดของด้านข้าง ด้านหน้า และด้านหลังในทุกมุม",
-                  "SF<sub>worst</sub> = min(SF<sub>side</sub>(θ), SF<sub>front</sub>(θ), SF<sub>rear</sub>(θ))",
-                  f"ตรวจ 181 มุม × 3 ทิศทาง = 543 กรณี<br>ค่าต่ำสุดที่ θ={best[1]}° ทิศ {best[2]}",
-                  f"SF<sub>worst</sub> = {best[0]:.3f}")
+        html+=sec(8,"Worst Case","สแกนมุมเครน -90° ถึง +90° ทีละ 1° และตรวจ Side/Front/Rear",
+                  "Safety Factor วิกฤต = ค่าต่ำสุดจากทุกมุมและทุกทิศ",
+                  "SF_worst=min(SF_side(θ),SF_front(θ),SF_rear(θ))",
+                  f"181 มุม × 3 ทิศ = 543 กรณี; วิกฤตที่ θ={best[1]}° {best[2]}",
+                  f"SF_worst={best[0]:.3f}")
+        html+="<p><b>ข้อจำกัด:</b> เป็น Preliminary rigid-body model; ต้องยืนยัน CG จริง, load transfer, tire/ground compliance, โครงสร้าง, bearing, brake และ dynamic shock ก่อนใช้งานจริง</p>"
         return html
 
     def make_crane(self):
         w=QWidget();self.cranePage=w;m=QHBoxLayout(w); box=QGroupBox("INPUT PARAMETERS / ข้อมูลที่ใช้คำนวณ");f=QFormLayout(box)
         self.mt=spin(300,1,5000,10,1);self.ml=spin(100,0,2000,5,1);self.mb=spin(20,0,1000,1,1)
         self.W=spin(1,.1,5,.05);self.WB=spin(1.10,.2,5,.05);self.L=spin(1.2,.1,5,.05);self.H=spin(1,.2,3,.05)
-        self.xC=spin(.15,-2,2,.05);self.xCG=spin(0,-2,2,.05);self.th=spin(90,-90,90,5,0);self.kd=spin(1.2,1,3,.05);self.req=spin(1.5,1,5,.1)
+        self.xC=spin(.15,-2,2,.05);self.xCG=spin(0,-2,2,.05);self.driveXCG=spin(0,-2,2,.05)
+        self.th=spin(90,-90,90,5,0);self.kd=spin(1.2,1,3,.05);self.req=spin(1.5,1,5,.1)
         rows=[("Total mass / มวลรวมทั้งระบบ (kg)",self.mt),("Payload / น้ำหนักสัตว์+ตะกร้า (kg)",self.ml),("Boom mass / น้ำหนักแขนเครน (kg)",self.mb),("Track width W / ระยะศูนย์กลางล้อซ้าย-ขวา (m)",self.W),
               ("Wheelbase WB / ระยะฐานล้อหน้า-หลัง (m)",self.WB),("Boom length L / ความยาวแขนเครน (m)",self.L),("Column height / ความสูงเสาเครน (m)",self.H),
-              ("Crane x from rear axle / ตำแหน่งเครนจากเพลาหลัง (m)",self.xC),("Vehicle CG x / ตำแหน่ง CG รถจากกึ่งกลาง (m)",self.xCG),
+              ("Crane x from rear axle / ตำแหน่งเครนจากเพลาหลัง (m)",self.xC),
+              ("Base vehicle CG x / CG รถส่วนหลัก ไม่รวม Payload+Boom (m)",self.xCG),
+              ("Driving combined CG x / CG รวมตอนวิ่ง (m)",self.driveXCG),
               ("Rotation angle θ / มุมหมุนเครน (deg)",self.th),("Dynamic factor Kdyn / ตัวคูณแรงไดนามิก",self.kd),("Required SF / ค่า SF ที่ต้องการ",self.req)]
         f.setVerticalSpacing(7);f.setHorizontalSpacing(10);f.setRowWrapPolicy(QFormLayout.WrapLongRows)
         for a,b in rows:f.addRow(a,b);b.valueChanged.connect(self.calc_all)
@@ -3650,23 +3704,26 @@ class App(QMainWindow):
         craneInputScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff);craneInputScroll.setWidget(box);craneInputScroll.setMinimumWidth(300)
         m.addWidget(craneInputScroll);r=QVBoxLayout()
 
-        viewbar=QHBoxLayout();viewbar.setSpacing(7)
-        viewbar.addWidget(QLabel("3D View:"))
+        viewbar=QGridLayout();viewbar.setHorizontalSpacing(6);viewbar.setVerticalSpacing(6)
+        viewbar.addWidget(QLabel("3D View:"),0,0)
         bPerspective=QPushButton("Perspective");bPerspective.clicked.connect(lambda:self.view.setCamera(38,24,1.0))
         bTop=QPushButton("Top");bTop.clicked.connect(lambda:self.view.setCamera(0,72,.95))
         bSide=QPushButton("Side");bSide.clicked.connect(lambda:self.view.setCamera(90,12,1.0))
         bRear=QPushButton("Rear");bRear.clicked.connect(lambda:self.view.setCamera(180,18,1.0))
         bReset=QPushButton("Reset");bReset.clicked.connect(lambda:self.view.resetCamera())
-        self.craneSweepBtn=QPushButton("▶ Animate -90° ↔ +90°");self.craneSweepBtn.setObjectName("primaryButton");self.craneSweepBtn.clicked.connect(self.toggle_crane_sweep)
-        for b in (bPerspective,bTop,bSide,bRear,bReset): viewbar.addWidget(b)
-        viewbar.addStretch(1);viewbar.addWidget(self.craneSweepBtn)
+        for col,b in enumerate((bPerspective,bTop,bSide,bRear,bReset),1):viewbar.addWidget(b,0,col)
+        self.craneSweepBtn=QPushButton("Animate crane  -90° ↔ +90°");self.craneSweepBtn.setObjectName("primaryButton");self.craneSweepBtn.clicked.connect(self.toggle_crane_sweep)
+        viewbar.addWidget(self.craneSweepBtn,1,0,1,6)
         r.addLayout(viewbar)
 
         self.view=Model3D();r.addWidget(self.view)
         cards=QHBoxLayout();self.side=QLabel();self.front=QLabel();self.rear=QLabel()
         for t,x in [("SIDE SF / ด้านข้าง",self.side),("FRONT SF / ด้านหน้า",self.front),("REAR SF / ด้านหลัง",self.rear)]:
             g=QGroupBox(t);l=QVBoxLayout(g);x.setStyleSheet("font-size:21px;font-weight:bold");l.addWidget(x);cards.addWidget(g)
-        r.addLayout(cards);self.craneout=QPlainTextEdit();self.craneout.setReadOnly(True);self.craneout.setStyleSheet("font-size:12px");r.addWidget(self.craneout);m.addLayout(r,1)
+        r.addLayout(cards);self.craneout=QPlainTextEdit();self.craneout.setReadOnly(True);self.craneout.setStyleSheet("font-size:12px");self.craneout.setMinimumHeight(130);r.addWidget(self.craneout)
+        rightPanel=QWidget();rightPanel.setLayout(r)
+        rightScroll=QScrollArea();rightScroll.setWidgetResizable(True);rightScroll.setFrameShape(QFrame.NoFrame);rightScroll.setWidget(rightPanel)
+        m.addWidget(rightScroll,1)
         self.tabs.addTab(w,"1. Crane Mode / โหมดเครน")
 
 
@@ -3811,24 +3868,24 @@ Auto FBD จะเลือก Side หรือ Front-Rear ตามค่า S
         if self.massModeSum.isChecked():
             if sm>0:
                 self.mt.setValue(sm)
-                # xCG input is longitudinal CG measured from vehicle center in this model.
-                self.xCG.setValue(xg)
+                if hasattr(self,"driveXCG"): self.driveXCG.setValue(xg)
                 self.hcg.setValue(max(0,zg))
                 self.compout.setPlainText(
-                    f"โหมด B: รวมมวลอุปกรณ์อัตโนมัติ\\n"
-                    f"Σm_i = {sm:.2f} kg → ส่งไป Total mass\\n"
-                    f"x_CG = {xg:.3f} m → ส่งไป Longitudinal CG\\n"
-                    f"y_CG = {yg:.3f} m\\n"
-                    f"z_CG = {zg:.3f} m → ส่งไป CG height\\n\\n"
-                    f"สูตร: m_total = Σm_i\\n"
-                    f"x_CG = Σ(m_i x_i)/Σm_i\\n"
-                    f"y_CG = Σ(m_i y_i)/Σm_i\\n"
+                    f"โหมด B: รวมมวลอุปกรณ์อัตโนมัติ\n"
+                    f"Σm_i = {sm:.2f} kg → ส่งไป Total mass\n"
+                    f"x_CG,combined = {xg:.3f} m → ส่งไป Driving combined CG x\n"
+                    f"y_CG,combined = {yg:.3f} m\n"
+                    f"z_CG,combined = {zg:.3f} m → ส่งไป CG height\n\n"
+                    f"หมายเหตุ: Base vehicle CG x ในโมเดลเครนไม่ถูกเขียนทับ เพราะ Payload และ Boom ถูกจำลองแยกตามมุมเครน\n\n"
+                    f"สูตร: m_total = Σm_i\n"
+                    f"x_CG = Σ(m_i x_i)/Σm_i\n"
+                    f"y_CG = Σ(m_i y_i)/Σm_i\n"
                     f"z_CG = Σ(m_i z_i)/Σm_i")
                 self.calc_all()
         else:
             self.compout.setPlainText(
-                f"โหมด A: กำหนดน้ำหนักรวมเอง\\n"
-                f"โปรแกรมใช้ Total mass = {self.mt.value():.2f} kg จากหน้า Crane Mode\\n"
+                f"โหมด A: กำหนดน้ำหนักรวมเอง\n"
+                f"โปรแกรมใช้ Total mass = {self.mt.value():.2f} kg จากหน้า Crane Mode\n"
                 f"ตารางอุปกรณ์ใช้สำหรับตรวจสอบมวลและ CG แต่จะไม่เขียนทับ Total mass")
             self.calc_all()
 
@@ -3884,15 +3941,17 @@ Total mass ใน Crane Mode = {self.mt.value():.2f} kg
 
     def longitudinal_sf_at(self,d,th):
         rear=-d["WB"]/2; front=d["WB"]/2
-        xc=rear+d["xC"]; xload=xc+d["L"]*math.cos(math.radians(th));xboom=xc+(d["L"]/2)*math.cos(math.radians(th))
-        mveh=max(.001,d["mt"]-d["ml"]-d["mb"]); ml_eff=d["kd"]*d["ml"]
+        xc=rear+d["xC"]
+        xload=xc+d["L"]*math.cos(math.radians(th))
+        xboom=xc+(d["L"]/2)*math.cos(math.radians(th))
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        ml_eff=d["kd"]*d["ml"]
         def chk(pivot,direction):
             masses=[(mveh,d["xCG"]),(ml_eff,xload),(d["mb"],xboom)]
-            mo=sum(m*G*max(0,direction*(x-pivot)) for m,x in masses)
-            mr=sum(m*G*max(0,-direction*(x-pivot)) for m,x in masses)
-            return mr/mo if mo else 999
+            mo=sum(m*G*max(0.0,direction*(x-pivot)) for m,x in masses)
+            mr=sum(m*G*max(0.0,-direction*(x-pivot)) for m,x in masses)
+            return mr/mo if mo>1e-12 else 999
         return chk(front,1),chk(rear,-1)
-
 
     def calc_worst(self):
         if not hasattr(self,"worstout") or not hasattr(self,"mt"):
@@ -4110,350 +4169,55 @@ d_acc = h_CG × a/g
 
 
     def export_pdf_report(self):
-        # Save automatically in the same folder as this program.
-        app_dir=Path(__file__).resolve().parent
-        path=str(app_dir/"Crane_Stability_Engineering_Report.pdf")
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        default_path=str(Path(docs)/"Crane_Stability_Engineering_Report.pdf")
+        path,_=QFileDialog.getSaveFileName(self,"Export Stability Engineering PDF",default_path,"PDF (*.pdf)")
+        if not path:return
+        if not path.lower().endswith(".pdf"):path+=".pdf"
+        tmpdir=Path(tempfile.mkdtemp(prefix="cvet_stability_"))
         try:
-            d=self.inputs()
-            sf,MO,MR=self.calc_side(d)
-            sfF,sfR=self.longitudinal_sf_at(d,d["th"])
-            th=math.radians(d["th"]); FL=d["kd"]*d["ml"]*G
-            yL=abs(d["L"]*math.sin(th)); pivot=d["W"]/2
-            dL=max(0,yL-pivot); yB=abs((d["L"]/2)*math.sin(th));dB=max(0,yB-pivot)
-            MOL=FL*dL; MOB=d["mb"]*G*dB
-            mR=max(0,d["mt"]-d["ml"]-d["mb"])
-            rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
-            xload=xc+d["L"]*math.cos(th);xboom=xc+(d["L"]/2)*math.cos(th)
-
-            best=(999,None,None)
-            angle_rows=[]
-            for ang in range(-90,91):
-                ss=self.calc_side(d,theta=ang)[0];ff,rr=self.longitudinal_sf_at(d,ang)
-                mm=min(ss,ff,rr)
-                angle_rows.append((ang,ss,ff,rr,mm))
-                for typ,val in [("Side / ด้านข้าง",ss),("Front / ด้านหน้า",ff),("Rear / ด้านหลัง",rr)]:
-                    if val<best[0]:best=(val,ang,typ)
-
-            # Create temporary figures directly from widgets.
-            tmpdir=Path(path).parent / "_crane_report_tmp"
-            tmpdir.mkdir(exist_ok=True)
-            fbd_png=str(tmpdir/"fbd.png"); view_png=str(tmpdir/"vehicle.png")
-            graph_png=str(tmpdir/"graph.png")
-            self.forceDiagram.grab().save(fbd_png)
-            self.view.grab().save(view_png)
-            self.graph.grab().save(graph_png)
-
-            # ReportLab is used so Thai CID font and multipage layout are reliable.
-            from reportlab.platypus import (SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle,
-                                            PageBreak,Image,KeepTogether)
-            from reportlab.lib import colors
-            from reportlab.lib.pagesizes import A4
-            from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
-            from reportlab.lib.enums import TA_CENTER,TA_LEFT
-            from reportlab.pdfbase import pdfmetrics
-            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-            from reportlab.lib.units import mm
-            pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
-            FONT="HYSMyeongJo-Medium"
-
-            doc=SimpleDocTemplate(path,pagesize=A4,rightMargin=15*mm,leftMargin=15*mm,
-                                  topMargin=16*mm,bottomMargin=16*mm,
-                                  title="Crane Vehicle Stability Engineering Report")
-            styles=getSampleStyleSheet()
-            title=ParagraphStyle("T",fontName=FONT,fontSize=20,leading=25,alignment=TA_CENTER,
-                                 textColor=colors.HexColor("#17324d"),spaceAfter=7*mm)
-            h1=ParagraphStyle("H1",fontName=FONT,fontSize=15,leading=20,textColor=colors.HexColor("#17324d"),
-                              spaceBefore=4*mm,spaceAfter=3*mm)
-            h2=ParagraphStyle("H2",fontName=FONT,fontSize=12,leading=17,textColor=colors.HexColor("#334155"),
-                              spaceBefore=3*mm,spaceAfter=2*mm)
-            body=ParagraphStyle("B",fontName=FONT,fontSize=10.0,leading=15.5,textColor=colors.HexColor("#202a35"))
-            eq=ParagraphStyle("EQ",fontName=FONT,fontSize=10.0,leading=16,leftIndent=7*mm,
-                              backColor=colors.HexColor("#f4f7fa"),borderPadding=6,
-                              textColor=colors.HexColor("#172b4d"),spaceBefore=1.5*mm,spaceAfter=2.5*mm)
-            small=ParagraphStyle("S",fontName=FONT,fontSize=8.8,leading=12.5,textColor=colors.HexColor("#52606d"))
-            story=[]
-
-            def P(t,st=body):story.append(Paragraph(t,st))
-            def H(t):story.append(Paragraph(t,h1))
-            def H2(t):story.append(Paragraph(t,h2))
-            def EQ(t):story.append(Paragraph(t.replace("\n","<br/>"),eq))
-            def tbl(data,widths=None):
-                q=Table(data,colWidths=widths,repeatRows=1,hAlign="LEFT")
-                q.setStyle(TableStyle([
-                    ("FONTNAME",(0,0),(-1,-1),FONT),("FONTSIZE",(0,0),(-1,-1),8.5),
-                    ("BACKGROUND",(0,0),(-1,0),colors.HexColor("#17324d")),
-                    ("TEXTCOLOR",(0,0),(-1,0),colors.white),
-                    ("GRID",(0,0),(-1,-1),0.35,colors.HexColor("#b9c3cf")),
-                    ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),5),
-                    ("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),5),
-                    ("BOTTOMPADDING",(0,0),(-1,-1),5),
-                    ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#f7f9fb")])
-                ]));story.append(q);story.append(Spacer(1,3*mm))
-
-            story.append(Spacer(1,12*mm))
-            story.append(Paragraph("CRANE VEHICLE STABILITY",title))
-            story.append(Paragraph("รายงานการวิเคราะห์เสถียรภาพรถขนซากสัตว์พร้อมเครน",ParagraphStyle(
-                "sub",fontName=FONT,fontSize=14,leading=20,alignment=TA_CENTER,textColor=colors.HexColor("#334155"))))
-            story.append(Spacer(1,7*mm))
-            if Path(view_png).exists(): story.append(Image(view_png,width=160*mm,height=78*mm))
-            story.append(Spacer(1,5*mm))
-            P("<b>วัตถุประสงค์:</b> ตรวจสอบแนวโน้มการคว่ำด้านข้าง ด้านหน้า ด้านหลัง และแรงบนทางลาด "
-              "โดยแสดงสูตร วิธีแทนค่า และ Safety Factor เพื่อใช้ประกอบการออกแบบเบื้องต้น")
-            P("<b>ข้อจำกัด:</b> รายงานนี้เป็น Preliminary Engineering Calculation ไม่ใช่การรับรองความปลอดภัยของเครื่องจักรจริง",small)
-            story.append(PageBreak())
-
-            H("1. ข้อมูลนำเข้า / Input Data")
-            mass_mode = "B - Sum Components / รวมจากอุปกรณ์" if hasattr(self,"massModeSum") and self.massModeSum.isChecked() else "A - Fixed Total Mass / กำหนดมวลรวม"
-            P(f"<b>Mass Calculation Mode:</b> {mass_mode}")
-            tbl([["ตัวแปร","ความหมาย","ค่า","หน่วย"],
-                 ["m_total","มวลรวมรถรวมโหลด",f"{d['mt']:.2f}","kg"],
-                 ["m_L","มวล Payload",f"{d['ml']:.2f}","kg"],
-                 ["m_B","มวลแขนเครน",f"{d['mb']:.2f}","kg"],
-                 ["W","ระยะล้อซ้าย-ขวา",f"{d['W']:.3f}","m"],
-                 ["WB","ระยะฐานล้อหน้า-หลัง",f"{d['WB']:.3f}","m"],
-                 ["L","ความยาวแขนเครน",f"{d['L']:.3f}","m"],
-                 ["theta","มุมหมุนเครน",f"{d['th']:.1f}","deg"],
-                 ["Kdyn","Dynamic factor",f"{d['kd']:.2f}","-"],
-                 ["SF_req","Safety Factor ที่ต้องการ",f"{d['req']:.2f}","-"]],[25*mm,75*mm,30*mm,22*mm])
-
-
-            if hasattr(self,"comp"):
-                rows,sm,xg,yg,zg=self.component_values()
-                H("2. ตารางน้ำหนักอุปกรณ์ / Component Mass Table")
-                cdata=[["อุปกรณ์","m (kg)","x (m)","y (m)","z (m)"]]
-                for name,m,xv,yv,zv in rows:
-                    cdata.append([name,f"{m:.2f}",f"{xv:.3f}",f"{yv:.3f}",f"{zv:.3f}"])
-                cdata.append(["SUM / CG",f"{sm:.2f}",f"{xg:.3f}",f"{yg:.3f}",f"{zg:.3f}"])
-                tbl(cdata,[70*mm,24*mm,24*mm,24*mm,24*mm])
-                EQ(f"m_sum = Σm_i = {sm:.2f} kg\n"
-                   f"x_CG = Σ(m_i x_i)/Σm_i = {xg:.3f} m\n"
-                   f"y_CG = Σ(m_i y_i)/Σm_i = {yg:.3f} m\n"
-                   f"z_CG = Σ(m_i z_i)/Σm_i = {zg:.3f} m")
-                P("โหมด A ใช้มวลรวมที่กำหนดเอง ส่วนโหมด B ใช้ผลรวมจากตารางนี้เป็นมวลรวมในการคำนวณหลัก.")
-            H("3. สัญลักษณ์และตัวแปร / Symbols & Variables")
-            P("ตารางนี้ระบุความหมายของตัวแปรที่ใช้ในสมการทั้งหมด เพื่อให้สามารถไล่ตรวจวิธีคำนวณได้ทีละขั้น")
-            tbl([["ตัวแปร","ความหมาย","หน่วย"],
-                 ["m_total","มวลรวมของรถ รวมอุปกรณ์และโหลดตามค่าที่กรอก","kg"],
-                 ["m_L","มวลของ Payload / โหลดที่ปลายเครน","kg"],
-                 ["m_B","มวลของแขนเครนที่ใช้ในแบบจำลอง","kg"],
-                 ["m_R","มวลส่วนที่เหลือของรถ = m_total-m_L-m_B","kg"],
-                 ["g","ความเร่งเนื่องจากแรงโน้มถ่วง = 9.81","m/s²"],
-                 ["Kdyn","ตัวประกอบไดนามิกสำหรับโหลด","-"],
-                 ["L","ความยาวแขนเครนจากแกนหมุนถึงโหลด","m"],
-                 ["theta","มุมหมุนเครน; 0° ตามแนวยาว, ±90° ด้านข้าง","deg"],
-                 ["W","Track width ระยะระหว่างแนวรองรับซ้าย-ขวา","m"],
-                 ["WB","Wheelbase ระยะระหว่างแนวล้อหน้า-หลัง","m"],
-                 ["y_L","ระยะฉายของ Payload ในแนวด้านข้าง = |L sin(theta)|","m"],
-                 ["d_L","แขนโมเมนต์ Payload จากแนวคว่ำ","m"],
-                 ["F_L","แรงโหลดออกแบบ = Kdyn m_L g","N"],
-                 ["M_O","โมเมนต์รวมที่พยายามทำให้รถคว่ำ","N·m"],
-                 ["M_R","โมเมนต์รวมที่ต้านการคว่ำ","N·m"],
-                 ["SF","Safety Factor = M_R/M_O","-"],
-                 ["x_C","ตำแหน่งแกนเครนวัดจากแนวล้อหลัง","m"],
-                 ["x_CG","ตำแหน่ง CG ของมวลรถส่วนหลักตามแนวยาว","m"],
-                 ["h_CG","ความสูงจุดศูนย์ถ่วงจากพื้น","m"],
-                 ["alpha","มุมความลาดชันของพื้น","deg"],
-                 ["a","ความเร่งของรถ","m/s²"],
-                 ["R","แรงปฏิกิริยาจากพื้น/ล้อ","N"]],[24*mm,118*mm,25*mm])
-            story.append(PageBreak())
-
-            H("4. STEP CALCULATION / วิธีคำนวณทีละขั้น")
-            P("ส่วนนี้เป็นหัวใจของรายงาน: ทุกผลลัพธ์แสดงลำดับ สูตร -> แทนค่า -> คำตอบ -> ความหมาย")
-            H2("STEP 1 — หาแรงโหลดออกแบบ F_L")
-            P("ใช้กฎแรง = มวล x ความเร่ง และคูณ Kdyn เพื่อใช้โหลดออกแบบในการตรวจการคว่ำ")
-            EQ(f"F_L = Kdyn x m_L x g\n"
-               f"= {d['kd']:.2f} x {d['ml']:.2f} x 9.81\n"
-               f"= <b>{FL:.2f} N</b>")
-            H2("STEP 2 — หาตำแหน่ง Payload ในแนวด้านข้าง y_L")
-            P("เมื่อเครนหมุน theta ระยะด้านข้างคือองค์ประกอบของความยาวแขนในแกนด้านข้าง")
-            EQ(f"y_L = |L sin(theta)|\n"
-               f"= |{d['L']:.3f} x sin({d['th']:.1f} deg)|\n"
-               f"= <b>{yL:.3f} m</b>")
-            H2("STEP 3 — หาแนว Pivot และแขนโมเมนต์ d_L")
-            P("แนวคว่ำด้านข้างอยู่ที่แนวรองรับด้านนอก ระยะจากกึ่งกลางรถเท่ากับ W/2")
-            EQ(f"W/2 = {d['W']:.3f}/2 = {pivot:.3f} m\n"
-               f"d_L = max(0,y_L-W/2)\n"
-               f"= max(0,{yL:.3f}-{pivot:.3f})\n"
-               f"= <b>{dL:.3f} m</b>")
-            H2("STEP 4 — หาโมเมนต์คว่ำจาก Payload")
-            EQ(f"M_OL = F_L x d_L\n"
-               f"= {FL:.2f} x {dL:.3f}\n"
-               f"= <b>{MOL:.2f} N·m</b>")
-            H2("STEP 5 — หาโมเมนต์จากแขนเครน")
-            EQ(f"d_B = max(0, |(L/2)sin(theta)|-W/2) = {dB:.3f} m\n"
-               f"M_OB = m_B x g x d_B\n"
-               f"= {d['mb']:.2f} x 9.81 x {dB:.3f}\n"
-               f"= <b>{MOB:.2f} N·m</b>")
-            H2("STEP 6 — รวมโมเมนต์ที่ทำให้คว่ำ")
-            EQ(f"M_O = M_OL + M_OB\n"
-               f"= {MOL:.2f}+{MOB:.2f}\n"
-               f"= <b>{MO:.2f} N·m</b>")
-            H2("STEP 7 — หามวลส่วนต้านและโมเมนต์ต้าน")
-            EQ(f"m_R = m_total-m_L-m_B\n"
-               f"= {d['mt']:.2f}-{d['ml']:.2f}-{d['mb']:.2f}\n"
-               f"= {mR:.2f} kg\n"
-               f"M_R = m_R x g x (W/2)\n"
-               f"= {mR:.2f} x 9.81 x {pivot:.3f}\n"
-               f"= <b>{MR:.2f} N·m</b>")
-            H2("STEP 8 — หา Safety Factor")
-            EQ(f"SF = M_R/M_O\n"
-               f"= {MR:.2f}/{MO:.2f}\n"
-               f"= <b>{'INF' if MO==0 else f'{sf:.3f}'}</b>")
-            P(f"เกณฑ์ที่กำหนดในโปรแกรมคือ SF >= {d['req']:.2f}. "
-              f"ผลของกรณีปัจจุบัน = <b>{'PASS' if sf>=d['req'] else 'FAIL'}</b>.")
-            story.append(PageBreak())
-
-            H("5. FBD และการคว่ำด้านข้าง / Side Tipping")
-
-            if Path(fbd_png).exists(): story.append(Image(fbd_png,width=165*mm,height=91*mm))
-            P("กำหนดแนวล้อด้านที่รถมีแนวโน้มจะคว่ำเป็นจุดหมุน (pivot). "
-              "เปรียบเทียบโมเมนต์ที่พยายามทำให้รถคว่ำ M_O กับโมเมนต์ต้าน M_R.")
-            H2("ขั้นที่ 1 - แรงโหลดออกแบบ")
-            P("แรงพื้นฐานคำนวณจาก แรง = มวล x ความเร่ง และใช้ Kdyn เผื่อผลจากการเคลื่อนที่/กระชากของโหลด")
-            EQ(f"F_L = Kdyn x m_L x g\n= {d['kd']:.2f} x {d['ml']:.2f} x 9.81\n= <b>{FL:.2f} N</b>")
-            H2("ขั้นที่ 2 - ระยะโหลดในแนวด้านข้าง")
-            EQ(f"y_L = |L sin(theta)|\n= |{d['L']:.3f} sin({d['th']:.1f} deg)|\n= <b>{yL:.3f} m</b>")
-            H2("ขั้นที่ 3 - ระยะแขนโมเมนต์จากแนวคว่ำ")
-            EQ(f"W/2 = {d['W']:.3f}/2 = {pivot:.3f} m\nd_L = max(0, y_L-W/2)\n= max(0,{yL:.3f}-{pivot:.3f})\n= <b>{dL:.3f} m</b>")
-            H2("ขั้นที่ 4 - โมเมนต์ทำให้คว่ำจาก Payload")
-            EQ(f"M_OL = F_L x d_L\n= {FL:.2f} x {dL:.3f}\n= <b>{MOL:.2f} N.m</b>")
-            H2("ขั้นที่ 5 - โมเมนต์จากแขนเครน")
-            EQ(f"d_B = max(0, |(L/2)sin(theta)|-W/2) = {dB:.3f} m\n"
-               f"M_OB = m_B x g x d_B\n= {d['mb']:.2f} x 9.81 x {dB:.3f}\n= <b>{MOB:.2f} N.m</b>")
-            H2("ขั้นที่ 6 - รวมโมเมนต์คว่ำ")
-            EQ(f"M_O = M_OL + M_OB\n= {MOL:.2f} + {MOB:.2f}\n= <b>{MO:.2f} N.m</b>")
-            H2("ขั้นที่ 7 - โมเมนต์ต้าน")
-            EQ(f"m_R = m_total-m_L-m_B = {d['mt']:.2f}-{d['ml']:.2f}-{d['mb']:.2f} = {mR:.2f} kg\n"
-               f"M_R = m_R x g x W/2\n= {mR:.2f} x 9.81 x {pivot:.3f}\n= <b>{MR:.2f} N.m</b>")
-            H2("ขั้นที่ 8 - Safety Factor")
-            EQ(f"SF_side = M_R/M_O\n= {MR:.2f}/{MO:.2f}\n= <b>{'INF' if MO==0 else f'{sf:.3f}'}</b>\n"
-               f"เกณฑ์ที่ตั้งไว้ SF >= {d['req']:.2f} : <b>{'PASS' if sf>=d['req'] else 'FAIL'}</b>")
-
-            story.append(PageBreak())
-            H("6. การคว่ำหน้า-หลัง / Front-Rear Tipping")
-            P("ใช้แนวล้อหน้าและแนวล้อหลังเป็น pivot แล้วหาผลรวมโมเมนต์ของมวลรถ Payload และแขนเครนรอบ pivot แต่ละด้าน.")
-            EQ(f"x_rear = -WB/2 = -{d['WB']:.3f}/2 = {rear:.3f} m\n"
-               f"x_front = +WB/2 = {front:.3f} m\n"
-               f"x_crane = x_rear + x_C = {rear:.3f}+{d['xC']:.3f} = {xc:.3f} m")
-            EQ(f"x_load = x_crane + L cos(theta)\n= {xc:.3f}+{d['L']:.3f}cos({d['th']:.1f} deg)\n= {xload:.3f} m\n"
-               f"x_boom = x_crane + (L/2)cos(theta) = {xboom:.3f} m")
-            P("สำหรับแต่ละมวล ใช้ M = F x d โดย d คือระยะตั้งฉากจาก pivot. "
-              "โมเมนต์ที่พยายามยกอีกด้านเป็น M_O และโมเมนต์ที่กดรถให้อยู่บนพื้นเป็น M_R.")
-            H2("STEP F/R-1 — กำหนดแนว Pivot หน้าและหลัง")
-            EQ(f"x_rear = -WB/2 = -{d['WB']:.3f}/2 = {rear:.3f} m\\n"
-               f"x_front = +WB/2 = +{d['WB']:.3f}/2 = {front:.3f} m")
-            H2("STEP F/R-2 — หาตำแหน่งแกนเครน")
-            EQ(f"x_crane = x_rear + x_C\\n"
-               f"= {rear:.3f} + {d['xC']:.3f}\\n"
-               f"= <b>{xc:.3f} m</b>")
-            H2("STEP F/R-3 — หาตำแหน่ง Payload ตามแนวยาว")
-            EQ(f"x_load = x_crane + L cos(theta)\\n"
-               f"= {xc:.3f} + {d['L']:.3f} cos({d['th']:.1f} deg)\\n"
-               f"= <b>{xload:.3f} m</b>")
-            H2("STEP F/R-4 — หาตำแหน่ง CG ของแขนเครน")
-            EQ(f"x_boom = x_crane + (L/2)cos(theta)\\n"
-               f"= {xc:.3f} + ({d['L']:.3f}/2)cos({d['th']:.1f} deg)\\n"
-               f"= <b>{xboom:.3f} m</b>")
-            H2("STEP F/R-5 — คำนวณโมเมนต์รอบแนวล้อ")
-            P("สำหรับมวลแต่ละก้อน: W_i = m_i g และ M_i = W_i d_i. "
-              "โปรแกรมแยกโมเมนต์ตามทิศว่าเป็นโมเมนต์คว่ำ M_O หรือโมเมนต์ต้าน M_R แล้วจึงคำนวณ SF.")
-            EQ(f"SF_front = M_R,front / M_O,front = <b>{'INF' if sfF>=999 else f'{sfF:.3f}'}</b>\\n"
-               f"SF_rear = M_R,rear / M_O,rear = <b>{'INF' if sfR>=999 else f'{sfR:.3f}'}</b>")
-            tbl([["กรณี","Safety Factor","เกณฑ์","ผล"],
-                 ["Front tipping",("INF" if sfF>=999 else f"{sfF:.3f}"),f">= {d['req']:.2f}","PASS" if sfF>=d["req"] else "FAIL"],
-                 ["Rear tipping",("INF" if sfR>=999 else f"{sfR:.3f}"),f">= {d['req']:.2f}","PASS" if sfR>=d["req"] else "FAIL"]])
-
-            H("7. Worst Case Finder / การค้นหามุมวิกฤต")
-            P("โปรแกรมจำลองมุมเครนตั้งแต่ -90 deg ถึง +90 deg ทีละ 1 deg และตรวจ Side, Front และ Rear tipping ทุกมุม.")
-            tbl([["รายการ","ผลลัพธ์"],
-                 ["มุมวิกฤต",f"{best[1]} deg"],
-                 ["ทิศทางวิกฤต",best[2]],
-                 ["Safety Factor ต่ำสุด",f"{best[0]:.3f}"],
-                 ["Target SF",f"{d['req']:.2f}"],
-                 ["สถานะ","PASS" if best[0]>=d["req"] else "FAIL"]],[75*mm,80*mm])
-            if Path(graph_png).exists(): story.append(Image(graph_png,width=165*mm,height=88*mm))
-
-            story.append(PageBreak())
-            H("8. การวิ่งบนทางลาด / Driving on Slope")
-            alpha=math.radians(self.slope.value());Wt=d["mt"]*G
-            Fpar=Wt*math.sin(alpha);Fnorm=Wt*math.cos(alpha);Facc=d["mt"]*self.acc.value()
-            P("แรงน้ำหนัก W = mg ถูกแตกเป็นองค์ประกอบขนานและตั้งฉากกับทางลาด "
-              "และคำนวณผลของความสูง CG เพื่อให้เห็นว่าทางลาดและความเร่งมีผลต่อเสถียรภาพอย่างไร.")
-            H2("STEP S-1 — หาน้ำหนักรวมของรถ")
-            P("น้ำหนักเป็นแรงที่เกิดจากมวลภายใต้ความเร่งโน้มถ่วง")
-            EQ(f"W = m x g\\n= {d['mt']:.2f} x 9.81\\n= <b>{Wt:.2f} N</b>")
-            H2("STEP S-2 — หาแรงตามแนวทางลาด")
-            P("องค์ประกอบนี้ดึงรถลงตามทางลาดและเป็นแรงหลักที่ระบบขับเคลื่อนต้องเอาชนะเมื่อขึ้นเนิน")
-            EQ(f"F_parallel = mg sin(alpha)\\n"
-               f"= {Wt:.2f} x sin({self.slope.value():.1f} deg)\\n"
-               f"= <b>{Fpar:.2f} N</b>")
-            H2("STEP S-3 — หาแรงตั้งฉากกับทางลาด")
-            P("องค์ประกอบนี้สัมพันธ์กับแรงปฏิกิริยาปกติจากพื้น")
-            EQ(f"F_normal = mg cos(alpha)\\n"
-               f"= {Wt:.2f} x cos({self.slope.value():.1f} deg)\\n"
-               f"= <b>{Fnorm:.2f} N</b>")
-            H2("STEP S-4 — หาแรงสำหรับเร่งรถ")
-            EQ(f"F_acc = m x a\\n"
-               f"= {d['mt']:.2f} x {self.acc.value():.3f}\\n"
-               f"= <b>{Facc:.2f} N</b>")
-            H2("STEP S-5 — แรงฉุดเบื้องต้นขณะเร่งขึ้นทางลาด")
-            EQ(f"F_required = F_parallel + F_acc\\n"
-               f"= {Fpar:.2f} + {Facc:.2f}\\n"
-               f"= <b>{Fpar+Facc:.2f} N</b>")
-            H2("STEP S-6 — ผลของความสูง CG บนทางลาด")
-            ds=self.hcg.value()*math.tan(alpha)
-            da=self.hcg.value()*(self.acc.value()/G)
-            EQ(f"d_slope = h_CG tan(alpha)\\n"
-               f"= {self.hcg.value():.3f} tan({self.slope.value():.1f} deg)\\n"
-               f"= <b>{ds:.3f} m</b>\\n\\n"
-               f"d_acc = h_CG(a/g)\\n"
-               f"= {self.hcg.value():.3f}({self.acc.value():.3f}/9.81)\\n"
-               f"= <b>{da:.3f} m</b>")
-            P("ค่า d_slope และ d_acc ใช้แสดงแนวโน้มการเลื่อนตำแหน่งแรงลัพธ์จากผลของความลาดและความเร่ง "
-              "ยิ่ง CG สูง ผลต่อเสถียรภาพยิ่งมาก.")
-
-            if hasattr(self,"torqueSteps"):
-                H("9. แรงขับและ Torque ที่ล้อ / Drive Torque")
-                mT=self.mt.value() if self.tUseMain.isChecked() else self.tm.value()
-                ang=math.radians(self.tgrade.value());vv=self.tspeed.value()/3.6
-                aa=vv/self.taccel.value();fg=mT*G*math.sin(ang)
-                fr=self.tmu.value()*mT*G*math.cos(ang);fa=mT*aa
-                fs=fg+fr+fa;fd=fs*self.tsf.value();fm=fd/self.tmotors.value()
-                tq=fm*self.tradius.value();pw=fd*vv;pm=pw/(self.teff.value()/100)
-                P("ส่วนนี้คำนวณแรงขับที่รถต้องใช้บนทางลาด แล้วแปลงเป็น Torque ที่ล้อและกำลังที่ต้องการ.")
-                EQ(f"F_grade = mg sin(theta) = {fg:.2f} N\n"
-                   f"F_r = μr mg cos(theta) = {fr:.2f} N\n"
-                   f"F_a = ma = {fa:.2f} N\n"
-                   f"F_sum = {fg:.2f}+{fr:.2f}+{fa:.2f} = {fs:.2f} N\n"
-                   f"F_design = F_sum x SF = {fd:.2f} N\n"
-                   f"F_motor = F_design/{self.tmotors.value()} = {fm:.2f} N/ตัว\n"
-                   f"T_wheel = F_motor x r = <b>{tq:.2f} N·m/ล้อ</b>\n"
-                   f"P_motor,total = F_design x v / η = <b>{pm/1000:.3f} kW</b>")
-            H("10. สรุปผล / Engineering Summary")
-            tbl([["หัวข้อ","SF / ค่า","ผล"],
-                 ["Side tipping",("INF" if sf>=999 else f"{sf:.3f}"),"PASS" if sf>=d["req"] else "FAIL"],
-                 ["Front tipping",("INF" if sfF>=999 else f"{sfF:.3f}"),"PASS" if sfF>=d["req"] else "FAIL"],
-                 ["Rear tipping",("INF" if sfR>=999 else f"{sfR:.3f}"),"PASS" if sfR>=d["req"] else "FAIL"],
-                 ["Worst case",f"{best[0]:.3f}","PASS" if best[0]>=d["req"] else "FAIL"]])
-            P("<b>หมายเหตุสำคัญ:</b> PASS ในรายงานหมายถึงผ่านเกณฑ์ของแบบจำลองเบื้องต้นนี้เท่านั้น. "
-              "ก่อนผลิตจริงควรชั่งน้ำหนักส่วนประกอบ วัด CG จริง ตรวจโครงสร้าง จุดยึด แบริ่ง ระบบเบรก "
-              "และทดสอบการยกภายใต้ขั้นตอนความปลอดภัยที่เหมาะสม.")
-            P("สูตรในโปรแกรมเป็นแบบจำลองสำหรับช่วยออกแบบและนำเสนอการคำนวณ ไม่แทนมาตรฐานการรับรองเครื่องจักร.",small)
-
-            def footer(canvas,doc):
-                canvas.saveState()
-                canvas.setFont(FONT,7.5);canvas.setFillColor(colors.HexColor("#64748b"))
-                canvas.drawString(15*mm,8*mm,"Crane Vehicle Stability Engineering Tool")
-                canvas.drawRightString(195*mm,8*mm,f"Page {doc.page}")
-                canvas.restoreState()
-            doc.build(story,onFirstPage=footer,onLaterPages=footer)
-            try: shutil.rmtree(tmpdir)
-            except: pass
-            QMessageBox.information(self,"PDF Export",
-                "สร้างรายงาน PDF สำเร็จแล้ว\n\nบันทึกไว้โฟลเดอร์เดียวกับโปรแกรม:\n"+path)
+            self.calc_all();self.calc_worst()
+            d=self.inputs();worst=self.stability_worst_record();slope=self.slope_stability_results(d)
+            figures=[]
+            for name,widget in (("vehicle",getattr(self,"view",None)),("fbd",getattr(self,"forceDiagram",None)),("stability_map",getattr(self,"graph",None))):
+                if widget is not None:
+                    fp=tmpdir/f"{name}.png"
+                    if widget.grab().save(str(fp)):
+                        figures.append((name,fp.as_uri()))
+            fig_html="".join(
+                f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>"
+                for name,uri in figures
+            )
+            summary=f"""
+            <h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
+            <p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+            <table border='1' cellspacing='0' cellpadding='6'>
+            <tr><th>Input / Result</th><th>Value</th></tr>
+            <tr><td>Total mass</td><td>{d['mt']:.2f} kg</td></tr>
+            <tr><td>Payload</td><td>{d['ml']:.2f} kg</td></tr>
+            <tr><td>Boom mass</td><td>{d['mb']:.2f} kg</td></tr>
+            <tr><td>Track / Wheelbase</td><td>{d['W']:.3f} / {d['WB']:.3f} m</td></tr>
+            <tr><td>Worst stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
+            <tr><td>Uphill driving stability</td><td>{'∞' if slope['sf']>=999 else f"{slope['sf']:.3f}"}</td></tr>
+            </table>
+            <p><b>Scope:</b> Preliminary tipping/stability calculation. Use measured mass/CG and validate the real structure, tires, ground, brakes, slewing bearing and lifting system before fabrication/use.</p>
+            """
+            html=(
+                "<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
+                +summary+"<hr>"+self.stability_formula_html()
+                +"<div style='page-break-before:always'></div><h2>Figures / รูปประกอบ</h2>"+fig_html
+                +"</body></html>"
+            )
+            doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
+            printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(path);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
+            if not Path(path).exists() or Path(path).stat().st_size<1000:
+                raise RuntimeError("PDF file was not created correctly")
+            QMessageBox.information(self,"PDF Export","สร้างรายงาน PDF สำเร็จแล้ว:\n"+path)
         except Exception as ex:
-            QMessageBox.critical(self,"PDF Export Error",
-                "สร้าง PDF ไม่สำเร็จ\n"+str(ex)+"\n\nหากยังไม่ได้ติดตั้ง ReportLab ให้ใช้:\npy -m pip install reportlab")
+            QMessageBox.critical(self,"PDF Export Error","สร้าง PDF ไม่สำเร็จ\n"+str(ex))
+        finally:
+            shutil.rmtree(tmpdir,ignore_errors=True)
 
     def make_thai_help(self):
         w=QWidget();self.helpPage=w; l=QVBoxLayout(w)
@@ -4528,10 +4292,25 @@ SF vs ANGLE
         l.addWidget(txt); self.tabs.addTab(w,"6. คำอธิบายภาษาไทย")
 
     def calc_side(self,d,W=None,theta=None,extra=0):
-        W=d["W"] if W is None else W; th=d["th"] if theta is None else theta
-        y=abs(d["L"]*math.sin(math.radians(th)));yb=abs(d["L"]/2*math.sin(math.radians(th)));p=W/2
-        FL=d["kd"]*d["ml"]*G;MO=FL*max(0,y-p)+d["mb"]*G*max(0,yb-p)
-        mR=max(.001,d["mt"]-d["ml"]-d["mb"]+extra);MR=mR*G*p;return MR/MO if MO else 999,MO,MR
+        W=d["W"] if W is None else W
+        th=d["th"] if theta is None else theta
+        pivot=W/2
+        y_load=abs(d["L"]*math.sin(math.radians(th)))
+        y_boom=abs((d["L"]/2)*math.sin(math.radians(th)))
+        m_vehicle=max(0.0,d["mt"]-d["ml"]-d["mb"])+max(0.0,extra)
+
+        # Every mass contributes either overturning or resisting moment about
+        # the outer support line. This fixes the old model that accidentally
+        # omitted Payload/Boom weight when their CG was still inside the base.
+        masses=[
+            (m_vehicle,0.0),
+            (d["kd"]*d["ml"],y_load),
+            (d["mb"],y_boom),
+        ]
+        MO=sum(m*G*max(0.0,y-pivot) for m,y in masses)
+        MR=sum(m*G*max(0.0,pivot-y) for m,y in masses)
+        sf=MR/MO if MO>1e-12 else 999
+        return sf,MO,MR
 
     def calc_all(self):
         if not hasattr(self,"mt"):return
@@ -4611,40 +4390,43 @@ SF vs ANGLE
 ผลนี้เป็นการคำนวณเบื้องต้น ต้องใช้ตำแหน่ง CG และน้ำหนักจริงของชุดประกอบ
 ก่อนนำไปยืนยันความปลอดภัยของรถที่ผลิตจริง
 """)
-        # slope longitudinal static + acceleration effective CG criterion
-        a=math.radians(self.slope.value()); h=self.hcg.value(); acc=self.acc.value()
-        half=d["WB"]/2; shift=h*math.tan(a)+h*(acc/G) # conservative uphill acceleration shift
-        marginDist=half-shift; sfSlope=half/shift if shift>0 else 999
-        self.slopeout.setPlainText(f"""การคำนวณขณะรถวิ่งบนทางลาด / DRIVING MODE
-หมายเหตุ: ในโหมดนี้โหลดวางอยู่บนรถ ไม่ได้แขวนที่ปลายเครน
+        # Uphill driving stability — single source of truth.
+        sr=self.slope_stability_results(d)
+        self.slopeout.setPlainText(f"""การคำนวณขณะรถวิ่งขึ้นทางลาด / UPHILL DRIVING STABILITY
+หมายเหตุ: โหมดนี้ใช้ Combined driving CG และโหลดวางอยู่บนรถ ไม่ได้แขวนที่ปลายเครน
 
-ข้อมูล:
-มุมทางลาด alpha = {self.slope.value():.1f}°
+มุมทางลาด α = {self.slope.value():.1f}°
 Wheelbase WB = {d['WB']:.3f} m
-ความสูง CG รวม hCG = {h:.3f} m
-ความเร่ง a = {acc:.3f} m/s²
+Driving combined CG x = {sr['xcg']:.3f} m
+CG height hCG = {sr['h']:.3f} m
+ความเร่งขึ้นทางลาด a = {sr['acc']:.3f} m/s²
 
-1) การเลื่อนแนวแรงจากความลาดชัน
-   ความหมาย: ระยะเลื่อนแนวแรง = ความสูง CG × tan(มุมลาด)\n   สูตร: d_slope = hCG × tan(alpha)
-   แทนค่า: {h:.3f} × tan({self.slope.value():.1f}°)
-   ผลลัพธ์: d_slope = {h*math.tan(a):.3f} m
+1) ระยะจาก Combined CG ถึงเพลาหลัง
+d_rear = x_CG,drive - x_rear
+       = {sr['xcg']:.3f} - ({sr['rear']:.3f})
+       = {sr['rear_arm']:.3f} m
 
-2) ผลจากความเร่งของรถ
-   ความหมาย: ระยะเลื่อนจากความเร่ง = ความสูง CG × ความเร่ง ÷ g\n   สูตร: d_acc = hCG × a/g
-   แทนค่า: {h:.3f} × {acc:.3f}/9.81
-   ผลลัพธ์: d_acc = {h*(acc/G):.3f} m
+2) การเลื่อนแนวแรงจากความลาด
+d_slope = hCG × tan(α)
+        = {sr['shift_slope']:.3f} m
 
-3) ระยะเลื่อนรวมเบื้องต้น
-   d_total = {shift:.3f} m
-   ครึ่ง Wheelbase = {half:.3f} m
-   ระยะ Margin ที่เหลือ = {marginDist:.3f} m
+3) การเลื่อนแนวแรงจากความเร่ง
+d_acc = hCG × a / (g cosα)
+      = {sr['shift_acc']:.3f} m
 
-4) อัตราส่วนเสถียรภาพเบื้องต้น
-   Stability ratio = {sfSlope:.3f}
+4) ระยะเลื่อนรวมและ Margin
+d_total = {sr['shift_total']:.3f} m
+Margin to rear pivot = d_rear - d_total
+                     = {sr['margin']:.3f} m
+
+5) Safety Factor เชิงโมเมนต์
+SF_slope = [g cosα × d_rear] / [hCG × (g sinα + a)]
+         = {'∞' if sr['sf']>=999 else f"{sr['sf']:.3f}"}
 
 คำอธิบาย:
-ถ้า CG สูงขึ้น แนวแรงลัพธ์จะเข้าใกล้แนวล้อมากขึ้นเมื่ออยู่บนทางลาด
-จึงควรใช้ความสูง CG รวมที่ได้จากรถจริงในการตรวจขั้นสุดท้าย
+- Margin > 0 หมายถึงแนวแรงลัพธ์ยังอยู่ด้านในเพลาหลังในแบบจำลองนี้
+- x_CG,drive และ hCG ควรมาจาก Combined CG ของรถจริง
+- ผลนี้เป็น Preliminary rigid-body calculation; ไม่รวม suspension/tire compliance และ dynamic shock
 """)
         # minimum width numeric search; counterweight at centered CG only helps MR in this simplified model
         target=d["req"]; minW=None
@@ -4695,7 +4477,8 @@ Track width             {d['W']:.3f} m
 Wheelbase               {d['WB']:.3f} m
 Boom length             {d['L']:.3f} m
 Crane x from rear axle  {d['xC']:.3f} m
-Vehicle CG x            {d['xCG']:.3f} m
+Base vehicle CG x       {d['xCG']:.3f} m
+Driving combined CG x    {d['driveXCG']:.3f} m
 Crane angle             {d['th']:.1f} deg
 Kdyn                     {d['kd']:.2f}
 Target SF                {d['req']:.2f}
@@ -4722,7 +4505,7 @@ ASSUMPTIONS
 class ForceDiagram(QWidget):
     """Clean engineering-style FBD, scaled to the current vehicle geometry."""
     def __init__(self,app):
-        super().__init__(); self.app=app; self.mode=0; self.setMinimumHeight(500)
+        super().__init__(); self.app=app; self.mode=0; self.setMinimumHeight(380)
     def setMode(self,i): self.mode=i; self.update()
     def A(self,p,a,b,c,label,off=QPointF(7,-7)):
         p.setPen(QPen(QColor(c),3,Qt.SolidLine,Qt.RoundCap));p.drawLine(a,b)
@@ -4818,7 +4601,7 @@ class ForceDiagram(QWidget):
             p.drawText(18,hh-30,"F = m × a     W = m × g     M = F × d")
 class GraphWidget(QWidget):
     """Stability map: Side / Front / Rear SF over crane angle with target and worst marker."""
-    def __init__(self,app):super().__init__();self.app=app;self.setMinimumHeight(520)
+    def __init__(self,app):super().__init__();self.app=app;self.setMinimumHeight(400)
     def paintEvent(self,e):
         if not hasattr(self.app,"mt"):return
         d=self.app.inputs();p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("white"))
@@ -4860,7 +4643,7 @@ class GraphWidget(QWidget):
 
 class MotorOperatingGraphWidget(QWidget):
     """Shows required operating point against user-entered limits; deliberately not a fabricated torque-speed curve."""
-    def __init__(self,app):super().__init__();self.app=app;self.setMinimumHeight(390)
+    def __init__(self,app):super().__init__();self.app=app;self.setMinimumHeight(320)
     def paintEvent(self,e):
         if not hasattr(self.app,'motorPeakTorque'):return
         q=self.app.torque_results();p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor('white'))
