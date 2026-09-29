@@ -1,6 +1,6 @@
 {
   "latest_version": "50.0.0",
-  "download_url": "",
+  "download_url": "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/latest/download/CraneVehicleEngineeringTool_Setup.exe",
   "sha256": "",
-  "notes": "V50 Built-in Updater — Current public update channel initialized."
+  "notes": "V50 Built-in Updater. GitHub update channel is linked. Setup.exe will become downloadable from this stable URL after the first GitHub Release is published."
 }
