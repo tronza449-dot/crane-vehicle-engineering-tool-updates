@@ -2838,7 +2838,6 @@ class App(QMainWindow):
 
     def update_bms_check(self):
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
-        if hasattr(self,"batterySelectionView"):self.update_battery_selection()
         if hasattr(self,"designCheckView"):self.update_design_check()
 
     def design_check_rows(self):
@@ -3677,10 +3676,14 @@ class App(QMainWindow):
         pairs=((self.eCandidateAh,self.mainSelectedAh),
                (self.eCandidateContA,self.mainBMSCont),
                (self.eCandidatePeakA,self.mainBMSPeak))
+        changed=False
         for src,dst in pairs:
             if abs(dst.value()-src.value())>1e-9:
-                old=dst.blockSignals(True);dst.setValue(src.value());dst.blockSignals(old)
-        if hasattr(self,"bmsView"):self.update_bms_check()
+                old=dst.blockSignals(True);dst.setValue(src.value());dst.blockSignals(old);changed=True
+        # Refresh mirrors directly. Do not call update_bms_check() here because that
+        # can call Battery Selection again and create an update recursion.
+        if changed and hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
+        if changed and hasattr(self,"designCheckView"):self.update_design_check()
 
     def _sync_project_tools_to_battery_candidate(self):
         if not all(hasattr(self,x) for x in ("eCandidateAh","eCandidateContA","eCandidatePeakA",
