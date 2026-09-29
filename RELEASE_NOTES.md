@@ -1,71 +1,76 @@
-# Crane Vehicle Engineering Tool V52.2.0
+# Crane Vehicle Engineering Tool V52.3.0
 
-## Battery Selection / เลือกแบตที่จะซื้อ
+## Animated ESP32 GPIO Board Map
 
-เพิ่มระบบแยก “ค่าขั้นต่ำจากการคำนวณ” ออกจาก “แบตที่ควรนำไปตรวจสเปกก่อนซื้อ” เพื่อไม่ให้ผู้ใช้เอาค่า Ah ขั้นต่ำไปซื้อแบตตรง ๆ โดยไม่ตรวจกระแสและ BMS
+ปรับระบบ GPIO ใหม่ตามที่ต้องการ: ไม่ได้มีแค่ตารางเลือก GPIO แต่เพิ่ม “รูปบอร์ดแบบ Interactive + Animation” ที่แสดง GPIO ทั้งหมดของ Profile และเปลี่ยนสถานะทันทีเมื่อผู้ใช้เลือกขาให้โปรเจกต์
 
-### Battery Selection ใหม่
-อยู่ที่ Electrical / Battery → “เลือกแบต / Battery Selection”
+### Board Animation / GPIO Map
+- วาดบอร์ด ESP32 แบบ vector ภายในโปรแกรม
+- GPIO ที่โปรเจกต์ใช้อยู่จะเรือง/กระพริบ (animated pulse)
+- คลิก GPIO บนรูปเพื่อดูรายละเอียดขานั้น
+- เมื่อ GPIO ถูกใช้ซ้ำจะแสดงสีแดง CONFLICT บนรูปทันที
+- แสดง USED / FREE / ONBOARD / SHARED / CAUTION / MEMORY / CONFLICT
+- Board Summary แสดงจำนวน GPIO และจำนวนขาแต่ละสถานะ
 
-แสดง:
-- Minimum capacity จาก Energy model (Ah / Wh)
-- Continuous current requirement
-- Calculated Peak current
-- Suggested standard battery size ที่ควรนำไปตรวจสเปกต่อ
-- Required continuous C-rate / peak C-rate
-- Design-equivalent runtime ของแต่ละขนาดมาตรฐาน
+### ESP32 profiles
+1. Generic ESP32-S3
+   - 45 physical GPIO
+   - GPIO0–21 และ GPIO26–48
+   - แก้บั๊กเดิม: GPIO22–25 ไม่ใช่ GPIO ของ ESP32-S3 จึงไม่ให้เลือกอีกต่อไป
+   - แสดง strapping / USB-JTAG / memory-related pins เป็น Caution
 
-### Standard Battery Comparison
-เปรียบเทียบขนาด:
-5 / 10 / 15 / 20 / 25 / 30 / 40 / 50 / 60 / 80 / 100 / 120 / 150 / 200 Ah
+2. Waveshare ESP32-S3-Touch-LCD-7B
+   - ใช้ข้อมูล pin allocation จากเอกสาร Waveshare
+   - LCD RGB pins แสดง ONBOARD
+   - Touch/I2C GPIO4/8/9
+   - TF card GPIO11/12/13
+   - RS485 GPIO15/16
+   - CAN/USB shared GPIO19/20
+   - UART0 GPIO43/44
+   - GPIO6 แสดงเป็น GP6 external GPIO
+   - Flash/PSRAM-related GPIO แสดง MEMORY
+   - Suggested Map จะไม่สร้าง GPIO ปลอมเพื่อยัดทุกสัญญาณ หากขาบอร์ดไม่พอจะปล่อย MISSING เพื่อให้เห็นข้อจำกัดจริง
 
-แต่ละขนาดแสดง:
-- Rated Wh
-- Required continuous C-rate
-- Required peak C-rate
-- Design runtime
-- PASS / ENERGY LOW / C-RATE CHECK
+3. Custom ESP32-S3
+   - 45 physical GPIO พร้อม manual mapping
 
-### Candidate Battery Check
-ผู้ใช้กรอกสเปกแบตจากร้าน:
-- Capacity (Ah)
-- Continuous current rating (A)
-- Peak current rating (A)
+4. ESP32 DevKit V1 / ESP-WROOM-32
+   - 34 physical GPIO
+   - แสดง Input-only GPIO และ boot/strapping caution
+   - รูปบอร์ดแนว DevKit สำหรับการอ้างอิงแบบภาพที่ผู้ใช้ต้องการ
 
-โปรแกรมตรวจ:
-- Energy capacity
-- Continuous current
-- Peak current
-- READY TO VERIFY DATASHEET / NOT READY
+### Project-aware visualization
+- Device Manager กับ Board Animation ใช้ข้อมูลชุดเดียวกัน
+- เปลี่ยน GPIO ในตาราง → รูปบอร์ดเปลี่ยนทันที
+- คลิกขาที่ใช้แล้ว → เลือก row ของ Device Manager ที่ใช้ขานั้น
+- Manual Reserved GPIO แสดงบนบอร์ด
+- Board Profile เปลี่ยน → รายการ GPIO ใน ComboBox เปลี่ยนตามชิปจริง
+- Invalid pin / board-reserved pin / memory pin ถูกตรวจอัตโนมัติ
 
-### Suggested size logic
-Suggested standard size = ขนาดมาตรฐานถัดไปที่ผ่านทั้ง:
-- Energy requirement จาก Electrical model
-- Target continuous C-rate
-- Target peak C-rate
+### Waveshare 7B engineering note
+บอร์ด 7B ใช้ GPIO จำนวนมากกับจอและอุปกรณ์ onboard. พอร์ตที่เปิดออกมาสำหรับงานภายนอกมีจำกัด:
+- GP6
+- I2C GPIO8/9 (shared)
+- UART0 GPIO43/44
+- CAN/USB GPIO19/20 (shared/mux)
 
-ค่า Target C-rate แก้ไขได้ และเป็นเพียง design target ไม่ใช่สเปกเซลล์จริงจากผู้ผลิต
+ดังนั้นสัญญาณตรงของโปรเจกต์ เช่น Limit Left/Right, Buzzer, LED อาจมีขาไม่พอหากใช้บอร์ดนี้เป็น Main Controller ทั้งหมด. โปรแกรมจะแสดง MISSING/CONFLICT แทนการแนะนำขาที่ไม่พร้อมใช้งาน เพื่อให้พิจารณา I/O expander หรือ Controller แยกอย่างถูกต้อง.
 
-### Project integration
-- Candidate Battery sync กับ Project Tools → Battery+BMS
-- Save/Load / Auto Save รองรับค่าของ Battery Selection
-- Project เก่าที่มี Battery+BMS แต่ยังไม่มี Battery Selection จะ sync ค่าเดิมเข้าหน้าใหม่
-- Integrated Design Check เพิ่ม Suggested standard size และ Peak BMS check
-- Final Engineering Report แสดง Battery Selection summary
-
-### Important engineering distinction
-- Minimum Ah = ความจุขั้นต่ำตามพลังงาน/DoD/Reserve
-- Suggested Ah = ขนาดมาตรฐานที่ผ่าน Energy + C-rate target
-- Candidate Battery = แบตจริงที่กำลังจะซื้อ ต้องกรอก current rating จากร้าน/ผู้ผลิต
-- Controller current setting อาจเป็น motor/phase current ไม่ใช่ battery current โดยตรง จึงแสดงเป็น conservative indicator แยกต่างหาก
+### Data sources used for profile model
+- Espressif ESP32-S3 GPIO documentation
+- Espressif ESP32 GPIO documentation
+- Waveshare ESP32-S3-Touch-LCD-7B official interface documentation / schematic
 
 ### Regression Gate
-Windows regression test เพิ่มการตรวจ:
-- Suggested Ah ≥ design requirement
-- Candidate fields sync กับ Battery+BMS
-- Candidate ที่ต่ำเกินต้องขึ้น NOT READY
-- Candidate ที่ผ่าน Energy + Continuous + Peak ต้องขึ้น READY TO VERIFY DATASHEET
-- Standard-size comparison table ทำงาน
-- ระบบเดิมทั้งหมด Torque / Trip Summary / Electrical / Winch / Stability / Control Logic / Hardware I/O / PDF / Updater ยังผ่าน test เหมือนเดิม
+Windows full regression เพิ่มการตรวจ:
+- ESP32-S3 = 45 GPIO และไม่มี GPIO22–25
+- Waveshare onboard LCD pin map
+- Waveshare I2C/CAN/UART shared pins
+- Classic ESP32 = 34 GPIO
+- Input-only pin classification
+- Duplicate/reserved pin → CONFLICT
+- Animated board renders successfully in offscreen Windows test
+- Clicked pin detail works
+- Hardware project state, PDF, updater, Torque, Battery, Winch, Stability และ Control Logic เดิมต้องผ่านก่อน Release
 
-หมายเหตุ: Suggested size ไม่ใช่คำสั่งซื้ออัตโนมัติ ต้องยืนยัน Pack voltage, chemistry, cell current rating, BMS continuous/peak, connector, fuse, charger และ VESC battery-current limit ก่อนซื้อจริง
+หมายเหตุ: Board Animation เป็น engineering visualization ไม่ใช่ภาพ PCB สำหรับใช้เดินลายวงจร. ก่อนต่อของจริงต้องตรวจ revision ของบอร์ดและ datasheet/schematic อีกครั้ง.
