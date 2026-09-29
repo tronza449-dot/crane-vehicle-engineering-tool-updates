@@ -1,0 +1,160 @@
+name: Build Windows Installer and Publish Update
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - VERSION
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-build.txt
+
+      - name: Generate application icon
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path assets | Out-Null
+          @'
+          from PIL import Image, ImageDraw, ImageFont
+          from pathlib import Path
+
+          size=256
+          im=Image.new("RGBA",(size,size),(22,99,235,255))
+          d=ImageDraw.Draw(im)
+          d.rounded_rectangle((18,18,238,238),radius=42,fill=(15,39,66,255))
+          d.rounded_rectangle((36,36,220,220),radius=34,fill=(36,99,235,255))
+          d.line((68,168,68,112,98,82,158,82,188,112,188,168),fill="white",width=12,joint="curve")
+          d.line((98,168,158,168),fill="white",width=12)
+          try:
+              font=ImageFont.truetype(r"C:\Windows\Fonts\segoeuib.ttf",34)
+          except Exception:
+              font=ImageFont.load_default()
+          label="CVET"
+          box=d.textbbox((0,0),label,font=font)
+          x=(size-(box[2]-box[0]))/2
+          d.text((x,188),label,font=font,fill="white")
+          Path("assets").mkdir(exist_ok=True)
+          im.save("assets/CraneEngineeringTool.ico",sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])
+          '@ | Set-Content make_icon.py -Encoding UTF8
+          python make_icon.py
+
+      - name: Build application
+        shell: pwsh
+        run: |
+          $dist = Join-Path $env:RUNNER_TEMP "cvet-dist"
+          $work = Join-Path $env:RUNNER_TEMP "cvet-work"
+          python -m PyInstaller --noconfirm --clean --distpath "$dist" --workpath "$work" CraneEngineeringTool.spec
+          "CVET_DIST_DIR=$dist" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Read version and prepare installer
+        shell: pwsh
+        run: |
+          $version=(Get-Content VERSION -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION must be x.y.z" }
+
+          $iss="installer/CraneEngineeringTool.iss"
+          $c=Get-Content $iss -Raw
+          $c=$c -replace '#define MyAppVersion "[^"]+"', "#define MyAppVersion `"$version`""
+          $c=$c -replace 'VersionInfoVersion=.*', "VersionInfoVersion=$version.0"
+          Set-Content -Path $iss -Value $c -Encoding UTF8
+
+          $out=Join-Path $env:RUNNER_TEMP "cvet-output"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          "CVET_OUTPUT_DIR=$out" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CVET_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build Setup.exe
+        shell: pwsh
+        run: |
+          $candidates=@(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          )
+          $iscc=$candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found" }
+
+          & $iscc "installer\CraneEngineeringTool.iss"
+
+          $setup=Join-Path $env:CVET_OUTPUT_DIR "CraneVehicleEngineeringTool_Setup.exe"
+          if (-not (Test-Path $setup)) { throw "Setup.exe was not generated" }
+          "CVET_SETUP=$setup" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Calculate SHA256
+        shell: pwsh
+        run: |
+          $sha=(Get-FileHash "$env:CVET_SETUP" -Algorithm SHA256).Hash.ToLower()
+          "CVET_SHA256=$sha" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "SHA256=$sha"
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag="v$env:CVET_VERSION"
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete $tag -y --cleanup-tag
+          }
+
+          gh release create $tag "$env:CVET_SETUP" `
+            --title "Crane Vehicle Engineering Tool V$env:CVET_VERSION" `
+            --notes-file RELEASE_NOTES.md `
+            --latest
+
+      - name: Update latest.json
+        shell: pwsh
+        run: |
+          $download="https://github.com/${{ github.repository }}/releases/download/v$env:CVET_VERSION/CraneVehicleEngineeringTool_Setup.exe"
+          $notes=(Get-Content RELEASE_NOTES.md -Raw).Trim()
+          $manifest=[ordered]@{
+            latest_version=$env:CVET_VERSION
+            download_url=$download
+            sha256=$env:CVET_SHA256
+            notes=$notes
+          }
+          $manifest | ConvertTo-Json -Depth 4 | Set-Content latest.json -Encoding UTF8
+
+      - name: Commit latest manifest
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "Update latest manifest for v$env:CVET_VERSION [skip ci]"
+            git push
+          }
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CraneVehicleEngineeringTool-Setup-V${{ env.CVET_VERSION }}
+          path: ${{ env.CVET_SETUP }}
+          if-no-files-found: error
