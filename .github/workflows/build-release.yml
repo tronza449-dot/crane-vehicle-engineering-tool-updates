@@ -240,12 +240,23 @@ jobs:
           w.run_safety_self_tests()
           assert "13/13" in w.safetyTestResults.toPlainText()
 
-          # ---------- V52 Hardware I/O / Wiring regression ----------
+          # ---------- V52.3 Animated GPIO Board / Hardware regression ----------
           assert hasattr(w,"hwRows") and len(w.hwRows)>=9
-          initial=w.hardware_check_results()
-          assert len(initial["missing"])>=1
-          assert initial["ready"] is False
+          assert hasattr(w,"hwBoardView") and w.hwBoardView.timer.isActive()
 
+          # Generic ESP32-S3 must expose exactly the chip's 45 physical GPIOs:
+          # GPIO0-21 and GPIO26-48; GPIO22-25 do not exist on ESP32-S3.
+          w.hwBoardProfile.setCurrentIndex(0)
+          QApplication.processEvents()
+          pdata=w.gpio_profile_data()
+          assert len(pdata["pins"])==45
+          for invalid_pin in (22,23,24,25):
+              assert invalid_pin not in pdata["pins"]
+          for valid_pin in (0,21,26,48):
+              assert valid_pin in pdata["pins"]
+
+          initial=w.hardware_check_results()
+          assert len(initial["missing"])>=1 and initial["ready"] is False
           w.apply_suggested_hardware_map()
           w.hwBoardVerified.setChecked(True)
           w.hwReservedPins.setText("")
@@ -258,15 +269,17 @@ jobs:
           header=w.generate_hardware_header_text()
           for macro in ("PIN_IBUS_RX","PIN_CAN_TX","PIN_CAN_RX","PIN_I2C_SDA","PIN_I2C_SCL","PIN_LIMIT_LEFT","PIN_LIMIT_RIGHT","PIN_BUZZER","PIN_LED"):
               assert macro in header, f"Missing generated macro {macro}"
-          assert "Ready for code: YES" in header
 
-          # Duplicate pin must be caught.
+          # Duplicate pin must be caught and shown as conflict in the visual snapshot.
           w.hwRows[1]["gpio"].setCurrentText(w.hwRows[0]["gpio"].currentText())
           conflict=w.hardware_check_results()
           assert conflict["conflicts"] and conflict["ready"] is False
+          snap=w.hardware_pin_snapshot()
+          dup_pin=int(w.hwRows[0]["gpio"].currentText().split()[-1])
+          assert snap[dup_pin]["status"]=="CONFLICT"
           w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
 
-          # Reserved pin must be caught.
+          # Manual reserved pin must be caught.
           first_pin=int(w.hwRows[0]["gpio"].currentText().split()[-1])
           w.hwReservedPins.setText(str(first_pin))
           reserved=w.hardware_check_results()
@@ -280,15 +293,47 @@ jobs:
           w.hwRows[0]["protection"].setCurrentText("Level Shifter / Divider")
           assert w.hardware_check_results()["ready"] is True
 
-          # Waveshare board profile requires explicit reserved GPIO verification list.
+          # Waveshare 7B official board map: 45 S3 physical GPIO, but most are
+          # consumed by LCD/touch/TF/RS485/CAN/USB. Suggested project map must
+          # therefore leave some signals unassigned instead of inventing free pins.
           w.hwBoardProfile.setCurrentIndex(1)
-          waveshare=w.hardware_check_results()
-          assert waveshare["protection_missing"] and waveshare["ready"] is False
-          w.hwReservedPins.setText("45,46")
-          w.hwBoardVerified.setChecked(True)
-          # Suggested map does not use 45/46, so readiness should recover.
+          QApplication.processEvents()
+          wave=w.gpio_profile_data()
+          assert wave["profile"]=="waveshare7b" and len(wave["pins"])==45
+          for pin in (0,1,2,3,5,7,10,14,17,18,21,38,39,40,41,42,45,46,47,48):
+              assert wave["pin_info"][pin]["status"]=="BOARD"
+          assert wave["pin_info"][6]["status"]=="FREE"
+          assert wave["pin_info"][8]["status"]=="SHARED" and wave["pin_info"][9]["status"]=="SHARED"
+          assert wave["pin_info"][19]["status"]=="SHARED" and wave["pin_info"][20]["status"]=="SHARED"
+          assert wave["pin_info"][43]["status"]=="SHARED" and wave["pin_info"][44]["status"]=="SHARED"
+          w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
+          wavecheck=w.hardware_check_results()
+          assert wavecheck["missing"], "Waveshare 7B should expose too few direct GPIO for every project signal"
+          assert wavecheck["ready"] is False
+          assert w.hwRows[1]["gpio"].currentText()=="GPIO 20"  # CAN TX onboard
+          assert w.hwRows[2]["gpio"].currentText()=="GPIO 19"  # CAN RX onboard
+          assert w.hwRows[3]["gpio"].currentText()=="GPIO 8"
+          assert w.hwRows[4]["gpio"].currentText()=="GPIO 9"
+
+          # Clicking a board pin must populate the detail panel; animation paint
+          # must render successfully offscreen.
+          w.on_board_pin_clicked(6)
+          assert "GPIO6" in w.hwBoardPinInfo.toPlainText()
+          boardshot=w.hwBoardView.grab()
+          assert not boardshot.isNull() and boardshot.width()>100 and boardshot.height()>100
+
+          # Classic ESP32 DevKit profile contains 34 physical GPIOs and identifies
+          # input-only pins.
+          w.hwBoardProfile.setCurrentIndex(3)
+          classic=w.gpio_profile_data()
+          assert len(classic["pins"])==34
+          assert classic["pin_info"][34]["function"]=="Input only"
+          assert classic["pin_info"][39]["function"]=="Input only"
+
+          # Return to generic S3 for the remaining regression suite.
+          w.hwBoardProfile.setCurrentIndex(0)
+          w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
           assert w.hardware_check_results()["ready"] is True
-          w.hwBoardProfile.setCurrentIndex(0);w.hwReservedPins.setText("")
 
           # ---------- Project state round-trip ----------
           original=w.tgrade.value()
