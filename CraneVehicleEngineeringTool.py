@@ -1245,7 +1245,7 @@ class App(QMainWindow):
         root.addWidget(make_page_header(
             "HARDWARE I/O & WIRING MANAGER",
             "GPIO conflict • Voltage level • Protection • Wiring check • ESP32 Pin Map",
-            self.show_home_mode,"V52 HARDWARE","#e4fbf5","#08705e"
+            self.show_home_mode,"V52.3 GPIO VISUAL","#e4fbf5","#08705e"
         ))
 
         cfg=QFrame();cfg.setObjectName("softPanel")
@@ -1253,14 +1253,15 @@ class App(QMainWindow):
         cl.addWidget(QLabel("ESP32 board profile"),0,0)
         self.hwBoardProfile=QComboBox()
         self.hwBoardProfile.addItems([
-            "Generic ESP32-S3 — verify pinout",
-            "Waveshare ESP32-S3 7-inch Type B — verify display-reserved GPIOs",
-            "Custom / Other ESP32 — manual pinout",
+            "Generic ESP32-S3 — 45 physical GPIO",
+            "Waveshare ESP32-S3-Touch-LCD-7B — Project board",
+            "Custom / Other ESP32-S3",
+            "ESP32 DevKit V1 / ESP-WROOM-32 — 34 physical GPIO",
         ])
         cl.addWidget(self.hwBoardProfile,0,1)
         cl.addWidget(QLabel("Reserved GPIOs"),0,2)
         self.hwReservedPins=QLineEdit()
-        self.hwReservedPins.setPlaceholderText("เช่น 0, 3, 19, 20, 45, 46 — ใส่ตาม datasheet ของบอร์ดจริง")
+        self.hwReservedPins.setPlaceholderText("Manual reserve เพิ่มเติม เช่น 6, 43 — ไม่ต้องใส่ขาที่บอร์ดใช้เอง โปรแกรมรู้ให้อัตโนมัติ")
         cl.addWidget(self.hwReservedPins,0,3)
         self.hwBoardVerified=QCheckBox("ฉันตรวจ GPIO กับ pinout/datasheet ของบอร์ดจริงแล้ว")
         cl.addWidget(self.hwBoardVerified,1,0,1,2)
@@ -1280,6 +1281,28 @@ class App(QMainWindow):
         root.addLayout(status)
 
         self.hwTabs=QTabWidget();root.addWidget(self.hwTabs,1)
+
+        boardPage=QWidget();boardLayout=QHBoxLayout(boardPage);boardLayout.setContentsMargins(8,8,8,8);boardLayout.setSpacing(12)
+        boardLeft=QVBoxLayout()
+        boardToolbar=QHBoxLayout()
+        self.hwAnimateCheck=QCheckBox("Animate used GPIO");self.hwAnimateCheck.setChecked(True)
+        self.hwAnimateCheck.toggled.connect(lambda on:self.hwBoardView.set_animation_enabled(on) if hasattr(self,"hwBoardView") else None)
+        self.hwBoardCountLabel=QLabel("GPIO —")
+        self.hwBoardCountLabel.setStyleSheet("font-weight:900;color:#174a74;")
+        boardToolbar.addWidget(self.hwAnimateCheck);boardToolbar.addStretch(1);boardToolbar.addWidget(self.hwBoardCountLabel)
+        boardLeft.addLayout(boardToolbar)
+        self.hwBoardView=Esp32AnimatedBoardWidget(self);boardLeft.addWidget(self.hwBoardView,1)
+        leftWrap=QWidget();leftWrap.setLayout(boardLeft);boardLayout.addWidget(leftWrap,3)
+
+        boardRight=QVBoxLayout()
+        self.hwBoardSummary=QTextEdit();self.hwBoardSummary.setReadOnly(True);self.hwBoardSummary.setMinimumWidth(300)
+        self.hwBoardPinInfo=QTextEdit();self.hwBoardPinInfo.setReadOnly(True);self.hwBoardPinInfo.setMinimumHeight(190)
+        boardRight.addWidget(QLabel("BOARD GPIO SUMMARY"))
+        boardRight.addWidget(self.hwBoardSummary,2)
+        boardRight.addWidget(QLabel("CLICKED PIN"))
+        boardRight.addWidget(self.hwBoardPinInfo,1)
+        rightWrap=QWidget();rightWrap.setLayout(boardRight);boardLayout.addWidget(rightWrap,1)
+        self.hwTabs.addTab(boardPage,"Board Animation / GPIO Map")
 
         pinPage=QWidget();pinLay=QVBoxLayout(pinPage);pinLay.setContentsMargins(8,8,8,8)
         hint=QLabel("เปิด/ปิดอุปกรณ์และกำหนด GPIO ได้เอง • โปรแกรมตรวจ GPIO ซ้ำ, Reserved pin และระดับสัญญาณก่อนต่อ ESP32")
@@ -1358,19 +1381,23 @@ class App(QMainWindow):
         notes=QPlainTextEdit();notes.setReadOnly(True)
         notes.setPlainText("""V52 HARDWARE I/O NOTES
 
-• GPIO Manager ตรวจ “การจัดสรรขา” แต่ไม่ได้แทน pinout ของบอร์ดจริง
-• สำหรับ Waveshare ESP32-S3 7-inch Type B ต้องนำ GPIO ที่จอ/Touch/SD/USB ใช้อยู่จริงใส่ใน Reserved GPIOs
+• Board Animation แสดง GPIO ทั้งหมดของชิปตาม Profile และสถานะ USED/FREE/ONBOARD/SHARED/CAUTION/CONFLICT
+• ESP32-S3 มี 45 physical GPIO: GPIO0–21 และ GPIO26–48; GPIO22–25 ไม่มีใน ESP32-S3
+• Waveshare ESP32-S3-Touch-LCD-7B: โปรแกรมใส่ขา LCD, Touch/I2C, TF, RS485, USB/CAN และ UART0 จากเอกสารบอร์ดไว้ให้อัตโนมัติ
+• Manual Reserved GPIO ใช้สำหรับขาที่คุณต้องการกันเพิ่มเองเท่านั้น
 • ESP32 GPIO เป็น 3.3 V logic — ห้ามป้อน 5/12/72 V เข้า GPIO โดยตรง
 • FlySky iBUS: ต้องยืนยันระดับสัญญาณจริงของ Receiver; ค่าเริ่มต้นในโปรแกรมถือว่า 5 V logic และต้องมี level shifting
 • SN65HVD230 ใช้เป็น CAN transceiver ระหว่าง ESP32 กับ VESC; CANH/CANL ไม่ต่อเข้าขา GPIO ตรง
 • Limit switch OMRON + PC817: โปรแกรมถือว่าฝั่ง ESP32 ถูก pull-up เป็น 3.3 V
 • Buzzer 5 V: ใช้ MOSFET/driver ไม่ดึงกระแสโหลดจาก GPIO โดยตรง
 • Winch 12 V เป็นระบบกำลังแยกจาก 72 V traction battery ตามแบบปัจจุบัน
+• สำหรับ Waveshare 7B พอร์ตภายนอกที่เหลือมีจำกัดมาก; GPIO6 เป็น GP6 โดยตรง, GPIO8/9 เป็น I2C shared, GPIO43/44 เป็น UART0, GPIO19/20 แชร์ CAN/USB
 • ค่าที่ขึ้น READY FOR CODE เป็น Preliminary Wiring Check — ต้องตรวจ datasheet, pinout, fuse/current rating และ wiring จริงก่อนจ่ายไฟ
+• Data source: Espressif ESP32/ESP32-S3 GPIO documentation + Waveshare ESP32-S3-Touch-LCD-7B official interface documentation
 """)
         self.hwTabs.addTab(notes,"Notes / Safety")
 
-        self.hwBoardProfile.currentIndexChanged.connect(self.update_hardware_manager)
+        self.hwBoardProfile.currentIndexChanged.connect(self.on_hardware_profile_changed)
         self.hwReservedPins.textChanged.connect(self.update_hardware_manager)
         self.hwBoardVerified.stateChanged.connect(self.update_hardware_manager)
         self.tabs.addTab(w,"")
@@ -1414,17 +1441,42 @@ class App(QMainWindow):
         self.update_hardware_manager()
 
     def hardware_check_results(self):
-        reserved=self._reserved_gpio_set();used={};conflicts=[];missing=[];voltage=[];row_status={}
+        data=self.gpio_profile_data();valid=set(data.get("pins",[]));profile=data.get("profile")
+        manual=self._manual_reserved_gpio_set();used={};conflicts=[];missing=[];voltage=[];row_status={}
+        base_info=data.get("pin_info",{})
+
         for row in self.hwRows:
             if not row["enabled"].isChecked():
                 row_status[row["key"]]=("OFF","#64748b");continue
             gpio=row["gpio"].currentText()
             if gpio=="Not assigned":
                 missing.append(row["key"]);row_status[row["key"]]=("MISSING","#b54708")
+                continue
+
+            m=re.search(r"\d+",gpio)
+            if not m:
+                conflicts.append(f"{row['key']}: invalid GPIO text");row_status[row["key"]]=("INVALID","#b42318");continue
+            pin=int(m.group())
+            if pin not in valid:
+                conflicts.append(f"{row['key']} uses GPIO {pin}, which does not exist in {data['name']}")
+                row_status[row["key"]]=("INVALID","#b42318");continue
+            if pin in manual:
+                conflicts.append(f"{row['key']} uses manually reserved GPIO {pin}")
+            used.setdefault(pin,[]).append(row["key"])
+
+            board_status=base_info.get(pin,{}).get("status","FREE")
+            board_fn=base_info.get(pin,{}).get("function","")
+            if profile=="waveshare7b":
+                if board_status in ("BOARD","MEMORY"):
+                    conflicts.append(f"{row['key']} uses GPIO {pin} reserved by board: {board_fn}")
+                elif board_status in ("SHARED","CAUTION") and not self._profile_compatible_pin(row["key"],pin):
+                    conflicts.append(f"{row['key']} cannot use GPIO {pin} on Waveshare 7B: {board_fn}")
+            elif profile=="classic":
+                if board_status=="CAUTION" and "Input only" in board_fn and row["interface"] in ("Digital OUT","CAN TX","I2C SCL"):
+                    conflicts.append(f"{row['key']} requires output but GPIO {pin} is input-only")
             else:
-                pin=int(re.search(r"\d+",gpio).group())
-                if pin in reserved:conflicts.append(f"{row['key']} uses reserved GPIO {pin}")
-                used.setdefault(pin,[]).append(row["key"])
+                if board_status=="MEMORY":
+                    conflicts.append(f"{row['key']} uses memory-related GPIO {pin}; choose another pin or verify module wiring")
 
             supply=row["supply"].currentText()
             logic=row["logic"].currentText()
@@ -1445,10 +1497,13 @@ class App(QMainWindow):
 
         for pin,keys in used.items():
             if len(keys)>1:conflicts.append(f"GPIO {pin} duplicated: "+", ".join(keys))
+
         for row in self.hwRows:
-            if row_status.get(row["key"],("",""))[0] in ("OFF","MISSING"):continue
-            pin=int(re.search(r"\d+",row["gpio"].currentText()).group())
-            related=[x for x in conflicts if f"GPIO {pin}" in x or f"GPIO {pin} " in x]
+            if row_status.get(row["key"],("",""))[0] in ("OFF","MISSING","INVALID"):continue
+            txt=row["gpio"].currentText();m=re.search(r"\d+",txt)
+            if not m:continue
+            pin=int(m.group())
+            related=[x for x in conflicts if row["key"] in x or f"GPIO {pin}" in x]
             rowVoltage=[x for x in voltage if row["device"] in x or row["key"] in x]
             if related:row_status[row["key"]]=("CONFLICT","#b42318")
             elif rowVoltage:row_status[row["key"]]=("VOLTAGE","#b42318")
@@ -1456,10 +1511,7 @@ class App(QMainWindow):
 
         protection_missing=[cb.text() for cb in self.hwProtectionChecks if not cb.isChecked()]
         if not self.hwBoardVerified.isChecked():
-            protection_missing.append("Board GPIO pinout not verified")
-        board_manual=(self.hwBoardProfile.currentIndex()==1 and not reserved)
-        if board_manual:
-            protection_missing.append("Waveshare profile: enter display/touch reserved GPIOs")
+            protection_missing.append("Board GPIO pinout not verified by user")
 
         ready=not conflicts and not missing and not voltage and not protection_missing
         return dict(conflicts=conflicts,missing=missing,voltage=voltage,
@@ -1510,6 +1562,31 @@ class App(QMainWindow):
         self._set_hw_metric(self.hwProtectionLabel,"PASS" if not result["protection_missing"] else f"{len(result['protection_missing'])} CHECK",not result["protection_missing"])
         self._set_hw_metric(self.hwReadyLabel,"YES" if result["ready"] else "NO",result["ready"])
 
+        data,counts,snap=self.gpio_profile_summary()
+        if hasattr(self,"hwBoardCountLabel"):
+            self.hwBoardCountLabel.setText(f"{len(data['pins'])} physical GPIO  •  USED {counts.get('USED',0)}  •  CONFLICT {counts.get('CONFLICT',0)}")
+        if hasattr(self,"hwBoardSummary"):
+            exposed=data.get("exposed")
+            exposed_text=f"{len(exposed)} board-exposed/shared pins" if exposed else "Chip-level profile"
+            self.hwBoardSummary.setHtml(f"""
+            <h2>{data['name']}</h2>
+            <p><b>Physical GPIO:</b> {len(data['pins'])}</p>
+            <p><b>Profile scope:</b> {exposed_text}</p>
+            <table border='1' cellspacing='0' cellpadding='5'>
+            <tr><th>Status</th><th>Count</th></tr>
+            <tr><td style='color:#176337'><b>USED by project</b></td><td>{counts.get('USED',0)}</td></tr>
+            <tr><td style='color:#2f80ed'><b>FREE</b></td><td>{counts.get('FREE',0)}</td></tr>
+            <tr><td style='color:#b76e00'><b>ONBOARD</b></td><td>{counts.get('BOARD',0)}</td></tr>
+            <tr><td style='color:#087e8b'><b>SHARED</b></td><td>{counts.get('SHARED',0)}</td></tr>
+            <tr><td style='color:#b54708'><b>CAUTION</b></td><td>{counts.get('CAUTION',0)}</td></tr>
+            <tr><td style='color:#7c3aed'><b>MEMORY</b></td><td>{counts.get('MEMORY',0)}</td></tr>
+            <tr><td style='color:#b42318'><b>CONFLICT</b></td><td>{counts.get('CONFLICT',0)}</td></tr>
+            </table>
+            <p><b>Source model:</b> {data.get('source','')}</p>
+            <p>คลิก GPIO บนรูปบอร์ดเพื่อดูว่าขานั้นถูกใช้โดยอะไร</p>
+            """)
+        if hasattr(self,"hwBoardView"):self.hwBoardView.update()
+
         issues=[]
         if result["conflicts"]:issues+=["GPIO: "+x for x in result["conflicts"]]
         if result["voltage"]:issues+=["VOLTAGE: "+x for x in result["voltage"]]
@@ -1519,13 +1596,18 @@ class App(QMainWindow):
 
         main_chain="72 V Battery → BMS → Main Fuse → Hardware E-stop / Enable → Flipsky Dual 75100 → QS Hub Motors ×2"
         logic_chain="72 V Battery → DC-DC 5 V → ESP32 / RC Receiver / Logic"
-        can_chain="ESP32 CAN TX/RX → SN65HVD230 → CANH/CANL → VESC"
+        profile=data.get("profile")
+        can_chain=("ESP32-S3 GPIO20/19 → onboard CAN transceiver → CANH/CANL → VESC" if profile=="waveshare7b"
+                   else "ESP32 CAN TX/RX → CAN transceiver → CANH/CANL → VESC")
         limit_chain="OMRON Limit ±90° → PC817 → 3.3 V ESP32 Digital IN"
         winch_chain="Separate 12 V Battery → Winch Fuse → Reversing Contactor → 12 V Winch"
+        extra=""
+        if profile=="waveshare7b":
+            extra="\n\nWAVESHARE 7B NOTE\n• LCD consumes many GPIO internally.\n• GPIO8/9 are shared I2C. GPIO19/20 share CAN/USB. GPIO43/44 are UART0. GPIO6 is the dedicated GP6 header.\n• The current project has more direct digital signals than the board exposes; an external I/O expander or separate controller may be required."
         self.hwWiringSummary.setPlainText(
             "WIRING PATH — CURRENT PROJECT\n\n"
             +main_chain+"\n\n"+logic_chain+"\n\n"+can_chain+"\n\n"+limit_chain+"\n\n"+winch_chain
-            +"\n\nSYSTEM CHECK\n"+issue_text
+            +extra+"\n\nSYSTEM CHECK\n"+issue_text
             +"\n\nหมายเหตุ: ตรวจ datasheet, fuse/current rating, wire gauge, grounding และ actual board pinout ก่อนจ่ายไฟจริง"
         )
         self.hwCode.setPlainText(self.generate_hardware_header_text())
