@@ -1459,7 +1459,7 @@ class App(QMainWindow):
 
         cards=QGridLayout();cards.setHorizontalSpacing(14);cards.setVerticalSpacing(14)
         bt=ModeCardButton("DRIVE TORQUE","แรงขับ • Torque • Motor Check • FBD","01","#2463eb")
-        be=ModeCardButton("ELECTRICAL / BATTERY","Route Energy • Wh • Ah • Current • BMS","02","#0f8a73")
+        be=ModeCardButton("ELECTRICAL / BATTERY","Trip Summary • Wh • Ah • Current • BMS","02","#0f8a73")
         bw=ModeCardButton("WINCH","แรงยก • ความเร็ว • เวลา • 12 V Battery","03","#d97706")
         bs=ModeCardButton("STABILITY","Side / Front / Rear tipping • Worst Case • CG","04","#7c3aed")
         bc=ModeCardButton("CONTROL LOGIC","E-stop • RC Failsafe • IMU • Limit • Interlock","05","#c45114")
@@ -3260,7 +3260,7 @@ class App(QMainWindow):
     def make_electrical(self):
         w=QWidget();self.electricalPage=w
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
-        root.addWidget(make_page_header("ELECTRICAL / BATTERY CALCULATION","Route Energy • Wh • Ah • Peak Current • BMS check",self.show_home_mode,"72 V DRIVE","#e5faf4","#0b7665","Export PDF / ส่งออกรายงาน",self.export_electrical_pdf))
+        root.addWidget(make_page_header("ELECTRICAL / BATTERY CALCULATION","Trip Summary • Route Energy • Wh • Ah • Peak Current • BMS check",self.show_home_mode,"72 V DRIVE","#e5faf4","#0b7665","Export PDF / ส่งออกรายงาน",self.export_electrical_pdf))
         self.eTabs=QTabWidget();root.addWidget(self.eTabs)
 
         def ds(v,lo,hi,dec=2):
@@ -3310,9 +3310,46 @@ class App(QMainWindow):
         note.setWordWrap(True);note.setStyleSheet("background:#fff8e9;color:#68420b;padding:12px;border:1px solid #ead39a;border-radius:10px")
         rv.addWidget(note)
         b=QPushButton("คำนวณใหม่ / Calculate");b.setObjectName("primaryButton");b.clicked.connect(self.calc_electrical);rv.addWidget(b)
+        bSummary=QPushButton("ดูสรุปไป-กลับ / Trip Summary");bSummary.clicked.connect(lambda:self.eTabs.setCurrentIndex(1));rv.addWidget(bSummary)
         rv.addStretch();hl.addWidget(right,1)
         eInputScroll=QScrollArea();eInputScroll.setWidgetResizable(True);eInputScroll.setFrameShape(QFrame.NoFrame)
         eInputScroll.setWidget(inp);self.eTabs.addTab(eInputScroll,"Input / ข้อมูล")
+
+        # V52.1 — simple one-page trip/battery summary for quick reading.
+        trip=QWidget();tripOuter=QVBoxLayout(trip);tripOuter.setContentsMargins(10,10,10,10);tripOuter.setSpacing(12)
+        tripTitle=QLabel("สรุปพลังงานไป-กลับ / TRIP ENERGY SUMMARY")
+        tf=QFont();tf.setPointSize(15);tf.setBold(True);tripTitle.setFont(tf)
+        tripTitle.setStyleSheet("color:#17324d;")
+        tripSub=QLabel("ดูตัวเลขสำคัญหน้าเดียว: 1 รอบใช้เท่าไร → วิ่งได้กี่รอบ → รวมกี่ Wh → ต้องใช้แบตกี่ Ah")
+        tripSub.setWordWrap(True);tripSub.setStyleSheet("color:#60758b;font-size:10.3pt;font-weight:650;")
+        tripOuter.addWidget(tripTitle);tripOuter.addWidget(tripSub)
+
+        def energy_card(title,accent="#245fbb"):
+            box=QFrame();box.setObjectName("softPanel");box.setMinimumHeight(108)
+            lay=QVBoxLayout(box);lay.setContentsMargins(14,11,14,11);lay.setSpacing(5)
+            t=QLabel(title);t.setWordWrap(True);t.setStyleSheet("color:#667b8e;font-size:9.2pt;font-weight:850;")
+            value=QLabel("—");value.setWordWrap(True)
+            value.setStyleSheet(f"color:{accent};font-size:17pt;font-weight:900;")
+            lay.addWidget(t);lay.addWidget(value);lay.addStretch(1)
+            return box,value
+
+        grid=QGridLayout();grid.setHorizontalSpacing(12);grid.setVerticalSpacing(12)
+        c,self.tripDistanceLabel=energy_card("ระยะ 1 รอบไป-กลับ","#245fbb");grid.addWidget(c,0,0)
+        c,self.tripTimeLabel=energy_card("เวลา 1 รอบ","#245fbb");grid.addWidget(c,0,1)
+        c,self.tripCountLabel=energy_card("จำนวนรอบในเวลาที่กำหนด","#7c3aed");grid.addWidget(c,1,0)
+        c,self.tripEnergyLabel=energy_card("พลังงานขับ / 1 รอบ","#0f8a73");grid.addWidget(c,1,1)
+        c,self.tripDriveTotalLabel=energy_card("พลังงานขับรวมทุก รอบ","#0f8a73");grid.addWidget(c,2,0)
+        c,self.tripAuxLabel=energy_card("ไฟอุปกรณ์เสริมรวม","#d97706");grid.addWidget(c,2,1)
+        c,self.tripLoadTotalLabel=energy_card("พลังงานรวมก่อนเผื่อแบต","#c45114");grid.addWidget(c,3,0)
+        c,self.tripBatteryLabel=energy_card("แบตที่ต้องการหลัง DoD + Reserve","#b42318");grid.addWidget(c,3,1)
+        grid.setColumnStretch(0,1);grid.setColumnStretch(1,1)
+        tripOuter.addLayout(grid)
+
+        self.tripEnergyExplain=QTextEdit();self.tripEnergyExplain.setReadOnly(True);self.tripEnergyExplain.setMinimumHeight(190)
+        tripOuter.addWidget(self.tripEnergyExplain)
+        tripScroll=QScrollArea();tripScroll.setWidgetResizable(True);tripScroll.setFrameShape(QFrame.NoFrame);tripScroll.setWidget(trip)
+        self.eTabs.addTab(tripScroll,"สรุปไป-กลับ / Trip Summary")
+
         self.eVars=QTextEdit();self.eVars.setReadOnly(True);self.eTabs.addTab(self.eVars,"ตัวแปร / Variables")
 
         step=QWidget();sv=QVBoxLayout(step);self.eSteps=QTextEdit();self.eSteps.setReadOnly(True);self.eSteps.setStyleSheet("font-size:13px");sv.addWidget(self.eSteps)
@@ -3538,6 +3575,31 @@ class App(QMainWindow):
             f"Auxiliary = {q['Eaux']:.1f} Wh | Load total = {q['Eload']:.1f} Wh\\n"
             f"Battery design = {q['Edesign']:.1f} Wh → {q['Ah']:.2f} Ah @ {q['V']:.1f} V"
         )
+
+        cycles=max(q["cycles"],1e-12)
+        drive_per_trip=q["Edrive"]/cycles
+        load_per_trip=q["Eload"]/cycles
+        self.tripDistanceLabel.setText(f"{q['cycle_distance']:.1f} m")
+        self.tripTimeLabel.setText(f"{q['cycle_total_s']/60.0:.2f} min")
+        self.tripCountLabel.setText(f"{q['cycles']:.1f} รอบ")
+        self.tripEnergyLabel.setText(f"{drive_per_trip:.2f} Wh / รอบ")
+        self.tripDriveTotalLabel.setText(f"{q['Edrive']:.1f} Wh")
+        self.tripAuxLabel.setText(f"{q['Eaux']:.1f} Wh")
+        self.tripLoadTotalLabel.setText(f"{q['Eload']:.1f} Wh")
+        self.tripBatteryLabel.setText(f"{q['Edesign']:.0f} Wh\\n= {q['Ah']:.2f} Ah @ {q['V']:.0f} V")
+        self.tripEnergyExplain.setHtml(f"""
+        <h3 style='color:#17324d'>อ่านหน้านี้แบบง่าย</h3>
+        <p><b>1 รอบไป-กลับ</b> = {q['cycle_distance']:.1f} m และใช้เวลาประมาณ {q['cycle_total_s']/60.0:.2f} นาที/รอบ</p>
+        <p><b>พลังงานขับต่อรอบ</b> = {drive_per_trip:.2f} Wh จากโมเดล <b>{'Worst-case' if q['use_worst'] else 'Calculated'}</b></p>
+        <p><b>{q['cycles']:.1f} รอบ</b> ใช้พลังงานขับรวม = {q['Edrive']:.1f} Wh</p>
+        <p>บวก Auxiliary {q['Eaux']:.1f} Wh → <b>พลังงานรวมก่อนเผื่อแบต = {q['Eload']:.1f} Wh</b></p>
+        <p>หลังเผื่อ DoD {q['dod']*100:.0f}% และ Reserve {q['reserve']*100:.0f}% →
+        <b style='color:#b42318'>ต้องการประมาณ {q['Edesign']:.0f} Wh = {q['Ah']:.2f} Ah @ {q['V']:.0f} V</b></p>
+        <p style='background:#fff8e9;padding:10px;border:1px solid #ead39a'>
+        ถ้าต้องการดูเฉพาะ “รถวิ่งไป-กลับกินไฟเท่าไร” ให้ดูช่อง <b>พลังงานขับ / 1 รอบ</b>.
+        ค่าเฉลี่ยรวม Auxiliary ต่อรอบเทียบเท่า ≈ {load_per_trip:.2f} Wh/รอบ แต่ Auxiliary เป็นโหลดตามเวลา ไม่ใช่โหลดตามระยะทางโดยตรง.
+        </p>
+        """)
         self.eSteps.setHtml(self.equation_html(q))
         if hasattr(self,"eVars"):self.eVars.setHtml(self.electrical_variables_html())
         if hasattr(self,"allEVars"):self.allEVars.setHtml(self.electrical_variables_html())
