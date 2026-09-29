@@ -1,84 +1,50 @@
-# Crane Vehicle Engineering Tool V52.0.0
+# Crane Vehicle Engineering Tool V52.1.0
 
-## Hardware I/O & Wiring Manager
+## Trip Energy Summary / สรุปพลังงานไป-กลับ
 
-V52 เพิ่มระบบสำหรับวางแผนการต่อ ESP32 และตรวจความผิดพลาดของ Hardware ก่อนประกอบจริง โดยยังคงระบบ Torque, Battery, Winch, Stability, Control Logic, Report และ Auto Update จาก V51 ครบทั้งหมด
+เพิ่มหน้าสรุปแบบอ่านง่ายใน Electrical / Battery เพื่อให้เห็นทันทีว่า “รถวิ่งไป-กลับ 1 รอบใช้พลังงานเท่าไร” และ “สุดท้ายต้องใช้แบตกี่ Ah” โดยไม่ต้องไล่อ่าน Calculation Steps หลายหน้า
 
-### Device / GPIO Manager
-- ตารางอุปกรณ์ FlySky iBUS, SN65HVD230 CAN TX/RX, BNO086 SDA/SCL, OMRON Limit ±90°, Buzzer และ LED
-- เปิด/ปิดอุปกรณ์แต่ละรายการได้
-- เลือก ESP32 GPIO ได้เอง
-- ตรวจ GPIO ซ้ำอัตโนมัติ
-- รองรับ Reserved GPIO list สำหรับขาที่จอ/Touch/USB/SD หรือวงจรบนบอร์ดใช้อยู่แล้ว
-- มี Board Profile สำหรับ Generic ESP32-S3, Waveshare ESP32-S3 7-inch Type B และ Custom ESP32
-- Suggested Generic Map เป็นเพียงจุดเริ่มต้น และจะยกเลิกสถานะ Board Verified ทุกครั้งจนกว่าผู้ใช้ตรวจ pinout จริง
+### หน้าสรุปใหม่
+แสดงตัวเลขสำคัญหน้าเดียว:
+- ระยะ 1 รอบไป-กลับ
+- เวลา 1 รอบ
+- จำนวนรอบในเวลาที่กำหนด
+- พลังงานขับต่อ 1 รอบ (Wh/รอบ)
+- พลังงานขับรวมทุก รอบ
+- พลังงาน Auxiliary รวม
+- พลังงานรวมก่อนเผื่อแบต
+- Battery Design หลัง DoD + Reserve
+- Required Ah @ Battery Voltage
 
-### Voltage & Signal Checker
-- ตรวจ Supply rail 3.3 V / 5 V / 12 V / 72 V
-- ตรวจ Logic level ก่อนเข้า ESP32 3.3 V
-- เตือนเมื่อ 5/12/72 V ถูกตั้งให้ต่อ Direct เข้า GPIO
-- iBUS 5 V logic ต้องมี Level Shifter / Divider หรือวงจร conditioning
-- Limit ±90° ใช้ PC817 isolation ตาม architecture ของโปรเจกต์
-- Buzzer 5 V ใช้ MOSFET / Driver
-- CAN ใช้ SN65HVD230 ระหว่าง ESP32 กับ VESC
+### วิธีใช้งาน
+ไปที่ Electrical / Battery → “สรุปไป-กลับ / Trip Summary”
+หรือกดปุ่ม “ดูสรุปไป-กลับ / Trip Summary” จากหน้า Input
 
-### Wiring Protection Checker
-ตรวจ checklist:
-- Main 72 V BMS
-- Main fuse
-- Hardware E-stop / traction enable cut
-- 72 V → regulated 5 V
-- Regulated 5 V for RC receiver
-- Limit switch isolation
-- Buzzer MOSFET
-- Separate 12 V winch battery
-- Winch fuse
-- Reversing contactor current rating
+### สูตรที่สรุปในหน้าเดียว
+- E_drive_per_trip = E_drive_total ÷ จำนวนรอบ
+- E_load = E_drive + E_aux
+- E_design = (E_load ÷ DoD) × (1 + Reserve)
+- Ah = E_design ÷ V_battery
 
-พร้อมสรุปเส้นทาง:
-72 V Battery → BMS → Main Fuse → E-stop → Flipsky Dual 75100 → QS Hub Motors
-72 V → DC-DC 5 V → ESP32 / RC / Logic
-ESP32 → SN65HVD230 → CANH/CANL → VESC
-Limit ±90° → PC817 → ESP32
-Separate 12 V Battery → Fuse → Reversing Contactor → Winch
+ค่า Auxiliary ต่อรอบที่แสดงเป็นค่าเฉลี่ยเทียบเท่า เพราะ Auxiliary เป็นโหลดตามเวลา ไม่ใช่โหลดตามระยะทางโดยตรง
 
-### System Check Dashboard
-แสดง:
-- GPIO CONFLICT
-- VOLTAGE ERROR
-- MISSING PIN
-- PROTECTION
-- READY FOR CODE
-
-READY FOR CODE จะเป็น YES เมื่อไม่มี conflict/error/missing protection และผู้ใช้ยืนยันว่าได้ตรวจ GPIO กับ pinout/datasheet ของบอร์ดจริงแล้ว
-
-### ESP32 Pin Map Generator
-- สร้าง C/C++ header อัตโนมัติ
-- #define PIN_IBUS_RX
-- PIN_CAN_TX / PIN_CAN_RX
-- PIN_I2C_SDA / PIN_I2C_SCL
-- PIN_LIMIT_LEFT / PIN_LIMIT_RIGHT
-- PIN_BUZZER / PIN_LED
-- Copy code ได้
-- Export เป็น .h ได้
-
-### Project Integration
-- Hardware mapping ถูกบันทึกใน Project JSON
-- Auto Save จดจำ GPIO, voltage, protection และ enable state
-- Hardware readiness ถูกเพิ่มเข้า Integrated Design Check / Final Project Verification
-- เพิ่ม Hardware I/O เป็นเมนูด้านซ้ายและ Card หน้า Home
+### ระบบเดิมยังอยู่ครบ
+- V52 Hardware I/O & Wiring Manager
+- GPIO conflict / Voltage / Protection / ESP32 Pin Map
+- Torque / Traction
+- Electrical / Battery detailed calculation
+- Winch
+- Stability / Worst Case
+- Control Logic
+- PDF / Final Report
+- Auto Save
+- GitHub Auto Update
 
 ### Regression Gate
-GitHub Actions จะทดสอบก่อนออก Setup.exe:
-- เปิด Hardware page บน Windows
-- Suggested map ต้องไม่มี duplicate/missing/voltage error
-- Duplicate GPIO ต้องถูกตรวจพบ
-- Reserved GPIO ต้องถูกตรวจพบ
-- Direct 5 V iBUS → ESP32 ต้องถูกเตือน
-- Waveshare profile ต้องมี reserved GPIO verification
-- Generated header ต้องมี macro ครบ
-- Hardware state ต้อง Save/Load Project ได้
-- ทดสอบ UI ทุกความละเอียดและทุก Font Scale
-- ทดสอบ Torque/Battery/Winch/Stability/Safety/PDF/Updater เดิมครบก่อน Release
+เพิ่มการทดสอบ Trip Summary บน Windows:
+- มีค่า Wh/รอบ
+- ค่า Wh/รอบตรงกับ Edrive ÷ cycles
+- Required Ah ตรงกับ Electrical model
+- หน้า Summary เปิดได้พร้อมระบบเดิมทั้งหมด
 
-หมายเหตุ: Hardware checker เป็น Preliminary Wiring Design Tool ไม่แทน datasheet/pinout จริงของ ESP32 board, FlySky receiver, BNO086 breakout, VESC หรืออุปกรณ์กำลัง ต้องตรวจพิกัดแรงดัน/กระแส/สายไฟ/Fuse/grounding ก่อนจ่ายไฟจริง
+หมายเหตุ: ผลแบตเตอรี่เป็น Preliminary Engineering Calculation และยังต้องยืนยันกระแส/ประสิทธิภาพ/เส้นทางจริงจากการทดสอบรถก่อนเลือกแบตขั้นสุดท้าย
