@@ -335,6 +335,62 @@ jobs:
           w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
           assert w.hardware_check_results()["ready"] is True
 
+          # ---------- V52.4 Custom Device / I/O Builder regression ----------
+          base_count=len(w.hwRows)
+          custom_def=dict(
+              key="PROX_SENSOR_IN",device="Proximity Sensor",signal="PROX_SENSOR_IN",
+              interface="Digital IN",supply="12V",logic="3.3V",gpio="GPIO 14",
+              protection="Optocoupler / Isolator",note="12V sensor through isolator",
+              allowed_supply=tuple(w._hardware_supply_items()),custom=True,enabled=True
+          )
+          w._append_hardware_row(custom_def,select=True)
+          QApplication.processEvents()
+          assert len(w.hwRows)==base_count+1
+          custom=w.hwRows[-1]
+          assert custom["custom"] is True and custom["device"]=="Proximity Sensor"
+          assert custom["gpio"].currentText()=="GPIO 14"
+          w.update_hardware_manager()
+          assert "PROX_SENSOR_IN" in w.generate_hardware_header_text()
+          snap=w.hardware_pin_snapshot()
+          assert snap[14]["status"]=="USED" and "PROX_SENSOR_IN" in snap[14]["users"]
+
+          # Custom input with unsafe direct 12 V logic must fail voltage check.
+          custom["logic"].setCurrentText("12V")
+          custom["protection"].setCurrentText("Direct")
+          bad_custom=w.hardware_check_results()
+          assert bad_custom["voltage"] and bad_custom["ready"] is False
+          custom["logic"].setCurrentText("3.3V")
+          custom["protection"].setCurrentText("Optocoupler / Isolator")
+
+          # Duplicate custom row must create a unique key and remain unassigned.
+          w.hwTable.selectRow(len(w.hwRows)-1)
+          w.duplicate_selected_hardware_io()
+          assert len(w.hwRows)==base_count+2
+          assert w.hwRows[-1]["key"] != w.hwRows[-2]["key"]
+          assert w.hwRows[-1]["gpio"].currentText()=="Not assigned"
+
+          # Project state must preserve and recreate custom definitions.
+          custom_state=w.capture_project_state()
+          saved_custom=[x for x in custom_state["hardware"] if x.get("custom")]
+          assert len(saved_custom)>=2
+          assert any(x["device"]=="Proximity Sensor" and x["interface"]=="Digital IN" for x in saved_custom)
+
+          # Remove all custom rows manually, then load state and verify recreation.
+          for idx in range(len(w.hwRows)-1,-1,-1):
+              if w.hwRows[idx].get("custom",False):
+                  w.hwRows.pop(idx);w.hwTable.removeRow(idx)
+          assert len(w.hwRows)==base_count
+          w.apply_project_state(custom_state,recalculate=False)
+          restored=[x for x in w.hwRows if x.get("custom",False)]
+          assert len(restored)>=2
+          assert any(x["key"]=="PROX_SENSOR_IN" and x["gpio"].currentText()=="GPIO 14" for x in restored)
+
+          # Clean custom rows before legacy round-trip tests so defaults stay deterministic.
+          for idx in range(len(w.hwRows)-1,-1,-1):
+              if w.hwRows[idx].get("custom",False):
+                  w.hwRows.pop(idx);w.hwTable.removeRow(idx)
+          w.update_hardware_manager()
+
           # ---------- Project state round-trip ----------
           original=w.tgrade.value()
           original_hw=w.hwRows[0]["gpio"].currentText()
