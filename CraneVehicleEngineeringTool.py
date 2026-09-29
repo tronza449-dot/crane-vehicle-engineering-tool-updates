@@ -899,20 +899,37 @@ class App(QMainWindow):
 
     def setup_status_bar_ui(self):
         bar=QStatusBar(self);self.setStatusBar(bar)
+        bar.setSizeGripEnabled(False)
+        bar.setMinimumHeight(38)
         bar.showMessage("พร้อมใช้งาน • ค่าที่กรอกจะบันทึกอัตโนมัติ",5000)
 
-        nav=QPushButton("☰ เมนู");nav.setMaximumHeight(28);nav.setMinimumHeight(26);nav.clicked.connect(self.toggle_navigation)
+        nav=QPushButton("เมนู");nav.setObjectName("secondaryButton")
+        nav.setFixedSize(62,30);nav.clicked.connect(self.toggle_navigation)
         bar.addWidget(nav)
 
-        bar.addPermanentWidget(QLabel("ขนาดตัวอักษร"))
-        minus=QPushButton("A−");minus.setFixedSize(38,28);minus.clicked.connect(lambda:self.change_ui_scale(-.10))
-        self.fontScaleLabel=QLabel("100%");self.fontScaleLabel.setAlignment(Qt.AlignCenter);self.fontScaleLabel.setMinimumWidth(44)
-        plus=QPushButton("A+");plus.setFixedSize(38,28);plus.clicked.connect(lambda:self.change_ui_scale(.10))
-        reset=QPushButton("Reset");reset.setFixedSize(52,28);reset.clicked.connect(self.reset_ui_scale)
-        bar.addPermanentWidget(minus);bar.addPermanentWidget(self.fontScaleLabel);bar.addPermanentWidget(plus);bar.addPermanentWidget(reset)
+        # Keep font controls inside one fixed panel so QStatusBar cannot squeeze
+        # individual buttons into unreadable symbols on smaller Windows displays.
+        fontPanel=QFrame();fontPanel.setObjectName("metricPanel")
+        fontPanel.setStyleSheet("QFrame#metricPanel{background:#f7fafc;border:1px solid #d7e1eb;border-radius:8px;}")
+        fp=QHBoxLayout(fontPanel);fp.setContentsMargins(7,3,7,3);fp.setSpacing(5)
+        fontTitle=QLabel("ตัวอักษร");fontTitle.setStyleSheet("font-size:9.3pt;font-weight:800;color:#445b70;")
+        minus=QPushButton("A-");minus.setToolTip("ลดขนาดตัวอักษร")
+        minus.setFixedSize(44,28);minus.clicked.connect(lambda:self.change_ui_scale(-.10))
+        self.fontScaleLabel=QLabel("100%");self.fontScaleLabel.setAlignment(Qt.AlignCenter)
+        self.fontScaleLabel.setFixedWidth(46);self.fontScaleLabel.setStyleSheet("font-weight:850;color:#294760;")
+        plus=QPushButton("A+");plus.setToolTip("เพิ่มขนาดตัวอักษร")
+        plus.setFixedSize(44,28);plus.clicked.connect(lambda:self.change_ui_scale(.10))
+        reset=QPushButton("100%");reset.setToolTip("คืนขนาดตัวอักษรมาตรฐาน")
+        reset.setFixedSize(54,28);reset.clicked.connect(self.reset_ui_scale)
+        for b in (minus,plus,reset):
+            b.setStyleSheet("QPushButton{min-height:26px;padding:0 5px;border-radius:6px;font-size:9.5pt;font-weight:800;}")
+        fp.addWidget(fontTitle);fp.addWidget(minus);fp.addWidget(self.fontScaleLabel);fp.addWidget(plus);fp.addWidget(reset)
+        fontPanel.setFixedWidth(255);fontPanel.setFixedHeight(34)
+        bar.addPermanentWidget(fontPanel)
 
-        version=QLabel(f"  V{APP_VERSION}  ")
-        version.setStyleSheet("font-weight:900;color:#31506b;")
+        version=QLabel(f"V{APP_VERSION}")
+        version.setAlignment(Qt.AlignCenter);version.setFixedWidth(62)
+        version.setStyleSheet("font-weight:900;color:#31506b;font-size:9.4pt;")
         bar.addPermanentWidget(version)
 
         prefs=self.load_ui_preferences()
