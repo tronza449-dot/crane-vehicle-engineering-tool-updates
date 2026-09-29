@@ -15,7 +15,7 @@ DefaultDirName={autopf}\Crane Vehicle Engineering Tool
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=admin
 OutputDir={#MyOutputDir}
-OutputBaseFilename=CraneVehicleEngineeringTool_Setup_V51
+OutputBaseFilename=CraneVehicleEngineeringTool_Setup
 SetupIconFile=..\assets\CraneEngineeringTool.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/max
@@ -48,7 +48,7 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingD
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Flags: nowait skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait runasoriginaluser
 
 
 
