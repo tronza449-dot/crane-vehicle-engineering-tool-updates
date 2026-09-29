@@ -2675,6 +2675,12 @@ class App(QMainWindow):
                     if idx>=0:
                         combo.blockSignals(True);combo.setCurrentIndex(idx);combo.blockSignals(False)
             self.update_hardware_manager()
+        # Keep V52.2 Battery Selection and the older Project Tools Battery+BMS fields consistent.
+        if all(hasattr(self,x) for x in ("eCandidateAh","eCandidateContA","eCandidatePeakA","mainSelectedAh","mainBMSCont","mainBMSPeak")):
+            if "eCandidateAh" not in widgets and "mainSelectedAh" in widgets:
+                self._sync_project_tools_to_battery_candidate()
+            else:
+                self._sync_battery_candidate_to_project_tools()
         # Sync derived wheel radius and mass mode after blocking signals.
         self.update_wheel_from_inches()
         if hasattr(self,"massModeSum") and self.massModeSum.isChecked(): self.apply_mass_mode()
@@ -2818,6 +2824,7 @@ class App(QMainWindow):
     def bms_check_html(self):
         t=self.torque_results();e=self.electrical_results();w=self.winch_results()
         main_cont_req=max(t['Ibatt'],e['Icalc_up']);main_peak_ind=max(e['Iworst'],e.get('Icalc_peak',0),self.controllerCurrent.value()*t['n'])
+        br=self.battery_selection_results() if hasattr(self,"bselTargetContC") else None
         winch_cont_req=w['iup'];label_current=self.wrated.value()/max(self.wvolt.value(),.1);winch_peak_ind=max(w['iup'],label_current)
         def st(sel,req):
             if sel<=0:return "NOT SET / กรุณากรอก"
@@ -2825,6 +2832,7 @@ class App(QMainWindow):
         return f"""<h2>BATTERY ENERGY + BMS CURRENT CHECK</h2>
         <p><b>หลักการ:</b> Ah/Wh ใช้ตรวจพลังงาน ส่วน A ใช้ตรวจความสามารถจ่ายกระแส ต้องผ่านทั้งสองส่วน</p>
         <h3>Main 72 V Drive</h3>
+        {f"<p><b>Battery Selection:</b> minimum energy {br['energy_min']:.2f} Ah; design target including C-rate = {br['design_ah']:.2f} Ah; suggested standard size to investigate = <b>{br['suggested']:.0f} Ah</b> @ {e['V']:.0f} V.</p>" if br else ""}
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Required design capacity</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td><td>Selected {self.mainSelectedAh.value():.1f} Ah → {st(self.mainSelectedAh.value(),e['Ah'])}</td></tr>
         <tr><td>Continuous-current indicator</td><td>max(Torque model {t['Ibatt']:.1f}, Calculated uphill {e['Icalc_up']:.1f}) = {main_cont_req:.1f} A</td><td>BMS {self.mainBMSCont.value():.1f} A → {st(self.mainBMSCont.value(),main_cont_req)}</td></tr>
@@ -2864,6 +2872,9 @@ class App(QMainWindow):
         main_cont=max(t['Ibatt'],e['Icalc_up'])
         if self.mainBMSCont.value()>0:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A",f"{self.mainBMSCont.value():.1f} A",self.mainBMSCont.value()>=main_cont)
         else:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A","Not set",False,"กรอกพิกัด BMS",True)
+        peak_calc=max(e['Iworst'],e.get('Icalc_peak',0))
+        if self.mainBMSPeak.value()>0:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A",f"{self.mainBMSPeak.value():.1f} A",self.mainBMSPeak.value()>=peak_calc,"VESC battery-current limit ต้องตรวจแยกจาก phase/motor current")
+        else:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A","Not set",False,"กรอกพิกัด Peak ของ Pack/BMS",True)
         if self.winchSelectedAh.value()>0:add("Winch Battery","Energy capacity",f"≥ {w['ah']:.2f} Ah",f"{self.winchSelectedAh.value():.1f} Ah",self.winchSelectedAh.value()>=w['ah'])
         else:add("Winch Battery","Energy capacity",f"{w['ah']:.2f} Ah required","Selected not set",False,"กรอกใน Battery+BMS",True)
         add("Winch","Duty cycle assumption",f"≤ {duty['allowed']:.1f}%",f"{duty['duty']:.1f}%",duty['duty_pass'],"Allowed value ยังเป็นสมมติฐาน",True if duty['allowed']==20 else False)
