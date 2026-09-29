@@ -1,76 +1,77 @@
-# Crane Vehicle Engineering Tool V52.3.0
+# Crane Vehicle Engineering Tool V52.4.0
 
-## Animated ESP32 GPIO Board Map
+## Custom Device / Input / Output Builder
 
-ปรับระบบ GPIO ใหม่ตามที่ต้องการ: ไม่ได้มีแค่ตารางเลือก GPIO แต่เพิ่ม “รูปบอร์ดแบบ Interactive + Animation” ที่แสดง GPIO ทั้งหมดของ Profile และเปลี่ยนสถานะทันทีเมื่อผู้ใช้เลือกขาให้โปรเจกต์
+เพิ่มความสามารถให้ผู้ใช้เพิ่มอุปกรณ์ใหม่และ Input/Output ใหม่เองจากในโปรแกรม โดยไม่ต้องแก้โค้ด Python
 
-### Board Animation / GPIO Map
-- วาดบอร์ด ESP32 แบบ vector ภายในโปรแกรม
-- GPIO ที่โปรเจกต์ใช้อยู่จะเรือง/กระพริบ (animated pulse)
-- คลิก GPIO บนรูปเพื่อดูรายละเอียดขานั้น
-- เมื่อ GPIO ถูกใช้ซ้ำจะแสดงสีแดง CONFLICT บนรูปทันที
-- แสดง USED / FREE / ONBOARD / SHARED / CAUTION / MEMORY / CONFLICT
-- Board Summary แสดงจำนวน GPIO และจำนวนขาแต่ละสถานะ
+### วิธีใช้
+Hardware I/O & Wiring → GPIO / Device Manager → + Add New I/O
 
-### ESP32 profiles
-1. Generic ESP32-S3
-   - 45 physical GPIO
-   - GPIO0–21 และ GPIO26–48
-   - แก้บั๊กเดิม: GPIO22–25 ไม่ใช่ GPIO ของ ESP32-S3 จึงไม่ให้เลือกอีกต่อไป
-   - แสดง strapping / USB-JTAG / memory-related pins เป็น Caution
+กรอก:
+- Device / ชื่ออุปกรณ์
+- Signal / ชื่อ Input-Output
+- Interface
+- Device supply
+- Signal logic to ESP32
+- ESP32 GPIO
+- Protection / Driver
+- Note
 
-2. Waveshare ESP32-S3-Touch-LCD-7B
-   - ใช้ข้อมูล pin allocation จากเอกสาร Waveshare
-   - LCD RGB pins แสดง ONBOARD
-   - Touch/I2C GPIO4/8/9
-   - TF card GPIO11/12/13
-   - RS485 GPIO15/16
-   - CAN/USB shared GPIO19/20
-   - UART0 GPIO43/44
-   - GPIO6 แสดงเป็น GP6 external GPIO
-   - Flash/PSRAM-related GPIO แสดง MEMORY
-   - Suggested Map จะไม่สร้าง GPIO ปลอมเพื่อยัดทุกสัญญาณ หากขาบอร์ดไม่พอจะปล่อย MISSING เพื่อให้เห็นข้อจำกัดจริง
+รองรับ Interface:
+- Digital IN / OUT
+- ADC IN
+- PWM OUT
+- UART RX / TX
+- I2C SDA / SCL
+- CAN RX / TX
+- SPI MISO / MOSI / SCK
+- Interrupt IN
+- Other
 
-3. Custom ESP32-S3
-   - 45 physical GPIO พร้อม manual mapping
+### Custom I/O controls
+- + Add New I/O
+- Edit Selected
+- Duplicate
+- Delete Custom
+- รายการมาตรฐานลบไม่ได้ แต่ปิด Use ได้
 
-4. ESP32 DevKit V1 / ESP-WROOM-32
-   - 34 physical GPIO
-   - แสดง Input-only GPIO และ boot/strapping caution
-   - รูปบอร์ดแนว DevKit สำหรับการอ้างอิงแบบภาพที่ผู้ใช้ต้องการ
+### Live integration
+เมื่อเพิ่ม I/O ใหม่:
+- แสดงเป็นแถวใหม่ใน Device Manager
+- ขึ้น USED บน Board Animation ทันที
+- ตรวจ GPIO Conflict / Reserved / Invalid pin
+- ตรวจ 5/12/24/72 V logic ต่อเข้า ESP32 ผิดระดับ
+- รองรับ Level Shifter / Divider, PC817, Optocoupler, MOSFET, CAN Transceiver, Relay/Contactor
+- Generate #define PIN_xxx ใน ESP32 header อัตโนมัติ
+- Save/Load Project และ Auto Save ได้
+- เปลี่ยน Board Profile แล้ว GPIO list ปรับตามบอร์ด
 
-### Project-aware visualization
-- Device Manager กับ Board Animation ใช้ข้อมูลชุดเดียวกัน
-- เปลี่ยน GPIO ในตาราง → รูปบอร์ดเปลี่ยนทันที
-- คลิกขาที่ใช้แล้ว → เลือก row ของ Device Manager ที่ใช้ขานั้น
-- Manual Reserved GPIO แสดงบนบอร์ด
-- Board Profile เปลี่ยน → รายการ GPIO ใน ComboBox เปลี่ยนตามชิปจริง
-- Invalid pin / board-reserved pin / memory pin ถูกตรวจอัตโนมัติ
+### Custom device workflow
+ถ้าอุปกรณ์หนึ่งมีหลายสัญญาณ เช่น Encoder A/B:
+1. Add New I/O → Encoder A
+2. กด Duplicate
+3. Edit Selected → เปลี่ยนเป็น Encoder B
+4. เลือก GPIO คนละขา
 
-### Waveshare 7B engineering note
-บอร์ด 7B ใช้ GPIO จำนวนมากกับจอและอุปกรณ์ onboard. พอร์ตที่เปิดออกมาสำหรับงานภายนอกมีจำกัด:
-- GP6
-- I2C GPIO8/9 (shared)
-- UART0 GPIO43/44
-- CAN/USB GPIO19/20 (shared/mux)
+### Safety checks
+- Custom device supply สามารถเป็น 3.3 / 5 / 12 / 24 / 72 V ได้
+- แต่ Signal logic เข้า ESP32 ยังต้องปลอดภัยที่ 3.3 V หรือผ่านวงจร conditioning/isolation
+- Direct 12/24/72 V → ESP32 GPIO จะขึ้น Voltage Error
+- GPIO ซ้ำกับอุปกรณ์เดิมหรือ Custom I/O อื่นจะขึ้น CONFLICT บนตารางและ Board Animation
 
-ดังนั้นสัญญาณตรงของโปรเจกต์ เช่น Limit Left/Right, Buzzer, LED อาจมีขาไม่พอหากใช้บอร์ดนี้เป็น Main Controller ทั้งหมด. โปรแกรมจะแสดง MISSING/CONFLICT แทนการแนะนำขาที่ไม่พร้อมใช้งาน เพื่อให้พิจารณา I/O expander หรือ Controller แยกอย่างถูกต้อง.
-
-### Data sources used for profile model
-- Espressif ESP32-S3 GPIO documentation
-- Espressif ESP32 GPIO documentation
-- Waveshare ESP32-S3-Touch-LCD-7B official interface documentation / schematic
+### Project compatibility
+- Project เก่าจาก V52.3 เปิดได้ตามเดิม
+- Project ใหม่เก็บ metadata ของ Custom I/O: device, signal, interface, supply, logic, GPIO, protection และ note
+- โหลด Project แล้ว Custom I/O จะถูกสร้างกลับให้อัตโนมัติ
 
 ### Regression Gate
-Windows full regression เพิ่มการตรวจ:
-- ESP32-S3 = 45 GPIO และไม่มี GPIO22–25
-- Waveshare onboard LCD pin map
-- Waveshare I2C/CAN/UART shared pins
-- Classic ESP32 = 34 GPIO
-- Input-only pin classification
-- Duplicate/reserved pin → CONFLICT
-- Animated board renders successfully in offscreen Windows test
-- Clicked pin detail works
-- Hardware project state, PDF, updater, Torque, Battery, Winch, Stability และ Control Logic เดิมต้องผ่านก่อน Release
+Windows full regression เพิ่มการทดสอบ:
+- เพิ่ม Custom 12 V proximity sensor + isolated 3.3 V input
+- Custom pin ต้องขึ้น USED บน Board Animation
+- Direct 12 V logic ต้องถูกตรวจเป็น Voltage Error
+- Duplicate custom row ต้องได้ key ใหม่และ GPIO ยังไม่ถูกกำหนด
+- Save Project → ลบ custom rows → Load Project ต้องสร้าง custom rows กลับครบ
+- Generated ESP32 header ต้องมี custom macro
+- ระบบเดิมทั้งหมดยังต้องผ่านก่อนสร้าง Setup.exe
 
-หมายเหตุ: Board Animation เป็น engineering visualization ไม่ใช่ภาพ PCB สำหรับใช้เดินลายวงจร. ก่อนต่อของจริงต้องตรวจ revision ของบอร์ดและ datasheet/schematic อีกครั้ง.
+หมายเหตุ: Hardware Manager เป็นเครื่องมือออกแบบเบื้องต้น การต่ออุปกรณ์จริงยังต้องตรวจ datasheet, pinout, logic voltage, current, pull-up/down, isolation และ protection ของอุปกรณ์จริงก่อนจ่ายไฟ
