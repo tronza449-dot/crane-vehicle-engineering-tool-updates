@@ -2,5 +2,5 @@
   "latest_version": "50.0.0",
   "download_url": "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/download/v50.0.0/CraneVehicleEngineeringTool_Setup.exe",
   "sha256": "98548b1fae871ea6a1e9d63261bed62c8f8b8ab88166d0dc4c0cc8b2ac4627c2",
-  "notes": "V50.0.0 — Built-in GitHub updater, automatic update check, SHA256 verification, variable dictionary, readable Thai/English UI, Safety Logic Simulator, interactive 3D crane, Auto Save and one-click Windows installer."
+  "notes": "V50.0.0 พร้อมระบบ Built-in GitHub Updater, ตารางตัวแปร, ฟอนต์อ่านง่าย, Safety Logic Simulator, 3D Crane, Auto Save และ One-click Windows Installer"
 }
