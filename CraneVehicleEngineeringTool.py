@@ -1459,7 +1459,7 @@ class App(QMainWindow):
 
         cards=QGridLayout();cards.setHorizontalSpacing(14);cards.setVerticalSpacing(14)
         bt=ModeCardButton("DRIVE TORQUE","แรงขับ • Torque • Motor Check • FBD","01","#2463eb")
-        be=ModeCardButton("ELECTRICAL / BATTERY","Trip Summary • Wh • Ah • Current • BMS","02","#0f8a73")
+        be=ModeCardButton("ELECTRICAL / BATTERY","Trip Summary • Battery Selection • BMS","02","#0f8a73")
         bw=ModeCardButton("WINCH","แรงยก • ความเร็ว • เวลา • 12 V Battery","03","#d97706")
         bs=ModeCardButton("STABILITY","Side / Front / Rear tipping • Worst Case • CG","04","#7c3aed")
         bc=ModeCardButton("CONTROL LOGIC","E-stop • RC Failsafe • IMU • Limit • Interlock","05","#c45114")
@@ -2449,6 +2449,14 @@ class App(QMainWindow):
         bl.addWidget(box,1)
         self.bmsView=QTextEdit();self.bmsView.setReadOnly(True);bl.addWidget(self.bmsView,2)
         for obj in (self.mainSelectedAh,self.mainBMSCont,self.mainBMSPeak,self.winchSelectedAh,self.winchBMSCont,self.winchBMSPeak):obj.valueChanged.connect(self.update_bms_check)
+        if hasattr(self,"eCandidateAh"):
+            self.eCandidateAh.valueChanged.connect(lambda v:self.mainSelectedAh.setValue(v))
+            self.eCandidateContA.valueChanged.connect(lambda v:self.mainBMSCont.setValue(v))
+            self.eCandidatePeakA.valueChanged.connect(lambda v:self.mainBMSPeak.setValue(v))
+            self.mainSelectedAh.valueChanged.connect(lambda v:self.eCandidateAh.setValue(v))
+            self.mainBMSCont.valueChanged.connect(lambda v:self.eCandidateContA.setValue(v))
+            self.mainBMSPeak.valueChanged.connect(lambda v:self.eCandidatePeakA.setValue(v))
+            self._sync_project_tools_to_battery_candidate()
         self.projectTabs.addTab(bp,"Battery + BMS")
 
         # 6) WINCH DUTY CYCLE
@@ -2830,6 +2838,7 @@ class App(QMainWindow):
 
     def update_bms_check(self):
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
+        if hasattr(self,"batterySelectionView"):self.update_battery_selection()
         if hasattr(self,"designCheckView"):self.update_design_check()
 
     def design_check_rows(self):
@@ -2848,7 +2857,11 @@ class App(QMainWindow):
         add("Drive","Traction",f"Fdesign {t['Fdesign']:.1f} N",f"Ftraction,max {t['Ftraction']:.1f} N",t['Ftraction']>=t['Fdesign'],f"ใช้แรงกดล้อขับ {t['drive_load_fraction']*100:.1f}% ของ N_total; final ต้องยืนยันจาก CG/load transfer")
         add("Stability","Worst-case SF",f"≥ {d['req']:.2f}",f"{worst[0]:.3f} @ {worst[1]}° {worst[2]}",worst[0]>=d['req'])
         if self.mainSelectedAh.value()>0:add("Main Battery","Energy capacity",f"≥ {e['Ah']:.2f} Ah",f"{self.mainSelectedAh.value():.1f} Ah",self.mainSelectedAh.value()>=e['Ah'])
-        else:add("Main Battery","Energy capacity",f"{e['Ah']:.2f} Ah required","Selected not set",False,"กรอกใน Battery+BMS",True)
+        else:add("Main Battery","Energy capacity",f"{e['Ah']:.2f} Ah required","Selected not set",False,"กรอกใน Battery Selection / Battery+BMS",True)
+        if hasattr(self,"batterySelectionView"):
+            br=self.battery_selection_results()
+            add("Main Battery","Suggested standard size",f"≥ {br['design_ah']:.2f} Ah by energy/C-rate target",
+                f"{br['suggested']:.0f} Ah standard size",False,f"Target {br['target_cont']:.1f}C continuous / {br['target_peak']:.1f}C peak",True)
         main_cont=max(t['Ibatt'],e['Icalc_up'])
         if self.mainBMSCont.value()>0:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A",f"{self.mainBMSCont.value():.1f} A",self.mainBMSCont.value()>=main_cont)
         else:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A","Not set",False,"กรอกพิกัด BMS",True)
@@ -3311,6 +3324,7 @@ class App(QMainWindow):
         rv.addWidget(note)
         b=QPushButton("คำนวณใหม่ / Calculate");b.setObjectName("primaryButton");b.clicked.connect(self.calc_electrical);rv.addWidget(b)
         bSummary=QPushButton("ดูสรุปไป-กลับ / Trip Summary");bSummary.clicked.connect(lambda:self.eTabs.setCurrentIndex(1));rv.addWidget(bSummary)
+        bBattery=QPushButton("เลือกแบตที่จะซื้อ / Battery Selection");bBattery.clicked.connect(lambda:self.eTabs.setCurrentIndex(2));rv.addWidget(bBattery)
         rv.addStretch();hl.addWidget(right,1)
         eInputScroll=QScrollArea();eInputScroll.setWidgetResizable(True);eInputScroll.setFrameShape(QFrame.NoFrame)
         eInputScroll.setWidget(inp);self.eTabs.addTab(eInputScroll,"Input / ข้อมูล")
@@ -3349,6 +3363,67 @@ class App(QMainWindow):
         tripOuter.addWidget(self.tripEnergyExplain)
         tripScroll=QScrollArea();tripScroll.setWidgetResizable(True);tripScroll.setFrameShape(QFrame.NoFrame);tripScroll.setWidget(trip)
         self.eTabs.addTab(tripScroll,"สรุปไป-กลับ / Trip Summary")
+
+        # V52.2 — Battery Selection: separate calculated minimum from a battery you may actually buy.
+        bsel=QWidget();bselOuter=QVBoxLayout(bsel);bselOuter.setContentsMargins(10,10,10,10);bselOuter.setSpacing(12)
+        bselTitle=QLabel("BATTERY SELECTION / เลือกแบตที่จะซื้อ")
+        bf=QFont();bf.setPointSize(15);bf.setBold(True);bselTitle.setFont(bf);bselTitle.setStyleSheet("color:#17324d;")
+        bselSub=QLabel("แยกให้ชัด: ค่าขั้นต่ำจากพลังงาน ≠ แบตที่ควรซื้อจริง • ต้องผ่านทั้ง Ah/Wh และกระแส Continuous/Peak")
+        bselSub.setWordWrap(True);bselSub.setStyleSheet("color:#60758b;font-size:10.3pt;font-weight:650;")
+        bselOuter.addWidget(bselTitle);bselOuter.addWidget(bselSub)
+
+        metricGrid=QGridLayout();metricGrid.setHorizontalSpacing(10);metricGrid.setVerticalSpacing(10)
+        def bmetric(title):
+            box=QFrame();box.setObjectName("metricPanel");box.setMinimumHeight(90)
+            lay=QVBoxLayout(box);lay.setContentsMargins(12,9,12,9);lay.setSpacing(3)
+            t=QLabel(title);t.setWordWrap(True);t.setStyleSheet("color:#667b8e;font-size:8.9pt;font-weight:850;")
+            v=QLabel("—");v.setWordWrap(True);v.setStyleSheet("color:#17324d;font-size:15pt;font-weight:900;")
+            lay.addWidget(t);lay.addWidget(v);lay.addStretch(1)
+            return box,v
+        c,self.bselMinAhLabel=bmetric("ขั้นต่ำจากพลังงาน");metricGrid.addWidget(c,0,0)
+        c,self.bselContLabel=bmetric("กระแสต่อเนื่องที่ต้องรองรับ");metricGrid.addWidget(c,0,1)
+        c,self.bselPeakLabel=bmetric("กระแส Peak ที่คำนวณ");metricGrid.addWidget(c,0,2)
+        c,self.bselSuggestedLabel=bmetric("ขนาดมาตรฐานที่แนะนำให้ตรวจ");metricGrid.addWidget(c,0,3)
+        for col in range(4):metricGrid.setColumnStretch(col,1)
+        bselOuter.addLayout(metricGrid)
+
+        controlBox=QGroupBox("Design Target & Candidate Battery / เกณฑ์และแบตที่กำลังจะซื้อ")
+        cf=QGridLayout(controlBox);cf.setHorizontalSpacing(12);cf.setVerticalSpacing(8)
+        def bds(v,lo,hi,step=0.1,dec=1):
+            q=QDoubleSpinBox();q.setRange(lo,hi);q.setDecimals(dec);q.setSingleStep(step);q.setValue(v);q.setMinimumWidth(120);return q
+        self.bselTargetContC=bds(3.0,0.1,20,0.5,1)
+        self.bselTargetPeakC=bds(5.0,0.1,30,0.5,1)
+        self.eCandidateAh=bds(0,0,500,1,1)
+        self.eCandidateContA=bds(0,0,2000,5,1)
+        self.eCandidatePeakA=bds(0,0,4000,5,1)
+        cf.addWidget(QLabel("Target max continuous C-rate"),0,0);cf.addWidget(self.bselTargetContC,0,1)
+        cf.addWidget(QLabel("Target max peak C-rate"),0,2);cf.addWidget(self.bselTargetPeakC,0,3)
+        cf.addWidget(QLabel("Candidate capacity (Ah)"),1,0);cf.addWidget(self.eCandidateAh,1,1)
+        cf.addWidget(QLabel("Candidate continuous rating (A)"),1,2);cf.addWidget(self.eCandidateContA,1,3)
+        cf.addWidget(QLabel("Candidate peak rating (A)"),2,0);cf.addWidget(self.eCandidatePeakA,2,1)
+        self.bselUseSuggested=QPushButton("ใช้ Suggested Ah เป็น Candidate")
+        self.bselUseSuggested.setObjectName("primaryButton");self.bselUseSuggested.clicked.connect(self.apply_suggested_battery_capacity)
+        cf.addWidget(self.bselUseSuggested,2,2,1,2)
+        noteC=QLabel("C-rate เป็นเกณฑ์ออกแบบที่ผู้ใช้ตั้งเอง ไม่ใช่สเปกเซลล์จริงจากผู้ผลิต • ตอนซื้อให้ใช้ Continuous/Peak current rating จริงของ Pack/BMS")
+        noteC.setWordWrap(True);noteC.setStyleSheet("color:#68420b;background:#fff8e9;padding:8px;border:1px solid #ead39a;border-radius:8px")
+        cf.addWidget(noteC,3,0,1,4)
+        bselOuter.addWidget(controlBox)
+
+        self.bselCompareTable=QTableWidget(0,6)
+        self.bselCompareTable.setHorizontalHeaderLabels(["Capacity","Rated energy","Required cont C","Required peak C","Design runtime*","Check"])
+        self.bselCompareTable.verticalHeader().setVisible(False);self.bselCompareTable.setAlternatingRowColors(True)
+        self.bselCompareTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.bselCompareTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.bselCompareTable.setMinimumHeight(245)
+        bselOuter.addWidget(self.bselCompareTable)
+
+        self.batterySelectionView=QTextEdit();self.batterySelectionView.setReadOnly(True);self.batterySelectionView.setMinimumHeight(210)
+        bselOuter.addWidget(self.batterySelectionView)
+        bselScroll=QScrollArea();bselScroll.setWidgetResizable(True);bselScroll.setFrameShape(QFrame.NoFrame);bselScroll.setWidget(bsel)
+        self.eTabs.addTab(bselScroll,"เลือกแบต / Battery Selection")
+
+        for obj in (self.bselTargetContC,self.bselTargetPeakC,self.eCandidateAh,self.eCandidateContA,self.eCandidatePeakA):
+            obj.valueChanged.connect(self.update_battery_selection)
 
         self.eVars=QTextEdit();self.eVars.setReadOnly(True);self.eTabs.addTab(self.eVars,"ตัวแปร / Variables")
 
@@ -3564,6 +3639,129 @@ class App(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self,"Export PDF ไม่สำเร็จ",str(exc))
 
+    def battery_selection_results(self):
+        e=self.electrical_results();t=self.torque_results()
+        energy_min=max(0.0,e["Ah"])
+        cont_req=max(0.0,t["Ibatt"],e["Icalc_up"])
+        peak_calc=max(0.0,e["Iworst"],e.get("Icalc_peak",0.0))
+        controller_indicator=self.controllerCurrent.value()*max(1,t["n"]) if hasattr(self,"controllerCurrent") else 0.0
+        target_cont=max(0.1,self.bselTargetContC.value()) if hasattr(self,"bselTargetContC") else 3.0
+        target_peak=max(0.1,self.bselTargetPeakC.value()) if hasattr(self,"bselTargetPeakC") else 5.0
+        ah_by_cont=cont_req/target_cont
+        ah_by_peak=peak_calc/target_peak
+        design_ah=max(energy_min,ah_by_cont,ah_by_peak)
+        standards=[5,10,15,20,25,30,40,50,60,80,100,120,150,200]
+        suggested=next((x for x in standards if x+1e-9>=design_ah),None)
+        if suggested is None:
+            suggested=math.ceil(design_ah/10.0)*10.0
+        suggested=float(suggested)
+        design_runtime=e["runtime_h"]*(suggested/max(energy_min,1e-9)) if energy_min>0 else 0.0
+        bms_cont=math.ceil(cont_req/5.0)*5.0 if cont_req>0 else 0.0
+        bms_peak=math.ceil(peak_calc/5.0)*5.0 if peak_calc>0 else 0.0
+        return dict(e=e,t=t,energy_min=energy_min,cont_req=cont_req,peak_calc=peak_calc,
+                    controller_indicator=controller_indicator,target_cont=target_cont,target_peak=target_peak,
+                    ah_by_cont=ah_by_cont,ah_by_peak=ah_by_peak,design_ah=design_ah,
+                    standards=standards,suggested=suggested,design_runtime=design_runtime,
+                    bms_cont=bms_cont,bms_peak=bms_peak)
+
+    def apply_suggested_battery_capacity(self):
+        if not hasattr(self,"eCandidateAh"):return
+        r=self.battery_selection_results()
+        self.eCandidateAh.setValue(r["suggested"])
+        self.update_battery_selection()
+
+    def _sync_battery_candidate_to_project_tools(self):
+        if not all(hasattr(self,x) for x in ("eCandidateAh","eCandidateContA","eCandidatePeakA",
+                                             "mainSelectedAh","mainBMSCont","mainBMSPeak")):
+            return
+        pairs=((self.eCandidateAh,self.mainSelectedAh),
+               (self.eCandidateContA,self.mainBMSCont),
+               (self.eCandidatePeakA,self.mainBMSPeak))
+        for src,dst in pairs:
+            if abs(dst.value()-src.value())>1e-9:
+                old=dst.blockSignals(True);dst.setValue(src.value());dst.blockSignals(old)
+        if hasattr(self,"bmsView"):self.update_bms_check()
+
+    def _sync_project_tools_to_battery_candidate(self):
+        if not all(hasattr(self,x) for x in ("eCandidateAh","eCandidateContA","eCandidatePeakA",
+                                             "mainSelectedAh","mainBMSCont","mainBMSPeak")):
+            return
+        pairs=((self.mainSelectedAh,self.eCandidateAh),
+               (self.mainBMSCont,self.eCandidateContA),
+               (self.mainBMSPeak,self.eCandidatePeakA))
+        for src,dst in pairs:
+            if abs(dst.value()-src.value())>1e-9:
+                old=dst.blockSignals(True);dst.setValue(src.value());dst.blockSignals(old)
+        self.update_battery_selection()
+
+    def update_battery_selection(self,*_):
+        if not hasattr(self,"batterySelectionView"):return
+        r=self.battery_selection_results();e=r["e"]
+        self.bselMinAhLabel.setText(f"{r['energy_min']:.2f} Ah\n({e['Edesign']:.0f} Wh @ {e['V']:.0f} V)")
+        self.bselContLabel.setText(f"{r['cont_req']:.1f} A")
+        self.bselPeakLabel.setText(f"{r['peak_calc']:.1f} A")
+        self.bselSuggestedLabel.setText(f"{r['suggested']:.0f} Ah")
+
+        rows=r["standards"]
+        self.bselCompareTable.setRowCount(len(rows))
+        for i,ah in enumerate(rows):
+            rated_wh=e["V"]*ah
+            cont_c=r["cont_req"]/ah if ah>0 else 999
+            peak_c=r["peak_calc"]/ah if ah>0 else 999
+            runtime=e["runtime_h"]*(ah/max(r["energy_min"],1e-9)) if r["energy_min"]>0 else 0
+            energy_ok=ah+1e-9>=r["energy_min"]
+            c_ok=cont_c<=r["target_cont"]+1e-9 and peak_c<=r["target_peak"]+1e-9
+            status="PASS*" if energy_ok and c_ok else ("ENERGY LOW" if not energy_ok else "C-RATE CHECK")
+            vals=[f"{ah:.0f} Ah",f"{rated_wh:.0f} Wh",f"{cont_c:.2f} C",f"{peak_c:.2f} C",f"{runtime:.1f} h",status]
+            for c,val in enumerate(vals):
+                item=QTableWidgetItem(val);item.setTextAlignment(Qt.AlignCenter)
+                if c==5:
+                    item.setForeground(QColor("#176337" if status=="PASS*" else "#b42318"))
+                    font=item.font();font.setBold(True);item.setFont(font)
+                self.bselCompareTable.setItem(i,c,item)
+
+        cand_ah=self.eCandidateAh.value();cand_cont=self.eCandidateContA.value();cand_peak=self.eCandidatePeakA.value()
+        energy_ok=cand_ah>0 and cand_ah+1e-9>=r["energy_min"]
+        cont_ok=cand_cont>0 and cand_cont+1e-9>=r["cont_req"]
+        peak_ok=cand_peak>0 and cand_peak+1e-9>=r["peak_calc"]
+        all_ok=energy_ok and cont_ok and peak_ok
+        cand_wh=cand_ah*e["V"]
+        cand_runtime=e["runtime_h"]*(cand_ah/max(r["energy_min"],1e-9)) if cand_ah>0 and r["energy_min"]>0 else 0
+        def state(ok,set_value=True):
+            if not set_value:return "<span style='color:#b54708'><b>NOT SET</b></span>"
+            return "<span style='color:#176337'><b>PASS</b></span>" if ok else "<span style='color:#b42318'><b>CHECK</b></span>"
+
+        overall=("READY TO VERIFY DATASHEET" if all_ok else "NOT READY")
+        overall_color="#176337" if all_ok else "#b42318"
+        self.batterySelectionView.setHtml(f"""
+        <h2>Battery Purchase Check / ตรวจแบตก่อนซื้อ</h2>
+        <p><b>Minimum by energy:</b> {r['energy_min']:.2f} Ah ({e['Edesign']:.0f} Wh) — ค่านี้รวม DoD และ Reserve จากหน้า Electrical แล้ว</p>
+        <p><b>Current requirement:</b> Continuous ≈ {r['cont_req']:.1f} A, calculated Peak ≈ {r['peak_calc']:.1f} A</p>
+        <p><b>Design target C-rate:</b> ≤ {r['target_cont']:.1f}C continuous, ≤ {r['target_peak']:.1f}C peak
+        → ต้องการอย่างน้อย max({r['energy_min']:.2f}, {r['ah_by_cont']:.2f}, {r['ah_by_peak']:.2f}) = <b>{r['design_ah']:.2f} Ah</b></p>
+        <p style='background:#eefaf4;padding:10px;border:1px solid #a9d7ba'>
+        <b>Suggested standard size to investigate: {r['suggested']:.0f} Ah @ {e['V']:.0f} V</b><br>
+        ที่ขนาดนี้ required C ≈ {r['cont_req']/max(r['suggested'],1e-9):.2f}C continuous /
+        {r['peak_calc']/max(r['suggested'],1e-9):.2f}C peak และ design-equivalent runtime ≈ {r['design_runtime']:.1f} h
+        </p>
+        <h3>Candidate ที่กรอก</h3>
+        <table border='1' cellspacing='0' cellpadding='6'>
+        <tr><th>Check</th><th>Required</th><th>Candidate</th><th>Status</th></tr>
+        <tr><td>Capacity</td><td>≥ {r['energy_min']:.2f} Ah</td><td>{cand_ah:.1f} Ah ({cand_wh:.0f} Wh)</td><td>{state(energy_ok,cand_ah>0)}</td></tr>
+        <tr><td>Continuous current</td><td>≥ {r['cont_req']:.1f} A</td><td>{cand_cont:.1f} A</td><td>{state(cont_ok,cand_cont>0)}</td></tr>
+        <tr><td>Peak current</td><td>≥ {r['peak_calc']:.1f} A</td><td>{cand_peak:.1f} A</td><td>{state(peak_ok,cand_peak>0)}</td></tr>
+        </table>
+        <p><b>Candidate design-equivalent runtime:</b> {cand_runtime:.1f} h (ใช้ duty/DoD/reserve แบบเดียวกับโมเดลปัจจุบัน)</p>
+        <p style='color:{overall_color};font-size:13pt'><b>{overall}</b></p>
+        <p style='background:#fff8e9;padding:10px;border:1px solid #ead39a'>
+        <b>สำคัญ:</b> ค่า {r['suggested']:.0f} Ah เป็นขนาดมาตรฐานที่ควรนำไป “ตรวจสเปกต่อ” ไม่ใช่คำสั่งให้ซื้อทันที.
+        ต้องยืนยันแรงดัน Pack จริง, chemistry, Continuous/Peak current ของเซลล์และ BMS, connector, fuse, charger และขีดจำกัด Battery Current ของ VESC.
+        ค่า Controller indicator ใน Project Tools ปัจจุบัน ≈ {r['controller_indicator']:.1f} A เป็น conservative indicator และอาจเป็น motor/phase-current setting ไม่ใช่ battery current โดยตรง.
+        </p>
+        <p>*PASS ในตารางขนาดมาตรฐานหมายถึงผ่าน Energy + C-rate target ที่ผู้ใช้กำหนดเท่านั้น ไม่ได้ยืนยันสเปกแบตจากร้าน</p>
+        """)
+        self._sync_battery_candidate_to_project_tools()
+
     def calc_electrical(self):
         if not hasattr(self,"eSummary"): return
         q=self.electrical_results()
@@ -3723,6 +3921,7 @@ class App(QMainWindow):
         </table>
         <p><b>อย่าเลือกแบตจาก Ah อย่างเดียว:</b> ต้องตรวจ BMS continuous/peak current และความสามารถจ่ายกระแสของเซลล์ด้วย</p>
         """)
+        if hasattr(self,"batterySelectionView"):self.update_battery_selection()
 
     def make_torque(self):
         w=QWidget();self.torquePage=w
