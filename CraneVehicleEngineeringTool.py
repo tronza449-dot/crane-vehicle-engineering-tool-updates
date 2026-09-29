@@ -2477,6 +2477,7 @@ class App(QMainWindow):
 
     def _core_recalculate(self):
         self.calc_torque();self.calc_electrical();self.calc_winch();self.calc_all()
+        if hasattr(self,"hwRows"):self.update_hardware_manager()
 
 
     # =====================================================================
@@ -2571,6 +2572,18 @@ class App(QMainWindow):
                     obj.editingFinished.connect(self.schedule_easy_autosave)
             except Exception:
                 pass
+
+        # Hardware I/O row widgets live inside self.hwRows dictionaries, not directly in vars(self).
+        if hasattr(self,"hwRows"):
+            for row in self.hwRows:
+                try:
+                    row["enabled"].toggled.connect(self.schedule_easy_autosave)
+                    row["supply"].currentIndexChanged.connect(self.schedule_easy_autosave)
+                    row["logic"].currentIndexChanged.connect(self.schedule_easy_autosave)
+                    row["gpio"].currentIndexChanged.connect(self.schedule_easy_autosave)
+                    row["protection"].currentIndexChanged.connect(self.schedule_easy_autosave)
+                except Exception:
+                    pass
 
         # Periodic safety save in case the program is left open for a long time.
         self.easyAutoSavePeriodic=QTimer(self)
@@ -2843,6 +2856,12 @@ class App(QMainWindow):
         else:add("Winch Battery","Energy capacity",f"{w['ah']:.2f} Ah required","Selected not set",False,"กรอกใน Battery+BMS",True)
         add("Winch","Duty cycle assumption",f"≤ {duty['allowed']:.1f}%",f"{duty['duty']:.1f}%",duty['duty_pass'],"Allowed value ยังเป็นสมมติฐาน",True if duty['allowed']==20 else False)
         add("Winch","Continuous run assumption",f"≤ {duty['maxcont']:.1f} s",f"{duty['maxsegment']:.1f} s",duty['continuous_pass'],"ใช้ข้อมูลผู้ผลิตเมื่อมี",True if duty['maxcont']==60 else False)
+        if hasattr(self,"hwRows"):
+            hw=self.hardware_check_results()
+            issues=len(hw["conflicts"])+len(hw["voltage"])+len(hw["missing"])+len(hw["protection_missing"])
+            add("Hardware I/O","GPIO / Voltage / Protection", "0 unresolved issue",
+                f"{issues} issue(s)",hw["ready"],
+                "V52 Hardware I/O Manager; READY requires verified board pinout")
         return rows
 
     def design_check_html(self):
