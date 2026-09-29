@@ -1,50 +1,71 @@
-# Crane Vehicle Engineering Tool V52.1.0
+# Crane Vehicle Engineering Tool V52.2.0
 
-## Trip Energy Summary / สรุปพลังงานไป-กลับ
+## Battery Selection / เลือกแบตที่จะซื้อ
 
-เพิ่มหน้าสรุปแบบอ่านง่ายใน Electrical / Battery เพื่อให้เห็นทันทีว่า “รถวิ่งไป-กลับ 1 รอบใช้พลังงานเท่าไร” และ “สุดท้ายต้องใช้แบตกี่ Ah” โดยไม่ต้องไล่อ่าน Calculation Steps หลายหน้า
+เพิ่มระบบแยก “ค่าขั้นต่ำจากการคำนวณ” ออกจาก “แบตที่ควรนำไปตรวจสเปกก่อนซื้อ” เพื่อไม่ให้ผู้ใช้เอาค่า Ah ขั้นต่ำไปซื้อแบตตรง ๆ โดยไม่ตรวจกระแสและ BMS
 
-### หน้าสรุปใหม่
-แสดงตัวเลขสำคัญหน้าเดียว:
-- ระยะ 1 รอบไป-กลับ
-- เวลา 1 รอบ
-- จำนวนรอบในเวลาที่กำหนด
-- พลังงานขับต่อ 1 รอบ (Wh/รอบ)
-- พลังงานขับรวมทุก รอบ
-- พลังงาน Auxiliary รวม
-- พลังงานรวมก่อนเผื่อแบต
-- Battery Design หลัง DoD + Reserve
-- Required Ah @ Battery Voltage
+### Battery Selection ใหม่
+อยู่ที่ Electrical / Battery → “เลือกแบต / Battery Selection”
 
-### วิธีใช้งาน
-ไปที่ Electrical / Battery → “สรุปไป-กลับ / Trip Summary”
-หรือกดปุ่ม “ดูสรุปไป-กลับ / Trip Summary” จากหน้า Input
+แสดง:
+- Minimum capacity จาก Energy model (Ah / Wh)
+- Continuous current requirement
+- Calculated Peak current
+- Suggested standard battery size ที่ควรนำไปตรวจสเปกต่อ
+- Required continuous C-rate / peak C-rate
+- Design-equivalent runtime ของแต่ละขนาดมาตรฐาน
 
-### สูตรที่สรุปในหน้าเดียว
-- E_drive_per_trip = E_drive_total ÷ จำนวนรอบ
-- E_load = E_drive + E_aux
-- E_design = (E_load ÷ DoD) × (1 + Reserve)
-- Ah = E_design ÷ V_battery
+### Standard Battery Comparison
+เปรียบเทียบขนาด:
+5 / 10 / 15 / 20 / 25 / 30 / 40 / 50 / 60 / 80 / 100 / 120 / 150 / 200 Ah
 
-ค่า Auxiliary ต่อรอบที่แสดงเป็นค่าเฉลี่ยเทียบเท่า เพราะ Auxiliary เป็นโหลดตามเวลา ไม่ใช่โหลดตามระยะทางโดยตรง
+แต่ละขนาดแสดง:
+- Rated Wh
+- Required continuous C-rate
+- Required peak C-rate
+- Design runtime
+- PASS / ENERGY LOW / C-RATE CHECK
 
-### ระบบเดิมยังอยู่ครบ
-- V52 Hardware I/O & Wiring Manager
-- GPIO conflict / Voltage / Protection / ESP32 Pin Map
-- Torque / Traction
-- Electrical / Battery detailed calculation
-- Winch
-- Stability / Worst Case
-- Control Logic
-- PDF / Final Report
-- Auto Save
-- GitHub Auto Update
+### Candidate Battery Check
+ผู้ใช้กรอกสเปกแบตจากร้าน:
+- Capacity (Ah)
+- Continuous current rating (A)
+- Peak current rating (A)
+
+โปรแกรมตรวจ:
+- Energy capacity
+- Continuous current
+- Peak current
+- READY TO VERIFY DATASHEET / NOT READY
+
+### Suggested size logic
+Suggested standard size = ขนาดมาตรฐานถัดไปที่ผ่านทั้ง:
+- Energy requirement จาก Electrical model
+- Target continuous C-rate
+- Target peak C-rate
+
+ค่า Target C-rate แก้ไขได้ และเป็นเพียง design target ไม่ใช่สเปกเซลล์จริงจากผู้ผลิต
+
+### Project integration
+- Candidate Battery sync กับ Project Tools → Battery+BMS
+- Save/Load / Auto Save รองรับค่าของ Battery Selection
+- Project เก่าที่มี Battery+BMS แต่ยังไม่มี Battery Selection จะ sync ค่าเดิมเข้าหน้าใหม่
+- Integrated Design Check เพิ่ม Suggested standard size และ Peak BMS check
+- Final Engineering Report แสดง Battery Selection summary
+
+### Important engineering distinction
+- Minimum Ah = ความจุขั้นต่ำตามพลังงาน/DoD/Reserve
+- Suggested Ah = ขนาดมาตรฐานที่ผ่าน Energy + C-rate target
+- Candidate Battery = แบตจริงที่กำลังจะซื้อ ต้องกรอก current rating จากร้าน/ผู้ผลิต
+- Controller current setting อาจเป็น motor/phase current ไม่ใช่ battery current โดยตรง จึงแสดงเป็น conservative indicator แยกต่างหาก
 
 ### Regression Gate
-เพิ่มการทดสอบ Trip Summary บน Windows:
-- มีค่า Wh/รอบ
-- ค่า Wh/รอบตรงกับ Edrive ÷ cycles
-- Required Ah ตรงกับ Electrical model
-- หน้า Summary เปิดได้พร้อมระบบเดิมทั้งหมด
+Windows regression test เพิ่มการตรวจ:
+- Suggested Ah ≥ design requirement
+- Candidate fields sync กับ Battery+BMS
+- Candidate ที่ต่ำเกินต้องขึ้น NOT READY
+- Candidate ที่ผ่าน Energy + Continuous + Peak ต้องขึ้น READY TO VERIFY DATASHEET
+- Standard-size comparison table ทำงาน
+- ระบบเดิมทั้งหมด Torque / Trip Summary / Electrical / Winch / Stability / Control Logic / Hardware I/O / PDF / Updater ยังผ่าน test เหมือนเดิม
 
-หมายเหตุ: ผลแบตเตอรี่เป็น Preliminary Engineering Calculation และยังต้องยืนยันกระแส/ประสิทธิภาพ/เส้นทางจริงจากการทดสอบรถก่อนเลือกแบตขั้นสุดท้าย
+หมายเหตุ: Suggested size ไม่ใช่คำสั่งซื้ออัตโนมัติ ต้องยืนยัน Pack voltage, chemistry, cell current rating, BMS continuous/peak, connector, fuse, charger และ VESC battery-current limit ก่อนซื้อจริง
