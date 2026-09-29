@@ -3632,7 +3632,7 @@ class App(QMainWindow):
         FL=d["kd"]*d["ml"]*g
         dL=max(0.0,yL-pivot);rL=max(0.0,pivot-yL)
         dB=max(0.0,yB-pivot);rB=max(0.0,pivot-yB)
-        MOL=FL*dL;MRL=FL*rL;MOB=d["mb"]*g*dB;MRB=d["mb"]*g*rB;MRV=mveh*g*pivot
+        MOL=FL*dL;MRL=d["ml"]*g*rL;MOB=d["mb"]*g*dB;MRB=d["mb"]*g*rB;MRV=mveh*g*pivot
         rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
         xload=xc+d["L"]*math.cos(th);xboom=xc+(d["L"]/2)*math.cos(th)
         sfF,sfR=self.longitudinal_sf_at(d,d["th"])
@@ -3653,7 +3653,7 @@ class App(QMainWindow):
 
         html="<h2>STABILITY ANALYSIS — สูตรครบ + แทนค่า</h2>"
         html+="<p><b>หลักสำคัญ:</b> มวลทุกก้อนต้องถูกนับเป็น Overturning หรือ Resisting รอบแนว Pivot เพียงครั้งเดียว และ Total mass ต้องไม่บวก Payload ซ้ำ</p>"
-        html+=sec(1,"แรงโหลดออกแบบ","ใช้ Dynamic Factor กับ Payload ก่อนคิดโมเมนต์",
+        html+=sec(1,"แรงโหลดออกแบบ","ใช้ Dynamic Factor กับ Payload เฉพาะเมื่อแรงนั้นทำให้คว่ำ; ด้านต้านใช้ Payload จริง",
                   "แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g","F_L = Kdyn × m_L × g",
                   f"F_L = {d['kd']:.2f} × {d['ml']:.2f} × 9.81 = {FL:.2f} N",f"{FL:.2f} N")
         html+=sec(2,"ตำแหน่งด้านข้างและ Pivot","หาระยะ Payload/Boom จากกึ่งกลางรถและเทียบกับ W/2",
@@ -3668,8 +3668,8 @@ class App(QMainWindow):
                   f"M_O={MO:.2f} N·m")
         html+=sec(4,"โมเมนต์ต้านด้านข้าง","มวลส่วนรถ รวมถึง Payload/Boom ที่ยังอยู่ด้านใน Pivot ต้องช่วยต้าน ไม่ควรถูกละทิ้ง",
                   "โมเมนต์ต้าน = รถส่วนหลัก + Payload ที่อยู่ด้านใน + Boom ที่อยู่ด้านใน",
-                  "M_R = m_vehicle g p + F_L max(0,p-y_L) + m_B g max(0,p-y_B)",
-                  f"M_vehicle={mveh:.2f}×9.81×{pivot:.3f}={MRV:.2f}<br>M_payload,res={FL:.2f}×{rL:.3f}={MRL:.2f}<br>M_boom,res={d['mb']:.2f}×9.81×{rB:.3f}={MRB:.2f}",
+                  "M_R = m_vehicle g p + m_L g max(0,p-y_L) + m_B g max(0,p-y_B)",
+                  f"M_vehicle={mveh:.2f}×9.81×{pivot:.3f}={MRV:.2f}<br>M_payload,res={d['ml']:.2f}×9.81×{rL:.3f}={MRL:.2f}<br>M_boom,res={d['mb']:.2f}×9.81×{rB:.3f}={MRB:.2f}",
                   f"M_R={MR:.2f} N·m; SF_side={'∞' if sf>=999 else f'{sf:.3f}'}")
         html+=sec(5,"การคว่ำหน้า-หลัง","ใช้เพลาหน้า/หลังเป็น Pivot และรวมโมเมนต์ทุกมวลตามตำแหน่งจริงในแนวยาว",
                   "Safety Factor = ผลรวมโมเมนต์ต้าน ÷ ผลรวมโมเมนต์คว่ำ",
