@@ -39,6 +39,57 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-build.txt
 
+      - name: Smoke-test UI startup and core calculations
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          @'
+          import sys
+          from PySide6.QtWidgets import QApplication
+          import CraneVehicleEngineeringTool as cvet
+
+          app = QApplication.instance() or QApplication([])
+          w = cvet.App()
+          QApplication.processEvents()
+
+          # Exercise pages/calculations that previously caused startup/runtime crashes.
+          w.calc_torque()
+          w.calc_electrical()
+          w.calc_winch()
+          w.calc_all()
+          w.update_all_variable_tables()
+          w.update_project_tools()
+          w.update_safety_logic(log_event=False)
+
+          # Explicitly verify important dictionary/API contracts.
+          sp = w.winch_speed_results()
+          for key in ("motor_up","drum_up","tension","drum_torque","load_up","load_down"):
+              assert key in sp, f"Missing winch_speed_results key: {key}"
+
+          ready = w.evaluate_safety_logic({
+              "estop":False,"rc_ok":True,"drive_enable":True,"throttle":0,"steer":0,
+              "crane":"STOP","winch":"STOP","tilt":0.0,"tilt_limit":12.0,
+              "left_limit":False,"right_limit":False,"battery_low":False,
+              "battery_inhibit":False,"winch_stationary_only":True
+          })
+          assert ready["state"] == "READY"
+          assert ready["drive_permit"] is True
+
+          # Open each major mode at least once.
+          for method in (
+              w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
+              w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
+              w.show_variable_dictionary_mode,w.show_project_tools_mode
+          ):
+              method()
+              QApplication.processEvents()
+
+          print("CVET_SMOKE_TEST_OK")
+          w.close()
+          '@ | Set-Content smoke_test.py -Encoding UTF8
+          python smoke_test.py
+
       - name: Generate application icon
         shell: pwsh
         run: |
