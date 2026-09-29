@@ -19,17 +19,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore build source payload
-        shell: pwsh
-        run: |
-          $parts=Get-ChildItem "payload\part*.txt" | Sort-Object Name
-          if (-not $parts) { throw "No payload parts found" }
-          $b64=($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ""
-          $zip=Join-Path $env:RUNNER_TEMP "cvet-source.zip"
-          [IO.File]::WriteAllBytes($zip,[Convert]::FromBase64String($b64))
-          Expand-Archive -Path $zip -DestinationPath "." -Force
-          if (-not (Test-Path "CraneVehicleEngineeringTool.py")) { throw "Source restore failed" }
-
       - name: Sync application version from VERSION
         shell: pwsh
         run: |
