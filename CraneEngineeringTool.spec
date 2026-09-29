@@ -1,13 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
 
 project = Path(SPECPATH)
 source = project / 'CraneVehicleEngineeringTool.py'
 icon = project / 'assets' / 'CraneEngineeringTool.ico'
 
 hidden = ['PySide6.QtPrintSupport']
-hidden += collect_submodules('reportlab')
 
 analysis = Analysis(
     [str(source)],
