@@ -2635,7 +2635,8 @@ void loop() {{
         duplicate=QPushButton("Duplicate");duplicate.clicked.connect(self.duplicate_device_library_item)
         remove=QPushButton("Delete");remove.setObjectName("secondaryButton");remove.clicked.connect(self.delete_device_library_item)
         send=QPushButton("Add to Hardware I/O");send.clicked.connect(self.add_library_device_to_hardware)
-        for b in (add,edit,duplicate,remove,send):dbar.addWidget(b)
+        sendBom=QPushButton("Add to BOM");sendBom.clicked.connect(self.add_library_device_to_bom)
+        for b in (add,edit,duplicate,remove,send,sendBom):dbar.addWidget(b)
         dbar.addStretch(1);dl.addLayout(dbar)
         note=QLabel("เพิ่ม Sensor / Relay / Encoder / Switch / Display / Communication / Power module ได้เอง แล้วส่งไป Hardware I/O ได้ทันที • 1 แถว = 1 signal ของอุปกรณ์")
         note.setWordWrap(True);note.setStyleSheet("color:#60758b;font-weight:650;");dl.addWidget(note)
@@ -2835,6 +2836,16 @@ void loop() {{
                         custom=True,enabled=True)
         self._append_hardware_row(definition,select=True);self.update_hardware_manager()
         self.statusBar().showMessage(f"เพิ่ม {data['device']} / {data['signal']} ไป Hardware I/O แล้ว",3500)
+
+    def add_library_device_to_bom(self):
+        data=self._device_library_row_data(self.deviceLibraryTable.currentRow())
+        if not data:
+            QMessageBox.information(self,"Device Library","เลือกอุปกรณ์ก่อน");return
+        self.bomTable.blockSignals(True)
+        self._append_bom_row(data["device"],data["category"],1,0,0,"","Planned",f"{data['signal']} • {data['interface']}")
+        self.bomTable.blockSignals(False);self.update_bom_summary()
+        self.integrationTabs.setCurrentWidget(self.bomTable.parentWidget()) if False else None
+        self.statusBar().showMessage(f"เพิ่ม {data['device']} ไป BOM แล้ว",3000)
 
     # ---------------- VALIDATION CENTER ----------------
     def _append_validation_row(self,name,unit,calc="",measured="",tol="10",note=""):
@@ -3106,6 +3117,9 @@ void loop() {{
             f"{bt['items']} rows • entered mass {bt['mass']:.1f} kg • {bt['cost']:,.0f} THB")
         add("Revisions","Design Revision Snapshot","PASS" if len(getattr(self,"designRevisions",[]))>0 else "CHECK",
             f"{len(getattr(self,'designRevisions',[]))} revision(s)")
+        findings=self.diagnostic_results()
+        active=sum(1 for x in findings if x[0]!="INFO")
+        add("Diagnostics","Active software-detected issues","PASS" if active==0 else "FAIL",f"{active} active issue(s)")
         if hasattr(self,"telemetryConnected"):
             add("Telemetry","ESP32 Data Logger","PASS" if self.telemetryConnected else "CHECK",
                 "Connected" if self.telemetryConnected else "Not connected — connect during vehicle validation")
@@ -3113,21 +3127,63 @@ void loop() {{
 
     def update_final_verification(self):
         if not hasattr(self,"finalVerificationView"):return
+        self.finalVerificationView.setHtml(self.final_verification_html())
+
+    def validation_report_html(self):
+        if not hasattr(self,"validationTable") or self.validationTable.rowCount()==0:
+            return "<h2>Validation</h2><p>No validation records.</p>"
+        rows=[]
+        for r in range(self.validationTable.rowCount()):
+            vals=[self.validationTable.item(r,c).text() if self.validationTable.item(r,c) else "" for c in range(self.validationTable.columnCount())]
+            status=vals[6] if len(vals)>6 else "PENDING"
+            color="#176337" if status=="PASS" else "#b42318" if status=="FAIL" else "#b54708"
+            rows.append(f"<tr><td>{vals[0]}</td><td>{vals[1]}</td><td>{vals[2]}</td><td>{vals[3]}</td><td>{vals[4]}</td><td>{vals[5]}</td><td style='color:{color};font-weight:900'>{status}</td><td>{vals[7]}</td></tr>")
+        c=self.validation_status_counts()
+        return (f"<h2>TEST & VALIDATION</h2><p>PASS {c['PASS']} • FAIL {c['FAIL']} • PENDING {c['PENDING']}</p>"
+                "<table border='1' cellspacing='0' cellpadding='5'><tr><th>Test</th><th>Unit</th><th>Calculated</th><th>Measured</th><th>Tol %</th><th>Error %</th><th>Status</th><th>Note</th></tr>"
+                +"".join(rows)+"</table>")
+
+    def bom_report_html(self):
+        if not hasattr(self,"bomTable") or self.bomTable.rowCount()==0:
+            return "<h2>BOM / COST / WEIGHT</h2><p>No BOM rows.</p>"
+        rows=[]
+        for r in range(self.bomTable.rowCount()):
+            vals=[self.bomTable.item(r,c).text() if self.bomTable.item(r,c) else "" for c in range(self.bomTable.columnCount())]
+            rows.append("<tr>"+"".join(f"<td>{v}</td>" for v in vals)+"</tr>")
+        t=self.bom_totals()
+        return (f"<h2>BOM / COST / WEIGHT</h2><p><b>Total entered cost:</b> {t['cost']:,.2f} THB • <b>Entered component mass:</b> {t['mass']:.2f} kg</p>"
+                "<table border='1' cellspacing='0' cellpadding='5'><tr><th>Item</th><th>Category</th><th>Qty</th><th>Unit Cost</th><th>Unit Mass</th><th>Supplier</th><th>Status</th><th>Note</th></tr>"
+                +"".join(rows)+"</table>")
+
+    def diagnostic_report_html(self):
+        findings=self.diagnostic_results()
+        rows=[]
+        for sev,system,finding,action in findings:
+            color="#176337" if sev=="INFO" else "#b54708" if sev=="WARNING" else "#b42318"
+            rows.append(f"<tr><td style='color:{color};font-weight:900'>{sev}</td><td>{system}</td><td>{finding}</td><td>{action}</td></tr>")
+        return ("<h2>FAULT & DIAGNOSTIC</h2><table border='1' cellspacing='0' cellpadding='5'><tr><th>Severity</th><th>System</th><th>Finding</th><th>Recommended action</th></tr>"
+                +"".join(rows)+"</table>")
+
+    def revision_report_html(self):
+        revs=getattr(self,"designRevisions",[])
+        if not revs:return "<h2>DESIGN REVISIONS</h2><p>No captured revision.</p>"
+        rows="".join(f"<tr><td>{r.get('name','')}</td><td>{r.get('created','')}</td><td>{r.get('version','')}</td><td>{r.get('note','')}</td></tr>" for r in revs)
+        return "<h2>DESIGN REVISIONS</h2><table border='1' cellspacing='0' cellpadding='5'><tr><th>Name</th><th>Created</th><th>Version</th><th>Note</th></tr>"+rows+"</table>"
+
+    def final_verification_html(self):
         rows=self.final_verification_rows()
         fail=sum(1 for x in rows if x[2]=="FAIL");check=sum(1 for x in rows if x[2]=="CHECK");passed=sum(1 for x in rows if x[2]=="PASS")
         color="#176337" if fail==0 and check==0 else "#b42318" if fail else "#b54708"
+        overall="READY FOR FINAL REVIEW" if fail==0 and check==0 else ("NOT READY" if fail else "REVIEW REQUIRED")
         trs=[]
         for area,item,status,detail in rows:
             sc="#176337" if status=="PASS" else "#b42318" if status=="FAIL" else "#b54708"
             trs.append(f"<tr><td>{area}</td><td>{item}</td><td style='color:{sc};font-weight:900'>{status}</td><td>{detail}</td></tr>")
-        overall="READY FOR FINAL REVIEW" if fail==0 and check==0 else ("NOT READY" if fail else "REVIEW REQUIRED")
-        self.finalVerificationView.setHtml(
-            f"<h1>FINAL PROJECT VERIFICATION</h1><p style='font-size:15pt;color:{color}'><b>{overall}</b></p>"
-            f"<p>PASS {passed} • CHECK {check} • FAIL {fail}</p>"
-            "<table border='1' cellspacing='0' cellpadding='7'><tr><th>Area</th><th>Check</th><th>Status</th><th>Detail</th></tr>"
-            +"".join(trs)+"</table>"
-            "<p><b>หมายเหตุ:</b> PASS ในโปรแกรมคือผ่านเกณฑ์ของแบบจำลอง/ข้อมูลที่กรอก ไม่ใช่การรับรองความปลอดภัยของเครื่องจักรจริง</p>"
-        )
+        return (f"<h1>FINAL PROJECT VERIFICATION</h1><p style='font-size:15pt;color:{color}'><b>{overall}</b></p>"
+                f"<p>PASS {passed} • CHECK {check} • FAIL {fail}</p>"
+                "<table border='1' cellspacing='0' cellpadding='7'><tr><th>Area</th><th>Check</th><th>Status</th><th>Detail</th></tr>"
+                +"".join(trs)+"</table>"
+                "<p><b>หมายเหตุ:</b> PASS ในโปรแกรมคือผ่านเกณฑ์ของแบบจำลอง/ข้อมูลที่กรอก ไม่ใช่การรับรองความปลอดภัยของเครื่องจักรจริง</p>")
 
     def refresh_integration_suite(self):
         if hasattr(self,"validationTable"):self.update_validation_results()
@@ -4879,7 +4935,7 @@ void loop() {{
         <tr><td>Vehicle mass</td><td>{d['mt']:.1f} kg</td></tr><tr><td>Drive torque required</td><td>{t['T']:.2f} N·m / motor</td></tr>
         <tr><td>Main battery design</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td></tr><tr><td>Winch battery design</td><td>{w['ah']:.2f} Ah @ {w['v']:.1f} V</td></tr>
         <tr><td>Worst stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr></table>
-        {self.design_check_html()}<hr>{self.winch_duty_html()}""")
+        {self.final_verification_html()}<hr>{self.design_check_html()}<hr>{self.validation_report_html()}<hr>{self.bom_report_html()}<hr>{self.winch_duty_html()}""")
 
     def export_final_engineering_report(self):
         docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
@@ -4889,11 +4945,12 @@ void loop() {{
         if not filename.lower().endswith(".pdf"):filename+=".pdf"
         tmp=Path(tempfile.mkdtemp(prefix="cvet_final_report_"))
         try:
-            self._core_recalculate();self.update_project_tools()
+            self._core_recalculate();self.update_project_tools();self.refresh_integration_suite()
             t=self.torque_results();e=self.electrical_results();w=self.winch_results();worst=self.stability_worst_record()
             images=[]
             for name,widget in (("vehicle",getattr(self,"view",None)),("fbd",getattr(self,"forceDiagram",None)),
-                                ("stability_map",getattr(self,"graph",None)),("motor_operating",getattr(self,"motorOpGraph",None))):
+                                ("stability_map",getattr(self,"graph",None)),("motor_operating",getattr(self,"motorOpGraph",None)),
+                                ("gpio_board",getattr(self,"hwBoardView",None)),("system_flowchart",getattr(self,"flowchartView",None))):
                 if widget is not None:
                     fp=tmp/f"{name}.png"
                     if widget.grab().save(str(fp)):images.append((name,fp.as_uri()))
@@ -4904,7 +4961,8 @@ void loop() {{
             html=f"""<html><body style="font-family:'Leelawadee UI',Tahoma,'Segoe UI',Arial;font-size:10pt">
             <h1>CRANE VEHICLE — FINAL ENGINEERING REPORT</h1>
             <p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
-            <p><b>Scope:</b> Drive Torque, Electrical/Battery, Winch, Stability, Worst Case, FBD, Motor Operating, Battery/BMS, Duty Cycle and integrated design checks.</p>
+            <p><b>Scope:</b> Drive, Battery, Winch, Stability, Control, Hardware I/O, Validation, Diagnostics, BOM, Revisions and Final Verification.</p>
+            {self.final_verification_html()}{page}
             {self.design_check_html()}{page}
             <h1>1. DRIVE TORQUE</h1>{self.torque_formula_html(t)}{page}
             <h1>2. ELECTRICAL / BATTERY</h1>{self.equation_html(e)}{page}
@@ -4912,7 +4970,11 @@ void loop() {{
             <h1>4. STABILITY</h1>{self.stability_formula_html()}{page}
             <h1>5. WORST CASE</h1><p>SF_worst = {worst[0]:.3f} at θ={worst[1]}° ({worst[2]}), target SF={self.req.value():.2f}</p>{page}
             <h1>6. BATTERY + BMS</h1>{self.bms_check_html()}{page}
-            <h1>7. FIGURES</h1>{img_html}
+            <h1>7. VALIDATION</h1>{self.validation_report_html()}{page}
+            <h1>8. DIAGNOSTICS</h1>{self.diagnostic_report_html()}{page}
+            <h1>9. BOM / COST / WEIGHT</h1>{self.bom_report_html()}{page}
+            <h1>10. DESIGN REVISIONS</h1>{self.revision_report_html()}{page}
+            <h1>11. FIGURES</h1>{img_html}
             <h2>Engineering limitations</h2>
             <p>ผลทั้งหมดเป็น Preliminary Engineering Calculation. ต้องยืนยันด้วยน้ำหนัก/CG จริง, datasheet, Torque-Speed curve, การทดสอบกระแส/แรงบิด/ความเร็วจริง, โครงสร้างและจุดยึด, สภาพพื้น, การถ่ายน้ำหนัก, Dynamic Shock, เบรกวินช์ และข้อกำหนดผู้ผลิตก่อนผลิตหรือใช้งานจริง.</p>
             </body></html>"""
