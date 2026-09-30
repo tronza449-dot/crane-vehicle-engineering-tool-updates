@@ -465,6 +465,8 @@ jobs:
           assert "#include <WiFiUdp.h>" in wifi_template
           assert "CVET-CI" in wifi_template and str(udp_port) in wifi_template
           assert "beginPacket" in wifi_template and "wifi_rssi_dbm" in wifi_template
+          assert "serviceWiFiNonBlocking" in wifi_template
+          assert "while (WiFi.status() != WL_CONNECTED)" not in wifi_template
 
           tx=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
           payload={
