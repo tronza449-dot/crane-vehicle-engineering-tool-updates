@@ -1019,7 +1019,7 @@ class App(QMainWindow):
         app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
-        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.make_telemetry_page();self.make_system_flowchart_page();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
+        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.make_telemetry_page();self.make_system_flowchart_page();self.make_integration_suite();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
         self.calc_all()
         # Automatically restore the most recently entered values.
         self.restore_last_values(silent=True)
@@ -1779,6 +1779,7 @@ void loop() {{
         lay.addWidget(self._make_nav_button("flowchart","F   System Flowchart",self.show_flowchart_mode))
         lay.addWidget(self._make_nav_button("hardware","H   Hardware I/O",self.show_hardware_mode))
         lay.addWidget(self._make_nav_button("telemetry","D   Live Telemetry",self.show_telemetry_mode))
+        lay.addWidget(self._make_nav_button("integration","I   Engineering Suite",self.show_integration_suite_mode))
 
         s2=QLabel("REFERENCE & OUTPUT");s2.setObjectName("navSection");lay.addWidget(s2)
         lay.addWidget(self._make_nav_button("variables","A–Z   Variables",self.show_variable_dictionary_mode))
@@ -2604,7 +2605,7 @@ void loop() {{
             "home":self.homePage,"torque":self.torquePage,"electrical":self.electricalPage,"winch":self.winchPage,"crane":self.cranePage,
             "slope":self.slopePage,"fbd":self.fbdPage,"components":self.componentsPage,
             "worst":self.worstPage,"steps":self.stepsPage,"design":self.designPage,
-            "graph":getattr(self,"graphPage",None),"report":self.reportPage,"help":self.helpPage,"tools":self.projectToolsPage,"safety":self.safetyPage,"variables":self.variableDictionaryPage,"hardware":self.hardwarePage,"flowchart":self.flowchartPage}
+            "graph":getattr(self,"graphPage",None),"report":self.reportPage,"help":self.helpPage,"tools":self.projectToolsPage,"safety":self.safetyPage,"variables":self.variableDictionaryPage,"hardware":self.hardwarePage,"flowchart":self.flowchartPage,"telemetry":self.telemetryPage,"integration":self.integrationPage}
         self.show_home_mode()
 
     def _show_only_page(self,page):
@@ -2654,6 +2655,11 @@ void loop() {{
         self._set_active_nav("telemetry")
         self.refresh_serial_ports()
         self.update_telemetry_ui()
+
+    def show_integration_suite_mode(self):
+        self._show_only_page(self.integrationPage)
+        self._set_active_nav("integration")
+        self.refresh_integration_suite()
 
     def show_flowchart_mode(self):
         self._show_only_page(self.flowchartPage)
@@ -2790,12 +2796,14 @@ void loop() {{
         bh=ModeCardButton("HARDWARE I/O & WIRING","Animated Board • All GPIO • Used/Free/Conflict","07","#0b7a75")
         bflo=ModeCardButton("SYSTEM FLOWCHART","Animated ESP32 Vehicle + Crane Control Flow","08","#2b6cb0")
         btele=ModeCardButton("LIVE TELEMETRY","ESP32 Serial • Live Graph • CSV Data Logger","09","#087e8b")
+        binteg=ModeCardButton("ENGINEERING SUITE","Validation • Diagnostics • BOM • Revisions • Final Check","10","#5b4bb7")
 
         cards.addWidget(bt,0,0);cards.addWidget(be,0,1)
         cards.addWidget(bw,1,0);cards.addWidget(bs,1,1)
         cards.addWidget(bc,2,0);cards.addWidget(bv,2,1)
         cards.addWidget(bh,3,0);cards.addWidget(bflo,3,1)
         cards.addWidget(btele,4,0,1,2)
+        cards.addWidget(binteg,5,0,1,2)
         cards.setColumnStretch(0,1);cards.setColumnStretch(1,1)
         root.addLayout(cards)
 
@@ -2808,6 +2816,7 @@ void loop() {{
         bh.clicked.connect(self.show_hardware_mode)
         bflo.clicked.connect(self.show_flowchart_mode)
         btele.clicked.connect(self.show_telemetry_mode)
+        binteg.clicked.connect(self.show_integration_suite_mode)
 
         footer=QFrame();footer.setObjectName("softPanel")
         fl=QHBoxLayout(footer);fl.setContentsMargins(14,9,14,9)
