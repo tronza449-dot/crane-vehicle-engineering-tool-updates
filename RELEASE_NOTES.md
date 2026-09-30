@@ -1,27 +1,27 @@
-# Crane Vehicle Engineering Tool V53.2.4
+# Crane Vehicle Engineering Tool V53.2.5
 
-## Hardware I/O + Flowchart visual layout fix
+## System Flowchart removed
 
-แก้จากภาพหน้าจอ V53.2.3 ที่ Hardware I/O ยังดูบีบ/ยืดและสัดส่วนไม่เป็นธรรมชาติ
+นำฟังก์ชัน System Flowchart ออกจากโปรแกรมตามคำขอ เนื่องจากหน้าวาด Flowchart ทำให้ UI มีปัญหาซ้ำบน Windows display scaling บางเครื่อง
 
-### Hardware I/O
-- ESP32 Board Animation เปลี่ยนเป็น fixed logical canvas 1080×720
-- หน้าต่างย่อ/ขยายจะไม่บีบหรือยืดรูปบอร์ดอีก
-- ใส่ Board Canvas ใน QScrollArea; พื้นที่ไม่พอให้ scroll แทนการ deform
-- Board / Summary เปลี่ยนเป็น QSplitter ปรับสัดส่วนซ้าย-ขวาได้
-- Summary pane มีความกว้างขั้นต่ำ/สูงสุดที่อ่านง่ายกว่าเดิม
-- ปรับ Clicked Pin pane ให้สมดุลกับ Summary
-- แก้ชื่อ tab ให้แสดง “Voltage & Wiring” จริง (escape Qt mnemonic)
+### Removed from active application
+- ไม่สร้างหน้า System Flowchart ตอนเปิดโปรแกรม
+- ลบ System Flowchart ออกจากเมนูซ้าย
+- ลบการ์ด System Flowchart จากหน้า Home
+- ลบ Flowchart ออกจาก dynamic page navigation
+- ลบการ sync อัตโนมัติจาก Control Logic ไป Flowchart
+- ปรับ GitHub regression test ไม่ให้สร้างหรือทดสอบ Flowchart อีก
 
-### System Flowchart
-- เพิ่ม logical side margins รอบแผนผัง
-- Fit Width รองรับพื้นที่กว้างขึ้นโดยยังรักษาสัดส่วน
-- Zoom range สูงสุดเพิ่มเป็น 135%
-- เพิ่มปุ่ม Reset 100%
-- บังคับ viewport background เป็นสีขาวเพื่อไม่ให้เกิดแถบสี/พื้นที่โปร่งแปลก ๆ
-- Canvas ยังเป็น fixed proportional canvas + scroll; ไม่ยืด X/Y คนละอัตรา
+### Still available
+- Control Logic / Safety Simulator
+- Hardware I/O / GPIO Manager
+- WiFi / Live Telemetry
+- Drive Torque
+- Battery / Electrical
+- Winch
+- Stability
+- Engineering Suite
+- Variables / Project Report
+- Auto Update
 
-### Included updater fixes
-- no-cache latest.json
-- Repair Update
-- Current / Latest / Source visibility
+หมายเหตุ: Logic ความปลอดภัยของรถและเครนยังอยู่ใน Control Logic; การถอดครั้งนี้เป็นการถอดเฉพาะ UI/visual System Flowchart ออกจาก active application.
