@@ -1264,7 +1264,7 @@ class App(QMainWindow):
             "Crane RIGHT":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","rightlimitq","turnright","A_bottom","Ain","remote"],
             "Remote Fault":["start","init","remote","remoteq","remotefault","A_remote","Ain","remote"],
             "Motor / VESC Fault":["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","motorfault","A_motor","Ain","remote"],
-            "Tilt Warning":["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","tiltq","warningon","drivecmd","mix","speedlimit","driveq","stopcrane_drive","senddrive","A","remote"],
+            "Tilt Warning":["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","tiltq","warningon","drivecmd","mix","speedlimit","driveq","stopcrane_drive","senddrive","A_drive","Ain","remote"],
             "Vehicle Still Moving":normal+["driveq","stopdrive","movingq","keepmoving","A_move","Ain","remote"],
             "Stopped < 0.5 s":normal+["driveq","stopdrive","movingq","stopped05","keepwait","A_wait","Ain","remote"],
             "LEFT Limit Active":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","leftlimitq","stopleft","A_bottom","Ain","remote"],
