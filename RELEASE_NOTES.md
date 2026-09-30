@@ -1,6 +1,6 @@
-# Crane Vehicle Engineering Tool V53.2.0
+# Crane Vehicle Engineering Tool V53.2.1
 
-## Flowchart Final + Responsive UI Fix
+## Flowchart Final + Responsive UI Hotfix
 
 ปรับหน้า System Flowchart ใหม่ตามเอกสาร “คำอธิบาย Flowchart รถและเครน Final” ที่ผู้ใช้ส่งมา และแก้ UI เดิมที่แน่น/เส้นย้อนกลับไขว้กัน
 
@@ -78,3 +78,9 @@ Before release the Windows test verifies:
 - all previous Torque, Battery, Winch, Stability, Hardware I/O, Telemetry, Integration, PDF and Updater tests still pass
 
 หมายเหตุ: Flowchart หน้านี้เป็นการแสดงลำดับโปรแกรมตามเอกสาร Final ที่ผู้ใช้ส่งมา ไม่ใช่การรับรองระบบ Safety hardware จริง
+
+
+### V53.2.1 UI hotfix
+- Flowchart node text now scales with the Flowchart zoom level to prevent clipping at 60–70%
+- Branch labels scale with zoom as well
+- Added Windows regression checks that Vehicle Still Moving / 0.5 s gate boxes do not overlap at 1024×650 and 130% UI font scale
