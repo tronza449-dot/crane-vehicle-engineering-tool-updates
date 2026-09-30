@@ -2871,7 +2871,9 @@ class App(QMainWindow):
 
         self.safetyEStop=QCheckBox("E-STOP ACTIVE")
         self.safetyRCSignal=QCheckBox("RC / IBUS signal OK");self.safetyRCSignal.setChecked(True)
+        self.safetyVescFault=QCheckBox("VESC / Motor Fault")
         self.safetyDriveEnable=QCheckBox("CH5 Drive Enable");self.safetyDriveEnable.setChecked(True)
+        self.safetyStationary05=QCheckBox("Vehicle stopped ≥ 0.5 s");self.safetyStationary05.setChecked(True)
         self.safetyBatteryLow=QCheckBox("Battery Low")
         self.safetyBatteryInhibit=QCheckBox("Low battery inhibits drive")
         self.safetyLimitLeft=QCheckBox("Left limit (-90°) ACTIVE")
@@ -2893,7 +2895,9 @@ class App(QMainWindow):
 
         il.addRow("Emergency stop",self.safetyEStop)
         il.addRow("RC receiver",self.safetyRCSignal)
+        il.addRow("VESC / Motor fault",self.safetyVescFault)
         il.addRow("Drive enable / CH5",self.safetyDriveEnable)
+        il.addRow("Vehicle stationary",self.safetyStationary05)
         il.addRow("Throttle",thw)
         il.addRow("Steering",stw)
         il.addRow("Crane command",self.safetyCraneCmd)
@@ -2930,14 +2934,16 @@ class App(QMainWindow):
         <h3>Logic หลักที่จำลอง</h3>
         <p><b>1. E-stop</b> → Drive OFF + Crane OFF + Winch OFF</p>
         <p><b>2. RC/IBUS Lost</b> → Failsafe → คำสั่งขับเป็น 0</p>
-        <p><b>3. IMU Tilt ≥ Limit</b> → Drive INHIBIT + Buzzer/LED</p>
-        <p><b>4. Drive + Crane พร้อมกัน</b> → Interlock → ปฏิเสธทั้งสองคำสั่ง</p>
-        <p><b>5. รถกำลังวิ่ง</b> → ห้ามหมุนเครน</p>
-        <p><b>6. เครนกำลังหมุน</b> → ห้าม Drive</p>
-        <p><b>7. Limit ±90°</b> → ห้ามหมุนต่อเข้า Limit แต่ยังหมุนย้อนออกได้</p>
-        <p><b>8. Differential steering</b> → Steering อย่างเดียวสามารถ Pivot Turn (L/R motor คนละทิศ)</p>
-        <p><b>9. Battery Low policy</b> → ถ้าเลือก Inhibit จะล็อก Drive; Crane/Winch ยังผ่าน interlock ของตน</p>
-        <p><b>10. Buzzer + LED</b> → ON ขณะเคลื่อนที่ หรือเมื่อเกิด Fault/Warning</p>
+        <p><b>3. VESC / Motor Fault</b> → Drive OFF + Crane STOP + Alarm</p>
+        <p><b>4. IMU Tilt ≥ Limit</b> → Drive INHIBIT + Buzzer/LED</p>
+        <p><b>5. Drive + Crane พร้อมกัน</b> → Interlock → ปฏิเสธทั้งสองคำสั่ง</p>
+        <p><b>6. รถกำลังวิ่ง</b> → ห้ามหมุนเครน</p>
+        <p><b>7. รถต้องหยุดนิ่ง ≥ 0.5 s</b> → จึงอนุญาต Crane</p>
+        <p><b>8. เครนกำลังหมุน</b> → ห้าม Drive</p>
+        <p><b>9. Limit ±90°</b> → ห้ามหมุนต่อเข้า Limit แต่ยังหมุนย้อนออกได้</p>
+        <p><b>10. Differential steering</b> → Steering อย่างเดียวสามารถ Pivot Turn</p>
+        <p><b>11. Battery Low policy</b> → ถ้าเลือก Inhibit จะล็อก Drive</p>
+        <p><b>12. Buzzer + LED</b> → ON ขณะเคลื่อนที่ หรือเมื่อเกิด Fault/Warning</p>
         """)
         sl.addWidget(self.safetyLogicFlow,1)
         body.addWidget(stateBox)
@@ -2996,7 +3002,7 @@ class App(QMainWindow):
         lower.setMinimumHeight(170)
         root.addWidget(lower,1)
 
-        for obj in (self.safetyEStop,self.safetyRCSignal,self.safetyDriveEnable,
+        for obj in (self.safetyEStop,self.safetyRCSignal,self.safetyVescFault,self.safetyDriveEnable,self.safetyStationary05,
                     self.safetyBatteryLow,self.safetyBatteryInhibit,
                     self.safetyLimitLeft,self.safetyLimitRight,self.safetyWinchStationaryOnly):
             obj.toggled.connect(self.update_safety_logic)
@@ -3014,7 +3020,9 @@ class App(QMainWindow):
         return {
             "estop":self.safetyEStop.isChecked(),
             "rc_ok":self.safetyRCSignal.isChecked(),
+            "vesc_fault":self.safetyVescFault.isChecked(),
             "drive_enable":self.safetyDriveEnable.isChecked(),
+            "stationary_05":self.safetyStationary05.isChecked(),
             "throttle":int(self.safetyThrottle.value()),
             "steer":int(self.safetySteer.value()),
             "crane":self.safetyCraneCmd.currentText(),
@@ -3028,6 +3036,7 @@ class App(QMainWindow):
             "winch_stationary_only":self.safetyWinchStationaryOnly.isChecked(),
         }
 
+    @staticmethod
     @staticmethod
     def evaluate_safety_logic(v):
         clamp=lambda x:max(-100,min(100,int(round(x))))
@@ -3043,17 +3052,20 @@ class App(QMainWindow):
         if not v.get("rc_ok",True):
             result.update(state="RC FAILSAFE",reason="สัญญาณ RC / IBUS หาย — คำสั่งทั้งหมดกลับ Safe State",buzzer=True,led=True)
             return result
+        if v.get("vesc_fault",False):
+            result.update(state="VESC FAULT",reason="VESC / Motor Fault — Drive = 0, Crane STOP และแจ้งเตือน",buzzer=True,led=True)
+            return result
 
         throttle=int(v.get("throttle",0))
         steer=int(v.get("steer",0))
         crane=str(v.get("crane","STOP"))
         winch=str(v.get("winch","STOP"))
-        # Differential steering allows pivot-turn with steering even at zero throttle.
         drive_req=abs(throttle)>2 or abs(steer)>2
         crane_req=crane!="STOP"
         winch_req=winch!="STOP"
         tilt_fault=abs(float(v.get("tilt",0)))>=float(v.get("tilt_limit",12))
         drive_enabled=bool(v.get("drive_enable",True))
+        stationary_05=bool(v.get("stationary_05",True))
         battery_drive_inhibit=bool(v.get("battery_low",False) and v.get("battery_inhibit",False))
 
         if drive_req and crane_req:
@@ -3078,22 +3090,25 @@ class App(QMainWindow):
                 right=clamp(throttle-steer)
                 result.update(
                     state="DRIVE",
-                    reason="Drive Enable ผ่าน และไม่มี Fault / Crane command",
+                    reason="Drive Enable ผ่าน — ล็อก Crane และส่ง Differential command ไป VESC",
                     drive_permit=True,drive_active=True,left_motor=left,right_motor=right,
                     buzzer=True,led=True
                 )
 
         elif crane_req:
             result["drive_permit"]=False
-            blocked=False
-            if crane.startswith("LEFT") and v.get("left_limit",False):
-                blocked=True
-                result.update(state="LEFT LIMIT STOP",reason="ถึง Limit -90° — ห้ามหมุน LEFT ต่อ แต่ยังสั่ง RIGHT เพื่อออกจาก Limit ได้",buzzer=True,led=True)
-            elif crane.startswith("RIGHT") and v.get("right_limit",False):
-                blocked=True
-                result.update(state="RIGHT LIMIT STOP",reason="ถึง Limit +90° — ห้ามหมุน RIGHT ต่อ แต่ยังสั่ง LEFT เพื่อออกจาก Limit ได้",buzzer=True,led=True)
-            if not blocked:
-                result.update(state="CRANE",reason=f"อนุญาตให้เครนหมุน {crane}",crane=crane,buzzer=True,led=True)
+            if not stationary_05:
+                result.update(state="WAIT VEHICLE STOP",reason="Drive command เป็น 0 แล้ว แต่รถยังหยุดนิ่งไม่ครบ 0.5 s — Crane ยังถูกล็อก",led=True)
+            else:
+                blocked=False
+                if crane.startswith("LEFT") and v.get("left_limit",False):
+                    blocked=True
+                    result.update(state="LEFT LIMIT STOP",reason="ถึง Limit -90° — ห้ามหมุน LEFT ต่อ แต่ยังสั่ง RIGHT เพื่อออกจาก Limit ได้",buzzer=True,led=True)
+                elif crane.startswith("RIGHT") and v.get("right_limit",False):
+                    blocked=True
+                    result.update(state="RIGHT LIMIT STOP",reason="ถึง Limit +90° — ห้ามหมุน RIGHT ต่อ แต่ยังสั่ง LEFT เพื่อออกจาก Limit ได้",buzzer=True,led=True)
+                if not blocked:
+                    result.update(state="CRANE",reason=f"รถหยุดนิ่ง ≥0.5 s — อนุญาตให้เครนหมุน {crane}",crane=crane,buzzer=True,led=True)
 
         else:
             if not drive_enabled:
@@ -3107,8 +3122,9 @@ class App(QMainWindow):
 
         if winch_req:
             movement_active=result["drive_active"] or result["crane"]!="STOP" or drive_req or crane_req
-            if v.get("winch_stationary_only",True) and movement_active:
-                result["reason"] += " | Winch ถูกปฏิเสธเพราะกำหนดให้ใช้เฉพาะตอนรถ/เครนหยุด"
+            stationary_block=v.get("winch_stationary_only",True) and not stationary_05
+            if v.get("winch_stationary_only",True) and (movement_active or stationary_block):
+                result["reason"] += " | Winch ถูกปฏิเสธเพราะรถ/เครนยังไม่อยู่ในสถานะหยุดนิ่ง"
             else:
                 result["winch"]=winch
                 result["drive_permit"]=False
@@ -3180,7 +3196,9 @@ class App(QMainWindow):
     def reset_safety_simulator(self):
         self.safetyEStop.setChecked(False)
         self.safetyRCSignal.setChecked(True)
+        self.safetyVescFault.setChecked(False)
         self.safetyDriveEnable.setChecked(True)
+        self.safetyStationary05.setChecked(True)
         self.safetyThrottle.setValue(0)
         self.safetySteer.setValue(0)
         self.safetyCraneCmd.setCurrentIndex(0)
