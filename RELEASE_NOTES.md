@@ -1,6 +1,6 @@
-# Crane Vehicle Engineering Tool V53.0.0
+# Crane Vehicle Engineering Tool V53.0.1
 
-## Engineering Integration Suite
+## Engineering Integration Suite + Regression Hotfix
 
 V53 รวมระบบที่ใช้ “ออกแบบ → ต่อวงจร → ทดสอบ → วินิจฉัย → คุมต้นทุน → เก็บ Revision → ตรวจ Final” ไว้ในโปรแกรมเดียว และเพิ่ม Device Library ที่ผู้ใช้เพิ่มอุปกรณ์ใหม่เองได้
 
@@ -115,6 +115,8 @@ Final PDF เพิ่ม:
 - GitHub Auto Update
 
 ### Windows Regression Gate
+- V53.0.1 fixes the Windows regression import used by the new table-state tests
+
 ก่อน Release จะทดสอบเพิ่ม:
 - เปิด Engineering Suite ทุกหน้าบนหลาย resolution/font scale
 - เพิ่ม Device Library item และส่งเข้า Hardware I/O
