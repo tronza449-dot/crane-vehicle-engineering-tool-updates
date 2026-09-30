@@ -4550,9 +4550,14 @@ void loop() {{
                     "note":row.get("note",""),
                     "custom":bool(row.get("custom",False)),
                 })
+        integration={}
+        if hasattr(self,"deviceLibraryTable"):integration["device_library"]=self._table_rows_text(self.deviceLibraryTable)
+        if hasattr(self,"validationTable"):integration["validation"]=self._table_rows_text(self.validationTable)
+        if hasattr(self,"bomTable"):integration["bom"]=self._table_rows_text(self.bomTable)
+        if hasattr(self,"designRevisions"):integration["revisions"]=self.designRevisions
         return {"format":"CraneVehicleEngineeringToolProject","version":APP_VERSION,
                 "saved_at":datetime.now().isoformat(timespec="seconds"),"widgets":widgets,
-                "components":components,"hardware":hardware}
+                "components":components,"hardware":hardware,"integration":integration}
 
     def apply_project_state(self,state,recalculate=True):
         if not isinstance(state,dict) or state.get("format")!="CraneVehicleEngineeringToolProject":
@@ -4612,6 +4617,20 @@ void loop() {{
                     if idx>=0:
                         combo.blockSignals(True);combo.setCurrentIndex(idx);combo.blockSignals(False)
             self.update_hardware_manager()
+
+        integration=state.get("integration",{}) if isinstance(state.get("integration",{}),dict) else {}
+        if hasattr(self,"deviceLibraryTable"):
+            self._load_table_rows_text(self.deviceLibraryTable,integration.get("device_library",[]))
+        if hasattr(self,"validationTable"):
+            self._load_table_rows_text(self.validationTable,integration.get("validation",[]))
+            self.update_validation_results()
+        if hasattr(self,"bomTable"):
+            self._load_table_rows_text(self.bomTable,integration.get("bom",[]))
+            self.update_bom_summary()
+        if hasattr(self,"designRevisions"):
+            revs=integration.get("revisions",[])
+            self.designRevisions=revs if isinstance(revs,list) else []
+            self.refresh_revision_table()
         # Keep V52.2 Battery Selection and the older Project Tools Battery+BMS fields consistent.
         if all(hasattr(self,x) for x in ("eCandidateAh","eCandidateContA","eCandidatePeakA","mainSelectedAh","mainBMSCont","mainBMSPeak")):
             if "eCandidateAh" not in widgets and "mainSelectedAh" in widgets:
@@ -4623,6 +4642,7 @@ void loop() {{
         if hasattr(self,"massModeSum") and self.massModeSum.isChecked(): self.apply_mass_mode()
         if recalculate:
             self._core_recalculate();self.update_project_tools()
+            if hasattr(self,"integrationPage"):self.refresh_integration_suite()
 
     def save_project(self):
         filename,_=QFileDialog.getSaveFileName(self,"Save Engineering Project","CraneVehicle_Project.json","Project JSON (*.json)")
