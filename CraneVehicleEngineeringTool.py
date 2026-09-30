@@ -818,6 +818,142 @@ class Esp32AnimatedBoardWidget(QWidget):
             p.setPen(QColor("#cfe2f2"));p.setFont(QFont("Arial",7,QFont.Bold));p.drawText(x+14,legendY+13,label);x+=78
 
 
+
+class SystemFlowchartWidget(QWidget):
+    """Animated engineering flowchart for the vehicle + crane control sequence."""
+    def __init__(self,owner):
+        super().__init__();self.o=owner;self.setMinimumSize(900,980)
+        self.phase=0.0;self.path=[];self.step_index=0;self.nodeRects={}
+        self.anim=QTimer(self);self.anim.timeout.connect(self._tick);self.anim.start(70)
+
+    def _tick(self):
+        self.phase=(self.phase+0.16)%(math.pi*2);self.update()
+
+    def set_path(self,path,step_index=None):
+        self.path=list(path or [])
+        if step_index is not None:self.step_index=max(0,min(int(step_index),max(0,len(self.path)-1)))
+        elif self.path:self.step_index=min(self.step_index,len(self.path)-1)
+        else:self.step_index=0
+        self.update()
+
+    def active_nodes(self):
+        if not self.path:return set()
+        return set(self.path[:self.step_index+1])
+
+    def current_node(self):
+        if not self.path:return None
+        return self.path[min(self.step_index,len(self.path)-1)]
+
+    def _arrow(self,p,a,b,color="#6b7f92",width=2):
+        p.setPen(QPen(QColor(color),width,Qt.SolidLine,Qt.RoundCap,Qt.RoundJoin))
+        p.drawLine(a,b)
+        import math as _m
+        ang=_m.atan2(b.y()-a.y(),b.x()-a.x())
+        sz=9
+        p1=QPointF(b.x()-sz*_m.cos(ang-0.55),b.y()-sz*_m.sin(ang-0.55))
+        p2=QPointF(b.x()-sz*_m.cos(ang+0.55),b.y()-sz*_m.sin(ang+0.55))
+        p.setBrush(QColor(color));p.drawPolygon(QPolygonF([b,p1,p2]))
+
+    def _node(self,p,key,rect,text,shape="rect"):
+        active=key in self.active_nodes();current=(key==self.current_node())
+        fill="#eaf8ef" if active else "#ffffff"
+        border="#22a06b" if active else "#aab8c6"
+        if current:
+            pulse=int(45+35*(0.5+0.5*math.sin(self.phase)))
+            glow=QColor("#3ac47d");glow.setAlpha(pulse)
+            p.setPen(QPen(glow,8));p.setBrush(Qt.NoBrush)
+            if shape=="diamond":
+                c=rect.center();poly=QPolygonF([QPointF(c.x(),rect.top()),QPointF(rect.right(),c.y()),QPointF(c.x(),rect.bottom()),QPointF(rect.left(),c.y())]);p.drawPolygon(poly)
+            elif shape=="round":p.drawRoundedRect(rect,rect.height()/2,rect.height()/2)
+            else:p.drawRoundedRect(rect,10,10)
+        p.setPen(QPen(QColor(border),2));p.setBrush(QColor(fill))
+        if shape=="diamond":
+            c=rect.center();poly=QPolygonF([QPointF(c.x(),rect.top()),QPointF(rect.right(),c.y()),QPointF(c.x(),rect.bottom()),QPointF(rect.left(),c.y())]);p.drawPolygon(poly)
+        elif shape=="round":p.drawRoundedRect(rect,rect.height()/2,rect.height()/2)
+        else:p.drawRoundedRect(rect,10,10)
+        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),8.7,QFont.Bold))
+        p.drawText(rect.adjusted(8,5,-8,-5),Qt.AlignCenter|Qt.TextWordWrap,text)
+        self.nodeRects[key]=rect
+
+    def paintEvent(self,e):
+        p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("#f7fbff"))
+        W=self.width();sx=max(0.72,min(1.0,W/1180.0));ox=max(10,(W-1180*sx)/2)
+        def R(x,y,w,h):return QRectF(ox+x*sx,y*sx,w*sx,h*sx)
+        self.nodeRects={}
+
+        # Title
+        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),15,QFont.Bold))
+        p.drawText(R(40,10,1100,38),Qt.AlignCenter,"FINAL VEHICLE + CRANE CONTROL FLOWCHART")
+        p.setFont(QFont(choose_ui_font_family(),9));p.setPen(QColor("#60758b"))
+        p.drawText(R(40,45,1100,26),Qt.AlignCenter,"ESP32 • RC/IBUS • IMU • VESC • Differential Drive • Crane ±90°")
+
+        nodes={
+          "start":(470,85,240,55,"START / Power ON","round"),
+          "init":(430,165,320,66,"Initialize ESP32, RC, IMU, CAN/VESC, Limits","rect"),
+          "read":(430,260,320,72,"Read Remote + IMU + Limit Switch + VESC Status","rect"),
+          "safe":(455,365,270,92,"Safety OK?\nRC / E-stop / VESC / Tilt","diamond"),
+          "fault":(70,365,280,82,"SAFE STOP\nDrive = 0 • Crane STOP • Alarm ON","rect"),
+          "driveq":(455,500,270,92,"Drive command?\nThrottle / Steering","diamond"),
+          "stopcrane":(150,625,270,66,"Stop Crane Rotation\nLock crane while driving","rect"),
+          "mix":(150,720,270,66,"Differential Mix\nLeft = Throttle + Steering\nRight = Throttle - Steering","rect"),
+          "soft":(150,815,270,66,"Speed Limit + Soft Start / Ramp","rect"),
+          "send":(150,910,270,66,"Send Left/Right Drive Command to VESC","rect"),
+          "stopdrive":(760,625,280,66,"Send Drive = 0 to VESC","rect"),
+          "stopped":(765,720,270,92,"Vehicle stopped\n≥ 0.5 s ?","diamond"),
+          "wait":(850,835,220,66,"WAIT\nKeep Drive = 0","rect"),
+          "craneq":(700,850,270,92,"Crane command?\nLEFT / STOP / RIGHT","diamond"),
+          "limit":(700,970,270,92,"Requested direction\nhits Limit ±90° ?","diamond"),
+          "limitstop":(830,1090,240,62,"Stop Crane at Limit","rect"),
+          "craneout":(560,1090,240,62,"Turn Crane LEFT / RIGHT","rect"),
+          "idle":(940,970,170,62,"Crane STOP","rect"),
+          "A":(470,1190,120,48,"A","round"),
+        }
+
+        # Draw connectors first
+        def C(key,side="bottom"):
+            x,y,w,h,_,_=nodes[key];r=R(x,y,w,h)
+            return {"top":QPointF(r.center().x(),r.top()),"bottom":QPointF(r.center().x(),r.bottom()),
+                    "left":QPointF(r.left(),r.center().y()),"right":QPointF(r.right(),r.center().y())}[side]
+        col="#71879a"
+        self._arrow(p,C("start"),C("init","top"),col);self._arrow(p,C("init"),C("read","top"),col);self._arrow(p,C("read"),C("safe","top"),col)
+        self._arrow(p,C("safe"),C("driveq","top"),col)
+        self._arrow(p,C("safe","left"),C("fault","right"),"#b42318");p.setPen(QColor("#b42318"));p.drawText(R(360,385,60,25),Qt.AlignCenter,"NO")
+        p.setPen(QColor("#176337"));p.drawText(R(510,463,80,24),Qt.AlignCenter,"YES")
+        self._arrow(p,C("driveq","left"),C("stopcrane","right"),"#176337");p.setPen(QColor("#176337"));p.drawText(R(350,525,60,24),Qt.AlignCenter,"YES")
+        self._arrow(p,C("stopcrane"),C("mix","top"),col);self._arrow(p,C("mix"),C("soft","top"),col);self._arrow(p,C("soft"),C("send","top"),col)
+        self._arrow(p,C("driveq","right"),C("stopdrive","left"),"#245fbb");p.setPen(QColor("#245fbb"));p.drawText(R(740,525,55,24),Qt.AlignCenter,"NO")
+        self._arrow(p,C("stopdrive"),C("stopped","top"),col)
+        self._arrow(p,C("stopped","right"),C("wait","top"),"#b54708");p.setPen(QColor("#b54708"));p.drawText(R(1015,740,50,24),Qt.AlignCenter,"NO")
+        self._arrow(p,C("stopped"),C("craneq","top"),"#176337");p.setPen(QColor("#176337"));p.drawText(R(745,815,55,24),Qt.AlignCenter,"YES")
+        self._arrow(p,C("craneq"),C("limit","top"),"#176337");p.setPen(QColor("#176337"));p.drawText(R(625,900,80,24),Qt.AlignCenter,"LEFT/RIGHT")
+        self._arrow(p,C("craneq","right"),C("idle","top"),col);p.setPen(QColor("#60758b"));p.drawText(R(975,915,55,24),Qt.AlignCenter,"STOP")
+        self._arrow(p,C("limit","left"),C("craneout","top"),"#176337");p.setPen(QColor("#176337"));p.drawText(R(635,1025,55,24),Qt.AlignCenter,"NO")
+        self._arrow(p,C("limit","right"),C("limitstop","top"),"#b42318");p.setPen(QColor("#b42318"));p.drawText(R(985,1025,55,24),Qt.AlignCenter,"YES")
+
+        # Branch returns to connector A
+        for key in ("fault","send","wait","craneout","limitstop","idle"):
+            a=C(key);target=C("A","top")
+            if key in ("fault","send"):
+                midx=R(455,0,0,0).x()-40
+                p.setPen(QPen(QColor(col),2));p.drawLine(a,QPointF(a.x(),target.y()-20));self._arrow(p,QPointF(a.x(),target.y()-20),target,col)
+            else:
+                p.setPen(QPen(QColor(col),2));p.drawLine(a,QPointF(a.x(),target.y()-20));p.drawLine(QPointF(a.x(),target.y()-20),QPointF(target.x(),target.y()-20));self._arrow(p,QPointF(target.x(),target.y()-20),target,col)
+
+        # Loop A back to Read Remote cleanly on far right
+        a=C("A");readRight=C("read","right");loopX=R(1140,0,0,0).x()
+        p.setPen(QPen(QColor("#456b8c"),2.2));p.drawLine(a,QPointF(loopX,a.y()));p.drawLine(QPointF(loopX,a.y()),QPointF(loopX,readRight.y()));self._arrow(p,QPointF(loopX,readRight.y()),readRight,"#456b8c",2)
+        p.setPen(QColor("#456b8c"));p.setFont(QFont(choose_ui_font_family(),8,QFont.Bold));p.drawText(R(1015,275,115,28),Qt.AlignCenter,"Next loop")
+
+        # Draw nodes after lines
+        for key,(x,y,w,h,text,shape) in nodes.items():self._node(p,key,R(x,y,w,h),text,shape)
+
+        # Separate winch note
+        p.setPen(QPen(QColor("#d8b24a"),1.5));p.setBrush(QColor("#fff9e8"))
+        note=R(70,1090,360,82);p.drawRoundedRect(note,10,10)
+        p.setPen(QColor("#6b4b08"));p.setFont(QFont(choose_ui_font_family(),8,QFont.Bold))
+        p.drawText(note.adjusted(9,6,-9,-6),Qt.AlignCenter|Qt.TextWordWrap,
+                   "WINCH: ใช้ชุดรีโมทของวินช์ + แบต 12 V แยก\nไม่อยู่ใน Control Flow หลักของ ESP32")
+
 class App(QMainWindow):
     updateTaskFinished=Signal(object)
     updateProgressChanged=Signal(int)
