@@ -908,8 +908,9 @@ class SystemFlowchartWidget(QWidget):
             c=rect.center();poly=QPolygonF([QPointF(c.x(),rect.top()),QPointF(rect.right(),c.y()),QPointF(c.x(),rect.bottom()),QPointF(rect.left(),c.y())]);p.drawPolygon(poly)
         elif shape=="round":p.drawRoundedRect(rect,rect.height()/2,rect.height()/2)
         else:p.drawRoundedRect(rect,10,10)
-        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),8.3,QFont.Bold))
-        p.drawText(rect.adjusted(8,5,-8,-5),Qt.AlignCenter|Qt.TextWordWrap,text)
+        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),max(6.2,min(9.6,8.5*self.zoom)),QFont.Bold))
+        pad=max(3.0,7.0*self.zoom)
+        p.drawText(rect.adjusted(pad,pad*0.55,-pad,-pad*0.55),Qt.AlignCenter|Qt.TextWordWrap,text)
         self.nodeRects[key]=rect
 
     def paintEvent(self,e):
@@ -973,7 +974,7 @@ class SystemFlowchartWidget(QWidget):
             return {"top":QPointF(r.center().x(),r.top()),"bottom":QPointF(r.center().x(),r.bottom()),
                     "left":QPointF(r.left(),r.center().y()),"right":QPointF(r.right(),r.center().y())}[side]
         def label(x,y,w,h,text,color):
-            p.setPen(QColor(color));p.setFont(QFont(choose_ui_font_family(),7.4,QFont.Bold))
+            p.setPen(QColor(color));p.setFont(QFont(choose_ui_font_family(),max(6.0,7.5*self.zoom),QFont.Bold))
             p.drawText(R(x,y,w,h),Qt.AlignCenter,text)
 
         col="#7890a4";green="#388b52";red="#b8464d";blue="#477fa7"
