@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time
 from datetime import datetime
-from PySide6.QtCore import Qt, QPointF, QRectF, QTimer, QStandardPaths, Signal
+from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal
 from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter
@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.2.3"
+APP_VERSION = "53.2.4"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -697,8 +697,15 @@ class Esp32AnimatedBoardWidget(QWidget):
     board instead of a photo so statuses can be animated and updated live."""
     def __init__(self,owner):
         super().__init__();self.o=owner;self.phase=0.0;self.hover_pin=None;self.selected_pin=None
-        self.pinRects={};self.setMouseTracking(True);self.setMinimumHeight(620)
+        self.pinRects={};self.setMouseTracking(True)
+        # Fixed logical canvas: never squash/stretch the ESP32 drawing with the page layout.
+        self.logical_w=1080;self.logical_h=720
+        self.setFixedSize(self.logical_w,self.logical_h)
+        self.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Fixed)
         self.timer=QTimer(self);self.timer.timeout.connect(self._tick);self.timer.start(45)
+
+    def sizeHint(self):
+        return QSize(self.logical_w,self.logical_h)
 
     def _tick(self):
         self.phase=(self.phase+0.12)%(math.pi*2);self.update()
@@ -833,14 +840,14 @@ class SystemFlowchartWidget(QWidget):
     """Animated flowchart that follows the user's Final vehicle + crane document."""
     def __init__(self,owner):
         super().__init__();self.o=owner
-        self.logical_w=1000;self.logical_h=2160;self.zoom=0.90
+        self.logical_w=1100;self.logical_h=2160;self.zoom=0.90
         self.phase=0.0;self.path=[];self.step_index=0;self.nodeRects={}
         self.anim=QTimer(self);self.anim.timeout.connect(self._tick);self.anim.start(70)
         self.set_zoom(self.zoom)
 
     def set_zoom(self,value):
         # Keep exact canvas dimensions so X/Y cannot be stretched independently.
-        self.zoom=max(0.65,min(1.25,float(value)))
+        self.zoom=max(0.65,min(1.35,float(value)))
         w=max(1,int(round(self.logical_w*self.zoom)))
         h=max(1,int(round(self.logical_h*self.zoom)))
         self.setFixedSize(w,h)
@@ -921,7 +928,8 @@ class SystemFlowchartWidget(QWidget):
         scale=min(self.width()/self.logical_w,self.height()/self.logical_h)
         ox=(self.width()-self.logical_w*scale)/2.0
         oy=0.0
-        def R(x,y,w,h):return QRectF(ox+x*scale,oy+y*scale,w*scale,h*scale)
+        # Original diagram coordinates occupy 0..1000. Add 50 px logical side margins.
+        def R(x,y,w,h):return QRectF(ox+(x+50)*scale,oy+y*scale,w*scale,h*scale)
         self.nodeRects={}
 
         p.setPen(QColor("#17456b"));p.setFont(QFont(choose_ui_font_family(),15,QFont.Bold))
@@ -1290,8 +1298,8 @@ class App(QMainWindow):
         """Fit only the diagram width while preserving aspect ratio."""
         if not hasattr(self,"flowBoard") or not hasattr(self,"flowScroll"):return
         try:
-            available=max(640,self.flowScroll.viewport().width()-28)
-            value=max(.70,min(1.15,available/float(self.flowBoard.logical_w)))
+            available=max(640,self.flowScroll.viewport().width()-24)
+            value=max(.70,min(1.30,available/float(self.flowBoard.logical_w)))
             pct=int(round(value*100))
             self.flowZoom.blockSignals(True)
             self.flowZoom.setCurrentText(f"{pct}%")
@@ -2231,7 +2239,7 @@ void loop() {{
         root.addWidget(make_page_header(
             "FLOWCHART FINAL — VEHICLE + CRANE CONTROL",
             "อ้างอิง Flowchart Final • Remote → IMU/Limits/VESC → Drive Interlock → 0.5 s Stop Gate → Crane Limits",
-            self.show_home_mode,"V53.2 FLOW","#e8f4ff","#245fbb"
+            self.show_home_mode,"V53.2.4 FLOW","#e8f4ff","#245fbb"
         ))
 
         toolbar=QFrame();toolbar.setObjectName("softPanel")
@@ -2254,7 +2262,8 @@ void loop() {{
         self.flowZoom=QComboBox();self.flowZoom.setEditable(True);self.flowZoom.addItems(["70%","80%","90%","100%","110%","120%"])
         self.flowZoom.setCurrentText("90%");self.flowZoom.currentTextChanged.connect(self.set_flowchart_zoom);tl.addWidget(self.flowZoom,1,4)
         fit=QPushButton("Fit Width");fit.clicked.connect(self.fit_flowchart_width);tl.addWidget(fit,1,5)
-        tl.setColumnStretch(1,1);tl.setColumnStretch(2,1);tl.setColumnStretch(4,2)
+        resetFlow=QPushButton("100%");resetFlow.setToolTip("Reset Flowchart zoom to 100%");resetFlow.clicked.connect(lambda:self.flowZoom.setCurrentText("100%"));tl.addWidget(resetFlow,1,6)
+        tl.setColumnStretch(1,1);tl.setColumnStretch(2,1);tl.setColumnStretch(4,2);tl.setColumnStretch(6,0)
         root.addWidget(toolbar)
 
         self.flowStepLabel=QLabel("Step 1")
@@ -2268,6 +2277,7 @@ void loop() {{
         self.flowScroll=QScrollArea()
         self.flowScroll.setWidgetResizable(False)
         self.flowScroll.setFrameShape(QFrame.NoFrame)
+        self.flowScroll.setStyleSheet("QScrollArea{background:#ffffff;} QScrollArea>QWidget>QWidget{background:#ffffff;}")
         self.flowScroll.setAlignment(Qt.AlignHCenter|Qt.AlignTop)
         self.flowScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.flowScroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -2753,7 +2763,7 @@ void loop() {{
         root.addWidget(make_page_header(
             "ESP32 / VESC HARDWARE I/O MANAGER",
             "ESP32 GPIO • VESC CAN • Voltage/Protection • Wiring • Pin Map",
-            self.show_home_mode,"V53 ESP32 I/O","#e4fbf5","#08705e"
+            self.show_home_mode,"V53.2.4 ESP32 I/O","#e4fbf5","#08705e"
         ))
 
         cfg=QFrame();cfg.setObjectName("softPanel")
@@ -2791,26 +2801,45 @@ void loop() {{
 
         self.hwTabs=QTabWidget();root.addWidget(self.hwTabs,1)
 
-        boardPage=QWidget();boardLayout=QHBoxLayout(boardPage);boardLayout.setContentsMargins(8,8,8,8);boardLayout.setSpacing(12)
-        boardLeft=QVBoxLayout()
+        boardPage=QWidget();boardLayout=QVBoxLayout(boardPage);boardLayout.setContentsMargins(6,6,6,6);boardLayout.setSpacing(6)
         boardToolbar=QHBoxLayout()
         self.hwAnimateCheck=QCheckBox("Animate used GPIO");self.hwAnimateCheck.setChecked(True)
         self.hwAnimateCheck.toggled.connect(lambda on:self.hwBoardView.set_animation_enabled(on) if hasattr(self,"hwBoardView") else None)
         self.hwBoardCountLabel=QLabel("GPIO —")
         self.hwBoardCountLabel.setStyleSheet("font-weight:900;color:#174a74;")
         boardToolbar.addWidget(self.hwAnimateCheck);boardToolbar.addStretch(1);boardToolbar.addWidget(self.hwBoardCountLabel)
-        boardLeft.addLayout(boardToolbar)
-        self.hwBoardView=Esp32AnimatedBoardWidget(self);boardLeft.addWidget(self.hwBoardView,1)
-        leftWrap=QWidget();leftWrap.setLayout(boardLeft);boardLayout.addWidget(leftWrap,3)
+        boardLayout.addLayout(boardToolbar)
 
-        boardRight=QVBoxLayout()
-        self.hwBoardSummary=QTextEdit();self.hwBoardSummary.setReadOnly(True);self.hwBoardSummary.setMinimumWidth(250)
-        self.hwBoardPinInfo=QTextEdit();self.hwBoardPinInfo.setReadOnly(True);self.hwBoardPinInfo.setMinimumHeight(190)
+        # Splitter keeps the board and detail panel independent. The board itself lives
+        # on a fixed canvas inside a scroll area, so resizing the window cannot distort it.
+        self.hwBoardSplitter=QSplitter(Qt.Horizontal)
+        self.hwBoardSplitter.setChildrenCollapsible(False)
+
+        leftWrap=QWidget();leftLay=QVBoxLayout(leftWrap);leftLay.setContentsMargins(0,0,0,0)
+        self.hwBoardScroll=QScrollArea()
+        self.hwBoardScroll.setWidgetResizable(False)
+        self.hwBoardScroll.setFrameShape(QFrame.NoFrame)
+        self.hwBoardScroll.setAlignment(Qt.AlignHCenter|Qt.AlignTop)
+        self.hwBoardScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.hwBoardScroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.hwBoardView=Esp32AnimatedBoardWidget(self)
+        self.hwBoardScroll.setWidget(self.hwBoardView)
+        leftLay.addWidget(self.hwBoardScroll)
+        self.hwBoardSplitter.addWidget(leftWrap)
+
+        rightWrap=QWidget();rightWrap.setMinimumWidth(300);rightWrap.setMaximumWidth(460)
+        boardRight=QVBoxLayout(rightWrap);boardRight.setContentsMargins(8,0,0,0);boardRight.setSpacing(6)
+        self.hwBoardSummary=QTextEdit();self.hwBoardSummary.setReadOnly(True);self.hwBoardSummary.setMinimumWidth(285)
+        self.hwBoardPinInfo=QTextEdit();self.hwBoardPinInfo.setReadOnly(True);self.hwBoardPinInfo.setMinimumHeight(170)
         boardRight.addWidget(QLabel("BOARD GPIO SUMMARY"))
-        boardRight.addWidget(self.hwBoardSummary,2)
+        boardRight.addWidget(self.hwBoardSummary,3)
         boardRight.addWidget(QLabel("CLICKED PIN"))
-        boardRight.addWidget(self.hwBoardPinInfo,1)
-        rightWrap=QWidget();rightWrap.setLayout(boardRight);boardLayout.addWidget(rightWrap,1)
+        boardRight.addWidget(self.hwBoardPinInfo,2)
+        self.hwBoardSplitter.addWidget(rightWrap)
+        self.hwBoardSplitter.setStretchFactor(0,1)
+        self.hwBoardSplitter.setStretchFactor(1,0)
+        self.hwBoardSplitter.setSizes([1100,340])
+        boardLayout.addWidget(self.hwBoardSplitter,1)
         self.hwTabs.addTab(boardPage,"Board GPIO Map")
 
         pinPage=QWidget();pinLay=QVBoxLayout(pinPage);pinLay.setContentsMargins(8,8,8,8)
@@ -2863,7 +2892,7 @@ void loop() {{
         wr=QVBoxLayout(wiring)
         self.hwWiringSummary=QTextEdit();self.hwWiringSummary.setReadOnly(True);wr.addWidget(self.hwWiringSummary,1)
         wl.addWidget(wiring,2)
-        self.hwTabs.addTab(wirePage,"Voltage & Wiring")
+        self.hwTabs.addTab(wirePage,"Voltage && Wiring")
 
         genPage=QWidget();gl=QVBoxLayout(genPage);gl.setContentsMargins(10,10,10,10);gl.setSpacing(8)
         bar=QHBoxLayout()
