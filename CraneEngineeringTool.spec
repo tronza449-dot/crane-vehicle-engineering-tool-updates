@@ -5,7 +5,7 @@ project = Path(SPECPATH)
 source = project / 'CraneVehicleEngineeringTool.py'
 icon = project / 'assets' / 'CraneEngineeringTool.ico'
 
-hidden = ['PySide6.QtPrintSupport']
+hidden = ['PySide6.QtPrintSupport','serial','serial.tools.list_ports']
 
 analysis = Analysis(
     [str(source)],
