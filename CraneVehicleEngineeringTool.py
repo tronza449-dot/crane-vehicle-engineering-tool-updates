@@ -2213,7 +2213,7 @@ void loop() {{
         root.addWidget(make_page_header(
             "ESP32 / VESC HARDWARE I/O MANAGER",
             "ESP32 GPIO • VESC CAN • Voltage/Protection • Wiring • Pin Map",
-            self.show_home_mode,"V52.4 CUSTOM I/O","#e4fbf5","#08705e"
+            self.show_home_mode,"V52.6 ESP32 I/O","#e4fbf5","#08705e"
         ))
 
         cfg=QFrame();cfg.setObjectName("softPanel")
@@ -2224,7 +2224,7 @@ void loop() {{
             "Generic ESP32-S3 — 45 physical GPIO",
             "Waveshare ESP32-S3-Touch-LCD-7B — Project board",
             "Custom / Other ESP32-S3",
-            "ESP32 DevKit V1 / ESP-WROOM-32 — 34 physical GPIO",
+            "ESP32 DevKit V1 / ESP-WROOM-32 — PROJECT ESP32",
         ])
         self.hwBoardProfile.setCurrentIndex(3)  # V52.6 project default: classic ESP32
         cl.addWidget(self.hwBoardProfile,0,1)
@@ -2340,7 +2340,7 @@ void loop() {{
         notes.setPlainText("""V52 HARDWARE I/O NOTES
 
 • Board Animation แสดง GPIO ทั้งหมดของชิปตาม Profile และสถานะ USED/FREE/ONBOARD/SHARED/CAUTION/CONFLICT
-• ESP32-S3 มี 45 physical GPIO: GPIO0–21 และ GPIO26–48; GPIO22–25 ไม่มีใน ESP32-S3
+• Project default = ESP32 DevKit V1 / ESP-WROOM-32; ESP32-S3 profiles ยังเก็บไว้เป็น reference/alternate board\n• ESP32 DevKit V1 profile แสดง 34 physical GPIO และแยก input-only/strapping/UART pins
 • Waveshare ESP32-S3-Touch-LCD-7B: โปรแกรมใส่ขา LCD, Touch/I2C, TF, RS485, USB/CAN และ UART0 จากเอกสารบอร์ดไว้ให้อัตโนมัติ
 • Manual Reserved GPIO ใช้สำหรับขาที่คุณต้องการกันเพิ่มเองเท่านั้น
 • ESP32 GPIO เป็น 3.3 V logic — ห้ามป้อน 5/12/72 V เข้า GPIO โดยตรง
@@ -2572,6 +2572,8 @@ void loop() {{
             +"\n\nหมายเหตุ: ตรวจ datasheet, fuse/current rating, wire gauge, grounding และ actual board pinout ก่อนจ่ายไฟจริง"
         )
         self.hwCode.setPlainText(self.generate_hardware_header_text())
+        if hasattr(self,"telemetryCodeView"):
+            self.telemetryCodeView.setPlainText(self.telemetry_esp32_template())
 
     def copy_hardware_code(self):
         QApplication.clipboard().setText(self.generate_hardware_header_text())
