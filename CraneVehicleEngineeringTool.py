@@ -2230,7 +2230,7 @@ void loop() {{
         cl.addWidget(self.hwBoardProfile,0,1)
         cl.addWidget(QLabel("Reserved GPIOs"),0,2)
         self.hwReservedPins=QLineEdit()
-        self.hwReservedPins.setPlaceholderText("Manual reserve เพิ่มเติม เช่น 6, 43 — ไม่ต้องใส่ขาที่บอร์ดใช้เอง โปรแกรมรู้ให้อัตโนมัติ")
+        self.hwReservedPins.setPlaceholderText("Manual reserve เพิ่มเติม เช่น 0, 2, 5 — โปรแกรมตรวจตาม Board Profile ให้อัตโนมัติ")
         cl.addWidget(self.hwReservedPins,0,3)
         self.hwBoardVerified=QCheckBox("ฉันตรวจ GPIO กับ pinout/datasheet ของบอร์ดจริงแล้ว")
         cl.addWidget(self.hwBoardVerified,1,0,1,2)
@@ -3883,6 +3883,12 @@ void loop() {{
                 return False
             state=json.loads(path.read_text(encoding="utf-8"))
             self.apply_project_state(state,True)
+            # V52.6 project migration: the user's main controller target is now classic ESP32.
+            # Apply only to automatic last-values restore; manually opened old project files keep their board choice.
+            if hasattr(self,"hwBoardProfile") and self._version_tuple(state.get("version","0")) < self._version_tuple("52.6.0"):
+                self.hwBoardProfile.setCurrentIndex(3)
+                self.refresh_gpio_combo_items()
+                self.update_hardware_manager()
             saved_at=state.get("saved_at","-")
             self._set_quick_save_status(f"โหลดค่าครั้งล่าสุดแล้ว • Saved at {saved_at}","#176337")
             if hasattr(self,"projectStatus") and not silent:
