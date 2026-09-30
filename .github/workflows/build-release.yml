@@ -85,7 +85,7 @@ jobs:
           modes = (
               w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
               w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
-              w.show_flowchart_mode,w.show_hardware_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
+              w.show_flowchart_mode,w.show_hardware_mode,w.show_telemetry_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
           )
           for width,height in ((1024,650),(1280,720),(1366,768),(1600,900)):
               w.resize(width,height)
@@ -240,9 +240,13 @@ jobs:
           w.run_safety_self_tests()
           assert "15/15" in w.safetyTestResults.toPlainText()
 
-          # ---------- V52.3 Animated GPIO Board / Hardware regression ----------
+          # ---------- V52.6 ESP32 / VESC Hardware I/O regression ----------
           assert hasattr(w,"hwRows") and len(w.hwRows)>=9
           assert hasattr(w,"hwBoardView") and w.hwBoardView.timer.isActive()
+          # Project target changed to classic ESP32 DevKit / ESP-WROOM-32.
+          assert w.hwBoardProfile.currentIndex()==3
+          assert w.gpio_profile_data()["profile"]=="classic"
+          assert len(w.gpio_profile_data()["pins"])==34
 
           # Generic ESP32-S3 must expose exactly the chip's 45 physical GPIOs:
           # GPIO0-21 and GPIO26-48; GPIO22-25 do not exist on ESP32-S3.
@@ -330,9 +334,10 @@ jobs:
           assert classic["pin_info"][34]["function"]=="Input only"
           assert classic["pin_info"][39]["function"]=="Input only"
 
-          # Return to generic S3 for the remaining regression suite.
-          w.hwBoardProfile.setCurrentIndex(0)
+          # Return to the project target: classic ESP32.
+          w.hwBoardProfile.setCurrentIndex(3)
           w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
+          assert w.gpio_profile_data()["profile"]=="classic"
           assert w.hardware_check_results()["ready"] is True
 
           # ---------- V52.4 Custom Device / I/O Builder regression ----------
@@ -390,6 +395,49 @@ jobs:
               if w.hwRows[idx].get("custom",False):
                   w.hwRows.pop(idx);w.hwTable.removeRow(idx)
           w.update_hardware_manager()
+
+          # ---------- V52.6 Real-Time ESP32 Telemetry / Data Logger regression ----------
+          assert cvet.SERIAL_AVAILABLE is True
+          assert hasattr(w,"telemetryPage") and hasattr(w,"telemetryChart")
+          assert w.telemetrySource.currentText()=="Simulation / Demo"
+          w.connect_telemetry()
+          w.telemetryTimer.stop()  # deterministic manual ticks in CI
+          for _ in range(12):
+              w.telemetry_tick()
+          assert len(w.telemetryHistory)==12
+          latest=w.telemetryHistory[-1]
+          for key in ("battery_v","battery_a","speed_kmh","tilt_deg","left_rpm","right_rpm",
+                      "vesc_current_a","rc_throttle","rc_steer","limit_left","limit_right","estop","rc_ok","state"):
+              assert key in latest, f"Missing telemetry field {key}"
+          assert w.telemetryTable.rowCount()==12
+          chart=w.telemetryChart.grab()
+          assert not chart.isNull() and chart.width()>100 and chart.height()>100
+
+          # JSON protocol aliases + malformed-line handling.
+          parsed=w.parse_telemetry_line('{"vbat":71.8,"current":8.2,"speed":1.02,"tilt":3.4,"rpm_l":12,"rpm_r":13,"state":"DRIVE"}')
+          assert parsed and abs(parsed["battery_v"]-71.8)<1e-9 and abs(parsed["battery_a"]-8.2)<1e-9
+          before_errors=w.telemetryParseErrors
+          assert w.parse_telemetry_line("{bad json") is None
+          assert w.telemetryParseErrors==before_errors+1
+
+          # Logger records only after Start Logging and exports real CSV.
+          w.toggle_telemetry_logging()
+          for _ in range(7): w.telemetry_tick()
+          w.toggle_telemetry_logging()
+          assert len(w.telemetryLogRows)==7
+          template=w.telemetry_esp32_template()
+          assert "Serial.printf" in template and "battery_v" in template and "PIN_CAN_TX" in template
+
+          with tempfile.TemporaryDirectory() as td:
+              csv_target=Path(td)/"telemetry.csv"
+              with patch.object(cvet.QFileDialog,"getSaveFileName",return_value=(str(csv_target),"CSV (*.csv)")),                    patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok),                    patch.object(cvet.QMessageBox,"critical",return_value=cvet.QMessageBox.Ok):
+                  w.export_telemetry_csv()
+              assert csv_target.exists() and csv_target.stat().st_size>100
+              csv_text=csv_target.read_text(encoding="utf-8-sig")
+              assert "battery_v" in csv_text and "speed_kmh" in csv_text and "tilt_deg" in csv_text
+
+          w.disconnect_telemetry(silent=True)
+          assert w.telemetryConnected is False
 
           # ---------- V52.5 Final System Flowchart regression ----------
           assert hasattr(w,"flowBoard") and hasattr(w,"flowScenario")
@@ -487,7 +535,7 @@ jobs:
 
           # ---------- Final broad calculation refresh ----------
           w.calc_torque();w.calc_electrical();w.calc_winch();w.calc_all();w.calc_worst()
-          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False);w.update_hardware_manager();w.sync_flowchart_from_safety()
+          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False);w.update_hardware_manager();w.update_telemetry_ui();w.sync_flowchart_from_safety()
           QApplication.processEvents()
 
           print("CVET_FULL_REGRESSION_OK")
