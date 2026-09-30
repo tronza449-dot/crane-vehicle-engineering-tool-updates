@@ -87,7 +87,7 @@ jobs:
           modes = (
               w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
               w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
-              w.show_flowchart_mode,w.show_hardware_mode,w.show_telemetry_mode,w.show_integration_suite_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
+              w.show_hardware_mode,w.show_telemetry_mode,w.show_integration_suite_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
           )
           for width,height in ((1024,650),(1280,720),(1366,768),(1600,900)):
               w.resize(width,height)
@@ -516,67 +516,9 @@ jobs:
           assert w.telemetryConnected is False
           assert w.telemetryUdpSocket is None
 
-          # ---------- V53.2 Final System Flowchart regression ----------
-          assert hasattr(w,"flowBoard") and hasattr(w,"flowScenario") and hasattr(w,"flowTabs")
-          expected_scenarios=(
-              "Drive Forward","Idle / Ready","Crane LEFT","Crane RIGHT",
-              "Remote Fault","Motor / VESC Fault","Tilt Warning","Vehicle Still Moving",
-              "Stopped < 0.5 s","LEFT Limit Active","RIGHT Limit Active"
-          )
-          for scenario in expected_scenarios:
-              idx=w.flowScenario.findText(scenario)
-              assert idx>=0, f"Missing flowchart scenario {scenario}"
-              w.flowScenario.setCurrentIndex(idx)
-              w.set_flowchart_scenario()
-              assert len(w.flowBoard.path)>=6
-              assert "safe" not in w.flowBoard.path, "Old merged Safety node should not remain in Final flowchart path"
-              w.flowBoard.set_path(w.flowBoard.path,len(w.flowBoard.path)-1)
-              snap=w.flowBoard.grab()
-              assert not snap.isNull() and snap.width()>300 and snap.height()>900
-
-          # Submitted Final sequence must contain the separate sensor/status checks.
-          drive_path=w.flowchart_scenario_path("Drive Forward")
-          for node in ("remoteq","tiltread","limitsread","motorread","motorq","tiltq","warningoff",
-                       "drivecmd","mix","speedlimit","driveq","stopcrane_drive","senddrive"):
-              assert node in drive_path, f"Final drive path missing {node}"
-          assert drive_path.index("tiltread") < drive_path.index("limitsread") < drive_path.index("motorread")
-          assert drive_path.index("warningoff") < drive_path.index("drivecmd")
-
-          # Tilt in the submitted Final document is warning-only and continues to Driving Command.
-          tilt_path=w.flowchart_scenario_path("Tilt Warning")
-          assert "warningon" in tilt_path and "drivecmd" in tilt_path and "senddrive" in tilt_path
-          assert "remotefault" not in tilt_path and "motorfault" not in tilt_path
-
-          # Vehicle moving and 0.5 s stop gate are separate branches.
-          moving_path=w.flowchart_scenario_path("Vehicle Still Moving")
-          wait_path=w.flowchart_scenario_path("Stopped < 0.5 s")
-          assert "movingq" in moving_path and "keepmoving" in moving_path
-          assert "stopped05" in wait_path and "keepwait" in wait_path
-
-          # LEFT/RIGHT limit behavior must remain directional.
-          left_path=w.flowchart_scenario_path("LEFT Limit Active")
-          right_path=w.flowchart_scenario_path("RIGHT Limit Active")
-          assert "leftlimitq" in left_path and "stopleft" in left_path
-          assert "rightlimitq" in right_path and "stopright" in right_path
-
-          # Local connector A nodes avoid long crossing return lines.
-          for connector in ("Ain","A_remote","A_motor","A_drive","A_move","A_wait","A_bottom"):
-              assert connector in w.flowBoard.nodeRects or connector in str(w.flowchart_scenario_path()), f"Connector missing: {connector}"
-
-          # UI: Flowchart and Explanation are separate tabs, with laptop zoom controls.
-          assert w.flowTabs.count()==2
-          assert w.flowZoom.findText("70%")>=0 and w.flowZoom.findText("100%")>=0
-          w.show_flowchart_mode();w.resize(1024,650);w.apply_ui_scale(1.30,save=False);QApplication.processEvents()
-          w.flowScenario.setCurrentText("Vehicle Still Moving");w.set_flowchart_scenario()
-          w.flowBoard.grab()
-          assert not w.flowBoard.nodeRects["stopped05"].intersects(w.flowBoard.nodeRects["keepmoving"])
-          assert not w.flowBoard.nodeRects["controlcrane"].intersects(w.flowBoard.nodeRects["keepwait"])
-          assert w.flowTabs.isVisible()
-          for zoom in ("60%","70%","100%","115%"):
-              w.flowZoom.setCurrentText(zoom);QApplication.processEvents()
-              shot=w.flowBoard.grab()
-              assert not shot.isNull()
-          w.flowZoom.setCurrentText("70%")
+          # ---------- System Flowchart removed in V53.2.5 ----------
+          assert not hasattr(w,"flowchartPage"), "Flowchart page must not be created in V53.2.5"
+          assert "System Flowchart" not in [b.text() for b in w.navButtons.values()]
 
           # Safety logic still includes VESC fault and 0.5 s stationary gate before crane.
           base={
@@ -594,17 +536,6 @@ jobs:
           vv=dict(base);vv.update(crane="LEFT (-)",stationary_05=True)
           rr=w.evaluate_safety_logic(vv)
           assert rr["state"]=="CRANE" and rr["crane"].startswith("LEFT")
-
-          # Sync from simulator chooses the closest Final-document visualization path.
-          w.reset_safety_simulator()
-          w.safetyThrottle.setValue(50);w.sync_flowchart_from_safety()
-          assert w.flowScenario.currentText()=="Drive Forward"
-          w.safetyThrottle.setValue(0);w.safetyCraneCmd.setCurrentText("LEFT (-)")
-          w.safetyStationary05.setChecked(False);w.sync_flowchart_from_safety()
-          assert w.flowScenario.currentText()=="Stopped < 0.5 s"
-          w.safetyStationary05.setChecked(True);w.safetyLimitLeft.setChecked(True);w.sync_flowchart_from_safety()
-          assert w.flowScenario.currentText()=="LEFT Limit Active"
-          w.reset_safety_simulator()
 
           # ---------- V53 Engineering Integration Suite ----------
           w.show_integration_suite_mode()
@@ -734,7 +665,7 @@ jobs:
 
           # ---------- Final broad calculation refresh ----------
           w.calc_torque();w.calc_electrical();w.calc_winch();w.calc_all();w.calc_worst()
-          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False);w.update_hardware_manager();w.update_telemetry_ui();w.sync_flowchart_from_safety()
+          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False);w.update_hardware_manager();w.update_telemetry_ui()
           QApplication.processEvents()
 
           print("CVET_FULL_REGRESSION_OK")
