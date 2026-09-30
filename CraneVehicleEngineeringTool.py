@@ -2786,7 +2786,9 @@ class App(QMainWindow):
         rows=[
             ("E-STOP","สถานะ Emergency Stop","Boolean","ON" if v["estop"] else "OFF","ON = ตัดคำสั่งการเคลื่อนที่ทั้งหมด"),
             ("RC_OK","สถานะสัญญาณ RC / IBUS","Boolean","OK" if v["rc_ok"] else "LOST","LOST = เข้า RC Failsafe"),
+            ("VESC_FAULT","สถานะ VESC / Motor Fault","Boolean","ON" if v["vesc_fault"] else "OFF","ON = Drive 0 + Crane STOP + Alarm"),
             ("CH5","Drive Enable จากรีโมท","Boolean","ON" if v["drive_enable"] else "OFF","OFF = ไม่อนุญาต Drive"),
+            ("STOP_0.5s","รถหยุดนิ่งต่อเนื่องอย่างน้อย 0.5 s","Boolean","YES" if v["stationary_05"] else "NO","ต้องเป็น YES ก่อนอนุญาต Crane"),
             ("Throttle","คำสั่งเดินหน้า/ถอยหลัง","%",f"{v['throttle']:+d}","ค่าบวก/ลบกำหนดทิศทาง"),
             ("Steering","คำสั่งเลี้ยว Differential","%",f"{v['steer']:+d}","ผสมกับ Throttle เพื่อสั่งล้อซ้าย/ขวา"),
             ("Crane Cmd","คำสั่งหมุนเครน","State",v["crane"],"STOP / LEFT / RIGHT"),
@@ -3037,7 +3039,6 @@ class App(QMainWindow):
         }
 
     @staticmethod
-    @staticmethod
     def evaluate_safety_logic(v):
         clamp=lambda x:max(-100,min(100,int(round(x))))
         result={
@@ -3159,6 +3160,8 @@ class App(QMainWindow):
             "WINCH":("#fff6df","#9a5a00","#efd08b"),
             "BATTERY WARNING":("#fff6df","#9a5a00","#efd08b"),
             "TILT WARNING":("#fff1e8","#b54708","#f2b27f"),
+            "WAIT VEHICLE STOP":("#fff6df","#9a5a00","#efd08b"),
+            "VESC FAULT":("#fff0f0","#b42318","#efb2ad"),
         }
         bg,fg,bd=state_colors.get(r["state"],("#fff0f0","#b42318","#efb2ad"))
         self.safetyStateLabel.setText(r["state"])
@@ -3192,6 +3195,7 @@ class App(QMainWindow):
         self._lastSafetySignature=signature
         if hasattr(self,"safetyVars"):self.safetyVars.setHtml(self.safety_variables_html())
         if hasattr(self,"allSafetyVars"):self.allSafetyVars.setHtml(self.safety_variables_html())
+        if hasattr(self,"flowBoard"):self.sync_flowchart_from_safety()
 
     def reset_safety_simulator(self):
         self.safetyEStop.setChecked(False)
@@ -3214,8 +3218,8 @@ class App(QMainWindow):
 
     def run_safety_self_tests(self):
         base={
-            "estop":False,"rc_ok":True,"drive_enable":True,"throttle":0,"steer":0,
-            "crane":"STOP","winch":"STOP","tilt":0.0,"tilt_limit":12.0,
+            "estop":False,"rc_ok":True,"vesc_fault":False,"drive_enable":True,"stationary_05":True,
+            "throttle":0,"steer":0,"crane":"STOP","winch":"STOP","tilt":0.0,"tilt_limit":12.0,
             "left_limit":False,"right_limit":False,"battery_low":False,
             "battery_inhibit":False,"winch_stationary_only":True
         }
@@ -3226,7 +3230,9 @@ class App(QMainWindow):
             ("INTERLOCK — Drive + Crane",{"steer":40,"crane":"RIGHT (+)"},lambda r:r["state"]=="INTERLOCK CONFLICT" and not r["drive_permit"] and r["crane"]=="STOP"),
             ("E-STOP",{"estop":True,"throttle":60},lambda r:r["state"]=="E-STOP" and not r["drive_permit"]),
             ("RC FAILSAFE",{"rc_ok":False,"throttle":60},lambda r:r["state"]=="RC FAILSAFE" and not r["drive_permit"]),
+            ("VESC FAULT",{"vesc_fault":True,"throttle":60},lambda r:r["state"]=="VESC FAULT" and not r["drive_permit"] and r["crane"]=="STOP"),
             ("IMU TILT INHIBIT",{"throttle":50,"tilt":15},lambda r:r["state"]=="TILT INHIBIT" and not r["drive_permit"]),
+            ("CRANE WAIT 0.5s",{"crane":"LEFT (-)","stationary_05":False},lambda r:r["state"]=="WAIT VEHICLE STOP" and r["crane"]=="STOP"),
             ("RIGHT LIMIT BLOCK",{"crane":"RIGHT (+)","right_limit":True},lambda r:r["state"]=="RIGHT LIMIT STOP" and r["crane"]=="STOP"),
             ("MOVE AWAY FROM RIGHT LIMIT",{"crane":"LEFT (-)","right_limit":True},lambda r:r["state"]=="CRANE" and r["crane"].startswith("LEFT")),
             ("LOW BATTERY DRIVE INHIBIT",{"battery_low":True,"battery_inhibit":True,"throttle":40},lambda r:r["state"]=="LOW BATTERY INHIBIT" and not r["drive_permit"]),
