@@ -1,10 +1,20 @@
 from pathlib import Path
-import sys, math, os, json, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil
+import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil
 from datetime import datetime
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer, QStandardPaths, Signal
 from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter
+
+try:
+    import serial
+    from serial.tools import list_ports
+    SERIAL_AVAILABLE=True
+except Exception:
+    serial=None
+    list_ports=None
+    SERIAL_AVAILABLE=False
+
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
@@ -954,6 +964,53 @@ class SystemFlowchartWidget(QWidget):
         p.drawText(note.adjusted(9,6,-9,-6),Qt.AlignCenter|Qt.TextWordWrap,
                    "WINCH: ใช้ชุดรีโมทของวินช์ + แบต 12 V แยก\nไม่อยู่ใน Control Flow หลักของ ESP32")
 
+
+class TelemetryChartWidget(QWidget):
+    """Three compact live plots for Current, Speed and Tilt."""
+    def __init__(self,owner):
+        super().__init__();self.o=owner;self.setMinimumHeight(330)
+
+    def _plot_lane(self,p,rect,key,title,unit):
+        hist=getattr(self.o,"telemetryHistory",[])
+        vals=[float(x.get(key,0.0) or 0.0) for x in hist[-180:]]
+        p.setPen(QPen(QColor("#d8e3ed"),1));p.setBrush(QColor("#fbfdff"));p.drawRoundedRect(rect,8,8)
+        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),9,QFont.Bold))
+        p.drawText(QRectF(rect.left()+10,rect.top()+4,rect.width()-20,20),Qt.AlignLeft|Qt.AlignVCenter,title)
+        if not vals:
+            p.setPen(QColor("#8a9bad"));p.setFont(QFont(choose_ui_font_family(),8))
+            p.drawText(rect,Qt.AlignCenter,"No telemetry samples yet");return
+        lo=min(vals);hi=max(vals)
+        if abs(hi-lo)<1e-9:
+            pad=max(1.0,abs(hi)*0.1);lo-=pad;hi+=pad
+        else:
+            pad=(hi-lo)*0.12;lo-=pad;hi+=pad
+        plot=QRectF(rect.left()+52,rect.top()+28,rect.width()-64,rect.height()-43)
+        p.setPen(QPen(QColor("#e4ebf2"),1))
+        for j in range(3):
+            y=plot.top()+plot.height()*j/2;p.drawLine(QPointF(plot.left(),y),QPointF(plot.right(),y))
+        pts=[]
+        for i,v in enumerate(vals):
+            x=plot.left()+(plot.width()*(i/max(1,len(vals)-1)))
+            y=plot.bottom()-(v-lo)/(hi-lo)*plot.height()
+            pts.append(QPointF(x,y))
+        p.setPen(QPen(QColor("#2672d8"),2.2))
+        for a,b in zip(pts[:-1],pts[1:]):p.drawLine(a,b)
+        latest=vals[-1]
+        p.setPen(QColor("#334e68"));p.setFont(QFont("Arial",7))
+        p.drawText(QRectF(rect.left()+4,plot.top()-2,45,15),Qt.AlignRight|Qt.AlignVCenter,f"{hi:.1f}")
+        p.drawText(QRectF(rect.left()+4,plot.bottom()-12,45,15),Qt.AlignRight|Qt.AlignVCenter,f"{lo:.1f}")
+        p.setPen(QColor("#0f6a5f"));p.setFont(QFont(choose_ui_font_family(),9,QFont.Bold))
+        p.drawText(QRectF(rect.right()-155,rect.top()+4,145,20),Qt.AlignRight|Qt.AlignVCenter,f"{latest:.2f} {unit}")
+
+    def paintEvent(self,e):
+        p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("#ffffff"))
+        margin=8;gap=9;lane=(self.height()-margin*2-gap*2)/3
+        specs=[("battery_a","Battery / VESC Current","A"),("speed_kmh","Vehicle Speed","km/h"),("tilt_deg","IMU Tilt","°")]
+        for i,(key,title,unit) in enumerate(specs):
+            rect=QRectF(margin,margin+i*(lane+gap),self.width()-2*margin,lane)
+            self._plot_lane(p,rect,key,title,unit)
+
+
 class App(QMainWindow):
     updateTaskFinished=Signal(object)
     updateProgressChanged=Signal(int)
@@ -962,7 +1019,7 @@ class App(QMainWindow):
         app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
-        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.make_system_flowchart_page();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
+        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.make_telemetry_page();self.make_system_flowchart_page();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
         self.calc_all()
         # Automatically restore the most recently entered values.
         self.restore_last_values(silent=True)
@@ -1319,6 +1376,7 @@ class App(QMainWindow):
         lay.addWidget(self._make_nav_button("safety","C   Control Logic",self.show_safety_logic_mode))
         lay.addWidget(self._make_nav_button("flowchart","F   System Flowchart",self.show_flowchart_mode))
         lay.addWidget(self._make_nav_button("hardware","H   Hardware I/O",self.show_hardware_mode))
+        lay.addWidget(self._make_nav_button("telemetry","D   Live Telemetry",self.show_telemetry_mode))
 
         s2=QLabel("REFERENCE & OUTPUT");s2.setObjectName("navSection");lay.addWidget(s2)
         lay.addWidget(self._make_nav_button("variables","A–Z   Variables",self.show_variable_dictionary_mode))
@@ -1751,8 +1809,8 @@ class App(QMainWindow):
         w=QWidget();self.hardwarePage=w
         root=QVBoxLayout(w);root.setContentsMargins(18,14,18,16);root.setSpacing(12)
         root.addWidget(make_page_header(
-            "HARDWARE I/O & WIRING MANAGER",
-            "GPIO conflict • Voltage level • Protection • Wiring check • ESP32 Pin Map",
+            "ESP32 / VESC HARDWARE I/O MANAGER",
+            "ESP32 GPIO • VESC CAN • Voltage/Protection • Wiring • Pin Map",
             self.show_home_mode,"V52.4 CUSTOM I/O","#e4fbf5","#08705e"
         ))
 
@@ -1766,6 +1824,7 @@ class App(QMainWindow):
             "Custom / Other ESP32-S3",
             "ESP32 DevKit V1 / ESP-WROOM-32 — 34 physical GPIO",
         ])
+        self.hwBoardProfile.setCurrentIndex(3)  # V52.6 project default: classic ESP32
         cl.addWidget(self.hwBoardProfile,0,1)
         cl.addWidget(QLabel("Reserved GPIOs"),0,2)
         self.hwReservedPins=QLineEdit()
@@ -2186,6 +2245,12 @@ class App(QMainWindow):
         self._set_active_nav("hardware")
         self.update_hardware_manager()
 
+    def show_telemetry_mode(self):
+        self._show_only_page(self.telemetryPage)
+        self._set_active_nav("telemetry")
+        self.refresh_serial_ports()
+        self.update_telemetry_ui()
+
     def show_flowchart_mode(self):
         self._show_only_page(self.flowchartPage)
         self._set_active_nav("flowchart")
@@ -2245,7 +2310,7 @@ class App(QMainWindow):
         hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
         left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        chips.addWidget(make_chip("V52.5  SYSTEM FLOW","#ffffff","#174a74"))
+        chips.addWidget(make_chip("V52.6  ESP32 LIVE","#ffffff","#174a74"))
         chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
         chips.addStretch(1);left.addLayout(chips)
 
@@ -2254,7 +2319,7 @@ class App(QMainWindow):
         title.setStyleSheet("color:white;background:transparent;")
         left.addWidget(title)
 
-        sub=QLabel("คำนวณระบบขับ • แบตเตอรี่ • วินช์ • เสถียรภาพ • Control Logic • Hardware I/O ในโปรแกรมเดียว")
+        sub=QLabel("คำนวณ • ESP32 Hardware I/O • System Flow • Real-Time Telemetry / Data Logger ในโปรแกรมเดียว")
         sub.setWordWrap(True);sub.setStyleSheet("color:#e1eff9;font-size:10.5pt;font-weight:650;background:transparent;")
         left.addWidget(sub)
         hint=QLabel("เริ่มจากเลือกโมดูลด้านล่าง หรือใช้เมนูซ้ายเพื่อสลับหน้าได้ทันที")
@@ -2320,11 +2385,13 @@ class App(QMainWindow):
         bv=ModeCardButton("VARIABLE DICTIONARY","ความหมายตัวแปร • หน่วย • ค่าปัจจุบัน","06","#4b647a")
         bh=ModeCardButton("HARDWARE I/O & WIRING","Animated Board • All GPIO • Used/Free/Conflict","07","#0b7a75")
         bflo=ModeCardButton("SYSTEM FLOWCHART","Animated ESP32 Vehicle + Crane Control Flow","08","#2b6cb0")
+        btele=ModeCardButton("LIVE TELEMETRY","ESP32 Serial • Live Graph • CSV Data Logger","09","#087e8b")
 
         cards.addWidget(bt,0,0);cards.addWidget(be,0,1)
         cards.addWidget(bw,1,0);cards.addWidget(bs,1,1)
         cards.addWidget(bc,2,0);cards.addWidget(bv,2,1)
         cards.addWidget(bh,3,0);cards.addWidget(bflo,3,1)
+        cards.addWidget(btele,4,0,1,2)
         cards.setColumnStretch(0,1);cards.setColumnStretch(1,1)
         root.addLayout(cards)
 
@@ -2336,6 +2403,7 @@ class App(QMainWindow):
         bv.clicked.connect(self.show_variable_dictionary_mode)
         bh.clicked.connect(self.show_hardware_mode)
         bflo.clicked.connect(self.show_flowchart_mode)
+        btele.clicked.connect(self.show_telemetry_mode)
 
         footer=QFrame();footer.setObjectName("softPanel")
         fl=QHBoxLayout(footer);fl.setContentsMargins(14,9,14,9)
