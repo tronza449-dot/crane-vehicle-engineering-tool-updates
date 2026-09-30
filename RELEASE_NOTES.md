@@ -1,65 +1,166 @@
-# Crane Vehicle Engineering Tool V52.5.0
+# Crane Vehicle Engineering Tool V52.6.0
 
-## Final System Flowchart / Animated Control Sequence
+## ESP32 / VESC Hardware I/O + Real-Time Telemetry / Data Logger
 
-เพิ่มหน้าใหม่ในโปรแกรมสำหรับอธิบายลำดับการทำงานของรถและเครนแบบ Final โดยใช้ Flowchart แบบ Interactive + Animation และเชื่อมกับ Control Logic Simulator
+รุ่นนี้ทำ 2 ระบบที่ผู้ใช้เลือกต่อจากแผนพัฒนาเดิม:
+- **2) ESP32 / VESC Hardware I/O Manager**
+- **4) Real-Time Telemetry / Data Logger**
 
-### System Flowchart ใหม่
-เข้าได้จาก Home → SYSTEM FLOWCHART หรือเมนูซ้าย → System Flowchart
+และเปลี่ยน Main Controller ของโปรเจกต์ให้เริ่มจาก **ESP32 DevKit V1 / ESP-WROOM-32 (Classic ESP32)** ก่อน แทนการเริ่มจาก ESP32-S3
 
-Flow หลัก:
-1. Start / Power ON
-2. Initialize ESP32, RC, IMU, CAN/VESC และ Limit Switch
-3. Read Remote + IMU + Limit Switch + VESC Status
-4. Safety Check: RC / E-stop / VESC Fault / Tilt
-5. ถ้ามี Drive command:
-   - Stop Crane Rotation
-   - Differential Mix
-   - Speed Limit + Soft Start
-   - Send Left/Right command to VESC
-6. ถ้าไม่มี Drive command:
-   - Send Drive = 0 to VESC
-   - ตรวจ Vehicle stopped ≥ 0.5 s
-   - จึงอนุญาต Crane LEFT/RIGHT
-   - ตรวจ Limit ±90° ก่อนสั่งหมุน
-7. ทุกเส้นทางกลับ Connector A เพื่ออ่าน Input รอบใหม่
+### 1. Project Main Controller = ESP32
+หน้า Hardware I/O เปิดครั้งแรกจะเลือก:
+- ESP32 DevKit V1 / ESP-WROOM-32
+- 34 physical GPIO
+- แสดง Input-only GPIO
+- แสดง Boot/Strapping pins
+- แสดง UART0 shared pins
+- Board Animation / Used / Free / Conflict เดิมยังทำงานครบ
 
-Winch ยังคงเป็นระบบแยก: ใช้รีโมทของชุดวินช์ + แบต 12 V แยก ไม่อยู่ใน ESP32 Control Flow หลัก
+Suggested project map สำหรับ ESP32:
+- iBUS RX → GPIO16
+- CAN TX → GPIO21
+- CAN RX → GPIO22
+- I2C SDA → GPIO18
+- I2C SCL → GPIO19
+- Limit Left → GPIO32
+- Limit Right → GPIO33
+- Buzzer → GPIO25
+- LED → GPIO26
 
-### Interactive / Animation
-- Scenario selector: Drive, Idle, Crane Left/Right, RC/E-stop, VESC Fault, Tilt Fault, Vehicle not stopped, Left/Right Limit
-- ปุ่ม Prev / Next
-- ปุ่ม Play/Stop animation
-- Node ปัจจุบันเรือง/กระพริบ
-- Sync from Control Logic: ดึงสถานะจาก Simulator แล้วเลือกเส้นทาง Flowchart ให้อัตโนมัติ
-- Export Flowchart เป็น PNG ได้จากในโปรแกรม
+CAN ยังต้องผ่าน CAN Transceiver เช่น SN65HVD230 ก่อนต่อ CANH/CANL ไป VESC
 
-### Safety Logic improvements
-- เพิ่ม VESC / Motor Fault input
-- VESC Fault → Drive = 0, Crane STOP, Alarm
-- เพิ่ม Vehicle stopped ≥ 0.5 s input
-- Crane command จะยังไม่ทำงานจนกว่ารถหยุดนิ่งครบ 0.5 s
-- Limit -90°/+90° ยังห้ามหมุนต่อเข้า Limit แต่อนุญาตให้หมุนย้อนออก
-- Differential steering / Pivot Turn ยังทำงานเหมือนเดิม
-- Self-Test เพิ่มเป็น 15 scenarios
+ESP32-S3 / Waveshare 7B profiles ยังเก็บไว้ในโปรแกรมสำหรับ Reference หรือเปลี่ยนบอร์ดภายหลัง
 
-### Presentation use
-Flowchart นี้ออกแบบให้ใช้ทั้ง:
-- อธิบายโปรแกรมต่ออาจารย์
-- ตรวจ Logic ก่อนเขียนลง ESP32
-- เชื่อมความเข้าใจระหว่าง Control Logic, VESC, RC, IMU และ Crane interlock
-- Export เป็นรูปเพื่อนำไปใส่รายงานหรือสไลด์
+### 2. ESP32 / VESC Hardware I/O Manager
+ระบบเดิมถูกคงไว้และผูกกับ ESP32 project target:
+- Animated GPIO Board
+- GPIO conflict checker
+- Voltage / logic level checker
+- Protection checker
+- Custom Device / I/O Builder
+- Generate ESP32 Pin Map
+- Save / Load Project
+- Auto Save
+- VESC CAN mapping
+- BNO086 I2C
+- FlySky iBUS
+- Limit ±90°
+- Buzzer / LED
+
+### 3. Real-Time Telemetry Dashboard
+เพิ่มเมนูใหม่:
+**Home → LIVE TELEMETRY**
+หรือเมนูซ้าย:
+**Live Telemetry**
+
+รองรับข้อมูล:
+- Battery voltage (V)
+- Battery current (A)
+- Vehicle speed (km/h)
+- BNO086 / IMU tilt (deg)
+- Left motor RPM
+- Right motor RPM
+- VESC current (A)
+- RC throttle
+- RC steering
+- Left / Right limit switch
+- E-stop
+- RC status
+- System state
+
+### 4. Live Graph
+กราฟสดในโปรแกรม 3 ชุด:
+- Battery / VESC Current vs Time
+- Vehicle Speed vs Time
+- IMU Tilt vs Time
+
+เก็บ live buffer ล่าสุด 600 samples
+
+### 5. ESP32 USB Serial Connection
+รองรับ Windows COM Port ผ่าน pyserial:
+- Refresh COM Port
+- Baud 115200 / 230400 / 460800 / 921600
+- Sample rate 1–20 Hz
+- Connect / Disconnect
+
+Protocol เป็น JSON 1 บรรทัดต่อ sample เช่น:
+`{"battery_v":72.4,"battery_a":12.3,"speed_kmh":1.0,"tilt_deg":2.1,"left_rpm":12.0,"right_rpm":12.1,"state":"DRIVE"}`
+
+### 6. Simulation / Demo
+ถ้ายังไม่ได้ต่อ ESP32 จริง สามารถกด:
+**Source → Simulation / Demo → Connect / Start**
+
+โปรแกรมจะสร้างข้อมูลจำลองเพื่อ:
+- ทดสอบ UI
+- ทดสอบกราฟ
+- ทดสอบ Data Logger
+- ใช้อธิบายระบบต่ออาจารย์ก่อนรถจริงพร้อม
+
+### 7. CSV Data Logger
+เพิ่ม:
+- Start Logging
+- Stop Logging
+- Clear Data
+- Export CSV
+
+CSV เก็บ:
+- Timestamp
+- Battery V/A
+- Speed
+- Tilt
+- RPM L/R
+- VESC current
+- RC throttle/steer
+- Limit L/R
+- E-stop
+- RC OK
+- State
+
+รองรับสูงสุด 200,000 rows ต่อ session ใน memory logger
+
+### 8. ESP32 Telemetry Sender Template
+หน้า Telemetry มี:
+- Copy ESP32 Sender Template
+- Export .ino
+
+Template จะดึง GPIO map ปัจจุบันจาก Hardware I/O Manager และสร้างโครง Arduino/ESP32 สำหรับส่ง JSON ผ่าน Serial
+
+ผู้ใช้สามารถแทน TODO ด้วยค่าจริงจาก:
+- VESC CAN
+- BNO086
+- FlySky iBUS
+- Limit switches
+- Battery sensor
+
+### 9. Safety display
+Live Dashboard แจ้งสถานะ:
+- E-STOP
+- RC LOST
+- LEFT LIMIT
+- RIGHT LIMIT
+- TILT LIMIT
+
+หมายเหตุ: Dashboard เป็น Monitoring / Validation tool ไม่ใช่วงจร Safety-rated controller
+
+### 10. Project migration
+เมื่ออัปเดตจากเวอร์ชันก่อน V52.6:
+- Auto Save ปัจจุบันจะย้าย Main Board target ไป Classic ESP32 อัตโนมัติ
+- Project file เก่าที่ผู้ใช้เปิดเองยังคง Board Profile เดิม เพื่อไม่ทำลายงานเก่า
 
 ### Regression Gate
-ก่อนสร้าง Setup.exe รุ่นนี้ Windows full regression จะตรวจ:
-- เปิดหน้า Flowchart ในทุก resolution/font scale
-- Render Flowchart จริงแบบ offscreen
-- ทุก Scenario มี path ถูกต้อง
-- VESC Fault เข้าสถานะ Safe Stop
-- Crane ถูกล็อกเมื่อ stationary < 0.5 s
-- Crane ทำงานเมื่อ stationary ≥ 0.5 s
-- Sync จาก Control Logic → Flowchart
-- Safety Self-Test 15/15
-- ระบบเดิม Torque / Battery / Winch / Stability / Hardware I/O / PDF / Updater ยังต้องผ่านก่อน Release
+ก่อนสร้าง Setup.exe Windows Full Regression จะตรวจ:
+- Project default = ESP32 DevKit / ESP-WROOM-32
+- Classic ESP32 GPIO count = 34
+- GPIO / VESC mapping
+- Hardware conflict / voltage / custom I/O
+- pyserial พร้อมใช้งานใน Windows build
+- Telemetry Simulation
+- JSON parser
+- Live chart render
+- Data Logger start/stop
+- CSV export
+- ESP32 sender template
+- ระบบเดิม Torque / Battery / Winch / Stability / Control Logic / Flowchart / PDF / Updater ทั้งหมด
 
-หมายเหตุ: Flowchart และ Control Logic เป็น Preliminary Control Design / Simulator ไม่ใช่ Safety PLC หรือระบบที่ได้รับการรับรอง ต้องทดสอบ E-stop, VESC fault handling, braking, RC failsafe, limit switches และ interlock บนฮาร์ดแวร์จริงก่อนใช้งาน
+หมายเหตุ: ก่อนต่อฮาร์ดแวร์จริงต้องตรวจ pinout ของบอร์ด ESP32 ที่ซื้อจริง, logic 3.3 V, VESC CAN wiring, BNO086 breakout voltage, iBUS signal level, BMS/Fuse และ Grounding อีกครั้ง
