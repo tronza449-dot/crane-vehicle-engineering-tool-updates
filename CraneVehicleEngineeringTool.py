@@ -2660,7 +2660,8 @@ void loop() {{
         addv=QPushButton("+ Add Test");addv.clicked.connect(self.add_validation_row)
         delv=QPushButton("Delete Selected");delv.clicked.connect(self.delete_validation_row)
         clearv=QPushButton("Clear Measured");clearv.clicked.connect(self.clear_validation_measured)
-        for b in (load,addv,delv,clearv):vbar.addWidget(b)
+        fromTele=QPushButton("Fill from Latest Telemetry");fromTele.clicked.connect(self.fill_validation_from_telemetry)
+        for b in (load,fromTele,addv,delv,clearv):vbar.addWidget(b)
         vbar.addStretch(1);vl.addLayout(vbar)
         vh=QLabel("กรอกค่าที่วัดจากรถจริงในคอลัมน์ Measured → โปรแกรมคำนวณ Error % และ PASS/FAIL อัตโนมัติ")
         vh.setWordWrap(True);vh.setStyleSheet("color:#60758b;font-weight:650;");vl.addWidget(vh)
@@ -2887,6 +2888,20 @@ void loop() {{
             self.validationTable.setItem(r,3,QTableWidgetItem(""))
         self.validationTable.blockSignals(False);self.update_validation_results()
 
+    def fill_validation_from_telemetry(self):
+        if not getattr(self,"telemetryHistory",None):
+            QMessageBox.information(self,"Validation","ยังไม่มี Telemetry sample");return
+        sample=self.telemetryHistory[-1]
+        mapping={"Vehicle speed":"speed_kmh","Uphill battery current":"battery_a","IMU zero tilt":"tilt_deg"}
+        self.validationTable.blockSignals(True);filled=0
+        for r in range(self.validationTable.rowCount()):
+            name=self.validationTable.item(r,0).text() if self.validationTable.item(r,0) else ""
+            key=mapping.get(name)
+            if key and key in sample:
+                self.validationTable.setItem(r,3,QTableWidgetItem(f"{float(sample[key]):.4g}"));filled+=1
+        self.validationTable.blockSignals(False);self.update_validation_results()
+        self.statusBar().showMessage(f"นำ Telemetry ล่าสุดมาใส่ Validation {filled} ค่า",3000)
+
     def update_validation_results(self,*_):
         if not hasattr(self,"validationTable"):return
         self.validationTable.blockSignals(True);p=f=pend=0
@@ -2955,6 +2970,12 @@ void loop() {{
 
         vs=self.validation_status_counts()
         if vs["FAIL"]>0:add("WARNING","Validation",f"{vs['FAIL']} measured test(s) FAIL","ตรวจความคลาดเคลื่อนและปรับโมเดล/ฮาร์ดแวร์")
+        if getattr(self,"telemetryHistory",None):
+            sample=self.telemetryHistory[-1]
+            if sample.get("estop"):add("CRITICAL","Live Telemetry","ESP32 reports E-stop active","ตรวจ E-stop และวงจร enable ก่อนเคลื่อนที่")
+            if not sample.get("rc_ok",True):add("CRITICAL","Live Telemetry","ESP32 reports RC signal lost","ตรวจ receiver/iBUS/failsafe")
+            if abs(float(sample.get("tilt_deg",0)))>=float(self.safetyTiltLimit.value()):
+                add("WARNING","Live Telemetry",f"Tilt {float(sample.get('tilt_deg',0)):.1f}° exceeds limit","หยุด Drive และตรวจพื้น/เสถียรภาพ")
         if not findings:add("INFO","System","No active issue found by current software checks","ยังต้องตรวจฮาร์ดแวร์จริงและ datasheet ก่อนใช้งาน")
         return findings
 
@@ -3017,7 +3038,7 @@ void loop() {{
         if r>=0:self.bomTable.removeRow(r);self.update_bom_summary()
 
     def bom_totals(self):
-        total_cost=0.0;total_mass=0.0;qty_total=0.0
+        total_cost=0.0;total_mass=0.0;qty_total=0.0;mass_missing=0;cost_missing=0
         for r in range(self.bomTable.rowCount()):
             try:qty=float(self.bomTable.item(r,2).text())
             except:qty=0
@@ -3026,18 +3047,24 @@ void loop() {{
             try:mass=float(self.bomTable.item(r,4).text())
             except:mass=0
             qty_total+=qty;total_cost+=qty*cost;total_mass+=qty*mass
-        return dict(cost=total_cost,mass=total_mass,qty=qty_total,items=self.bomTable.rowCount())
+            if qty>0 and mass<=0:mass_missing+=1
+            if qty>0 and cost<=0:cost_missing+=1
+        return dict(cost=total_cost,mass=total_mass,qty=qty_total,items=self.bomTable.rowCount(),
+                    mass_missing=mass_missing,cost_missing=cost_missing)
 
     def update_bom_summary(self,*_):
         if not hasattr(self,"bomTable"):return
         t=self.bom_totals()
-        mass_note=(" • exceeds 300 kg target" if t["mass"]>300 else "")
-        self.bomSummary.setText(f"BOM: {t['items']} rows • Qty {t['qty']:.0f} • Cost {t['cost']:,.2f} THB • Entered component mass {t['mass']:.2f} kg{mass_note}")
-        self.bomSummary.setStyleSheet(f"font-weight:900;color:{'#b42318' if t['mass']>300 else '#17324d'};padding:8px;")
+        notes=[]
+        if t["mass"]>300:notes.append("exceeds 300 kg target")
+        if t["mass_missing"]:notes.append(f"{t['mass_missing']} row(s) missing mass")
+        if t["cost_missing"]:notes.append(f"{t['cost_missing']} row(s) missing cost")
+        suffix=(" • "+" • ".join(notes)) if notes else ""
+        self.bomSummary.setText(f"BOM: {t['items']} rows • Qty {t['qty']:.0f} • Cost {t['cost']:,.2f} THB • Entered component mass {t['mass']:.2f} kg{suffix}")
+        self.bomSummary.setStyleSheet(f"font-weight:900;color:{'#b42318' if t['mass']>300 else '#b54708' if t['mass_missing'] else '#17324d'};padding:8px;")
         if hasattr(self,"finalVerificationView"):self.update_final_verification()
         self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
 
-    # ---------------- REVISION MANAGER ----------------
     def _revision_summary_values(self,state):
         widgets=state.get("widgets",{}) if isinstance(state,dict) else {}
         def get(name,default="—"):
@@ -3112,9 +3139,10 @@ void loop() {{
         elif vs["FAIL"]>0:add("Validation","Measured vs Calculated","FAIL",f"{vs['FAIL']} FAIL / {vs['PENDING']} PENDING")
         elif vs["PENDING"]>0:add("Validation","Measured vs Calculated","CHECK",f"{vs['PASS']} PASS / {vs['PENDING']} PENDING")
         else:add("Validation","Measured vs Calculated","PASS",f"{vs['PASS']} PASS")
-        bt=self.bom_totals() if hasattr(self,"bomTable") else dict(items=0,mass=0,cost=0)
-        add("BOM","BOM / Cost / Weight","CHECK" if bt["items"]==0 else ("FAIL" if bt["mass"]>300 else "PASS"),
-            f"{bt['items']} rows • entered mass {bt['mass']:.1f} kg • {bt['cost']:,.0f} THB")
+        bt=self.bom_totals() if hasattr(self,"bomTable") else dict(items=0,mass=0,cost=0,mass_missing=0,cost_missing=0)
+        bom_status="CHECK" if bt["items"]==0 or bt.get("mass_missing",0)>0 else ("FAIL" if bt["mass"]>300 else "PASS")
+        add("BOM","BOM / Cost / Weight",bom_status,
+            f"{bt['items']} rows • entered mass {bt['mass']:.1f} kg • {bt['cost']:,.0f} THB • missing mass {bt.get('mass_missing',0)}")
         add("Revisions","Design Revision Snapshot","PASS" if len(getattr(self,"designRevisions",[]))>0 else "CHECK",
             f"{len(getattr(self,'designRevisions',[]))} revision(s)")
         findings=self.diagnostic_results()
