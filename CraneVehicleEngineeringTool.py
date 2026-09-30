@@ -1307,6 +1307,408 @@ class App(QMainWindow):
         else:
             QMessageBox.warning(self,"Flowchart","บันทึกรูปไม่สำเร็จ")
 
+
+    # =====================================================================
+    # V52.6 REAL-TIME ESP32 TELEMETRY / DATA LOGGER
+    # =====================================================================
+    def make_telemetry_page(self):
+        w=QWidget();self.telemetryPage=w
+        root=QVBoxLayout(w);root.setContentsMargins(16,14,16,16);root.setSpacing(10)
+        root.addWidget(make_page_header(
+            "ESP32 REAL-TIME TELEMETRY / DATA LOGGER",
+            "USB Serial JSON • Battery • VESC Current • Speed • IMU • RPM • RC • Limits • CSV",
+            self.show_home_mode,"V52.6 LIVE","#e6fbfa","#087e8b"
+        ))
+
+        # Connection / acquisition toolbar
+        bar=QFrame();bar.setObjectName("softPanel")
+        bl=QGridLayout(bar);bl.setContentsMargins(12,9,12,9);bl.setHorizontalSpacing(8);bl.setVerticalSpacing(7)
+        bl.addWidget(QLabel("Source"),0,0)
+        self.telemetrySource=QComboBox();self.telemetrySource.addItems(["Simulation / Demo","ESP32 Serial JSON"])
+        self.telemetrySource.currentIndexChanged.connect(self.telemetry_source_changed);bl.addWidget(self.telemetrySource,0,1)
+        bl.addWidget(QLabel("COM Port"),0,2)
+        self.telemetryPort=QComboBox();self.telemetryPort.setMinimumWidth(150);bl.addWidget(self.telemetryPort,0,3)
+        refresh=QPushButton("Refresh Ports");refresh.clicked.connect(self.refresh_serial_ports);bl.addWidget(refresh,0,4)
+        bl.addWidget(QLabel("Baud"),0,5)
+        self.telemetryBaud=QComboBox();self.telemetryBaud.addItems(["115200","230400","460800","921600"]);bl.addWidget(self.telemetryBaud,0,6)
+        bl.addWidget(QLabel("Rate"),0,7)
+        self.telemetryRateHz=QSpinBox();self.telemetryRateHz.setRange(1,20);self.telemetryRateHz.setValue(10);self.telemetryRateHz.setSuffix(" Hz")
+        self.telemetryRateHz.valueChanged.connect(self.telemetry_rate_changed);bl.addWidget(self.telemetryRateHz,0,8)
+
+        self.telemetryConnectButton=QPushButton("Connect / Start");self.telemetryConnectButton.setObjectName("primaryButton");self.telemetryConnectButton.clicked.connect(self.connect_telemetry)
+        self.telemetryDisconnectButton=QPushButton("Disconnect");self.telemetryDisconnectButton.clicked.connect(self.disconnect_telemetry)
+        self.telemetryLogButton=QPushButton("Start Logging");self.telemetryLogButton.clicked.connect(self.toggle_telemetry_logging)
+        export=QPushButton("Export CSV");export.clicked.connect(self.export_telemetry_csv)
+        clear=QPushButton("Clear Data");clear.setObjectName("secondaryButton");clear.clicked.connect(self.clear_telemetry_data)
+        openHw=QPushButton("ESP32 I/O Manager");openHw.clicked.connect(self.show_hardware_mode)
+        bl.addWidget(self.telemetryConnectButton,1,0,1,2);bl.addWidget(self.telemetryDisconnectButton,1,2)
+        bl.addWidget(self.telemetryLogButton,1,3);bl.addWidget(export,1,4);bl.addWidget(clear,1,5);bl.addWidget(openHw,1,6,1,3)
+        bl.setColumnStretch(3,1);root.addWidget(bar)
+
+        statusRow=QHBoxLayout();statusRow.setSpacing(9)
+        def stat_card(title):
+            box=QFrame();box.setObjectName("metricPanel");lay=QVBoxLayout(box);lay.setContentsMargins(11,8,11,8);lay.setSpacing(2)
+            t=QLabel(title);t.setStyleSheet("color:#60758b;font-size:8.5pt;font-weight:900;")
+            v=QLabel("—");v.setWordWrap(True);v.setStyleSheet("color:#17324d;font-size:14pt;font-weight:900;")
+            lay.addWidget(t);lay.addWidget(v);return box,v
+        c,self.telemetryConnLabel=stat_card("CONNECTION");statusRow.addWidget(c)
+        c,self.telemetryBatteryLabel=stat_card("BATTERY");statusRow.addWidget(c)
+        c,self.telemetryCurrentLabel=stat_card("CURRENT");statusRow.addWidget(c)
+        c,self.telemetrySpeedLabel=stat_card("SPEED");statusRow.addWidget(c)
+        c,self.telemetryTiltLabel=stat_card("IMU TILT");statusRow.addWidget(c)
+        c,self.telemetryRpmLabel=stat_card("MOTOR RPM");statusRow.addWidget(c)
+        c,self.telemetryLogLabel=stat_card("LOGGER");statusRow.addWidget(c)
+        root.addLayout(statusRow)
+
+        self.telemetryTabs=QTabWidget();root.addWidget(self.telemetryTabs,1)
+
+        # Live dashboard
+        live=QWidget();ll=QHBoxLayout(live);ll.setContentsMargins(8,8,8,8);ll.setSpacing(10)
+        self.telemetryChart=TelemetryChartWidget(self);ll.addWidget(self.telemetryChart,3)
+        side=QVBoxLayout()
+        self.telemetryStateView=QTextEdit();self.telemetryStateView.setReadOnly(True);self.telemetryStateView.setMinimumWidth(300)
+        side.addWidget(self.telemetryStateView,2)
+        self.telemetryProtocolStatus=QPlainTextEdit();self.telemetryProtocolStatus.setReadOnly(True);self.telemetryProtocolStatus.setMaximumHeight(150)
+        side.addWidget(self.telemetryProtocolStatus,1)
+        sw=QWidget();sw.setLayout(side);ll.addWidget(sw,1)
+        self.telemetryTabs.addTab(live,"Live Dashboard")
+
+        # Recent sample table
+        samples=QWidget();sl=QVBoxLayout(samples);sl.setContentsMargins(8,8,8,8)
+        self.telemetryTable=QTableWidget(0,13)
+        self.telemetryTable.setHorizontalHeaderLabels([
+            "Time","Battery V","Battery A","Speed","Tilt","RPM L","RPM R",
+            "VESC A","Throttle","Steer","Limit L","Limit R","State"
+        ])
+        self.telemetryTable.verticalHeader().setVisible(False);self.telemetryTable.setAlternatingRowColors(True)
+        self.telemetryTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.telemetryTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.telemetryTable.horizontalHeader().setSectionResizeMode(12,QHeaderView.Stretch)
+        sl.addWidget(self.telemetryTable,1);self.telemetryTabs.addTab(samples,"Recent Samples")
+
+        # ESP32 protocol/code page
+        proto=QWidget();pl=QVBoxLayout(proto);pl.setContentsMargins(8,8,8,8);pl.setSpacing(7)
+        top=QHBoxLayout()
+        copy=QPushButton("Copy ESP32 Sender Template");copy.setObjectName("primaryButton");copy.clicked.connect(self.copy_telemetry_esp32_template)
+        exp=QPushButton("Export .ino");exp.clicked.connect(self.export_telemetry_esp32_template)
+        top.addWidget(copy);top.addWidget(exp);top.addStretch(1);pl.addLayout(top)
+        guide=QLabel('ESP32 ส่ง JSON 1 บรรทัดต่อ sample ผ่าน USB Serial เช่น {"battery_v":72.4,"battery_a":12.3,"speed_kmh":1.0,"tilt_deg":2.1,...}')
+        guide.setWordWrap(True);guide.setStyleSheet("background:#eef8ff;color:#294d6b;padding:9px;border:1px solid #d3e6f5;border-radius:8px;");pl.addWidget(guide)
+        self.telemetryCodeView=QPlainTextEdit();self.telemetryCodeView.setReadOnly(True)
+        self.telemetryCodeView.setStyleSheet("font-family:Consolas,'Courier New',monospace;font-size:9.5pt;")
+        pl.addWidget(self.telemetryCodeView,1);self.telemetryTabs.addTab(proto,"ESP32 Protocol / Code")
+
+        self.telemetryHistory=[];self.telemetryLogRows=[];self.telemetryConnected=False;self.telemetryLogging=False
+        self.telemetrySerial=None;self.telemetrySampleCounter=0;self.telemetryParseErrors=0
+        self.telemetryTimer=QTimer(self);self.telemetryTimer.timeout.connect(self.telemetry_tick)
+        self.telemetryCodeView.setPlainText(self.telemetry_esp32_template())
+        self.refresh_serial_ports();self.telemetry_source_changed();self.update_telemetry_ui()
+        self.tabs.addTab(w,"")
+
+    def telemetry_source_changed(self,*_):
+        self.disconnect_telemetry(silent=True)
+        serial_mode=hasattr(self,"telemetrySource") and self.telemetrySource.currentIndex()==1
+        if hasattr(self,"telemetryPort"):self.telemetryPort.setEnabled(serial_mode)
+        if hasattr(self,"telemetryBaud"):self.telemetryBaud.setEnabled(serial_mode)
+        self.update_telemetry_ui()
+
+    def telemetry_rate_changed(self,*_):
+        if hasattr(self,"telemetryTimer") and self.telemetryTimer.isActive():
+            self.telemetryTimer.setInterval(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
+
+    def refresh_serial_ports(self,*_):
+        if not hasattr(self,"telemetryPort"):return
+        old=self.telemetryPort.currentText()
+        self.telemetryPort.blockSignals(True);self.telemetryPort.clear()
+        ports=[]
+        if SERIAL_AVAILABLE and list_ports is not None:
+            try:ports=[p.device for p in list_ports.comports()]
+            except Exception:ports=[]
+        if ports:self.telemetryPort.addItems(ports)
+        else:self.telemetryPort.addItem("No COM port found" if SERIAL_AVAILABLE else "pyserial unavailable")
+        idx=self.telemetryPort.findText(old)
+        if idx>=0:self.telemetryPort.setCurrentIndex(idx)
+        self.telemetryPort.blockSignals(False)
+
+    def connect_telemetry(self,*_):
+        self.disconnect_telemetry(silent=True)
+        self.telemetryParseErrors=0
+        if self.telemetrySource.currentIndex()==0:
+            self.telemetryConnected=True
+            self.telemetryTimer.start(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
+            self.statusBar().showMessage("Telemetry Simulation started",3000)
+        else:
+            if not SERIAL_AVAILABLE or serial is None:
+                QMessageBox.warning(self,"ESP32 Telemetry","pyserial ไม่พร้อมใช้งานในโปรแกรมรุ่นนี้")
+                return
+            port=self.telemetryPort.currentText().strip()
+            if not port or port.startswith("No ") or port.startswith("pyserial"):
+                QMessageBox.warning(self,"ESP32 Telemetry","ไม่พบ COM Port ของ ESP32")
+                return
+            try:
+                self.telemetrySerial=serial.Serial(port,int(self.telemetryBaud.currentText()),timeout=0)
+                self.telemetryConnected=True
+                self.telemetryTimer.start(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
+                self.statusBar().showMessage(f"Connected to ESP32: {port}",3000)
+            except Exception as exc:
+                self.telemetrySerial=None;self.telemetryConnected=False
+                QMessageBox.warning(self,"ESP32 Telemetry",f"เปิด {port} ไม่สำเร็จ\n{exc}")
+        self.update_telemetry_ui()
+
+    def disconnect_telemetry(self,*_,silent=False):
+        if hasattr(self,"telemetryTimer"):self.telemetryTimer.stop()
+        ser=getattr(self,"telemetrySerial",None)
+        if ser is not None:
+            try:ser.close()
+            except Exception:pass
+        self.telemetrySerial=None;self.telemetryConnected=False
+        if not silent and hasattr(self,"statusBar"):self.statusBar().showMessage("Telemetry disconnected",2500)
+        if hasattr(self,"telemetryConnLabel"):self.update_telemetry_ui()
+
+    @staticmethod
+    def _telemetry_bool(value):
+        if isinstance(value,bool):return value
+        if isinstance(value,(int,float)):return bool(value)
+        return str(value).strip().lower() in ("1","true","yes","on","active")
+
+    @staticmethod
+    def _telemetry_num(value,default=0.0):
+        try:return float(value)
+        except Exception:return float(default)
+
+    def normalize_telemetry_sample(self,data):
+        if not isinstance(data,dict):raise ValueError("Telemetry JSON must be an object")
+        aliases={
+            "battery_v":("battery_v","voltage","vbat","v"),
+            "battery_a":("battery_a","battery_current","ibat","current","a"),
+            "speed_kmh":("speed_kmh","speed","vehicle_speed"),
+            "tilt_deg":("tilt_deg","tilt","imu_tilt"),
+            "left_rpm":("left_rpm","rpm_l","motor_left_rpm"),
+            "right_rpm":("right_rpm","rpm_r","motor_right_rpm"),
+            "vesc_current_a":("vesc_current_a","vesc_current","motor_current"),
+            "rc_throttle":("rc_throttle","throttle"),
+            "rc_steer":("rc_steer","steer"),
+        }
+        out={}
+        for dst,keys in aliases.items():
+            val=next((data[k] for k in keys if k in data),0.0);out[dst]=self._telemetry_num(val)
+        out["limit_left"]=self._telemetry_bool(data.get("limit_left",data.get("left_limit",False)))
+        out["limit_right"]=self._telemetry_bool(data.get("limit_right",data.get("right_limit",False)))
+        out["estop"]=self._telemetry_bool(data.get("estop",False))
+        out["rc_ok"]=self._telemetry_bool(data.get("rc_ok",True))
+        out["state"]=str(data.get("state","LIVE")).strip() or "LIVE"
+        out["timestamp"]=str(data.get("timestamp","")).strip() or datetime.now().isoformat(timespec="milliseconds")
+        return out
+
+    def parse_telemetry_line(self,line):
+        if isinstance(line,bytes):line=line.decode("utf-8","replace")
+        text=str(line).strip()
+        if not text:return None
+        try:return self.normalize_telemetry_sample(json.loads(text))
+        except Exception as exc:
+            self.telemetryParseErrors+=1
+            self.telemetryProtocolStatus.setPlainText(f"JSON parse error #{self.telemetryParseErrors}\n{text[:220]}\n{exc}")
+            return None
+
+    def simulated_telemetry_sample(self):
+        n=self.telemetrySampleCounter;phase=n/10.0
+        speed=max(0.0,1.0+0.12*math.sin(phase*0.65))
+        current=max(0.0,10.5+5.0*math.sin(phase*0.72)+1.7*math.sin(phase*1.9))
+        tilt=2.5+4.5*math.sin(phase*0.21)
+        rpm=speed/3.6/(2*math.pi*max(self.tradius.value(),0.01))*60 if hasattr(self,"tradius") else speed*12
+        return self.normalize_telemetry_sample({
+            "battery_v":72.5-0.003*n+0.15*math.sin(phase*0.3),
+            "battery_a":current,"speed_kmh":speed,"tilt_deg":tilt,
+            "left_rpm":rpm*(1+0.035*math.sin(phase)),"right_rpm":rpm*(1-0.035*math.sin(phase)),
+            "vesc_current_a":current*1.08,"rc_throttle":28+8*math.sin(phase*0.4),
+            "rc_steer":10*math.sin(phase*0.3),"limit_left":False,"limit_right":False,
+            "estop":False,"rc_ok":True,"state":"DRIVE" if speed>0.05 else "READY"
+        })
+
+    def telemetry_tick(self):
+        if not getattr(self,"telemetryConnected",False):return
+        if self.telemetrySource.currentIndex()==0:
+            self.telemetrySampleCounter+=1;self.ingest_telemetry_sample(self.simulated_telemetry_sample());return
+        ser=getattr(self,"telemetrySerial",None)
+        if ser is None:return
+        try:
+            count=0
+            while getattr(ser,"in_waiting",0)>0 and count<50:
+                line=ser.readline();count+=1
+                sample=self.parse_telemetry_line(line)
+                if sample:self.ingest_telemetry_sample(sample)
+        except Exception as exc:
+            self.telemetryProtocolStatus.setPlainText("Serial read error:\n"+str(exc))
+            self.disconnect_telemetry(silent=True)
+            self.update_telemetry_ui()
+
+    def ingest_telemetry_sample(self,sample):
+        if not isinstance(sample,dict):return
+        if "timestamp" not in sample:sample=self.normalize_telemetry_sample(sample)
+        self.telemetryHistory.append(sample)
+        if len(self.telemetryHistory)>600:self.telemetryHistory=self.telemetryHistory[-600:]
+        if self.telemetryLogging:
+            self.telemetryLogRows.append(dict(sample))
+            if len(self.telemetryLogRows)>200000:
+                self.telemetryLogRows=self.telemetryLogRows[-200000:]
+        self._insert_telemetry_table_row(sample)
+        self.update_telemetry_ui()
+
+    def _insert_telemetry_table_row(self,s):
+        if not hasattr(self,"telemetryTable"):return
+        self.telemetryTable.insertRow(0)
+        vals=[
+            str(s.get("timestamp","")).split("T")[-1],
+            f"{s.get('battery_v',0):.2f}",f"{s.get('battery_a',0):.2f}",f"{s.get('speed_kmh',0):.3f}",
+            f"{s.get('tilt_deg',0):.2f}",f"{s.get('left_rpm',0):.1f}",f"{s.get('right_rpm',0):.1f}",
+            f"{s.get('vesc_current_a',0):.2f}",f"{s.get('rc_throttle',0):.1f}",f"{s.get('rc_steer',0):.1f}",
+            "1" if s.get("limit_left") else "0","1" if s.get("limit_right") else "0",str(s.get("state",""))
+        ]
+        for c,val in enumerate(vals):
+            item=QTableWidgetItem(val);item.setTextAlignment(Qt.AlignCenter);self.telemetryTable.setItem(0,c,item)
+        while self.telemetryTable.rowCount()>100:self.telemetryTable.removeRow(self.telemetryTable.rowCount()-1)
+
+    def update_telemetry_ui(self,*_):
+        if not hasattr(self,"telemetryConnLabel"):return
+        connected=getattr(self,"telemetryConnected",False)
+        mode="SIM" if self.telemetrySource.currentIndex()==0 else "ESP32"
+        self.telemetryConnLabel.setText(f"{'CONNECTED' if connected else 'OFFLINE'}\n{mode}")
+        self.telemetryConnLabel.setStyleSheet(f"color:{'#176337' if connected else '#b42318'};font-size:13pt;font-weight:900;")
+        sample=self.telemetryHistory[-1] if self.telemetryHistory else None
+        if sample:
+            self.telemetryBatteryLabel.setText(f"{sample['battery_v']:.2f} V")
+            self.telemetryCurrentLabel.setText(f"{sample['battery_a']:.2f} A")
+            self.telemetrySpeedLabel.setText(f"{sample['speed_kmh']:.3f} km/h")
+            self.telemetryTiltLabel.setText(f"{sample['tilt_deg']:.2f}°")
+            self.telemetryRpmLabel.setText(f"L {sample['left_rpm']:.1f}\nR {sample['right_rpm']:.1f}")
+            fault=[]
+            if sample.get("estop"):fault.append("E-STOP")
+            if not sample.get("rc_ok",True):fault.append("RC LOST")
+            if sample.get("limit_left"):fault.append("LEFT LIMIT")
+            if sample.get("limit_right"):fault.append("RIGHT LIMIT")
+            tilt_limit=getattr(getattr(self,"safetyTiltLimit",None),"value",lambda:12.0)()
+            if abs(sample.get("tilt_deg",0))>=tilt_limit:fault.append("TILT LIMIT")
+            state_color="#b42318" if fault else "#176337"
+            self.telemetryStateView.setHtml(f"""
+            <h2 style='color:{state_color}'>{sample.get('state','LIVE')}</h2>
+            <table border='1' cellspacing='0' cellpadding='5'>
+            <tr><td>Battery</td><td>{sample['battery_v']:.2f} V / {sample['battery_a']:.2f} A</td></tr>
+            <tr><td>VESC current</td><td>{sample['vesc_current_a']:.2f} A</td></tr>
+            <tr><td>Speed</td><td>{sample['speed_kmh']:.3f} km/h</td></tr>
+            <tr><td>IMU tilt</td><td>{sample['tilt_deg']:.2f}°</td></tr>
+            <tr><td>Motor RPM</td><td>L {sample['left_rpm']:.1f} / R {sample['right_rpm']:.1f}</td></tr>
+            <tr><td>RC command</td><td>Throttle {sample['rc_throttle']:.1f}% / Steer {sample['rc_steer']:.1f}%</td></tr>
+            <tr><td>Limits</td><td>L {int(sample['limit_left'])} / R {int(sample['limit_right'])}</td></tr>
+            </table>
+            <p><b>Fault:</b> {', '.join(fault) if fault else 'None'}</p>
+            """)
+        else:
+            for lab in (self.telemetryBatteryLabel,self.telemetryCurrentLabel,self.telemetrySpeedLabel,self.telemetryTiltLabel,self.telemetryRpmLabel):lab.setText("—")
+            self.telemetryStateView.setHtml("<h3>ยังไม่มีข้อมูล</h3><p>กด Connect / Start เพื่อดู Simulation หรือเชื่อม ESP32 ผ่าน COM Port</p>")
+        count=len(self.telemetryLogRows)
+        self.telemetryLogLabel.setText(("RECORDING" if self.telemetryLogging else "STOPPED")+f"\n{count} rows")
+        self.telemetryLogLabel.setStyleSheet(f"color:{'#b42318' if self.telemetryLogging else '#17324d'};font-size:12pt;font-weight:900;")
+        if hasattr(self,"telemetryChart"):self.telemetryChart.update()
+        self.telemetryProtocolStatus.setPlainText(
+            f"Serial support: {'OK' if SERIAL_AVAILABLE else 'NOT INSTALLED'}\n"
+            f"Samples in live buffer: {len(self.telemetryHistory)}\n"
+            f"Logged rows: {len(self.telemetryLogRows)}\n"
+            f"JSON parse errors: {self.telemetryParseErrors}"
+        )
+
+    def toggle_telemetry_logging(self,*_):
+        if not self.telemetryLogging:
+            self.telemetryLogRows=[];self.telemetryLogging=True;self.telemetryLogButton.setText("Stop Logging")
+        else:
+            self.telemetryLogging=False;self.telemetryLogButton.setText("Start Logging")
+        self.update_telemetry_ui()
+
+    def clear_telemetry_data(self,*_):
+        self.telemetryHistory=[];self.telemetryLogRows=[];self.telemetrySampleCounter=0;self.telemetryParseErrors=0
+        if hasattr(self,"telemetryTable"):self.telemetryTable.setRowCount(0)
+        self.update_telemetry_ui()
+
+    def export_telemetry_csv(self,*_):
+        rows=self.telemetryLogRows if self.telemetryLogRows else self.telemetryHistory
+        if not rows:
+            QMessageBox.information(self,"Telemetry CSV","ยังไม่มีข้อมูลสำหรับ Export");return
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        default=str(Path(docs)/f"CVET_Telemetry_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+        filename,_=QFileDialog.getSaveFileName(self,"Export Telemetry CSV",default,"CSV (*.csv)")
+        if not filename:return
+        if not filename.lower().endswith(".csv"):filename+=".csv"
+        fields=["timestamp","battery_v","battery_a","speed_kmh","tilt_deg","left_rpm","right_rpm",
+                "vesc_current_a","rc_throttle","rc_steer","limit_left","limit_right","estop","rc_ok","state"]
+        try:
+            with open(filename,"w",newline="",encoding="utf-8-sig") as fh:
+                writer=csv.DictWriter(fh,fieldnames=fields);writer.writeheader()
+                for row in rows:writer.writerow({k:row.get(k,"") for k in fields})
+            QMessageBox.information(self,"Telemetry CSV",f"บันทึก {len(rows)} samples แล้ว:\n{filename}")
+        except Exception as exc:
+            QMessageBox.critical(self,"Telemetry CSV",str(exc))
+
+    def telemetry_esp32_template(self):
+        header=self.generate_hardware_header_text() if hasattr(self,"hwRows") else "// Hardware map unavailable"
+        return f"""/*
+  CVET ESP32 Telemetry Sender Template
+  Generated by Crane Vehicle Engineering Tool V{APP_VERSION}
+
+  Protocol: one JSON object + newline per sample.
+  Replace TODO values with real VESC / BNO086 / RC / limit data.
+*/
+
+{header}
+
+void setup() {{
+  Serial.begin(115200);
+}}
+
+void loop() {{
+  float battery_v = 72.0;      // TODO: read battery voltage
+  float battery_a = 0.0;       // TODO: battery current
+  float speed_kmh = 0.0;       // TODO: vehicle speed
+  float tilt_deg = 0.0;        // TODO: BNO086 tilt
+  float left_rpm = 0.0;        // TODO: VESC / motor telemetry
+  float right_rpm = 0.0;
+  float vesc_current_a = 0.0;
+  float rc_throttle = 0.0;     // -100..100
+  float rc_steer = 0.0;        // -100..100
+  bool limit_left = false;
+  bool limit_right = false;
+  bool estop = false;
+  bool rc_ok = true;
+
+  Serial.printf(
+    "{{\\\"battery_v\\\":%.2f,\\\"battery_a\\\":%.2f,\\\"speed_kmh\\\":%.3f,"
+    "\\\"tilt_deg\\\":%.2f,\\\"left_rpm\\\":%.1f,\\\"right_rpm\\\":%.1f,"
+    "\\\"vesc_current_a\\\":%.2f,\\\"rc_throttle\\\":%.1f,\\\"rc_steer\\\":%.1f,"
+    "\\\"limit_left\\\":%d,\\\"limit_right\\\":%d,\\\"estop\\\":%d,"
+    "\\\"rc_ok\\\":%d,\\\"state\\\":\\\"LIVE\\\"}}\\n",
+    battery_v,battery_a,speed_kmh,tilt_deg,left_rpm,right_rpm,
+    vesc_current_a,rc_throttle,rc_steer,
+    limit_left,limit_right,estop,rc_ok
+  );
+
+  delay(100); // 10 Hz
+}}
+"""
+
+    def copy_telemetry_esp32_template(self,*_):
+        QApplication.clipboard().setText(self.telemetry_esp32_template())
+        self.statusBar().showMessage("คัดลอก ESP32 Telemetry template แล้ว",3000)
+
+    def export_telemetry_esp32_template(self,*_):
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        default=str(Path(docs)/"CVET_ESP32_Telemetry.ino")
+        filename,_=QFileDialog.getSaveFileName(self,"Export ESP32 Telemetry Template",default,"Arduino Sketch (*.ino);;Text (*.txt)")
+        if not filename:return
+        if not Path(filename).suffix:filename+=".ino"
+        try:
+            Path(filename).write_text(self.telemetry_esp32_template(),encoding="utf-8")
+            QMessageBox.information(self,"ESP32 Telemetry","บันทึก Template แล้ว:\n"+filename)
+        except Exception as exc:
+            QMessageBox.critical(self,"ESP32 Telemetry",str(exc))
+
     def make_system_flowchart_page(self):
         w=QWidget();self.flowchartPage=w
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(10)
@@ -3548,6 +3950,10 @@ class App(QMainWindow):
 
     def closeEvent(self,event):
         # Always save once more when the program closes normally.
+        if hasattr(self,"telemetryTimer"):self.telemetryTimer.stop()
+        if getattr(self,"telemetrySerial",None) is not None:
+            try:self.telemetrySerial.close()
+            except Exception:pass
         self.save_last_values(silent=True)
         event.accept()
 
