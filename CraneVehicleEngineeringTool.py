@@ -962,7 +962,7 @@ class App(QMainWindow):
         app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
-        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
+        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.make_system_flowchart_page();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
         self.calc_all()
         # Automatically restore the most recently entered values.
         self.restore_last_values(silent=True)
@@ -1124,6 +1124,174 @@ class App(QMainWindow):
             b.setProperty("active",active)
             b.style().unpolish(b);b.style().polish(b);b.update()
 
+
+    # =====================================================================
+    # V52.5 FINAL SYSTEM FLOWCHART
+    # =====================================================================
+    def flowchart_scenario_path(self,name=None):
+        name=(name or (self.flowScenario.currentText() if hasattr(self,"flowScenario") else "Drive Forward"))
+        paths={
+            "Drive Forward":["start","init","read","safe","driveq","stopcrane","mix","soft","send","A","read"],
+            "Idle / Ready":["start","init","read","safe","driveq","stopdrive","stopped","craneq","idle","A","read"],
+            "Crane LEFT":["start","init","read","safe","driveq","stopdrive","stopped","craneq","limit","craneout","A","read"],
+            "Crane RIGHT":["start","init","read","safe","driveq","stopdrive","stopped","craneq","limit","craneout","A","read"],
+            "RC Lost / E-stop":["start","init","read","safe","fault","A","read"],
+            "VESC Fault":["start","init","read","safe","fault","A","read"],
+            "Tilt Fault":["start","init","read","safe","fault","A","read"],
+            "Vehicle not stopped":["start","init","read","safe","driveq","stopdrive","stopped","wait","A","read"],
+            "LEFT Limit Active":["start","init","read","safe","driveq","stopdrive","stopped","craneq","limit","limitstop","A","read"],
+            "RIGHT Limit Active":["start","init","read","safe","driveq","stopdrive","stopped","craneq","limit","limitstop","A","read"],
+        }
+        return paths.get(name,paths["Idle / Ready"])
+
+    def set_flowchart_scenario(self,*_):
+        path=self.flowchart_scenario_path()
+        self.flowStep=0
+        self.flowBoard.set_path(path,0)
+        self._update_flowchart_step_info()
+
+    def flowchart_next_step(self):
+        path=self.flowBoard.path
+        if not path:return
+        self.flowStep=(self.flowStep+1)%len(path)
+        self.flowBoard.set_path(path,self.flowStep)
+        self._update_flowchart_step_info()
+
+    def flowchart_prev_step(self):
+        path=self.flowBoard.path
+        if not path:return
+        self.flowStep=(self.flowStep-1)%len(path)
+        self.flowBoard.set_path(path,self.flowStep)
+        self._update_flowchart_step_info()
+
+    def toggle_flowchart_play(self):
+        if self.flowPlayTimer.isActive():
+            self.flowPlayTimer.stop();self.flowPlayButton.setText("▶ Play")
+        else:
+            self.flowPlayTimer.start(800);self.flowPlayButton.setText("■ Stop")
+
+    def _update_flowchart_step_info(self):
+        current=self.flowBoard.current_node()
+        labels={
+            "start":"เริ่มระบบ / Power ON",
+            "init":"ตั้งค่า ESP32, RC, IMU, CAN/VESC และ Limit Switch",
+            "read":"อ่านรีโมท + IMU + Limit Switch + สถานะ VESC",
+            "safe":"ตรวจ Safety: RC, E-stop, VESC Fault และ Tilt",
+            "fault":"Fault → สั่ง Drive=0, Crane STOP และ Alarm",
+            "driveq":"ตรวจว่ามีคำสั่งขับหรือไม่",
+            "stopcrane":"มีคำสั่งขับ → ล็อก/หยุดการหมุนเครนก่อน",
+            "mix":"คำนวณ Differential Steering ซ้าย/ขวา",
+            "soft":"จำกัดความเร็ว + Soft Start",
+            "send":"ส่งคำสั่ง Left/Right ไป VESC",
+            "stopdrive":"ไม่มีคำสั่งขับ → ส่ง Drive=0 ไป VESC",
+            "stopped":"ตรวจว่ารถหยุดนิ่งต่อเนื่อง ≥ 0.5 s",
+            "wait":"ยังไม่หยุดครบเวลา → รอและคง Drive=0",
+            "craneq":"เมื่อรถหยุดแล้ว ตรวจคำสั่งหมุนเครน",
+            "limit":"ตรวจ Limit Switch ตามทิศที่สั่ง",
+            "limitstop":"ถึง Limit → Stop Crane",
+            "craneout":"ไม่ชน Limit → หมุนเครน LEFT/RIGHT",
+            "idle":"ไม่มีคำสั่งเครน → Crane STOP",
+            "A":"Connector A → กลับไปอ่าน Input รอบถัดไป",
+        }
+        step=self.flowStep+1 if self.flowBoard.path else 0
+        total=len(self.flowBoard.path)
+        self.flowStepLabel.setText(f"Step {step}/{total} • {labels.get(current,'')}")
+        self.flowExplanation.setHtml(f"""
+        <h2>Current Step</h2>
+        <p style='font-size:12pt'><b>{labels.get(current,'—')}</b></p>
+        <hr>
+        <h3>หลักการสำคัญ</h3>
+        <p>• Drive มีสิทธิ์เหนือ Crane: เมื่อรถต้องเคลื่อนที่ ต้องสั่ง <b>Stop Crane Rotation</b> ก่อนส่งคำสั่งไป VESC</p>
+        <p>• เมื่อ Drive command = 0 ต้องส่ง Stop ให้ VESC และยืนยันว่ารถหยุดนิ่งอย่างน้อย <b>0.5 s</b> ก่อนอนุญาต Crane</p>
+        <p>• Limit -90°/+90° ห้ามหมุนต่อเข้า Limit แต่ยังหมุนย้อนออกได้</p>
+        <p>• ทุกเส้นทางกลับ Connector <b>A</b> เพื่ออ่าน Remote/Sensor รอบใหม่</p>
+        <p>• Winch ใช้รีโมทของชุดวินช์และแบต 12 V แยก จึงไม่อยู่ใน ESP32 Control Flow หลัก</p>
+        """)
+
+    def sync_flowchart_from_safety(self):
+        if not hasattr(self,"flowBoard"):return
+        v=self.safety_input_values() if hasattr(self,"safetyEStop") else {}
+        tilt_fault=abs(float(v.get("tilt",0)))>=float(v.get("tilt_limit",12))
+        drive_req=abs(int(v.get("throttle",0)))>2 or abs(int(v.get("steer",0)))>2
+        crane=str(v.get("crane","STOP"))
+        if v.get("estop") or not v.get("rc_ok",True):
+            scenario="RC Lost / E-stop"
+        elif v.get("vesc_fault",False):
+            scenario="VESC Fault"
+        elif tilt_fault:
+            scenario="Tilt Fault"
+        elif drive_req:
+            scenario="Drive Forward"
+        elif not v.get("stationary_05",True):
+            scenario="Vehicle not stopped"
+        elif crane.startswith("LEFT") and v.get("left_limit",False):
+            scenario="LEFT Limit Active"
+        elif crane.startswith("RIGHT") and v.get("right_limit",False):
+            scenario="RIGHT Limit Active"
+        elif crane.startswith("LEFT"):
+            scenario="Crane LEFT"
+        elif crane.startswith("RIGHT"):
+            scenario="Crane RIGHT"
+        else:
+            scenario="Idle / Ready"
+        idx=self.flowScenario.findText(scenario)
+        if idx>=0:
+            old=self.flowScenario.blockSignals(True);self.flowScenario.setCurrentIndex(idx);self.flowScenario.blockSignals(old)
+        self.set_flowchart_scenario()
+
+    def export_flowchart_png(self):
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        filename,_=QFileDialog.getSaveFileName(self,"Export System Flowchart",str(Path(docs)/"CVET_System_Flowchart.png"),"PNG Image (*.png)")
+        if not filename:return
+        if not filename.lower().endswith(".png"):filename+=".png"
+        pix=self.flowBoard.grab()
+        if pix.save(filename):
+            QMessageBox.information(self,"Flowchart","บันทึก Flowchart แล้ว:\n"+filename)
+        else:
+            QMessageBox.warning(self,"Flowchart","บันทึกรูปไม่สำเร็จ")
+
+    def make_system_flowchart_page(self):
+        w=QWidget();self.flowchartPage=w
+        root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(10)
+        root.addWidget(make_page_header(
+            "FINAL SYSTEM FLOWCHART",
+            "ESP32 Vehicle + Crane Control • RC/IBUS • IMU • VESC • Interlock • Limit ±90°",
+            self.show_home_mode,"V52.5 FLOW","#e8f4ff","#245fbb"
+        ))
+
+        toolbar=QFrame();toolbar.setObjectName("softPanel")
+        tl=QHBoxLayout(toolbar);tl.setContentsMargins(10,8,10,8);tl.setSpacing(8)
+        tl.addWidget(QLabel("Scenario"))
+        self.flowScenario=QComboBox();self.flowScenario.addItems([
+            "Drive Forward","Idle / Ready","Crane LEFT","Crane RIGHT",
+            "RC Lost / E-stop","VESC Fault","Tilt Fault","Vehicle not stopped",
+            "LEFT Limit Active","RIGHT Limit Active"
+        ])
+        self.flowScenario.currentIndexChanged.connect(self.set_flowchart_scenario)
+        tl.addWidget(self.flowScenario,1)
+        sync=QPushButton("Sync from Control Logic");sync.clicked.connect(self.sync_flowchart_from_safety);tl.addWidget(sync)
+        prev=QPushButton("◀ Prev");prev.clicked.connect(self.flowchart_prev_step);tl.addWidget(prev)
+        nxt=QPushButton("Next ▶");nxt.clicked.connect(self.flowchart_next_step);tl.addWidget(nxt)
+        self.flowPlayButton=QPushButton("▶ Play");self.flowPlayButton.setObjectName("primaryButton");self.flowPlayButton.clicked.connect(self.toggle_flowchart_play);tl.addWidget(self.flowPlayButton)
+        exp=QPushButton("Export PNG");exp.clicked.connect(self.export_flowchart_png);tl.addWidget(exp)
+        root.addWidget(toolbar)
+
+        self.flowStepLabel=QLabel("Step 1")
+        self.flowStepLabel.setStyleSheet("font-size:11pt;font-weight:900;color:#245fbb;padding:3px 4px;")
+        root.addWidget(self.flowStepLabel)
+
+        split=QSplitter(Qt.Horizontal);split.setChildrenCollapsible(False)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame)
+        self.flowBoard=SystemFlowchartWidget(self);scroll.setWidget(self.flowBoard);split.addWidget(scroll)
+        self.flowExplanation=QTextEdit();self.flowExplanation.setReadOnly(True);self.flowExplanation.setMinimumWidth(310);split.addWidget(self.flowExplanation)
+        split.setStretchFactor(0,4);split.setStretchFactor(1,1);split.setSizes([950,330])
+        root.addWidget(split,1)
+
+        self.flowPlayTimer=QTimer(self);self.flowPlayTimer.timeout.connect(self.flowchart_next_step)
+        self.flowStep=0
+        self.set_flowchart_scenario()
+        self.tabs.addTab(w,"")
+
     def setup_navigation_dock(self):
         self.navButtons={}
         dock=QDockWidget("",self);self.navDock=dock
@@ -1149,6 +1317,7 @@ class App(QMainWindow):
         lay.addWidget(self._make_nav_button("winch","W   Winch",self.show_winch_mode))
         lay.addWidget(self._make_nav_button("stability","S   Stability",self.show_stability_mode))
         lay.addWidget(self._make_nav_button("safety","C   Control Logic",self.show_safety_logic_mode))
+        lay.addWidget(self._make_nav_button("flowchart","F   System Flowchart",self.show_flowchart_mode))
         lay.addWidget(self._make_nav_button("hardware","H   Hardware I/O",self.show_hardware_mode))
 
         s2=QLabel("REFERENCE & OUTPUT");s2.setObjectName("navSection");lay.addWidget(s2)
@@ -1972,7 +2141,7 @@ class App(QMainWindow):
             "home":self.homePage,"torque":self.torquePage,"electrical":self.electricalPage,"winch":self.winchPage,"crane":self.cranePage,
             "slope":self.slopePage,"fbd":self.fbdPage,"components":self.componentsPage,
             "worst":self.worstPage,"steps":self.stepsPage,"design":self.designPage,
-            "graph":getattr(self,"graphPage",None),"report":self.reportPage,"help":self.helpPage,"tools":self.projectToolsPage,"safety":self.safetyPage,"variables":self.variableDictionaryPage,"hardware":self.hardwarePage}
+            "graph":getattr(self,"graphPage",None),"report":self.reportPage,"help":self.helpPage,"tools":self.projectToolsPage,"safety":self.safetyPage,"variables":self.variableDictionaryPage,"hardware":self.hardwarePage,"flowchart":self.flowchartPage}
         self.show_home_mode()
 
     def _show_only_page(self,page):
@@ -2016,6 +2185,11 @@ class App(QMainWindow):
         self._show_only_page(self.hardwarePage)
         self._set_active_nav("hardware")
         self.update_hardware_manager()
+
+    def show_flowchart_mode(self):
+        self._show_only_page(self.flowchartPage)
+        self._set_active_nav("flowchart")
+        self.sync_flowchart_from_safety()
 
     def show_safety_logic_mode(self):
         self._show_only_page(self.safetyPage)
@@ -2071,7 +2245,7 @@ class App(QMainWindow):
         hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
         left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        chips.addWidget(make_chip("V52.4  CUSTOM I/O","#ffffff","#174a74"))
+        chips.addWidget(make_chip("V52.5  SYSTEM FLOW","#ffffff","#174a74"))
         chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
         chips.addStretch(1);left.addLayout(chips)
 
@@ -2145,11 +2319,12 @@ class App(QMainWindow):
         bc=ModeCardButton("CONTROL LOGIC","E-stop • RC Failsafe • IMU • Limit • Interlock","05","#c45114")
         bv=ModeCardButton("VARIABLE DICTIONARY","ความหมายตัวแปร • หน่วย • ค่าปัจจุบัน","06","#4b647a")
         bh=ModeCardButton("HARDWARE I/O & WIRING","Animated Board • All GPIO • Used/Free/Conflict","07","#0b7a75")
+        bflo=ModeCardButton("SYSTEM FLOWCHART","Animated ESP32 Vehicle + Crane Control Flow","08","#2b6cb0")
 
         cards.addWidget(bt,0,0);cards.addWidget(be,0,1)
         cards.addWidget(bw,1,0);cards.addWidget(bs,1,1)
         cards.addWidget(bc,2,0);cards.addWidget(bv,2,1)
-        cards.addWidget(bh,3,0,1,2)
+        cards.addWidget(bh,3,0);cards.addWidget(bflo,3,1)
         cards.setColumnStretch(0,1);cards.setColumnStretch(1,1)
         root.addLayout(cards)
 
@@ -2160,6 +2335,7 @@ class App(QMainWindow):
         bc.clicked.connect(self.show_safety_logic_mode)
         bv.clicked.connect(self.show_variable_dictionary_mode)
         bh.clicked.connect(self.show_hardware_mode)
+        bflo.clicked.connect(self.show_flowchart_mode)
 
         footer=QFrame();footer.setObjectName("softPanel")
         fl=QHBoxLayout(footer);fl.setContentsMargins(14,9,14,9)
