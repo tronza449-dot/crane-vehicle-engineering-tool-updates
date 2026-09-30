@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.2.1"
+APP_VERSION = "53.2.2"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -833,15 +833,17 @@ class SystemFlowchartWidget(QWidget):
     """Animated flowchart that follows the user's Final vehicle + crane document."""
     def __init__(self,owner):
         super().__init__();self.o=owner
-        self.logical_w=1000;self.logical_h=2160;self.zoom=0.70
+        self.logical_w=1000;self.logical_h=2160;self.zoom=0.90
         self.phase=0.0;self.path=[];self.step_index=0;self.nodeRects={}
         self.anim=QTimer(self);self.anim.timeout.connect(self._tick);self.anim.start(70)
         self.set_zoom(self.zoom)
 
     def set_zoom(self,value):
-        self.zoom=max(0.58,min(1.25,float(value)))
-        self.setMinimumSize(int(self.logical_w*self.zoom),int(self.logical_h*self.zoom))
-        self.resize(int(self.logical_w*self.zoom),int(self.logical_h*self.zoom))
+        # Keep exact canvas dimensions so X/Y cannot be stretched independently.
+        self.zoom=max(0.65,min(1.25,float(value)))
+        w=max(1,int(round(self.logical_w*self.zoom)))
+        h=max(1,int(round(self.logical_h*self.zoom)))
+        self.setFixedSize(w,h)
         self.update()
 
     def _tick(self):
@@ -908,15 +910,18 @@ class SystemFlowchartWidget(QWidget):
             c=rect.center();poly=QPolygonF([QPointF(c.x(),rect.top()),QPointF(rect.right(),c.y()),QPointF(c.x(),rect.bottom()),QPointF(rect.left(),c.y())]);p.drawPolygon(poly)
         elif shape=="round":p.drawRoundedRect(rect,rect.height()/2,rect.height()/2)
         else:p.drawRoundedRect(rect,10,10)
-        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),max(6.2,min(9.6,8.5*self.zoom)),QFont.Bold))
+        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),8.8,QFont.Bold))
         pad=max(3.0,7.0*self.zoom)
         p.drawText(rect.adjusted(pad,pad*0.55,-pad,-pad*0.55),Qt.AlignCenter|Qt.TextWordWrap,text)
         self.nodeRects[key]=rect
 
     def paintEvent(self,e):
         p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("#fbfdff"))
-        sx=self.width()/self.logical_w;sy=self.height()/self.logical_h
-        def R(x,y,w,h):return QRectF(x*sx,y*sy,w*sx,h*sy)
+        # Uniform geometry scale prevents stretched boxes and strange connector lines.
+        scale=min(self.width()/self.logical_w,self.height()/self.logical_h)
+        ox=(self.width()-self.logical_w*scale)/2.0
+        oy=0.0
+        def R(x,y,w,h):return QRectF(ox+x*scale,oy+y*scale,w*scale,h*scale)
         self.nodeRects={}
 
         p.setPen(QColor("#17456b"));p.setFont(QFont(choose_ui_font_family(),15,QFont.Bold))
@@ -974,7 +979,7 @@ class SystemFlowchartWidget(QWidget):
             return {"top":QPointF(r.center().x(),r.top()),"bottom":QPointF(r.center().x(),r.bottom()),
                     "left":QPointF(r.left(),r.center().y()),"right":QPointF(r.right(),r.center().y())}[side]
         def label(x,y,w,h,text,color):
-            p.setPen(QColor(color));p.setFont(QFont(choose_ui_font_family(),max(6.0,7.5*self.zoom),QFont.Bold))
+            p.setPen(QColor(color));p.setFont(QFont(choose_ui_font_family(),7.8,QFont.Bold))
             p.drawText(R(x,y,w,h),Qt.AlignCenter,text)
 
         col="#7890a4";green="#388b52";red="#b8464d";blue="#477fa7"
@@ -1241,6 +1246,8 @@ class App(QMainWindow):
     def _make_nav_button(self,key,text,callback):
         b=QPushButton(text);b.setObjectName("navButton");b.setProperty("active",False)
         b.setCursor(Qt.PointingHandCursor);b.clicked.connect(callback)
+        b.setToolTip(text)
+        b.setMinimumHeight(40)
         self.navButtons[key]=b
         return b
 
@@ -1275,9 +1282,24 @@ class App(QMainWindow):
 
     def set_flowchart_zoom(self,text):
         if not hasattr(self,"flowBoard"):return
-        try:value=float(str(text).replace("%",""))/100.0
-        except Exception:value=.70
+        try:value=float(str(text).replace("%","").strip())/100.0
+        except Exception:value=.90
         self.flowBoard.set_zoom(value)
+
+    def fit_flowchart_width(self):
+        """Fit only the diagram width while preserving aspect ratio."""
+        if not hasattr(self,"flowBoard") or not hasattr(self,"flowScroll"):return
+        try:
+            available=max(640,self.flowScroll.viewport().width()-28)
+            value=max(.70,min(1.15,available/float(self.flowBoard.logical_w)))
+            pct=int(round(value*100))
+            self.flowZoom.blockSignals(True)
+            self.flowZoom.setCurrentText(f"{pct}%")
+            self.flowZoom.blockSignals(False)
+            self.flowBoard.set_zoom(value)
+            self.flowScroll.horizontalScrollBar().setValue(0)
+        except Exception:
+            self.flowBoard.set_zoom(.90)
 
     def set_flowchart_scenario(self,*_):
         path=self.flowchart_scenario_path()
@@ -2229,9 +2251,9 @@ void loop() {{
         nxt=QPushButton("Next ▶");nxt.clicked.connect(self.flowchart_next_step);tl.addWidget(nxt,1,1)
         self.flowPlayButton=QPushButton("▶ Play");self.flowPlayButton.setObjectName("primaryButton");self.flowPlayButton.clicked.connect(self.toggle_flowchart_play);tl.addWidget(self.flowPlayButton,1,2)
         tl.addWidget(QLabel("Zoom"),1,3)
-        self.flowZoom=QComboBox();self.flowZoom.addItems(["60%","70%","80%","90%","100%","115%"])
-        self.flowZoom.setCurrentText("70%");self.flowZoom.currentTextChanged.connect(self.set_flowchart_zoom);tl.addWidget(self.flowZoom,1,4)
-        fit=QPushButton("Fit Laptop");fit.clicked.connect(lambda:self.flowZoom.setCurrentText("70%"));tl.addWidget(fit,1,5)
+        self.flowZoom=QComboBox();self.flowZoom.setEditable(True);self.flowZoom.addItems(["70%","80%","90%","100%","110%","120%"])
+        self.flowZoom.setCurrentText("90%");self.flowZoom.currentTextChanged.connect(self.set_flowchart_zoom);tl.addWidget(self.flowZoom,1,4)
+        fit=QPushButton("Fit Width");fit.clicked.connect(self.fit_flowchart_width);tl.addWidget(fit,1,5)
         tl.setColumnStretch(1,1);tl.setColumnStretch(2,1);tl.setColumnStretch(4,2)
         root.addWidget(toolbar)
 
@@ -2243,8 +2265,15 @@ void loop() {{
         self.flowTabs=QTabWidget();self.flowTabs.setUsesScrollButtons(True);root.addWidget(self.flowTabs,1)
 
         flowPage=QWidget();fl=QVBoxLayout(flowPage);fl.setContentsMargins(0,0,0,0)
-        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame)
-        self.flowBoard=SystemFlowchartWidget(self);scroll.setWidget(self.flowBoard);fl.addWidget(scroll)
+        self.flowScroll=QScrollArea()
+        self.flowScroll.setWidgetResizable(False)
+        self.flowScroll.setFrameShape(QFrame.NoFrame)
+        self.flowScroll.setAlignment(Qt.AlignHCenter|Qt.AlignTop)
+        self.flowScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.flowScroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.flowBoard=SystemFlowchartWidget(self)
+        self.flowScroll.setWidget(self.flowBoard)
+        fl.addWidget(self.flowScroll)
         self.flowTabs.addTab(flowPage,"Flowchart")
 
         explainPage=QWidget();el=QVBoxLayout(explainPage);el.setContentsMargins(8,8,8,8)
@@ -2256,8 +2285,9 @@ void loop() {{
 
         self.flowPlayTimer=QTimer(self);self.flowPlayTimer.timeout.connect(self.flowchart_next_step)
         self.flowStep=0
-        self.set_flowchart_zoom("70%")
+        self.set_flowchart_zoom("90%")
         self.set_flowchart_scenario()
+        QTimer.singleShot(0,self.fit_flowchart_width)
         self.tabs.addTab(w,"")
 
     def setup_navigation_dock(self):
@@ -2265,7 +2295,7 @@ void loop() {{
         dock=QDockWidget("",self);self.navDock=dock
         dock.setAllowedAreas(Qt.LeftDockWidgetArea)
         dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        dock.setFixedWidth(185)
+        dock.setFixedWidth(225)
         dock.setTitleBarWidget(QWidget())
 
         panel=QFrame();panel.setObjectName("navPanel")
@@ -2719,7 +2749,7 @@ void loop() {{
 
     def make_hardware_io_manager(self):
         w=QWidget();self.hardwarePage=w
-        root=QVBoxLayout(w);root.setContentsMargins(18,14,18,16);root.setSpacing(12)
+        root=QVBoxLayout(w);root.setContentsMargins(12,10,12,12);root.setSpacing(9)
         root.addWidget(make_page_header(
             "ESP32 / VESC HARDWARE I/O MANAGER",
             "ESP32 GPIO • VESC CAN • Voltage/Protection • Wiring • Pin Map",
@@ -2774,14 +2804,14 @@ void loop() {{
         leftWrap=QWidget();leftWrap.setLayout(boardLeft);boardLayout.addWidget(leftWrap,3)
 
         boardRight=QVBoxLayout()
-        self.hwBoardSummary=QTextEdit();self.hwBoardSummary.setReadOnly(True);self.hwBoardSummary.setMinimumWidth(300)
+        self.hwBoardSummary=QTextEdit();self.hwBoardSummary.setReadOnly(True);self.hwBoardSummary.setMinimumWidth(250)
         self.hwBoardPinInfo=QTextEdit();self.hwBoardPinInfo.setReadOnly(True);self.hwBoardPinInfo.setMinimumHeight(190)
         boardRight.addWidget(QLabel("BOARD GPIO SUMMARY"))
         boardRight.addWidget(self.hwBoardSummary,2)
         boardRight.addWidget(QLabel("CLICKED PIN"))
         boardRight.addWidget(self.hwBoardPinInfo,1)
         rightWrap=QWidget();rightWrap.setLayout(boardRight);boardLayout.addWidget(rightWrap,1)
-        self.hwTabs.addTab(boardPage,"Board Animation / GPIO Map")
+        self.hwTabs.addTab(boardPage,"Board GPIO Map")
 
         pinPage=QWidget();pinLay=QVBoxLayout(pinPage);pinLay.setContentsMargins(8,8,8,8)
         hint=QLabel("เพิ่มอุปกรณ์/Input/Output ใหม่ได้เองด้วย + Add New I/O • โปรแกรมตรวจ GPIO ซ้ำ, Reserved pin, Voltage และแสดงบน Board Animation อัตโนมัติ")
@@ -2806,7 +2836,7 @@ void loop() {{
         toolbar.addWidget(addIo);toolbar.addWidget(editIo);toolbar.addWidget(dupIo);toolbar.addWidget(delIo);toolbar.addStretch(1)
         pinLay.addLayout(toolbar)
         pinLay.addWidget(self.hwTable,1)
-        self.hwTabs.addTab(pinPage,"GPIO / Device Manager")
+        self.hwTabs.addTab(pinPage,"GPIO Devices")
 
         wirePage=QWidget();wl=QHBoxLayout(wirePage);wl.setContentsMargins(10,10,10,10);wl.setSpacing(12)
         protection=QGroupBox("Protection Checklist / การป้องกัน")
@@ -2844,7 +2874,7 @@ void loop() {{
         self.hwCode=QPlainTextEdit();self.hwCode.setReadOnly(True)
         self.hwCode.setStyleSheet("font-family:Consolas,'Courier New',monospace;font-size:10.5pt;")
         gl.addWidget(self.hwCode,1)
-        self.hwTabs.addTab(genPage,"Generate ESP32 Pin Map")
+        self.hwTabs.addTab(genPage,"ESP32 Pin Map")
 
         notes=QPlainTextEdit();notes.setReadOnly(True)
         notes.setPlainText("""V52 HARDWARE I/O NOTES
@@ -3735,7 +3765,7 @@ void loop() {{
         for tab in self.findChildren(QTabWidget):
             try:
                 tab.tabBar().setUsesScrollButtons(True)
-                tab.setElideMode(Qt.ElideRight)
+                tab.setElideMode(Qt.ElideNone)
             except Exception:
                 pass
         self._mode_pages={
