@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.2.2"
+APP_VERSION = "53.2.3"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -3941,8 +3941,9 @@ void loop() {{
         ur=QHBoxLayout()
         checkUpdate=QPushButton("Check Update");checkUpdate.setObjectName("primaryButton");checkUpdate.clicked.connect(lambda:self.check_for_update(False))
         self.updateNowButton=QPushButton("Update Now");self.updateNowButton.setEnabled(False);self.updateNowButton.clicked.connect(self.download_pending_update)
+        repairUpdate=QPushButton("Repair Update");repairUpdate.setToolTip("Reset update source to official GitHub latest.json and check again");repairUpdate.clicked.connect(lambda:self.reset_update_source(True))
         updateSettings=QPushButton("Settings");updateSettings.setObjectName("secondaryButton");updateSettings.clicked.connect(self.show_update_settings)
-        ur.addWidget(checkUpdate);ur.addWidget(self.updateNowButton);ur.addWidget(updateSettings);upl.addLayout(ur)
+        ur.addWidget(checkUpdate);ur.addWidget(self.updateNowButton);ur.addWidget(repairUpdate);ur.addWidget(updateSettings);upl.addLayout(ur)
         system.addWidget(updatePanel,1)
         root.addLayout(system)
 
@@ -4029,6 +4030,15 @@ void loop() {{
     def save_update_config(self,manifest_url,check_on_startup):
         data={"manifest_url":str(manifest_url).strip(),"check_on_startup":bool(check_on_startup)}
         self.update_config_path().write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding="utf-8")
+
+    def reset_update_source(self,check_now=True):
+        """Reset a stale/custom updater source back to the official GitHub manifest."""
+        self.save_update_config(DEFAULT_UPDATE_MANIFEST_URL,True)
+        self.pending_update_manifest=None
+        if hasattr(self,"updateNowButton"):self.updateNowButton.setEnabled(False)
+        self._set_update_status(f"รีเซ็ต Update Source แล้ว • Current V{APP_VERSION}")
+        if check_now:
+            self.check_for_update(False)
 
     def show_update_settings(self):
         cfg=self.load_update_config()
@@ -4126,7 +4136,15 @@ void loop() {{
         if parsed.scheme in ("http","https"):
             if parsed.scheme!="https" and parsed.hostname not in ("localhost","127.0.0.1"):
                 raise ValueError("เพื่อความปลอดภัย Remote Update ต้องใช้ HTTPS")
-            req=urllib.request.Request(src,headers={"User-Agent":f"{APP_NAME}/{APP_VERSION}"})
+            # Avoid stale latest.json responses from GitHub/CDN just after a release.
+            cache_token=str(int(time.time()*1000))
+            sep="&" if "?" in src else "?"
+            fetch_url=src+sep+"_cvet="+cache_token
+            req=urllib.request.Request(fetch_url,headers={
+                "User-Agent":f"{APP_NAME}/{APP_VERSION}",
+                "Cache-Control":"no-cache, no-store, max-age=0",
+                "Pragma":"no-cache",
+            })
             with urllib.request.urlopen(req,timeout=10) as r:
                 raw=r.read(1024*1024)
         else:
@@ -4148,6 +4166,7 @@ void loop() {{
         data["download_url"]=download
         data["notes"]=str(data.get("notes","")).strip()
         data["sha256"]=str(data.get("sha256","")).strip().lower()
+        data["_source"]=src
         return data
 
     def _handle_update_task_result(self,result):
@@ -4171,9 +4190,10 @@ void loop() {{
                 if hasattr(self,"updateNowButton"):self.updateNowButton.setEnabled(True)
                 notes=manifest.get("notes","")
                 self._set_update_progress(100)
+                source=manifest.get("_source",self.load_update_config().get("manifest_url",""))
                 self._set_update_status(f"มีเวอร์ชันใหม่ V{latest} • Current V{APP_VERSION}",ok=True)
                 if not result.get("silent"):
-                    msg=f"พบเวอร์ชันใหม่ V{latest}\\n\\nCurrent: V{APP_VERSION}"
+                    msg=f"พบเวอร์ชันใหม่ V{latest}\\n\\nCurrent: V{APP_VERSION}\\nSource: {source}"
                     if notes:msg+="\\n\\n"+notes
                     msg+="\\n\\nต้องการดาวน์โหลดและอัปเดตตอนนี้หรือไม่?"
                     if QMessageBox.question(self,"Update Available",msg,QMessageBox.Yes|QMessageBox.No,QMessageBox.Yes)==QMessageBox.Yes:
@@ -4182,9 +4202,13 @@ void loop() {{
                 self.pending_update_manifest=None
                 if hasattr(self,"updateNowButton"):self.updateNowButton.setEnabled(False)
                 self._set_update_progress(100)
-                self._set_update_status(f"โปรแกรมเป็นเวอร์ชันล่าสุดแล้ว • V{APP_VERSION}",ok=True)
+                source=manifest.get("_source",self.load_update_config().get("manifest_url",""))
+                self._set_update_status(f"Current V{APP_VERSION} • Latest V{latest}",ok=True)
                 if not result.get("silent"):
-                    QMessageBox.information(self,"Check for Update",f"คุณใช้เวอร์ชันล่าสุดแล้ว: V{APP_VERSION}")
+                    QMessageBox.information(
+                        self,"Check for Update",
+                        f"Current: V{APP_VERSION}\\nLatest from manifest: V{latest}\\n\\nSource:\\n{source}"
+                    )
 
         elif typ=="download":
             if not result.get("ok"):
