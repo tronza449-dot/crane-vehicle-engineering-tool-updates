@@ -85,7 +85,7 @@ jobs:
           modes = (
               w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
               w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
-              w.show_hardware_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
+              w.show_flowchart_mode,w.show_hardware_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
           )
           for width,height in ((1024,650),(1280,720),(1366,768),(1600,900)):
               w.resize(width,height)
@@ -238,7 +238,7 @@ jobs:
           assert ev(winch="UP")["state"]=="WINCH"
           assert ev(throttle=50,winch="UP")["winch"]=="STOP"
           w.run_safety_self_tests()
-          assert "13/13" in w.safetyTestResults.toPlainText()
+          assert "15/15" in w.safetyTestResults.toPlainText()
 
           # ---------- V52.3 Animated GPIO Board / Hardware regression ----------
           assert hasattr(w,"hwRows") and len(w.hwRows)>=9
@@ -391,6 +391,48 @@ jobs:
                   w.hwRows.pop(idx);w.hwTable.removeRow(idx)
           w.update_hardware_manager()
 
+          # ---------- V52.5 Final System Flowchart regression ----------
+          assert hasattr(w,"flowBoard") and hasattr(w,"flowScenario")
+          for scenario in ("Drive Forward","Idle / Ready","Crane LEFT","Crane RIGHT",
+                           "RC Lost / E-stop","VESC Fault","Tilt Fault","Vehicle not stopped",
+                           "LEFT Limit Active","RIGHT Limit Active"):
+              idx=w.flowScenario.findText(scenario)
+              assert idx>=0, f"Missing flowchart scenario {scenario}"
+              w.flowScenario.setCurrentIndex(idx)
+              w.set_flowchart_scenario()
+              assert len(w.flowBoard.path)>=5
+              w.flowBoard.set_path(w.flowBoard.path,len(w.flowBoard.path)-1)
+              snap=w.flowBoard.grab()
+              assert not snap.isNull() and snap.width()>200 and snap.height()>500
+
+          # Safety logic now includes VESC fault and 0.5 s stationary gate before crane.
+          base={
+              "estop":False,"rc_ok":True,"vesc_fault":False,"drive_enable":True,"stationary_05":True,
+              "throttle":0,"steer":0,"crane":"STOP","winch":"STOP","tilt":0.0,"tilt_limit":12.0,
+              "left_limit":False,"right_limit":False,"battery_low":False,
+              "battery_inhibit":False,"winch_stationary_only":True
+          }
+          vv=dict(base);vv.update(vesc_fault=True,throttle=50)
+          rr=w.evaluate_safety_logic(vv)
+          assert rr["state"]=="VESC FAULT" and not rr["drive_permit"] and rr["crane"]=="STOP"
+          vv=dict(base);vv.update(crane="LEFT (-)",stationary_05=False)
+          rr=w.evaluate_safety_logic(vv)
+          assert rr["state"]=="WAIT VEHICLE STOP" and rr["crane"]=="STOP"
+          vv=dict(base);vv.update(crane="LEFT (-)",stationary_05=True)
+          rr=w.evaluate_safety_logic(vv)
+          assert rr["state"]=="CRANE" and rr["crane"].startswith("LEFT")
+
+          # Sync from simulator must choose the expected path.
+          w.reset_safety_simulator()
+          w.safetyThrottle.setValue(50);w.sync_flowchart_from_safety()
+          assert w.flowScenario.currentText()=="Drive Forward"
+          w.safetyThrottle.setValue(0);w.safetyCraneCmd.setCurrentText("LEFT (-)")
+          w.safetyStationary05.setChecked(False);w.sync_flowchart_from_safety()
+          assert w.flowScenario.currentText()=="Vehicle not stopped"
+          w.safetyStationary05.setChecked(True);w.safetyLimitLeft.setChecked(True);w.sync_flowchart_from_safety()
+          assert w.flowScenario.currentText()=="LEFT Limit Active"
+          w.reset_safety_simulator()
+
           # ---------- Project state round-trip ----------
           original=w.tgrade.value()
           original_hw=w.hwRows[0]["gpio"].currentText()
@@ -445,7 +487,7 @@ jobs:
 
           # ---------- Final broad calculation refresh ----------
           w.calc_torque();w.calc_electrical();w.calc_winch();w.calc_all();w.calc_worst()
-          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False);w.update_hardware_manager()
+          w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False);w.update_hardware_manager();w.sync_flowchart_from_safety()
           QApplication.processEvents()
 
           print("CVET_FULL_REGRESSION_OK")
