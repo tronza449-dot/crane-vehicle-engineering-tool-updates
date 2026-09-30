@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.2.0"
+APP_VERSION = "53.2.1"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -7919,6 +7919,7 @@ if __name__=="__main__":
     ui_font.setStyleStrategy(QFont.PreferAntialias)
     a.setFont(ui_font)
     w=App();w.show();sys.exit(a.exec())
+
 
 
 
