@@ -516,21 +516,63 @@ jobs:
           assert w.telemetryConnected is False
           assert w.telemetryUdpSocket is None
 
-          # ---------- V52.5 Final System Flowchart regression ----------
-          assert hasattr(w,"flowBoard") and hasattr(w,"flowScenario")
-          for scenario in ("Drive Forward","Idle / Ready","Crane LEFT","Crane RIGHT",
-                           "RC Lost / E-stop","VESC Fault","Tilt Fault","Vehicle not stopped",
-                           "LEFT Limit Active","RIGHT Limit Active"):
+          # ---------- V53.2 Final System Flowchart regression ----------
+          assert hasattr(w,"flowBoard") and hasattr(w,"flowScenario") and hasattr(w,"flowTabs")
+          expected_scenarios=(
+              "Drive Forward","Idle / Ready","Crane LEFT","Crane RIGHT",
+              "Remote Fault","Motor / VESC Fault","Tilt Warning","Vehicle Still Moving",
+              "Stopped < 0.5 s","LEFT Limit Active","RIGHT Limit Active"
+          )
+          for scenario in expected_scenarios:
               idx=w.flowScenario.findText(scenario)
               assert idx>=0, f"Missing flowchart scenario {scenario}"
               w.flowScenario.setCurrentIndex(idx)
               w.set_flowchart_scenario()
-              assert len(w.flowBoard.path)>=5
+              assert len(w.flowBoard.path)>=6
+              assert "safe" not in w.flowBoard.path, "Old merged Safety node should not remain in Final flowchart path"
               w.flowBoard.set_path(w.flowBoard.path,len(w.flowBoard.path)-1)
               snap=w.flowBoard.grab()
-              assert not snap.isNull() and snap.width()>200 and snap.height()>500
+              assert not snap.isNull() and snap.width()>300 and snap.height()>900
 
-          # Safety logic now includes VESC fault and 0.5 s stationary gate before crane.
+          # Submitted Final sequence must contain the separate sensor/status checks.
+          drive_path=w.flowchart_scenario_path("Drive Forward")
+          for node in ("remoteq","tiltread","limitsread","motorread","motorq","tiltq","warningoff",
+                       "drivecmd","mix","speedlimit","driveq","stopcrane_drive","senddrive"):
+              assert node in drive_path, f"Final drive path missing {node}"
+          assert drive_path.index("tiltread") < drive_path.index("limitsread") < drive_path.index("motorread")
+          assert drive_path.index("warningoff") < drive_path.index("drivecmd")
+
+          # Tilt in the submitted Final document is warning-only and continues to Driving Command.
+          tilt_path=w.flowchart_scenario_path("Tilt Warning")
+          assert "warningon" in tilt_path and "drivecmd" in tilt_path and "senddrive" in tilt_path
+          assert "remotefault" not in tilt_path and "motorfault" not in tilt_path
+
+          # Vehicle moving and 0.5 s stop gate are separate branches.
+          moving_path=w.flowchart_scenario_path("Vehicle Still Moving")
+          wait_path=w.flowchart_scenario_path("Stopped < 0.5 s")
+          assert "movingq" in moving_path and "keepmoving" in moving_path
+          assert "stopped05" in wait_path and "keepwait" in wait_path
+
+          # LEFT/RIGHT limit behavior must remain directional.
+          left_path=w.flowchart_scenario_path("LEFT Limit Active")
+          right_path=w.flowchart_scenario_path("RIGHT Limit Active")
+          assert "leftlimitq" in left_path and "stopleft" in left_path
+          assert "rightlimitq" in right_path and "stopright" in right_path
+
+          # Local connector A nodes avoid long crossing return lines.
+          for connector in ("Ain","A_remote","A_motor","A_drive","A_move","A_wait","A_bottom"):
+              assert connector in w.flowBoard.nodeRects or connector in str(w.flowchart_scenario_path()), f"Connector missing: {connector}"
+
+          # UI: Flowchart and Explanation are separate tabs, with laptop zoom controls.
+          assert w.flowTabs.count()==2
+          assert w.flowZoom.findText("70%")>=0 and w.flowZoom.findText("100%")>=0
+          for zoom in ("60%","70%","100%","115%"):
+              w.flowZoom.setCurrentText(zoom);QApplication.processEvents()
+              shot=w.flowBoard.grab()
+              assert not shot.isNull()
+          w.flowZoom.setCurrentText("70%")
+
+          # Safety logic still includes VESC fault and 0.5 s stationary gate before crane.
           base={
               "estop":False,"rc_ok":True,"vesc_fault":False,"drive_enable":True,"stationary_05":True,
               "throttle":0,"steer":0,"crane":"STOP","winch":"STOP","tilt":0.0,"tilt_limit":12.0,
@@ -547,13 +589,13 @@ jobs:
           rr=w.evaluate_safety_logic(vv)
           assert rr["state"]=="CRANE" and rr["crane"].startswith("LEFT")
 
-          # Sync from simulator must choose the expected path.
+          # Sync from simulator chooses the closest Final-document visualization path.
           w.reset_safety_simulator()
           w.safetyThrottle.setValue(50);w.sync_flowchart_from_safety()
           assert w.flowScenario.currentText()=="Drive Forward"
           w.safetyThrottle.setValue(0);w.safetyCraneCmd.setCurrentText("LEFT (-)")
           w.safetyStationary05.setChecked(False);w.sync_flowchart_from_safety()
-          assert w.flowScenario.currentText()=="Vehicle not stopped"
+          assert w.flowScenario.currentText()=="Stopped < 0.5 s"
           w.safetyStationary05.setChecked(True);w.safetyLimitLeft.setChecked(True);w.sync_flowchart_from_safety()
           assert w.flowScenario.currentText()=="LEFT Limit Active"
           w.reset_safety_simulator()
