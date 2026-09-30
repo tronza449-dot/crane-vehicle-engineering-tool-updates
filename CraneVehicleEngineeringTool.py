@@ -1983,6 +1983,7 @@ void loop() {{
   - Replace WIFI_SSID / WIFI_PASSWORD.
   - PC and ESP32 must be on the same trusted LAN/WiFi.
   - This sketch SENDS TELEMETRY ONLY. It does not receive drive commands.
+  - WiFi reconnect is NON-BLOCKING so loss of WiFi does not freeze the vehicle control loop.
   - Replace TODO values with real VESC / BNO086 / RC / limit data.
 */
 
@@ -1999,12 +2000,22 @@ const char* CVET_DEVICE_ID = "{device}";
 
 WiFiUDP cvetUdp;
 uint32_t cvetSeq = 0;
+unsigned long cvetLastWifiAttempt = 0;
+unsigned long cvetLastTelemetrySend = 0;
 
-void connectWiFi() {{
+void startWiFi() {{
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {{
-    delay(300);
+  cvetLastWifiAttempt = millis();
+}}
+
+void serviceWiFiNonBlocking() {{
+  if (WiFi.status() == WL_CONNECTED) return;
+  unsigned long now = millis();
+  if (now - cvetLastWifiAttempt >= 5000UL) {{
+    cvetLastWifiAttempt = now;
+    WiFi.disconnect();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }}
 }}
 
@@ -2049,15 +2060,23 @@ void sendTelemetry() {{
 
 void setup() {{
   Serial.begin(115200);
-  connectWiFi();
-  Serial.print("CVET WiFi connected. ESP32 IP: ");
-  Serial.println(WiFi.localIP());
+  startWiFi();
 }}
 
 void loop() {{
-  if (WiFi.status() != WL_CONNECTED) connectWiFi();
-  sendTelemetry();
-  delay({interval});
+  // Keep safety/control logic running regardless of WiFi status.
+  // TODO: runVehicleSafetyAndControl();
+
+  serviceWiFiNonBlocking();
+
+  unsigned long now = millis();
+  if (WiFi.status() == WL_CONNECTED && now - cvetLastTelemetrySend >= {interval}UL) {{
+    cvetLastTelemetrySend = now;
+    sendTelemetry();
+  }}
+
+  // No blocking wait for WiFi here.
+  delay(1);
 }}
 """
 
