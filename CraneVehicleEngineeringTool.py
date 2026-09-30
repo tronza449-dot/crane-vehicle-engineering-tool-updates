@@ -2648,6 +2648,7 @@ void loop() {{
         self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch)
         self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(7,QHeaderView.Stretch)
+        self.deviceLibraryTable.itemChanged.connect(lambda *_: self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None)
         dl.addWidget(self.deviceLibraryTable,1)
         self.integrationTabs.addTab(dp,"Device Library")
 
