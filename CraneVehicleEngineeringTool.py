@@ -1317,24 +1317,21 @@ class App(QMainWindow):
         root=QVBoxLayout(w);root.setContentsMargins(16,14,16,16);root.setSpacing(10)
         root.addWidget(make_page_header(
             "ESP32 REAL-TIME TELEMETRY / DATA LOGGER",
-            "USB Serial JSON • Battery • VESC Current • Speed • IMU • RPM • RC • Limits • CSV",
-            self.show_home_mode,"V53 LIVE","#e6fbfa","#087e8b"
+            "WiFi UDP JSON • USB Serial JSON • Battery • VESC • Speed • IMU • RPM • RC • Limits • CSV",
+            self.show_home_mode,"V53.1 WIFI LIVE","#e6fbfa","#087e8b"
         ))
 
         # Connection / acquisition toolbar
         bar=QFrame();bar.setObjectName("softPanel")
         bl=QGridLayout(bar);bl.setContentsMargins(12,9,12,9);bl.setHorizontalSpacing(8);bl.setVerticalSpacing(7)
+
         bl.addWidget(QLabel("Source"),0,0)
-        self.telemetrySource=QComboBox();self.telemetrySource.addItems(["Simulation / Demo","ESP32 Serial JSON"])
-        self.telemetrySource.currentIndexChanged.connect(self.telemetry_source_changed);bl.addWidget(self.telemetrySource,0,1)
-        bl.addWidget(QLabel("COM Port"),0,2)
-        self.telemetryPort=QComboBox();self.telemetryPort.setMinimumWidth(150);bl.addWidget(self.telemetryPort,0,3)
-        refresh=QPushButton("Refresh Ports");refresh.clicked.connect(self.refresh_serial_ports);bl.addWidget(refresh,0,4)
-        bl.addWidget(QLabel("Baud"),0,5)
-        self.telemetryBaud=QComboBox();self.telemetryBaud.addItems(["115200","230400","460800","921600"]);bl.addWidget(self.telemetryBaud,0,6)
-        bl.addWidget(QLabel("Rate"),0,7)
+        self.telemetrySource=QComboBox()
+        self.telemetrySource.addItems(["Simulation / Demo","ESP32 Serial JSON","ESP32 WiFi UDP JSON"])
+        self.telemetrySource.currentIndexChanged.connect(self.telemetry_source_changed);bl.addWidget(self.telemetrySource,0,1,1,2)
+        bl.addWidget(QLabel("Sender rate"),0,3)
         self.telemetryRateHz=QSpinBox();self.telemetryRateHz.setRange(1,20);self.telemetryRateHz.setValue(10);self.telemetryRateHz.setSuffix(" Hz")
-        self.telemetryRateHz.valueChanged.connect(self.telemetry_rate_changed);bl.addWidget(self.telemetryRateHz,0,8)
+        self.telemetryRateHz.valueChanged.connect(self.telemetry_rate_changed);bl.addWidget(self.telemetryRateHz,0,4)
 
         self.telemetryConnectButton=QPushButton("Connect / Start");self.telemetryConnectButton.setObjectName("primaryButton");self.telemetryConnectButton.clicked.connect(self.connect_telemetry)
         self.telemetryDisconnectButton=QPushButton("Disconnect");self.telemetryDisconnectButton.clicked.connect(self.disconnect_telemetry)
@@ -1342,24 +1339,47 @@ class App(QMainWindow):
         export=QPushButton("Export CSV");export.clicked.connect(self.export_telemetry_csv)
         clear=QPushButton("Clear Data");clear.setObjectName("secondaryButton");clear.clicked.connect(self.clear_telemetry_data)
         openHw=QPushButton("ESP32 I/O Manager");openHw.clicked.connect(self.show_hardware_mode)
-        bl.addWidget(self.telemetryConnectButton,1,0,1,2);bl.addWidget(self.telemetryDisconnectButton,1,2)
-        bl.addWidget(self.telemetryLogButton,1,3);bl.addWidget(export,1,4);bl.addWidget(clear,1,5);bl.addWidget(openHw,1,6,1,3)
-        bl.setColumnStretch(3,1);root.addWidget(bar)
+        bl.addWidget(self.telemetryConnectButton,0,5);bl.addWidget(self.telemetryDisconnectButton,0,6)
+        bl.addWidget(self.telemetryLogButton,0,7);bl.addWidget(export,0,8)
 
-        statusRow=QHBoxLayout();statusRow.setSpacing(9)
+        self.telemetrySerialLabel=QLabel("Serial")
+        bl.addWidget(self.telemetrySerialLabel,1,0)
+        self.telemetryPort=QComboBox();self.telemetryPort.setMinimumWidth(150);bl.addWidget(self.telemetryPort,1,1)
+        self.telemetryRefreshPorts=QPushButton("Refresh COM");self.telemetryRefreshPorts.clicked.connect(self.refresh_serial_ports);bl.addWidget(self.telemetryRefreshPorts,1,2)
+        self.telemetryBaudLabel=QLabel("Baud");bl.addWidget(self.telemetryBaudLabel,1,3)
+        self.telemetryBaud=QComboBox();self.telemetryBaud.addItems(["115200","230400","460800","921600"]);bl.addWidget(self.telemetryBaud,1,4)
+        bl.addWidget(clear,1,7);bl.addWidget(openHw,1,8)
+
+        self.telemetryWifiLabel=QLabel("WiFi UDP")
+        bl.addWidget(self.telemetryWifiLabel,2,0)
+        self.telemetryLocalIp=QComboBox();self.telemetryLocalIp.setMinimumWidth(150);bl.addWidget(self.telemetryLocalIp,2,1)
+        self.telemetryRefreshIp=QPushButton("Refresh PC IP");self.telemetryRefreshIp.clicked.connect(self.refresh_telemetry_local_ips);bl.addWidget(self.telemetryRefreshIp,2,2)
+        self.telemetryUdpPortLabel=QLabel("UDP Port");bl.addWidget(self.telemetryUdpPortLabel,2,3)
+        self.telemetryUdpPort=QSpinBox();self.telemetryUdpPort.setRange(1024,65535);self.telemetryUdpPort.setValue(4210);bl.addWidget(self.telemetryUdpPort,2,4)
+        self.telemetryDeviceLabel=QLabel("Device ID");bl.addWidget(self.telemetryDeviceLabel,2,5)
+        self.telemetryDeviceId=QLineEdit("CVET-ESP32");self.telemetryDeviceId.setPlaceholderText("ว่าง = รับทุก device");bl.addWidget(self.telemetryDeviceId,2,6)
+        self.telemetryLoopbackButton=QPushButton("Test WiFi Packet");self.telemetryLoopbackButton.clicked.connect(self.send_telemetry_loopback_test);bl.addWidget(self.telemetryLoopbackButton,2,7)
+        self.telemetryWifiHelp=QLabel("Receive-only LAN telemetry");self.telemetryWifiHelp.setStyleSheet("color:#087e8b;font-weight:800;");bl.addWidget(self.telemetryWifiHelp,2,8)
+
+        bl.setColumnStretch(1,1);bl.setColumnStretch(6,1);root.addWidget(bar)
+
+        # Compact two-row status dashboard.
+        statusGrid=QGridLayout();statusGrid.setHorizontalSpacing(9);statusGrid.setVerticalSpacing(9)
         def stat_card(title):
             box=QFrame();box.setObjectName("metricPanel");lay=QVBoxLayout(box);lay.setContentsMargins(11,8,11,8);lay.setSpacing(2)
             t=QLabel(title);t.setStyleSheet("color:#60758b;font-size:8.5pt;font-weight:900;")
-            v=QLabel("—");v.setWordWrap(True);v.setStyleSheet("color:#17324d;font-size:14pt;font-weight:900;")
+            v=QLabel("—");v.setWordWrap(True);v.setStyleSheet("color:#17324d;font-size:13pt;font-weight:900;")
             lay.addWidget(t);lay.addWidget(v);return box,v
-        c,self.telemetryConnLabel=stat_card("CONNECTION");statusRow.addWidget(c)
-        c,self.telemetryBatteryLabel=stat_card("BATTERY");statusRow.addWidget(c)
-        c,self.telemetryCurrentLabel=stat_card("CURRENT");statusRow.addWidget(c)
-        c,self.telemetrySpeedLabel=stat_card("SPEED");statusRow.addWidget(c)
-        c,self.telemetryTiltLabel=stat_card("IMU TILT");statusRow.addWidget(c)
-        c,self.telemetryRpmLabel=stat_card("MOTOR RPM");statusRow.addWidget(c)
-        c,self.telemetryLogLabel=stat_card("LOGGER");statusRow.addWidget(c)
-        root.addLayout(statusRow)
+        cards=[]
+        for title,attr in (
+            ("CONNECTION","telemetryConnLabel"),("REMOTE / RATE","telemetryRemoteLabel"),
+            ("BATTERY","telemetryBatteryLabel"),("CURRENT","telemetryCurrentLabel"),
+            ("SPEED","telemetrySpeedLabel"),("IMU TILT","telemetryTiltLabel"),
+            ("MOTOR RPM","telemetryRpmLabel"),("LOGGER","telemetryLogLabel")):
+            c,v=stat_card(title);setattr(self,attr,v);cards.append(c)
+        for i,c in enumerate(cards):statusGrid.addWidget(c,i//4,i%4)
+        for col in range(4):statusGrid.setColumnStretch(col,1)
+        root.addLayout(statusGrid)
 
         self.telemetryTabs=QTabWidget();root.addWidget(self.telemetryTabs,1)
 
@@ -1369,17 +1389,17 @@ class App(QMainWindow):
         side=QVBoxLayout()
         self.telemetryStateView=QTextEdit();self.telemetryStateView.setReadOnly(True);self.telemetryStateView.setMinimumWidth(300)
         side.addWidget(self.telemetryStateView,2)
-        self.telemetryProtocolStatus=QPlainTextEdit();self.telemetryProtocolStatus.setReadOnly(True);self.telemetryProtocolStatus.setMaximumHeight(150)
+        self.telemetryProtocolStatus=QPlainTextEdit();self.telemetryProtocolStatus.setReadOnly(True);self.telemetryProtocolStatus.setMaximumHeight(185)
         side.addWidget(self.telemetryProtocolStatus,1)
         sw=QWidget();sw.setLayout(side);ll.addWidget(sw,1)
         self.telemetryTabs.addTab(live,"Live Dashboard")
 
         # Recent sample table
         samples=QWidget();sl=QVBoxLayout(samples);sl.setContentsMargins(8,8,8,8)
-        self.telemetryTable=QTableWidget(0,13)
+        self.telemetryTable=QTableWidget(0,15)
         self.telemetryTable.setHorizontalHeaderLabels([
             "Time","Battery V","Battery A","Speed","Tilt","RPM L","RPM R",
-            "VESC A","Throttle","Steer","Limit L","Limit R","State"
+            "VESC A","Throttle","Steer","Limit L","Limit R","State","Device","Source IP"
         ])
         self.telemetryTable.verticalHeader().setVisible(False);self.telemetryTable.setAlternatingRowColors(True)
         self.telemetryTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -1387,23 +1407,46 @@ class App(QMainWindow):
         self.telemetryTable.horizontalHeader().setSectionResizeMode(12,QHeaderView.Stretch)
         sl.addWidget(self.telemetryTable,1);self.telemetryTabs.addTab(samples,"Recent Samples")
 
-        # ESP32 protocol/code page
+        # ESP32 protocol/code page — follows selected transport.
         proto=QWidget();pl=QVBoxLayout(proto);pl.setContentsMargins(8,8,8,8);pl.setSpacing(7)
         top=QHBoxLayout()
         copy=QPushButton("Copy ESP32 Sender Template");copy.setObjectName("primaryButton");copy.clicked.connect(self.copy_telemetry_esp32_template)
         exp=QPushButton("Export .ino");exp.clicked.connect(self.export_telemetry_esp32_template)
         top.addWidget(copy);top.addWidget(exp);top.addStretch(1);pl.addLayout(top)
-        guide=QLabel('ESP32 ส่ง JSON 1 บรรทัดต่อ sample ผ่าน USB Serial เช่น {"battery_v":72.4,"battery_a":12.3,"speed_kmh":1.0,"tilt_deg":2.1,...}')
-        guide.setWordWrap(True);guide.setStyleSheet("background:#eef8ff;color:#294d6b;padding:9px;border:1px solid #d3e6f5;border-radius:8px;");pl.addWidget(guide)
+        self.telemetryGuideLabel=QLabel("")
+        self.telemetryGuideLabel.setWordWrap(True);self.telemetryGuideLabel.setStyleSheet("background:#eef8ff;color:#294d6b;padding:9px;border:1px solid #d3e6f5;border-radius:8px;");pl.addWidget(self.telemetryGuideLabel)
         self.telemetryCodeView=QPlainTextEdit();self.telemetryCodeView.setReadOnly(True)
         self.telemetryCodeView.setStyleSheet("font-family:Consolas,'Courier New',monospace;font-size:9.5pt;")
         pl.addWidget(self.telemetryCodeView,1);self.telemetryTabs.addTab(proto,"ESP32 Protocol / Code")
 
+        wifiInfo=QPlainTextEdit();wifiInfo.setReadOnly(True)
+        wifiInfo.setPlainText("""WIFI TELEMETRY — DESIGN RULES
+
+1) PC และ ESP32 ต้องอยู่เครือข่าย LAN/WiFi เดียวกัน
+2) เลือก Source = ESP32 WiFi UDP JSON
+3) เลือก PC IP ที่ ESP32 เข้าถึงได้ และกำหนด UDP Port (ค่าเริ่มต้น 4210)
+4) กด Connect / Start ให้โปรแกรมเริ่ม LISTENING
+5) ใส่ PC IP + Port เดียวกันใน ESP32 template แล้ว Upload
+6) เมื่อ packet มาถึง โปรแกรมจะขึ้น LIVE พร้อม Remote IP และ packet rate
+7) Windows Firewall อาจถามสิทธิ์ครั้งแรก — อนุญาต Private networks หากเป็นเครือข่ายที่ไว้ใจได้
+
+ความปลอดภัย:
+• ช่องทางนี้เป็น TELEMETRY RECEIVE-ONLY — โปรแกรมไม่ส่งคำสั่ง Drive/Crane/Winch กลับผ่าน WiFi
+• UDP ไม่มี encryption/authentication ในตัว จึงเหมาะกับ LAN ที่ไว้ใจได้
+• Device ID เป็น filter เพื่อกัน packet อื่น ไม่ใช่ security key
+• ถ้าจะควบคุมรถผ่าน WiFi ในอนาคต ควรทำ protocol ที่มี authentication + failsafe แยกจาก telemetry
+""")
+        self.telemetryTabs.addTab(wifiInfo,"WiFi Setup / Safety")
+
         self.telemetryHistory=[];self.telemetryLogRows=[];self.telemetryConnected=False;self.telemetryLogging=False
         self.telemetrySerial=None;self.telemetrySampleCounter=0;self.telemetryParseErrors=0
+        self.telemetryUdpSocket=None;self.telemetryUdpThread=None;self.telemetryUdpStop=None
+        self.telemetryLastRx=0.0;self.telemetryRemoteAddr="";self.telemetryRxTimes=[];self.telemetryFilteredPackets=0
         self.telemetryTimer=QTimer(self);self.telemetryTimer.timeout.connect(self.telemetry_tick)
-        self.telemetryCodeView.setPlainText(self.telemetry_esp32_template())
-        self.refresh_serial_ports();self.telemetry_source_changed();self.update_telemetry_ui()
+        self.telemetryNetworkPacket.connect(self.handle_wifi_telemetry_event)
+
+        self.refresh_serial_ports();self.refresh_telemetry_local_ips()
+        self.telemetry_source_changed();self.update_telemetry_ui()
         self.tabs.addTab(w,"")
 
     def telemetry_source_changed(self,*_):
