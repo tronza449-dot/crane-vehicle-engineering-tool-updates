@@ -1449,16 +1449,173 @@ class App(QMainWindow):
         self.telemetry_source_changed();self.update_telemetry_ui()
         self.tabs.addTab(w,"")
 
+    def refresh_telemetry_local_ips(self,*_):
+        if not hasattr(self,"telemetryLocalIp"):return
+        old=self.telemetryLocalIp.currentText().strip()
+        ips=set()
+        try:
+            for item in socket.getaddrinfo(socket.gethostname(),None,socket.AF_INET,socket.SOCK_DGRAM):
+                ip=item[4][0]
+                if ip and not ip.startswith("127."):ips.add(ip)
+        except Exception:
+            pass
+        # Route-based lookup often finds the active WiFi/Ethernet interface even
+        # when hostname resolution only returns loopback. connect() sends no packet.
+        try:
+            probe=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+            probe.connect(("8.8.8.8",80));ip=probe.getsockname()[0];probe.close()
+            if ip and not ip.startswith("127."):ips.add(ip)
+        except Exception:
+            pass
+        def rank(ip):
+            if ip.startswith("192.168."):return (0,ip)
+            if ip.startswith("10."):return (1,ip)
+            if ip.startswith("172."):return (2,ip)
+            return (3,ip)
+        values=sorted(ips,key=rank) or ["127.0.0.1"]
+        self.telemetryLocalIp.blockSignals(True);self.telemetryLocalIp.clear();self.telemetryLocalIp.addItems(values)
+        idx=self.telemetryLocalIp.findText(old)
+        if idx>=0:self.telemetryLocalIp.setCurrentIndex(idx)
+        self.telemetryLocalIp.blockSignals(False)
+        self.refresh_telemetry_code_view()
+
+    def telemetry_packet_rate(self):
+        now=time.monotonic()
+        self.telemetryRxTimes=[x for x in getattr(self,"telemetryRxTimes",[]) if now-x<=2.0]
+        xs=self.telemetryRxTimes
+        if len(xs)<2:return 0.0
+        span=max(xs[-1]-xs[0],1e-6)
+        return (len(xs)-1)/span
+
+    def start_wifi_telemetry_listener(self):
+        self.stop_wifi_telemetry_listener()
+        port=int(self.telemetryUdpPort.value())
+        sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        sock.bind(("0.0.0.0",port));sock.settimeout(0.40)
+        self.telemetryUdpSocket=sock
+        self.telemetryUdpGeneration=getattr(self,"telemetryUdpGeneration",0)+1
+        generation=self.telemetryUdpGeneration
+        stop=threading.Event();self.telemetryUdpStop=stop
+        self.telemetryConnected=True;self.telemetryLastRx=0.0;self.telemetryRemoteAddr="";self.telemetryRxTimes=[]
+        def worker():
+            while not stop.is_set():
+                try:
+                    raw,addr=sock.recvfrom(8192)
+                    if len(raw)>4096:
+                        self.telemetryNetworkPacket.emit({"type":"parse_error","generation":generation,"error":"UDP packet > 4096 bytes"})
+                        continue
+                    try:
+                        payload=json.loads(raw.decode("utf-8","strict"))
+                        if not isinstance(payload,dict):raise ValueError("JSON root must be object")
+                        self.telemetryNetworkPacket.emit({"type":"packet","generation":generation,"payload":payload,"addr":addr,"bytes":len(raw)})
+                    except Exception as exc:
+                        self.telemetryNetworkPacket.emit({"type":"parse_error","generation":generation,"error":str(exc)})
+                except socket.timeout:
+                    continue
+                except OSError:
+                    break
+                except Exception as exc:
+                    self.telemetryNetworkPacket.emit({"type":"network_error","generation":generation,"error":str(exc)})
+                    break
+        self.telemetryUdpThread=threading.Thread(target=worker,name="CVET-UDP-Telemetry",daemon=True);self.telemetryUdpThread.start()
+
+    def stop_wifi_telemetry_listener(self):
+        self.telemetryUdpGeneration=getattr(self,"telemetryUdpGeneration",0)+1
+        stop=getattr(self,"telemetryUdpStop",None)
+        if stop is not None:
+            try:stop.set()
+            except Exception:pass
+        sock=getattr(self,"telemetryUdpSocket",None)
+        if sock is not None:
+            try:sock.close()
+            except Exception:pass
+        self.telemetryUdpSocket=None;self.telemetryUdpStop=None
+        th=getattr(self,"telemetryUdpThread",None)
+        if th is not None and th.is_alive():
+            try:th.join(timeout=0.15)
+            except Exception:pass
+        self.telemetryUdpThread=None
+
+    def handle_wifi_telemetry_event(self,event):
+        if not isinstance(event,dict):return
+        if event.get("generation")!=getattr(self,"telemetryUdpGeneration",None):return
+        typ=event.get("type")
+        if typ=="parse_error":
+            self.telemetryParseErrors+=1
+            self.update_telemetry_ui();return
+        if typ=="network_error":
+            if hasattr(self,"telemetryProtocolStatus"):self.telemetryProtocolStatus.setPlainText("WiFi UDP error:\n"+str(event.get("error","")))
+            return
+        if typ!="packet":return
+        payload=event.get("payload",{})
+        expected=self.telemetryDeviceId.text().strip() if hasattr(self,"telemetryDeviceId") else ""
+        device=str(payload.get("device","")).strip()
+        if expected and device!=expected:
+            self.telemetryFilteredPackets+=1;self.update_telemetry_ui();return
+        try:
+            sample=self.normalize_telemetry_sample(payload)
+        except Exception:
+            self.telemetryParseErrors+=1;self.update_telemetry_ui();return
+        addr=event.get("addr",("",0))
+        sample["source_ip"]=str(addr[0]);sample["source_port"]=int(addr[1])
+        sample["transport"]="WiFi UDP"
+        self.telemetryLastRx=time.monotonic()
+        self.telemetryRemoteAddr=f"{addr[0]}:{addr[1]}"
+        self.telemetryRxTimes.append(self.telemetryLastRx)
+        self.telemetryRxTimes=[x for x in self.telemetryRxTimes if self.telemetryLastRx-x<=2.0]
+        self.ingest_telemetry_sample(sample)
+
+    def send_telemetry_loopback_test(self,*_):
+        if self.telemetrySource.currentIndex()!=2:self.telemetrySource.setCurrentIndex(2)
+        if not getattr(self,"telemetryConnected",False):self.connect_telemetry()
+        if not getattr(self,"telemetryConnected",False):return
+        payload={
+            "device":self.telemetryDeviceId.text().strip() or "CVET-ESP32",
+            "seq":1,"uptime_ms":12345,"battery_v":72.4,"battery_pct":84.0,"battery_a":8.2,
+            "speed_kmh":1.0,"tilt_deg":2.1,"left_rpm":13.2,"right_rpm":13.0,
+            "vesc_current_a":9.0,"rc_throttle":25.0,"rc_steer":0.0,
+            "limit_left":False,"limit_right":False,"estop":False,"rc_ok":True,
+            "wifi_rssi_dbm":-55,"state":"WIFI TEST"
+        }
+        try:
+            tx=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+            tx.sendto(json.dumps(payload,separators=(",",":")).encode("utf-8"),("127.0.0.1",int(self.telemetryUdpPort.value())))
+            tx.close();self.statusBar().showMessage("Sent local WiFi telemetry test packet",2500)
+        except Exception as exc:
+            QMessageBox.warning(self,"WiFi Telemetry Test",str(exc))
+
+    def refresh_telemetry_code_view(self,*_):
+        if not hasattr(self,"telemetryCodeView") or not hasattr(self,"telemetrySource"):return
+        idx=self.telemetrySource.currentIndex()
+        if idx==2:
+            self.telemetryCodeView.setPlainText(self.telemetry_wifi_esp32_template())
+            if hasattr(self,"telemetryGuideLabel"):
+                self.telemetryGuideLabel.setText("WiFi mode: ESP32 ส่ง JSON datagram ผ่าน UDP ไปยัง PC IP + UDP Port ที่แสดงด้านบน ไม่ต้องเสียบสาย USB หลัง Upload แล้ว")
+        else:
+            self.telemetryCodeView.setPlainText(self.telemetry_esp32_template())
+            if hasattr(self,"telemetryGuideLabel"):
+                self.telemetryGuideLabel.setText('Serial mode: ESP32 ส่ง JSON 1 บรรทัดต่อ sample ผ่าน USB Serial เช่น {"battery_v":72.4,"battery_a":12.3,"speed_kmh":1.0,...}')
+
     def telemetry_source_changed(self,*_):
         self.disconnect_telemetry(silent=True)
-        serial_mode=hasattr(self,"telemetrySource") and self.telemetrySource.currentIndex()==1
-        if hasattr(self,"telemetryPort"):self.telemetryPort.setEnabled(serial_mode)
-        if hasattr(self,"telemetryBaud"):self.telemetryBaud.setEnabled(serial_mode)
+        idx=self.telemetrySource.currentIndex() if hasattr(self,"telemetrySource") else 0
+        serial_mode=idx==1;wifi_mode=idx==2
+        for name in ("telemetrySerialLabel","telemetryPort","telemetryRefreshPorts","telemetryBaudLabel","telemetryBaud"):
+            if hasattr(self,name):getattr(self,name).setEnabled(serial_mode)
+        for name in ("telemetryWifiLabel","telemetryLocalIp","telemetryRefreshIp","telemetryUdpPortLabel",
+                     "telemetryUdpPort","telemetryDeviceLabel","telemetryDeviceId","telemetryLoopbackButton","telemetryWifiHelp"):
+            if hasattr(self,name):getattr(self,name).setEnabled(wifi_mode)
+        self.refresh_telemetry_code_view()
         self.update_telemetry_ui()
 
     def telemetry_rate_changed(self,*_):
         if hasattr(self,"telemetryTimer") and self.telemetryTimer.isActive():
-            self.telemetryTimer.setInterval(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
+            if hasattr(self,"telemetrySource") and self.telemetrySource.currentIndex()==2:
+                self.telemetryTimer.setInterval(250)
+            else:
+                self.telemetryTimer.setInterval(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
+        self.refresh_telemetry_code_view()
 
     def refresh_serial_ports(self,*_):
         if not hasattr(self,"telemetryPort"):return
@@ -1477,11 +1634,12 @@ class App(QMainWindow):
     def connect_telemetry(self,*_):
         self.disconnect_telemetry(silent=True)
         self.telemetryParseErrors=0
-        if self.telemetrySource.currentIndex()==0:
+        idx=self.telemetrySource.currentIndex()
+        if idx==0:
             self.telemetryConnected=True
             self.telemetryTimer.start(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
             self.statusBar().showMessage("Telemetry Simulation started",3000)
-        else:
+        elif idx==1:
             if not SERIAL_AVAILABLE or serial is None:
                 QMessageBox.warning(self,"ESP32 Telemetry","pyserial ไม่พร้อมใช้งานในโปรแกรมรุ่นนี้")
                 return
@@ -1493,10 +1651,18 @@ class App(QMainWindow):
                 self.telemetrySerial=serial.Serial(port,int(self.telemetryBaud.currentText()),timeout=0)
                 self.telemetryConnected=True
                 self.telemetryTimer.start(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
-                self.statusBar().showMessage(f"Connected to ESP32: {port}",3000)
+                self.statusBar().showMessage(f"Connected to ESP32 Serial: {port}",3000)
             except Exception as exc:
                 self.telemetrySerial=None;self.telemetryConnected=False
                 QMessageBox.warning(self,"ESP32 Telemetry",f"เปิด {port} ไม่สำเร็จ\n{exc}")
+        else:
+            try:
+                self.start_wifi_telemetry_listener()
+                self.telemetryTimer.start(250)
+                self.statusBar().showMessage(f"WiFi UDP listening on port {self.telemetryUdpPort.value()}",3000)
+            except Exception as exc:
+                self.telemetryConnected=False
+                QMessageBox.warning(self,"ESP32 WiFi Telemetry",f"เปิด UDP listener ไม่สำเร็จ\n{exc}")
         self.update_telemetry_ui()
 
     def disconnect_telemetry(self,*_,silent=False):
@@ -1505,7 +1671,10 @@ class App(QMainWindow):
         if ser is not None:
             try:ser.close()
             except Exception:pass
-        self.telemetrySerial=None;self.telemetryConnected=False
+        self.telemetrySerial=None
+        self.stop_wifi_telemetry_listener()
+        self.telemetryConnected=False
+        self.telemetryLastRx=0.0;self.telemetryRemoteAddr="";self.telemetryRxTimes=[]
         if not silent and hasattr(self,"statusBar"):self.statusBar().showMessage("Telemetry disconnected",2500)
         if hasattr(self,"telemetryConnLabel"):self.update_telemetry_ui()
 
@@ -1536,6 +1705,12 @@ class App(QMainWindow):
         out={}
         for dst,keys in aliases.items():
             val=next((data[k] for k in keys if k in data),0.0);out[dst]=self._telemetry_num(val)
+        pct=next((data[k] for k in ("battery_pct","battery_percent","soc") if k in data),-1.0)
+        out["battery_pct"]=max(-1.0,min(100.0,self._telemetry_num(pct)))
+        out["wifi_rssi_dbm"]=self._telemetry_num(data.get("wifi_rssi_dbm",data.get("rssi",-999)))
+        out["seq"]=int(max(0,self._telemetry_num(data.get("seq",0))))
+        out["uptime_ms"]=int(max(0,self._telemetry_num(data.get("uptime_ms",data.get("uptime",0)))))
+        out["device"]=str(data.get("device","")).strip()
         out["limit_left"]=self._telemetry_bool(data.get("limit_left",data.get("left_limit",False)))
         out["limit_right"]=self._telemetry_bool(data.get("limit_right",data.get("right_limit",False)))
         out["estop"]=self._telemetry_bool(data.get("estop",False))
@@ -1571,8 +1746,16 @@ class App(QMainWindow):
 
     def telemetry_tick(self):
         if not getattr(self,"telemetryConnected",False):return
-        if self.telemetrySource.currentIndex()==0:
-            self.telemetrySampleCounter+=1;self.ingest_telemetry_sample(self.simulated_telemetry_sample());return
+        idx=self.telemetrySource.currentIndex()
+        if idx==0:
+            self.telemetrySampleCounter+=1
+            self.ingest_telemetry_sample(self.simulated_telemetry_sample())
+            return
+        if idx==2:
+            # UDP is received in a background thread. This timer only refreshes
+            # LIVE/LISTENING status when packets stop arriving.
+            self.update_telemetry_ui()
+            return
         ser=getattr(self,"telemetrySerial",None)
         if ser is None:return
         try:
@@ -1606,7 +1789,8 @@ class App(QMainWindow):
             f"{s.get('battery_v',0):.2f}",f"{s.get('battery_a',0):.2f}",f"{s.get('speed_kmh',0):.3f}",
             f"{s.get('tilt_deg',0):.2f}",f"{s.get('left_rpm',0):.1f}",f"{s.get('right_rpm',0):.1f}",
             f"{s.get('vesc_current_a',0):.2f}",f"{s.get('rc_throttle',0):.1f}",f"{s.get('rc_steer',0):.1f}",
-            "1" if s.get("limit_left") else "0","1" if s.get("limit_right") else "0",str(s.get("state",""))
+            "1" if s.get("limit_left") else "0","1" if s.get("limit_right") else "0",str(s.get("state","")),
+            str(s.get("device","")),str(s.get("source_ip",""))
         ]
         for c,val in enumerate(vals):
             item=QTableWidgetItem(val);item.setTextAlignment(Qt.AlignCenter);self.telemetryTable.setItem(0,c,item)
