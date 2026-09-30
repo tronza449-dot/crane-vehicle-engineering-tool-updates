@@ -947,10 +947,10 @@ class SystemFlowchartWidget(QWidget):
             "senddrive":(80,1426,260,62,"Send Drive Command\nto VESC","rect","process"),
             "stopdrive":(660,1345,260,62,"Send Stop Command\nto VESC","rect","process"),
             "movingq":(660,1435,260,86,"Vehicle Still Moving?","diamond","decision"),
-            "keepmoving":(730,1550,220,58,"Keep Crane Stopped","rect","stop"),
-            "stopped05":(610,1552,260,86,"Stopped for\nat least 0.5 s?","diamond","decision"),
-            "keepwait":(770,1665,180,58,"Keep Crane Stopped","rect","stop"),
-            "controlcrane":(365,1660,300,62,"Control Crane\n(Read crane command from remote)","rect","process"),
+            "keepmoving":(800,1548,140,62,"Keep Crane\nStopped","rect","stop"),
+            "stopped05":(530,1542,260,86,"Stopped for\nat least 0.5 s?","diamond","decision"),
+            "keepwait":(800,1652,140,62,"Keep Crane\nStopped","rect","stop"),
+            "controlcrane":(320,1652,300,62,"Control Crane\n(Read crane command from remote)","rect","process"),
             "cranedir":(390,1750,250,86,"Crane Direction?","diamond","decision"),
             "leftlimitq":(80,1858,240,80,"Left Limit Reached?","diamond","decision"),
             "rightlimitq":(680,1858,240,80,"Right Limit Reached?","diamond","decision"),
@@ -1000,9 +1000,9 @@ class SystemFlowchartWidget(QWidget):
         self._poly_arrow(p,[C("stopdrive"),C("movingq","top")],col)
 
         self._poly_arrow(p,[C("movingq","right"),QPointF(R(930,0,0,0).x(),C("movingq","right").y()),C("keepmoving","top")],red);label(915,1460,55,22,"YES",red)
-        self._poly_arrow(p,[C("movingq"),C("stopped05","top")],blue);label(785,1523,45,22,"NO",blue)
-        self._poly_arrow(p,[C("stopped05","left"),QPointF(R(515,0,0,0).x(),C("stopped05","left").y()),C("controlcrane","top")],green);label(520,1570,55,22,"YES",green)
-        self._poly_arrow(p,[C("stopped05","right"),QPointF(R(900,0,0,0).x(),C("stopped05","right").y()),C("keepwait","top")],red);label(870,1570,45,22,"NO",red)
+        self._poly_arrow(p,[C("movingq"),C("stopped05","top")],blue);label(705,1518,45,22,"NO",blue)
+        self._poly_arrow(p,[C("stopped05","left"),QPointF(R(515,0,0,0).x(),C("stopped05","left").y()),C("controlcrane","top")],green);label(460,1560,55,22,"YES",green)
+        self._poly_arrow(p,[C("stopped05","right"),QPointF(R(900,0,0,0).x(),C("stopped05","right").y()),C("keepwait","top")],red);label(790,1560,45,22,"NO",red)
         self._poly_arrow(p,[C("controlcrane"),C("cranedir","top")],col)
 
         self._poly_arrow(p,[C("cranedir","left"),QPointF(R(200,0,0,0).x(),C("cranedir","left").y()),C("leftlimitq","top")],blue);label(250,1765,60,22,"LEFT",blue)
