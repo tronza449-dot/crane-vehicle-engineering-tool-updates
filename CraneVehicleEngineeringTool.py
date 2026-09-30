@@ -959,7 +959,13 @@ class SystemFlowchartWidget(QWidget):
             "turnleft":(235,1970,160,55,"Turn Left","rect","action"),
             "turnright":(605,1970,160,55,"Turn Right","rect","action"),
             "stopright":(785,1970,160,55,"Stop Crane","rect","stop"),
-            "A":(445,2070,110,46,"A","round","connector"),
+            "Ain":(270,274,48,42,"A","round","connector"),
+            "A_remote":(952,378,42,42,"A","round","connector"),
+            "A_motor":(952,744,42,42,"A","round","connector"),
+            "A_drive":(185,1512,50,42,"A","round","connector"),
+            "A_move":(952,1560,42,42,"A","round","connector"),
+            "A_wait":(952,1674,42,42,"A","round","connector"),
+            "A_bottom":(445,2070,110,46,"A","round","connector"),
         }
 
         def C(key,side="bottom"):
@@ -1008,21 +1014,24 @@ class SystemFlowchartWidget(QWidget):
         self._poly_arrow(p,[C("rightlimitq","left"),QPointF(R(685,0,0,0).x(),C("rightlimitq","left").y()),C("turnright","top")],green);label(620,1900,45,22,"NO",green)
         self._poly_arrow(p,[C("rightlimitq","right"),QPointF(R(865,0,0,0).x(),C("rightlimitq","right").y()),C("stopright","top")],red);label(900,1900,55,22,"YES",red)
 
-        target=C("A","top");returnY=R(2045,0,0,0).y()
-        for key in ("senddrive","keepmoving","keepwait","cranestop","stopleft","turnleft","turnright","stopright","remotefault","motorfault"):
-            a=C(key)
-            if key in ("remotefault","motorfault"):
-                rx=R(972,0,0,0).x();self._poly_arrow(p,[a,QPointF(rx,a.y()),QPointF(rx,returnY),QPointF(target.x(),returnY),target],col)
-            else:self._poly_arrow(p,[a,QPointF(a.x(),returnY),QPointF(target.x(),returnY),target],col)
+        # Connector A is shown as local jump connectors (same style as the submitted Final).
+        # This keeps return lines from crossing the main flowchart.
+        self._poly_arrow(p,[C("Ain","right"),C("remote","left")],"#526f8a",2.0)
+        self._poly_arrow(p,[C("remotefault","right"),C("A_remote","left")],col)
+        self._poly_arrow(p,[C("motorfault","right"),C("A_motor","left")],col)
+        self._poly_arrow(p,[C("senddrive"),C("A_drive","top")],col)
+        self._poly_arrow(p,[C("keepmoving","right"),C("A_move","left")],col)
+        self._poly_arrow(p,[C("keepwait","right"),C("A_wait","left")],col)
 
-        a=C("A");rleft=C("remote","left");loopX=R(24,0,0,0).x()
-        self._poly_arrow(p,[a,QPointF(loopX,a.y()),QPointF(loopX,rleft.y()),rleft],"#526f8a",2.2)
-        label(25,282,95,28,"Next loop","#526f8a")
+        # Crane terminal actions merge neatly into the bottom A connector.
+        target=C("A_bottom","top");returnY=R(2045,0,0,0).y()
+        for key in ("cranestop","stopleft","turnleft","turnright","stopright"):
+            a=C(key);self._poly_arrow(p,[a,QPointF(a.x(),returnY),QPointF(target.x(),returnY),target],col)
 
         for key,(x,y,w,h,text,shape,kind) in nodes.items():self._node(p,key,R(x,y,w,h),text,shape,kind)
 
         p.setPen(QColor("#60758b"));p.setFont(QFont(choose_ui_font_family(),7.8))
-        p.drawText(R(250,2120,500,24),Qt.AlignCenter,"Connector A = กลับไปอ่าน Remote Signal ใหม่ในรอบถัดไป")
+        p.drawText(R(230,2120,540,24),Qt.AlignCenter,"Connector A = กลับไปอ่าน Remote Signal ใหม่ในรอบถัดไป")
 
 class TelemetryChartWidget(QWidget):
     """Three compact live plots for Current, Speed and Tilt."""
@@ -1249,17 +1258,17 @@ class App(QMainWindow):
         name=(name or (self.flowScenario.currentText() if hasattr(self,"flowScenario") else "Drive Forward"))
         normal=["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","tiltq","warningoff","drivecmd","mix","speedlimit"]
         paths={
-            "Drive Forward":normal+["driveq","stopcrane_drive","senddrive","A","remote"],
-            "Idle / Ready":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","cranestop","A","remote"],
-            "Crane LEFT":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","leftlimitq","turnleft","A","remote"],
-            "Crane RIGHT":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","rightlimitq","turnright","A","remote"],
-            "Remote Fault":["start","init","remote","remoteq","remotefault","A","remote"],
-            "Motor / VESC Fault":["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","motorfault","A","remote"],
+            "Drive Forward":normal+["driveq","stopcrane_drive","senddrive","A_drive","Ain","remote"],
+            "Idle / Ready":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","cranestop","A_bottom","Ain","remote"],
+            "Crane LEFT":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","leftlimitq","turnleft","A_bottom","Ain","remote"],
+            "Crane RIGHT":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","rightlimitq","turnright","A_bottom","Ain","remote"],
+            "Remote Fault":["start","init","remote","remoteq","remotefault","A_remote","Ain","remote"],
+            "Motor / VESC Fault":["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","motorfault","A_motor","Ain","remote"],
             "Tilt Warning":["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","tiltq","warningon","drivecmd","mix","speedlimit","driveq","stopcrane_drive","senddrive","A","remote"],
-            "Vehicle Still Moving":normal+["driveq","stopdrive","movingq","keepmoving","A","remote"],
-            "Stopped < 0.5 s":normal+["driveq","stopdrive","movingq","stopped05","keepwait","A","remote"],
-            "LEFT Limit Active":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","leftlimitq","stopleft","A","remote"],
-            "RIGHT Limit Active":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","rightlimitq","stopright","A","remote"],
+            "Vehicle Still Moving":normal+["driveq","stopdrive","movingq","keepmoving","A_move","Ain","remote"],
+            "Stopped < 0.5 s":normal+["driveq","stopdrive","movingq","stopped05","keepwait","A_wait","Ain","remote"],
+            "LEFT Limit Active":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","leftlimitq","stopleft","A_bottom","Ain","remote"],
+            "RIGHT Limit Active":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","rightlimitq","stopright","A_bottom","Ain","remote"],
         }
         return paths.get(name,paths["Idle / Ready"])
 
@@ -1331,7 +1340,13 @@ class App(QMainWindow):
             "turnright":"Right Limit ยังไม่ทำงาน → Turn Right",
             "stopright":"Right Limit ทำงาน → Stop Crane",
             "cranestop":"STOP → Stop Crane",
-            "A":"Connector A → กลับไปอ่าน Remote Signal ใหม่ในรอบถัดไป",
+            "Ain":"Connector A (entry) → Read Remote Signal รอบถัดไป",
+            "A_remote":"Connector A → กลับไปอ่าน Remote Signal ใหม่",
+            "A_motor":"Connector A → กลับไปอ่าน Remote Signal ใหม่",
+            "A_drive":"Connector A → กลับไปอ่าน Remote Signal ใหม่",
+            "A_move":"Connector A → กลับไปอ่าน Remote Signal ใหม่",
+            "A_wait":"Connector A → กลับไปอ่าน Remote Signal ใหม่",
+            "A_bottom":"Connector A → กลับไปอ่าน Remote Signal ใหม่",
         }
         step=self.flowStep+1 if self.flowBoard.path else 0
         total=len(self.flowBoard.path)
