@@ -2592,6 +2592,548 @@ void loop() {{
         except Exception as exc:
             QMessageBox.critical(self,"Hardware Pin Map",str(exc))
 
+
+    # =====================================================================
+    # V53 — ENGINEERING INTEGRATION SUITE
+    # Validation • Diagnostics • Device Library • BOM • Revisions • Final Verification
+    # =====================================================================
+    def _table_rows_text(self,table):
+        rows=[]
+        for r in range(table.rowCount()):
+            row=[]
+            for c in range(table.columnCount()):
+                item=table.item(r,c);row.append(item.text() if item else "")
+            rows.append(row)
+        return rows
+
+    def _load_table_rows_text(self,table,rows):
+        table.blockSignals(True)
+        table.setRowCount(0)
+        for row in rows or []:
+            r=table.rowCount();table.insertRow(r)
+            for c,val in enumerate(row[:table.columnCount()]):
+                table.setItem(r,c,QTableWidgetItem(str(val)))
+        table.blockSignals(False)
+
+    def make_integration_suite(self):
+        w=QWidget();self.integrationPage=w
+        root=QVBoxLayout(w);root.setContentsMargins(16,14,16,16);root.setSpacing(12)
+        root.addWidget(make_page_header(
+            "ENGINEERING INTEGRATION SUITE",
+            "Device Library • Validation • Diagnostics • BOM/Cost • Revisions • Final Verification",
+            self.show_home_mode,"V53 INTEGRATION","#eee9ff","#5b4bb7"
+        ))
+        self.integrationTabs=QTabWidget();root.addWidget(self.integrationTabs,1)
+
+        # -------------------------------------------------------------
+        # 1) DEVICE LIBRARY
+        # -------------------------------------------------------------
+        dp=QWidget();dl=QVBoxLayout(dp);dl.setContentsMargins(9,9,9,9);dl.setSpacing(8)
+        dbar=QHBoxLayout()
+        add=QPushButton("+ Add Device");add.setObjectName("primaryButton");add.clicked.connect(self.add_device_library_item)
+        edit=QPushButton("Edit");edit.clicked.connect(self.edit_device_library_item)
+        duplicate=QPushButton("Duplicate");duplicate.clicked.connect(self.duplicate_device_library_item)
+        remove=QPushButton("Delete");remove.setObjectName("secondaryButton");remove.clicked.connect(self.delete_device_library_item)
+        send=QPushButton("Add to Hardware I/O");send.clicked.connect(self.add_library_device_to_hardware)
+        for b in (add,edit,duplicate,remove,send):dbar.addWidget(b)
+        dbar.addStretch(1);dl.addLayout(dbar)
+        note=QLabel("เพิ่ม Sensor / Relay / Encoder / Switch / Display / Communication / Power module ได้เอง แล้วส่งไป Hardware I/O ได้ทันที • 1 แถว = 1 signal ของอุปกรณ์")
+        note.setWordWrap(True);note.setStyleSheet("color:#60758b;font-weight:650;");dl.addWidget(note)
+        self.deviceLibraryTable=QTableWidget(0,8)
+        self.deviceLibraryTable.setHorizontalHeaderLabels(["Device","Category","Signal","Interface","Supply","Logic","Protection","Note"])
+        self.deviceLibraryTable.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.deviceLibraryTable.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.deviceLibraryTable.setAlternatingRowColors(True)
+        self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch)
+        self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(7,QHeaderView.Stretch)
+        dl.addWidget(self.deviceLibraryTable,1)
+        self.integrationTabs.addTab(dp,"Device Library")
+
+        # -------------------------------------------------------------
+        # 2) TEST & VALIDATION CENTER
+        # -------------------------------------------------------------
+        vp=QWidget();vl=QVBoxLayout(vp);vl.setContentsMargins(9,9,9,9);vl.setSpacing(8)
+        vbar=QHBoxLayout()
+        load=QPushButton("Load Current Calculated Targets");load.setObjectName("primaryButton");load.clicked.connect(self.load_validation_targets)
+        addv=QPushButton("+ Add Test");addv.clicked.connect(self.add_validation_row)
+        delv=QPushButton("Delete Selected");delv.clicked.connect(self.delete_validation_row)
+        clearv=QPushButton("Clear Measured");clearv.clicked.connect(self.clear_validation_measured)
+        for b in (load,addv,delv,clearv):vbar.addWidget(b)
+        vbar.addStretch(1);vl.addLayout(vbar)
+        vh=QLabel("กรอกค่าที่วัดจากรถจริงในคอลัมน์ Measured → โปรแกรมคำนวณ Error % และ PASS/FAIL อัตโนมัติ")
+        vh.setWordWrap(True);vh.setStyleSheet("color:#60758b;font-weight:650;");vl.addWidget(vh)
+        self.validationTable=QTableWidget(0,8)
+        self.validationTable.setHorizontalHeaderLabels(["Test","Unit","Calculated","Measured","Tolerance %","Error %","Status","Note"])
+        self.validationTable.verticalHeader().setVisible(False);self.validationTable.setAlternatingRowColors(True)
+        self.validationTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.validationTable.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch)
+        self.validationTable.horizontalHeader().setSectionResizeMode(7,QHeaderView.Stretch)
+        self.validationTable.itemChanged.connect(self.update_validation_results)
+        vl.addWidget(self.validationTable,1)
+        self.validationSummary=QLabel("Validation: ยังไม่มีข้อมูลวัดจริง")
+        self.validationSummary.setStyleSheet("font-weight:900;color:#17324d;padding:8px;");vl.addWidget(self.validationSummary)
+        self.integrationTabs.addTab(vp,"Test & Validation")
+
+        # -------------------------------------------------------------
+        # 3) FAULT & DIAGNOSTIC CENTER
+        # -------------------------------------------------------------
+        fp=QWidget();fl=QVBoxLayout(fp);fl.setContentsMargins(9,9,9,9);fl.setSpacing(8)
+        fbar=QHBoxLayout()
+        run=QPushButton("Run Diagnostics");run.setObjectName("primaryButton");run.clicked.connect(self.run_diagnostics)
+        clearlog=QPushButton("Clear Fault Log");clearlog.clicked.connect(self.clear_diagnostic_log)
+        fbar.addWidget(run);fbar.addWidget(clearlog);fbar.addStretch(1);fl.addLayout(fbar)
+        self.diagnosticSummary=QLabel("กด Run Diagnostics เพื่อตรวจ Safety, Hardware, Battery, Design และ Telemetry")
+        self.diagnosticSummary.setWordWrap(True);self.diagnosticSummary.setStyleSheet("font-weight:750;color:#60758b;");fl.addWidget(self.diagnosticSummary)
+        split=QSplitter(Qt.Vertical)
+        self.diagnosticTable=QTableWidget(0,4)
+        self.diagnosticTable.setHorizontalHeaderLabels(["Severity","System","Finding","Recommended action"])
+        self.diagnosticTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.diagnosticTable.horizontalHeader().setSectionResizeMode(2,QHeaderView.Stretch)
+        self.diagnosticTable.horizontalHeader().setSectionResizeMode(3,QHeaderView.Stretch)
+        self.diagnosticTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.diagnosticLog=QPlainTextEdit();self.diagnosticLog.setReadOnly(True)
+        split.addWidget(self.diagnosticTable);split.addWidget(self.diagnosticLog);split.setSizes([430,180]);fl.addWidget(split,1)
+        self.integrationTabs.addTab(fp,"Fault & Diagnostic")
+
+        # -------------------------------------------------------------
+        # 4) BOM + COST + WEIGHT
+        # -------------------------------------------------------------
+        bp=QWidget();bl=QVBoxLayout(bp);bl.setContentsMargins(9,9,9,9);bl.setSpacing(8)
+        bbar=QHBoxLayout()
+        base=QPushButton("Load Project Baseline BOM");base.setObjectName("primaryButton");base.clicked.connect(self.load_baseline_bom)
+        addb=QPushButton("+ Add Item");addb.clicked.connect(self.add_bom_row)
+        delb=QPushButton("Delete Selected");delb.clicked.connect(self.delete_bom_row)
+        for b in (base,addb,delb):bbar.addWidget(b)
+        bbar.addStretch(1);bl.addLayout(bbar)
+        self.bomTable=QTableWidget(0,8)
+        self.bomTable.setHorizontalHeaderLabels(["Item","Category","Qty","Unit Cost (THB)","Unit Mass (kg)","Supplier / URL","Status","Note"])
+        self.bomTable.setAlternatingRowColors(True);self.bomTable.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.bomTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.bomTable.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch)
+        self.bomTable.horizontalHeader().setSectionResizeMode(5,QHeaderView.Stretch)
+        self.bomTable.horizontalHeader().setSectionResizeMode(7,QHeaderView.Stretch)
+        self.bomTable.itemChanged.connect(self.update_bom_summary)
+        bl.addWidget(self.bomTable,1)
+        self.bomSummary=QLabel("BOM: 0 items")
+        self.bomSummary.setWordWrap(True);self.bomSummary.setStyleSheet("font-weight:900;color:#17324d;padding:8px;");bl.addWidget(self.bomSummary)
+        self.integrationTabs.addTab(bp,"BOM / Cost / Weight")
+
+        # -------------------------------------------------------------
+        # 5) DESIGN REVISION MANAGER
+        # -------------------------------------------------------------
+        rp=QWidget();rl=QVBoxLayout(rp);rl.setContentsMargins(9,9,9,9);rl.setSpacing(8)
+        rbar=QHBoxLayout()
+        cap=QPushButton("Capture Revision");cap.setObjectName("primaryButton");cap.clicked.connect(self.capture_design_revision)
+        apply=QPushButton("Apply Selected");apply.clicked.connect(self.apply_design_revision)
+        compare=QPushButton("Compare 2 Selected");compare.clicked.connect(self.compare_design_revisions)
+        dele=QPushButton("Delete");dele.clicked.connect(self.delete_design_revision)
+        for b in (cap,apply,compare,dele):rbar.addWidget(b)
+        rbar.addStretch(1);rl.addLayout(rbar)
+        self.revisionTable=QTableWidget(0,4)
+        self.revisionTable.setHorizontalHeaderLabels(["Name","Created","Version","Note"])
+        self.revisionTable.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.revisionTable.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.revisionTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.revisionTable.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch)
+        self.revisionTable.horizontalHeader().setSectionResizeMode(3,QHeaderView.Stretch)
+        rl.addWidget(self.revisionTable,1)
+        self.revisionCompare=QTextEdit();self.revisionCompare.setReadOnly(True);self.revisionCompare.setMinimumHeight(220);rl.addWidget(self.revisionCompare)
+        self.designRevisions=[]
+        self.integrationTabs.addTab(rp,"Design Revisions")
+
+        # -------------------------------------------------------------
+        # 6) FINAL PROJECT VERIFICATION
+        # -------------------------------------------------------------
+        cp=QWidget();cl=QVBoxLayout(cp);cl.setContentsMargins(9,9,9,9);cl.setSpacing(8)
+        cbar=QHBoxLayout()
+        refresh=QPushButton("Refresh Final Verification");refresh.setObjectName("primaryButton");refresh.clicked.connect(self.update_final_verification)
+        goReport=QPushButton("Open Final Report");goReport.clicked.connect(self.show_project_tools_mode)
+        cbar.addWidget(refresh);cbar.addWidget(goReport);cbar.addStretch(1);cl.addLayout(cbar)
+        self.finalVerificationView=QTextEdit();self.finalVerificationView.setReadOnly(True);cl.addWidget(self.finalVerificationView,1)
+        self.integrationTabs.addTab(cp,"Final Verification")
+
+        self.integrationTabs.currentChanged.connect(lambda i:self.refresh_integration_suite())
+        self.tabs.addTab(w,"")
+        self.refresh_integration_suite()
+
+    # ---------------- DEVICE LIBRARY ----------------
+    def _device_library_dialog(self,title,existing=None):
+        dlg=QDialog(self);dlg.setWindowTitle(title);dlg.resize(620,500)
+        lay=QVBoxLayout(dlg);form=QFormLayout()
+        existing=existing or {}
+        name=QLineEdit(existing.get("device",""))
+        category=QComboBox();category.addItems(["Sensor","Actuator","Communication","Switch / Input","Display / HMI","Power","Safety","Other"])
+        category.setCurrentText(existing.get("category","Sensor"))
+        signal=QLineEdit(existing.get("signal",""))
+        interface=QComboBox();interface.addItems(["Digital IN","Digital OUT","ADC","PWM","UART RX","UART TX","I2C SDA","I2C SCL","CAN RX","CAN TX","SPI","Other"])
+        interface.setCurrentText(existing.get("interface","Digital IN"))
+        supply=QComboBox();supply.addItems(self._hardware_supply_items());supply.setCurrentText(existing.get("supply","3.3V"))
+        logic=QComboBox();logic.addItems(self._hardware_logic_items());logic.setCurrentText(existing.get("logic","3.3V"))
+        protection=QComboBox();protection.addItems(self._hardware_protection_items());protection.setCurrentText(existing.get("protection","Direct"))
+        note=QLineEdit(existing.get("note",""))
+        for lab,obj in (("Device name",name),("Category",category),("Signal",signal),("Interface",interface),
+                        ("Supply",supply),("Logic",logic),("Protection",protection),("Note",note)):form.addRow(lab,obj)
+        lay.addLayout(form)
+        info=QLabel("ถ้าอุปกรณ์มีหลาย signal ให้เพิ่มหลายแถวโดยใช้ Device name เดียวกัน เช่น Encoder A / Encoder B")
+        info.setWordWrap(True);info.setStyleSheet("background:#eef6ff;color:#31506b;padding:8px;border-radius:8px;");lay.addWidget(info)
+        buttons=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel);buttons.accepted.connect(dlg.accept);buttons.rejected.connect(dlg.reject);lay.addWidget(buttons)
+        if dlg.exec()!=QDialog.Accepted:return None
+        if not name.text().strip() or not signal.text().strip():
+            QMessageBox.warning(self,title,"กรอก Device name และ Signal ก่อน")
+            return None
+        return dict(device=name.text().strip(),category=category.currentText(),signal=signal.text().strip(),
+                    interface=interface.currentText(),supply=supply.currentText(),logic=logic.currentText(),
+                    protection=protection.currentText(),note=note.text().strip())
+
+    def _device_library_row_data(self,r):
+        if r<0 or r>=self.deviceLibraryTable.rowCount():return None
+        vals=[self.deviceLibraryTable.item(r,c).text() if self.deviceLibraryTable.item(r,c) else "" for c in range(8)]
+        return dict(zip(("device","category","signal","interface","supply","logic","protection","note"),vals))
+
+    def _append_device_library_row(self,data):
+        r=self.deviceLibraryTable.rowCount();self.deviceLibraryTable.insertRow(r)
+        for c,key in enumerate(("device","category","signal","interface","supply","logic","protection","note")):
+            self.deviceLibraryTable.setItem(r,c,QTableWidgetItem(str(data.get(key,""))))
+        return r
+
+    def add_device_library_item(self):
+        data=self._device_library_dialog("Add Device to Library")
+        if not data:return
+        r=self._append_device_library_row(data);self.deviceLibraryTable.selectRow(r)
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    def edit_device_library_item(self):
+        r=self.deviceLibraryTable.currentRow()
+        data=self._device_library_row_data(r)
+        if not data:
+            QMessageBox.information(self,"Device Library","เลือกอุปกรณ์ก่อน");return
+        new=self._device_library_dialog("Edit Device",data)
+        if not new:return
+        for c,key in enumerate(("device","category","signal","interface","supply","logic","protection","note")):
+            self.deviceLibraryTable.setItem(r,c,QTableWidgetItem(str(new.get(key,""))))
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    def duplicate_device_library_item(self):
+        r=self.deviceLibraryTable.currentRow();data=self._device_library_row_data(r)
+        if not data:return
+        data["signal"]=data["signal"]+" Copy"
+        nr=self._append_device_library_row(data);self.deviceLibraryTable.selectRow(nr)
+
+    def delete_device_library_item(self):
+        r=self.deviceLibraryTable.currentRow()
+        if r>=0:self.deviceLibraryTable.removeRow(r);self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    def add_library_device_to_hardware(self):
+        data=self._device_library_row_data(self.deviceLibraryTable.currentRow())
+        if not data:
+            QMessageBox.information(self,"Device Library","เลือกอุปกรณ์ก่อน");return
+        existing={row["key"] for row in self.hwRows}
+        definition=dict(key=self._hardware_key(data["signal"],existing),device=data["device"],signal=data["signal"],
+                        interface=data["interface"],supply=data["supply"],logic=data["logic"],gpio="Not assigned",
+                        protection=data["protection"],note=data["note"],allowed_supply=tuple(self._hardware_supply_items()),
+                        custom=True,enabled=True)
+        self._append_hardware_row(definition,select=True);self.update_hardware_manager()
+        self.statusBar().showMessage(f"เพิ่ม {data['device']} / {data['signal']} ไป Hardware I/O แล้ว",3500)
+
+    # ---------------- VALIDATION CENTER ----------------
+    def _append_validation_row(self,name,unit,calc="",measured="",tol="10",note=""):
+        r=self.validationTable.rowCount();self.validationTable.insertRow(r)
+        vals=[name,unit,str(calc),str(measured),str(tol),"","PENDING",note]
+        for c,val in enumerate(vals):
+            item=QTableWidgetItem(val)
+            if c in (5,6):item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            self.validationTable.setItem(r,c,item)
+        return r
+
+    def load_validation_targets(self):
+        t=self.torque_results();e=self.electrical_results();w=self.winch_results();sp=self.winch_speed_results()
+        cycles=max(e["cycles"],1e-12);trip=e["Edrive"]/cycles
+        self.validationTable.blockSignals(True);self.validationTable.setRowCount(0)
+        rows=[
+            ("Vehicle speed","km/h",self.tspeed.value(),"","5","วัดความเร็วรถจริง"),
+            ("Wheel torque required","N·m",t["T"],"","10","เทียบกับค่าทดสอบ/ประเมิน"),
+            ("Uphill battery current","A",e["Icalc_up"],"","15","วัดด้วย DC current sensor"),
+            ("Drive energy per trip","Wh",trip,"","15","วัด Wh จากแบต/Power meter"),
+            ("Winch lift time","s",w["tu"],"","10","ยกความสูงเดียวกับโมเดล"),
+            ("Winch load speed up","m/min",w["up_speed"],"","10","ความเร็วโหลด ไม่ใช่ rope speed"),
+            ("IMU zero tilt","deg",0,"","2","รถอยู่พื้นราบ"),
+        ]
+        for row in rows:self._append_validation_row(*row)
+        self.validationTable.blockSignals(False);self.update_validation_results()
+
+    def add_validation_row(self):
+        self.validationTable.blockSignals(True);r=self._append_validation_row("New test","-",0,"",10,"")
+        self.validationTable.blockSignals(False);self.validationTable.selectRow(r);self.update_validation_results()
+
+    def delete_validation_row(self):
+        r=self.validationTable.currentRow()
+        if r>=0:self.validationTable.removeRow(r);self.update_validation_results()
+
+    def clear_validation_measured(self):
+        self.validationTable.blockSignals(True)
+        for r in range(self.validationTable.rowCount()):
+            self.validationTable.setItem(r,3,QTableWidgetItem(""))
+        self.validationTable.blockSignals(False);self.update_validation_results()
+
+    def update_validation_results(self,*_):
+        if not hasattr(self,"validationTable"):return
+        self.validationTable.blockSignals(True);p=f=pend=0
+        for r in range(self.validationTable.rowCount()):
+            def val(c):
+                try:return float((self.validationTable.item(r,c).text() if self.validationTable.item(r,c) else "").strip())
+                except:return None
+            calc=val(2);meas=val(3);tol=val(4)
+            errItem=QTableWidgetItem("");statusItem=QTableWidgetItem("PENDING")
+            if calc is not None and meas is not None and tol is not None:
+                err=abs(meas-calc)/abs(calc)*100 if abs(calc)>1e-12 else abs(meas-calc)
+                ok=err<=tol
+                errItem=QTableWidgetItem(f"{err:.2f}")
+                statusItem=QTableWidgetItem("PASS" if ok else "FAIL")
+                statusItem.setForeground(QColor("#176337" if ok else "#b42318"));font=statusItem.font();font.setBold(True);statusItem.setFont(font)
+                p+=int(ok);f+=int(not ok)
+            else:pend+=1
+            errItem.setFlags(errItem.flags() & ~Qt.ItemIsEditable);statusItem.setFlags(statusItem.flags() & ~Qt.ItemIsEditable)
+            self.validationTable.setItem(r,5,errItem);self.validationTable.setItem(r,6,statusItem)
+        self.validationTable.blockSignals(False)
+        self.validationSummary.setText(f"Validation: PASS {p} • FAIL {f} • PENDING {pend}")
+        self.validationSummary.setStyleSheet(f"font-weight:900;color:{'#176337' if f==0 and p>0 else '#b42318' if f else '#17324d'};padding:8px;")
+        if hasattr(self,"finalVerificationView"):self.update_final_verification()
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    def validation_status_counts(self):
+        out={"PASS":0,"FAIL":0,"PENDING":0}
+        if not hasattr(self,"validationTable"):return out
+        for r in range(self.validationTable.rowCount()):
+            st=self.validationTable.item(r,6).text() if self.validationTable.item(r,6) else "PENDING"
+            out[st]=out.get(st,0)+1
+        return out
+
+    # ---------------- DIAGNOSTICS ----------------
+    def diagnostic_results(self):
+        findings=[]
+        def add(sev,system,finding,action):findings.append((sev,system,finding,action))
+        try:
+            sv=self.evaluate_safety_logic(self.safety_input_values())
+            if sv["state"] in ("E-STOP","RC FAILSAFE","VESC FAULT","TILT INHIBIT","INTERLOCK CONFLICT"):
+                add("CRITICAL","Safety",sv["state"]+" — "+sv["reason"],"แก้ Fault ก่อนอนุญาตให้รถเคลื่อนที่")
+            elif sv["state"] not in ("READY","DRIVE","CRANE","WINCH"):
+                add("WARNING","Safety",sv["state"]+" — "+sv["reason"],"ตรวจเงื่อนไข Safety / Command")
+        except Exception as ex:add("WARNING","Safety","อ่าน Safety state ไม่สำเร็จ: "+str(ex),"ตรวจหน้า Control Logic")
+
+        if hasattr(self,"hwRows"):
+            hw=self.hardware_check_results()
+            for x in hw["conflicts"]:add("ERROR","Hardware GPIO",x,"เปลี่ยน GPIO หรือ Board Profile")
+            for x in hw["voltage"]:add("ERROR","Voltage",x,"เพิ่ม level shifting/isolation หรือแก้ Supply/Logic")
+            for x in hw["missing"]:add("WARNING","Hardware I/O","Missing pin: "+x,"กำหนด GPIO หรือเพิ่ม I/O expander/controller")
+            for x in hw["protection_missing"]:add("WARNING","Protection",x,"ตรวจ/ยืนยัน Protection checklist")
+
+        try:
+            for system,item,required,available,status,note in self.design_check_rows():
+                if status=="FAIL":add("ERROR",system,f"{item}: {available} (required {required})",note or "แก้ค่าการออกแบบ")
+        except Exception as ex:add("WARNING","Design Check","อ่าน Design Check ไม่สำเร็จ: "+str(ex),"ตรวจ Project Tools")
+
+        if hasattr(self,"batterySelectionView"):
+            br=self.battery_selection_results()
+            if self.eCandidateAh.value()>0 and self.eCandidateAh.value()+1e-9<br["energy_min"]:
+                add("ERROR","Main Battery",f"Candidate {self.eCandidateAh.value():.1f} Ah < minimum {br['energy_min']:.2f} Ah","เลือกแบตความจุมากขึ้น")
+            if self.eCandidateContA.value()>0 and self.eCandidateContA.value()+1e-9<br["cont_req"]:
+                add("ERROR","Main Battery",f"Continuous rating {self.eCandidateContA.value():.1f} A < required {br['cont_req']:.1f} A","เลือก Pack/BMS ที่จ่าย Continuous current ได้มากขึ้น")
+            if self.eCandidatePeakA.value()>0 and self.eCandidatePeakA.value()+1e-9<br["peak_calc"]:
+                add("ERROR","Main Battery",f"Peak rating {self.eCandidatePeakA.value():.1f} A < calculated {br['peak_calc']:.1f} A","เลือก Pack/BMS ที่รับ Peak current ได้มากขึ้น")
+
+        vs=self.validation_status_counts()
+        if vs["FAIL"]>0:add("WARNING","Validation",f"{vs['FAIL']} measured test(s) FAIL","ตรวจความคลาดเคลื่อนและปรับโมเดล/ฮาร์ดแวร์")
+        if not findings:add("INFO","System","No active issue found by current software checks","ยังต้องตรวจฮาร์ดแวร์จริงและ datasheet ก่อนใช้งาน")
+        return findings
+
+    def run_diagnostics(self):
+        findings=self.diagnostic_results()
+        self.diagnosticTable.setRowCount(len(findings))
+        colors={"CRITICAL":"#8b0000","ERROR":"#b42318","WARNING":"#b54708","INFO":"#176337"}
+        active=0
+        for r,row in enumerate(findings):
+            for c,val in enumerate(row):
+                item=QTableWidgetItem(str(val))
+                if c==0:
+                    item.setForeground(QColor(colors.get(str(val),"#17324d")));font=item.font();font.setBold(True);item.setFont(font)
+                self.diagnosticTable.setItem(r,c,item)
+            if row[0]!="INFO":active+=1
+        self.diagnosticSummary.setText(f"Diagnostics: {active} active issue(s) • {len(findings)-active} info")
+        stamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for row in findings:
+            if row[0]!="INFO":self.diagnosticLog.appendPlainText(f"[{stamp}] {row[0]} | {row[1]} | {row[2]}")
+        if hasattr(self,"finalVerificationView"):self.update_final_verification()
+
+    def clear_diagnostic_log(self):
+        self.diagnosticLog.clear()
+
+    # ---------------- BOM ----------------
+    def _append_bom_row(self,item="",category="Other",qty=1,cost=0,mass=0,supplier="",status="Planned",note=""):
+        r=self.bomTable.rowCount();self.bomTable.insertRow(r)
+        vals=[item,category,str(qty),str(cost),str(mass),supplier,status,note]
+        for c,val in enumerate(vals):self.bomTable.setItem(r,c,QTableWidgetItem(str(val)))
+        return r
+
+    def load_baseline_bom(self):
+        if self.bomTable.rowCount()>0:
+            ans=QMessageBox.question(self,"Baseline BOM","แทนที่ BOM ปัจจุบันด้วยรายการพื้นฐานหรือไม่?",QMessageBox.Yes|QMessageBox.No,QMessageBox.No)
+            if ans!=QMessageBox.Yes:return
+        self.bomTable.blockSignals(True);self.bomTable.setRowCount(0)
+        rows=[
+            ("QS 10in 1500W Hub Motor","Drive",2,0,0,"","Planned","72 V single shaft"),
+            ("Flipsky Dual 75100","Drive Controller",1,0,0,"","Planned","VESC based"),
+            ("72 V Main Battery","Battery",1,0,0,"","Planned","Fill selected Ah/BMS"),
+            ("ESP32 Main Controller","Control",1,0,0,"","Planned","Board profile from Hardware I/O"),
+            ("SN65HVD230","Communication",1,0,0,"","Planned","CAN transceiver"),
+            ("BNO086","Sensor",1,0,0,"","Planned","9-DOF IMU"),
+            ("OMRON D4N-112G","Safety Sensor",2,0,0,"","Planned","Crane ±90° limit"),
+            ("PC817 Isolation","Safety / Interface",2,0,0,"","Planned","Limit switch isolation"),
+            ("5 V Buzzer + MOSFET","Indicator",1,0,0,"","Planned","Motion/fault alarm"),
+            ("Status LED / Lamp","Indicator",1,0,0,"","Planned","Motion/fault indicator"),
+            ("12 V Winch","Winch",1,0,10.3,"","Planned","4500 lb listed pull; verify lifting approval"),
+            ("12 V Winch Battery","Battery",1,0,0,"","Planned","Separate from 72 V main"),
+        ]
+        for row in rows:self._append_bom_row(*row)
+        self.bomTable.blockSignals(False);self.update_bom_summary()
+
+    def add_bom_row(self):
+        self.bomTable.blockSignals(True);r=self._append_bom_row("New item","Other",1,0,0,"","Planned","")
+        self.bomTable.blockSignals(False);self.bomTable.selectRow(r);self.update_bom_summary()
+
+    def delete_bom_row(self):
+        r=self.bomTable.currentRow()
+        if r>=0:self.bomTable.removeRow(r);self.update_bom_summary()
+
+    def bom_totals(self):
+        total_cost=0.0;total_mass=0.0;qty_total=0.0
+        for r in range(self.bomTable.rowCount()):
+            try:qty=float(self.bomTable.item(r,2).text())
+            except:qty=0
+            try:cost=float(self.bomTable.item(r,3).text())
+            except:cost=0
+            try:mass=float(self.bomTable.item(r,4).text())
+            except:mass=0
+            qty_total+=qty;total_cost+=qty*cost;total_mass+=qty*mass
+        return dict(cost=total_cost,mass=total_mass,qty=qty_total,items=self.bomTable.rowCount())
+
+    def update_bom_summary(self,*_):
+        if not hasattr(self,"bomTable"):return
+        t=self.bom_totals()
+        mass_note=(" • exceeds 300 kg target" if t["mass"]>300 else "")
+        self.bomSummary.setText(f"BOM: {t['items']} rows • Qty {t['qty']:.0f} • Cost {t['cost']:,.2f} THB • Entered component mass {t['mass']:.2f} kg{mass_note}")
+        self.bomSummary.setStyleSheet(f"font-weight:900;color:{'#b42318' if t['mass']>300 else '#17324d'};padding:8px;")
+        if hasattr(self,"finalVerificationView"):self.update_final_verification()
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    # ---------------- REVISION MANAGER ----------------
+    def _revision_summary_values(self,state):
+        widgets=state.get("widgets",{}) if isinstance(state,dict) else {}
+        def get(name,default="—"):
+            d=widgets.get(name,{})
+            return d.get("value",default) if isinstance(d,dict) else default
+        return {
+            "Total mass kg":get("mt"),"Track m":get("W"),"Wheelbase m":get("WB"),"Boom length m":get("L"),
+            "Slope deg":get("eSlopeDeg",get("eslopeDeg")),"Speed km/h":get("tspeed"),
+            "Battery V":get("evolt"),"Runtime h":get("eruntime"),"Payload kg":get("ml"),
+        }
+
+    def refresh_revision_table(self):
+        self.revisionTable.setRowCount(len(self.designRevisions))
+        for r,rev in enumerate(self.designRevisions):
+            vals=[rev.get("name",""),rev.get("created",""),rev.get("version",""),rev.get("note","")]
+            for c,val in enumerate(vals):self.revisionTable.setItem(r,c,QTableWidgetItem(str(val)))
+
+    def capture_design_revision(self):
+        name,ok=QInputDialog.getText(self,"Capture Revision","Revision name:")
+        if not ok or not name.strip():return
+        note,ok2=QInputDialog.getText(self,"Capture Revision","Note (optional):")
+        if not ok2:note=""
+        state=self.capture_project_state();state.pop("revisions",None)
+        rev=dict(name=name.strip(),created=datetime.now().isoformat(timespec="seconds"),version=APP_VERSION,note=note,state=state)
+        self.designRevisions.append(rev);self.refresh_revision_table()
+        self.revisionTable.selectRow(len(self.designRevisions)-1)
+        self.revisionCompare.setHtml(f"<h3>Captured {name}</h3><p>{note}</p>")
+        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    def apply_design_revision(self):
+        r=self.revisionTable.currentRow()
+        if r<0 or r>=len(self.designRevisions):return
+        rev=self.designRevisions[r]
+        if QMessageBox.question(self,"Apply Revision",f"ใช้ Revision '{rev['name']}' แทนค่าปัจจุบันหรือไม่?",QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:return
+        self.apply_project_state(rev["state"],True);self.refresh_integration_suite()
+
+    def delete_design_revision(self):
+        r=self.revisionTable.currentRow()
+        if 0<=r<len(self.designRevisions):
+            self.designRevisions.pop(r);self.refresh_revision_table();self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+
+    def compare_design_revisions(self):
+        rows=sorted({i.row() for i in self.revisionTable.selectionModel().selectedRows()})
+        if len(rows)!=2:
+            QMessageBox.information(self,"Compare Revisions","เลือก 2 Revision ก่อน");return
+        a,b=[self.designRevisions[i] for i in rows]
+        av=self._revision_summary_values(a["state"]);bv=self._revision_summary_values(b["state"])
+        trs=[]
+        for key in av:
+            va=av[key];vb=bv[key]
+            trs.append(f"<tr><td>{key}</td><td>{va}</td><td>{vb}</td><td>{'CHANGED' if va!=vb else 'same'}</td></tr>")
+        self.revisionCompare.setHtml(
+            f"<h2>{a['name']} ↔ {b['name']}</h2><table border='1' cellspacing='0' cellpadding='6'>"
+            f"<tr><th>Parameter</th><th>{a['name']}</th><th>{b['name']}</th><th>Status</th></tr>{''.join(trs)}</table>"
+        )
+
+    # ---------------- FINAL VERIFICATION ----------------
+    def final_verification_rows(self):
+        rows=[]
+        def add(area,item,status,detail):rows.append((area,item,status,detail))
+        try:
+            checks=self.design_check_rows()
+            fail=sum(1 for x in checks if x[4]=="FAIL");check=sum(1 for x in checks if x[4]=="CHECK")
+            add("Engineering","Integrated Design Check","PASS" if fail==0 else "FAIL",f"{fail} FAIL / {check} CHECK")
+        except Exception as ex:add("Engineering","Integrated Design Check","CHECK",str(ex))
+        if hasattr(self,"hwRows"):
+            hw=self.hardware_check_results();add("Hardware","GPIO / Voltage / Protection","PASS" if hw["ready"] else "FAIL",
+               f"{len(hw['conflicts'])} conflict, {len(hw['voltage'])} voltage, {len(hw['missing'])} missing, {len(hw['protection_missing'])} protection")
+        vs=self.validation_status_counts()
+        if sum(vs.values())==0:add("Validation","Measured vs Calculated","CHECK","ยังไม่มี Validation test")
+        elif vs["FAIL"]>0:add("Validation","Measured vs Calculated","FAIL",f"{vs['FAIL']} FAIL / {vs['PENDING']} PENDING")
+        elif vs["PENDING"]>0:add("Validation","Measured vs Calculated","CHECK",f"{vs['PASS']} PASS / {vs['PENDING']} PENDING")
+        else:add("Validation","Measured vs Calculated","PASS",f"{vs['PASS']} PASS")
+        bt=self.bom_totals() if hasattr(self,"bomTable") else dict(items=0,mass=0,cost=0)
+        add("BOM","BOM / Cost / Weight","CHECK" if bt["items"]==0 else ("FAIL" if bt["mass"]>300 else "PASS"),
+            f"{bt['items']} rows • entered mass {bt['mass']:.1f} kg • {bt['cost']:,.0f} THB")
+        add("Revisions","Design Revision Snapshot","PASS" if len(getattr(self,"designRevisions",[]))>0 else "CHECK",
+            f"{len(getattr(self,'designRevisions',[]))} revision(s)")
+        if hasattr(self,"telemetryConnected"):
+            add("Telemetry","ESP32 Data Logger","PASS" if self.telemetryConnected else "CHECK",
+                "Connected" if self.telemetryConnected else "Not connected — connect during vehicle validation")
+        return rows
+
+    def update_final_verification(self):
+        if not hasattr(self,"finalVerificationView"):return
+        rows=self.final_verification_rows()
+        fail=sum(1 for x in rows if x[2]=="FAIL");check=sum(1 for x in rows if x[2]=="CHECK");passed=sum(1 for x in rows if x[2]=="PASS")
+        color="#176337" if fail==0 and check==0 else "#b42318" if fail else "#b54708"
+        trs=[]
+        for area,item,status,detail in rows:
+            sc="#176337" if status=="PASS" else "#b42318" if status=="FAIL" else "#b54708"
+            trs.append(f"<tr><td>{area}</td><td>{item}</td><td style='color:{sc};font-weight:900'>{status}</td><td>{detail}</td></tr>")
+        overall="READY FOR FINAL REVIEW" if fail==0 and check==0 else ("NOT READY" if fail else "REVIEW REQUIRED")
+        self.finalVerificationView.setHtml(
+            f"<h1>FINAL PROJECT VERIFICATION</h1><p style='font-size:15pt;color:{color}'><b>{overall}</b></p>"
+            f"<p>PASS {passed} • CHECK {check} • FAIL {fail}</p>"
+            "<table border='1' cellspacing='0' cellpadding='7'><tr><th>Area</th><th>Check</th><th>Status</th><th>Detail</th></tr>"
+            +"".join(trs)+"</table>"
+            "<p><b>หมายเหตุ:</b> PASS ในโปรแกรมคือผ่านเกณฑ์ของแบบจำลอง/ข้อมูลที่กรอก ไม่ใช่การรับรองความปลอดภัยของเครื่องจักรจริง</p>"
+        )
+
+    def refresh_integration_suite(self):
+        if hasattr(self,"validationTable"):self.update_validation_results()
+        if hasattr(self,"bomTable"):self.update_bom_summary()
+        if hasattr(self,"revisionTable"):self.refresh_revision_table()
+        if hasattr(self,"finalVerificationView"):self.update_final_verification()
+
     def setup_dynamic_tabs(self):
         """Top-level navigation uses one active page only; the top tab bar is hidden."""
         # Keep long internal tab sets usable on 1366×768 and smaller windows.
