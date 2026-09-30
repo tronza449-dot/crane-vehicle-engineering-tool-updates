@@ -3,7 +3,16 @@
 Repository นี้ใช้เป็นช่องทางตรวจสอบและแจกจ่ายเวอร์ชันใหม่ของ **Crane Vehicle Engineering Tool**
 
 ## Current version
-- **V50.0.0**
+- **V52.6.0**
+
+## Main additions
+- ESP32 DevKit V1 / ESP-WROOM-32 as current project controller target
+- ESP32 / VESC Hardware I/O Manager
+- Animated GPIO board / Custom I/O Builder
+- Real-Time ESP32 Telemetry over USB Serial
+- Live Current / Speed / Tilt graphs
+- CSV Data Logger
+- ESP32 telemetry sender template
 
 ## Manifest URL ที่โปรแกรมใช้
 `https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json`
