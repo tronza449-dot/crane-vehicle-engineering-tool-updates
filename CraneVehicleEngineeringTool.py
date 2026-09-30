@@ -830,11 +830,19 @@ class Esp32AnimatedBoardWidget(QWidget):
 
 
 class SystemFlowchartWidget(QWidget):
-    """Animated engineering flowchart for the vehicle + crane control sequence."""
+    """Animated flowchart that follows the user's Final vehicle + crane document."""
     def __init__(self,owner):
-        super().__init__();self.o=owner;self.setMinimumSize(900,1280)
+        super().__init__();self.o=owner
+        self.logical_w=1000;self.logical_h=2160;self.zoom=0.70
         self.phase=0.0;self.path=[];self.step_index=0;self.nodeRects={}
         self.anim=QTimer(self);self.anim.timeout.connect(self._tick);self.anim.start(70)
+        self.set_zoom(self.zoom)
+
+    def set_zoom(self,value):
+        self.zoom=max(0.58,min(1.25,float(value)))
+        self.setMinimumSize(int(self.logical_w*self.zoom),int(self.logical_h*self.zoom))
+        self.resize(int(self.logical_w*self.zoom),int(self.logical_h*self.zoom))
+        self.update()
 
     def _tick(self):
         self.phase=(self.phase+0.16)%(math.pi*2);self.update()
@@ -854,116 +862,167 @@ class SystemFlowchartWidget(QWidget):
         if not self.path:return None
         return self.path[min(self.step_index,len(self.path)-1)]
 
-    def _arrow(self,p,a,b,color="#6b7f92",width=2):
+    @staticmethod
+    def _style(kind):
+        styles={
+            "start":("#e7f6df","#5a9b47"),
+            "process":("#dfefff","#5b91ba"),
+            "decision":("#ffe4e5","#c96d75"),
+            "fault":("#ffdfe0","#c9535c"),
+            "warning":("#fff0bd","#c49a29"),
+            "ok":("#dff4df","#5c9f61"),
+            "action":("#dcf3dc","#5c9f61"),
+            "stop":("#ffdfe0","#c9535c"),
+            "connector":("#eee9fb","#7766ad"),
+        }
+        return styles.get(kind,styles["process"])
+
+    def _arrow_head(self,p,a,b,color,width=2.1):
         p.setPen(QPen(QColor(color),width,Qt.SolidLine,Qt.RoundCap,Qt.RoundJoin))
         p.drawLine(a,b)
-        import math as _m
-        ang=_m.atan2(b.y()-a.y(),b.x()-a.x())
-        sz=9
-        p1=QPointF(b.x()-sz*_m.cos(ang-0.55),b.y()-sz*_m.sin(ang-0.55))
-        p2=QPointF(b.x()-sz*_m.cos(ang+0.55),b.y()-sz*_m.sin(ang+0.55))
-        p.setBrush(QColor(color));p.drawPolygon(QPolygonF([b,p1,p2]))
+        ang=math.atan2(b.y()-a.y(),b.x()-a.x());sz=9
+        p1=QPointF(b.x()-sz*math.cos(ang-0.55),b.y()-sz*math.sin(ang-0.55))
+        p2=QPointF(b.x()-sz*math.cos(ang+0.55),b.y()-sz*math.sin(ang+0.55))
+        p.setBrush(QColor(color));p.setPen(Qt.NoPen);p.drawPolygon(QPolygonF([b,p1,p2]))
 
-    def _node(self,p,key,rect,text,shape="rect"):
+    def _poly_arrow(self,p,pts,color="#71879a",width=2.1):
+        if len(pts)<2:return
+        p.setPen(QPen(QColor(color),width,Qt.SolidLine,Qt.RoundCap,Qt.RoundJoin))
+        for a,b in zip(pts[:-2],pts[1:-1]):p.drawLine(a,b)
+        self._arrow_head(p,pts[-2],pts[-1],color,width)
+
+    def _node(self,p,key,rect,text,shape="rect",kind="process"):
         active=key in self.active_nodes();current=(key==self.current_node())
-        fill="#eaf8ef" if active else "#ffffff"
-        border="#22a06b" if active else "#aab8c6"
+        fill,border=self._style(kind)
+        if active:border="#1d8d5a"
         if current:
-            pulse=int(45+35*(0.5+0.5*math.sin(self.phase)))
-            glow=QColor("#3ac47d");glow.setAlpha(pulse)
-            p.setPen(QPen(glow,8));p.setBrush(Qt.NoBrush)
+            pulse=int(45+38*(0.5+0.5*math.sin(self.phase)))
+            glow=QColor("#2eb875");glow.setAlpha(pulse)
+            p.setPen(QPen(glow,9));p.setBrush(Qt.NoBrush)
             if shape=="diamond":
                 c=rect.center();poly=QPolygonF([QPointF(c.x(),rect.top()),QPointF(rect.right(),c.y()),QPointF(c.x(),rect.bottom()),QPointF(rect.left(),c.y())]);p.drawPolygon(poly)
             elif shape=="round":p.drawRoundedRect(rect,rect.height()/2,rect.height()/2)
             else:p.drawRoundedRect(rect,10,10)
-        p.setPen(QPen(QColor(border),2));p.setBrush(QColor(fill))
+        p.setPen(QPen(QColor(border),2.2));p.setBrush(QColor(fill))
         if shape=="diamond":
             c=rect.center();poly=QPolygonF([QPointF(c.x(),rect.top()),QPointF(rect.right(),c.y()),QPointF(c.x(),rect.bottom()),QPointF(rect.left(),c.y())]);p.drawPolygon(poly)
         elif shape=="round":p.drawRoundedRect(rect,rect.height()/2,rect.height()/2)
         else:p.drawRoundedRect(rect,10,10)
-        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),8.7,QFont.Bold))
+        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),8.3,QFont.Bold))
         p.drawText(rect.adjusted(8,5,-8,-5),Qt.AlignCenter|Qt.TextWordWrap,text)
         self.nodeRects[key]=rect
 
     def paintEvent(self,e):
-        p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("#f7fbff"))
-        W=self.width();sx=max(0.72,min(1.0,W/1180.0));ox=max(10,(W-1180*sx)/2)
-        def R(x,y,w,h):return QRectF(ox+x*sx,y*sx,w*sx,h*sx)
+        p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("#fbfdff"))
+        sx=self.width()/self.logical_w;sy=self.height()/self.logical_h
+        def R(x,y,w,h):return QRectF(x*sx,y*sy,w*sx,h*sy)
         self.nodeRects={}
 
-        # Title
-        p.setPen(QColor("#17324d"));p.setFont(QFont(choose_ui_font_family(),15,QFont.Bold))
-        p.drawText(R(40,10,1100,38),Qt.AlignCenter,"FINAL VEHICLE + CRANE CONTROL FLOWCHART")
-        p.setFont(QFont(choose_ui_font_family(),9));p.setPen(QColor("#60758b"))
-        p.drawText(R(40,45,1100,26),Qt.AlignCenter,"ESP32 • RC/IBUS • IMU • VESC • Differential Drive • Crane ±90°")
+        p.setPen(QColor("#17456b"));p.setFont(QFont(choose_ui_font_family(),15,QFont.Bold))
+        p.drawText(R(40,10,920,38),Qt.AlignCenter,"Flowchart Final")
+        p.setFont(QFont(choose_ui_font_family(),9,QFont.Bold));p.setPen(QColor("#456b8c"))
+        p.drawText(R(40,46,920,24),Qt.AlignCenter,"Vehicle and Crane Control Flowchart")
+        p.setFont(QFont(choose_ui_font_family(),8));p.setPen(QColor("#71879a"))
+        p.drawText(R(40,70,920,22),Qt.AlignCenter,"ESP32 control logic • i-BUS remote • IMU • VESC • Crane ±90°")
 
         nodes={
-          "start":(470,85,240,55,"START / Power ON","round"),
-          "init":(430,165,320,66,"Initialize ESP32, RC, IMU, CAN/VESC, Limits","rect"),
-          "read":(430,260,320,72,"Read Remote + IMU + Limit Switch + VESC Status","rect"),
-          "safe":(455,365,270,92,"Safety OK?\nRC / E-stop / VESC / Tilt","diamond"),
-          "fault":(70,365,280,82,"SAFE STOP\nDrive = 0 • Crane STOP • Alarm ON","rect"),
-          "driveq":(455,500,270,92,"Drive command?\nThrottle / Steering","diamond"),
-          "stopcrane":(150,625,270,66,"Stop Crane Rotation\nLock crane while driving","rect"),
-          "mix":(150,720,270,66,"Differential Mix\nLeft = Throttle + Steering\nRight = Throttle - Steering","rect"),
-          "soft":(150,815,270,66,"Speed Limit + Soft Start / Ramp","rect"),
-          "send":(150,910,270,66,"Send Left/Right Drive Command to VESC","rect"),
-          "stopdrive":(760,625,280,66,"Send Drive = 0 to VESC","rect"),
-          "stopped":(765,720,270,92,"Vehicle stopped\n≥ 0.5 s ?","diamond"),
-          "wait":(850,835,220,66,"WAIT\nKeep Drive = 0","rect"),
-          "craneq":(700,850,270,92,"Crane command?\nLEFT / STOP / RIGHT","diamond"),
-          "limit":(700,970,270,92,"Requested direction\nhits Limit ±90° ?","diamond"),
-          "limitstop":(830,1090,240,62,"Stop Crane at Limit","rect"),
-          "craneout":(560,1090,240,62,"Turn Crane LEFT / RIGHT","rect"),
-          "idle":(940,970,170,62,"Crane STOP","rect"),
-          "A":(470,1190,120,48,"A","round"),
+            "start":(390,105,220,52,"Start\n(Power ON)","round","start"),
+            "init":(340,182,320,60,"Start System\n(ESP32, remote, sensors, motors)","rect","process"),
+            "remote":(340,267,320,62,"Read Remote Signal\n(FlySky FS-i6X via i-BUS)","rect","process"),
+            "remoteq":(370,355,260,86,"Remote OK?","diamond","decision"),
+            "remotefault":(700,360,250,76,"Stop Vehicle\nStop Crane Rotation\nTurn Alarm ON","rect","fault"),
+            "tiltread":(340,474,320,58,"Read Tilt (IMU)","rect","process"),
+            "limitsread":(340,555,320,58,"Read Crane Limits (Left / Right)","rect","process"),
+            "motorread":(340,636,320,58,"Read Motor Status (VESC)","rect","process"),
+            "motorq":(370,721,260,86,"Motor System OK?","diamond","decision"),
+            "motorfault":(700,726,250,76,"Stop Vehicle\nStop Crane Rotation\nTurn Alarm ON","rect","fault"),
+            "tiltq":(370,842,260,86,"Vehicle Tilt Too High?","diamond","decision"),
+            "warningon":(65,852,245,66,"Warning ON\n(Buzzer + LED)","rect","warning"),
+            "warningoff":(690,852,245,66,"Warning OFF","rect","ok"),
+            "drivecmd":(340,965,320,58,"Read Driving Command\n(Forward / Reverse / Left / Right)","rect","process"),
+            "mix":(340,1046,320,64,"Calculate Left / Right Motor Speed","rect","process"),
+            "speedlimit":(340,1133,320,64,"Limit Speed to 1 km/h\n+ Soft Start / Stop","rect","process"),
+            "driveq":(370,1225,260,86,"Drive Command Active?","diamond","decision"),
+            "stopcrane_drive":(80,1345,260,58,"Stop Crane Rotation","rect","stop"),
+            "senddrive":(80,1426,260,62,"Send Drive Command\nto VESC","rect","process"),
+            "stopdrive":(660,1345,260,62,"Send Stop Command\nto VESC","rect","process"),
+            "movingq":(660,1435,260,86,"Vehicle Still Moving?","diamond","decision"),
+            "keepmoving":(730,1550,220,58,"Keep Crane Stopped","rect","stop"),
+            "stopped05":(610,1552,260,86,"Stopped for\nat least 0.5 s?","diamond","decision"),
+            "keepwait":(770,1665,180,58,"Keep Crane Stopped","rect","stop"),
+            "controlcrane":(365,1660,300,62,"Control Crane\n(Read crane command from remote)","rect","process"),
+            "cranedir":(390,1750,250,86,"Crane Direction?","diamond","decision"),
+            "leftlimitq":(80,1858,240,80,"Left Limit Reached?","diamond","decision"),
+            "rightlimitq":(680,1858,240,80,"Right Limit Reached?","diamond","decision"),
+            "cranestop":(390,1870,220,58,"Stop Crane","rect","stop"),
+            "stopleft":(55,1970,160,55,"Stop Crane","rect","stop"),
+            "turnleft":(235,1970,160,55,"Turn Left","rect","action"),
+            "turnright":(605,1970,160,55,"Turn Right","rect","action"),
+            "stopright":(785,1970,160,55,"Stop Crane","rect","stop"),
+            "A":(445,2070,110,46,"A","round","connector"),
         }
 
-        # Draw connectors first
         def C(key,side="bottom"):
-            x,y,w,h,_,_=nodes[key];r=R(x,y,w,h)
+            x,y,w,h,_,_,_=nodes[key];r=R(x,y,w,h)
             return {"top":QPointF(r.center().x(),r.top()),"bottom":QPointF(r.center().x(),r.bottom()),
                     "left":QPointF(r.left(),r.center().y()),"right":QPointF(r.right(),r.center().y())}[side]
-        col="#71879a"
-        self._arrow(p,C("start"),C("init","top"),col);self._arrow(p,C("init"),C("read","top"),col);self._arrow(p,C("read"),C("safe","top"),col)
-        self._arrow(p,C("safe"),C("driveq","top"),col)
-        self._arrow(p,C("safe","left"),C("fault","right"),"#b42318");p.setPen(QColor("#b42318"));p.drawText(R(360,385,60,25),Qt.AlignCenter,"NO")
-        p.setPen(QColor("#176337"));p.drawText(R(510,463,80,24),Qt.AlignCenter,"YES")
-        self._arrow(p,C("driveq","left"),C("stopcrane","right"),"#176337");p.setPen(QColor("#176337"));p.drawText(R(350,525,60,24),Qt.AlignCenter,"YES")
-        self._arrow(p,C("stopcrane"),C("mix","top"),col);self._arrow(p,C("mix"),C("soft","top"),col);self._arrow(p,C("soft"),C("send","top"),col)
-        self._arrow(p,C("driveq","right"),C("stopdrive","left"),"#245fbb");p.setPen(QColor("#245fbb"));p.drawText(R(740,525,55,24),Qt.AlignCenter,"NO")
-        self._arrow(p,C("stopdrive"),C("stopped","top"),col)
-        self._arrow(p,C("stopped","right"),C("wait","top"),"#b54708");p.setPen(QColor("#b54708"));p.drawText(R(1015,740,50,24),Qt.AlignCenter,"NO")
-        self._arrow(p,C("stopped"),C("craneq","top"),"#176337");p.setPen(QColor("#176337"));p.drawText(R(745,815,55,24),Qt.AlignCenter,"YES")
-        self._arrow(p,C("craneq"),C("limit","top"),"#176337");p.setPen(QColor("#176337"));p.drawText(R(625,900,80,24),Qt.AlignCenter,"LEFT/RIGHT")
-        self._arrow(p,C("craneq","right"),C("idle","top"),col);p.setPen(QColor("#60758b"));p.drawText(R(975,915,55,24),Qt.AlignCenter,"STOP")
-        self._arrow(p,C("limit","left"),C("craneout","top"),"#176337");p.setPen(QColor("#176337"));p.drawText(R(635,1025,55,24),Qt.AlignCenter,"NO")
-        self._arrow(p,C("limit","right"),C("limitstop","top"),"#b42318");p.setPen(QColor("#b42318"));p.drawText(R(985,1025,55,24),Qt.AlignCenter,"YES")
+        def label(x,y,w,h,text,color):
+            p.setPen(QColor(color));p.setFont(QFont(choose_ui_font_family(),7.4,QFont.Bold))
+            p.drawText(R(x,y,w,h),Qt.AlignCenter,text)
 
-        # Branch returns to connector A
-        for key in ("fault","send","wait","craneout","limitstop","idle"):
-            a=C(key);target=C("A","top")
-            if key in ("fault","send"):
-                midx=R(455,0,0,0).x()-40
-                p.setPen(QPen(QColor(col),2));p.drawLine(a,QPointF(a.x(),target.y()-20));self._arrow(p,QPointF(a.x(),target.y()-20),target,col)
-            else:
-                p.setPen(QPen(QColor(col),2));p.drawLine(a,QPointF(a.x(),target.y()-20));p.drawLine(QPointF(a.x(),target.y()-20),QPointF(target.x(),target.y()-20));self._arrow(p,QPointF(target.x(),target.y()-20),target,col)
+        col="#7890a4";green="#388b52";red="#b8464d";blue="#477fa7"
 
-        # Loop A back to Read Remote cleanly on far right
-        a=C("A");readRight=C("read","right");loopX=R(1140,0,0,0).x()
-        p.setPen(QPen(QColor("#456b8c"),2.2));p.drawLine(a,QPointF(loopX,a.y()));p.drawLine(QPointF(loopX,a.y()),QPointF(loopX,readRight.y()));self._arrow(p,QPointF(loopX,readRight.y()),readRight,"#456b8c",2)
-        p.setPen(QColor("#456b8c"));p.setFont(QFont(choose_ui_font_family(),8,QFont.Bold));p.drawText(R(1015,275,115,28),Qt.AlignCenter,"Next loop")
+        for a,b in (("start","init"),("init","remote"),("remote","remoteq")):self._poly_arrow(p,[C(a),C(b,"top")],col)
+        self._poly_arrow(p,[C("remoteq"),C("tiltread","top")],green);label(510,443,55,22,"YES",green)
+        self._poly_arrow(p,[C("remoteq","right"),QPointF(R(675,0,0,0).x(),C("remoteq","right").y()),C("remotefault","left")],red);label(645,365,48,22,"NO",red)
 
-        # Draw nodes after lines
-        for key,(x,y,w,h,text,shape) in nodes.items():self._node(p,key,R(x,y,w,h),text,shape)
+        for a,b in (("tiltread","limitsread"),("limitsread","motorread"),("motorread","motorq")):self._poly_arrow(p,[C(a),C(b,"top")],col)
+        self._poly_arrow(p,[C("motorq"),C("tiltq","top")],green);label(510,810,55,22,"YES",green)
+        self._poly_arrow(p,[C("motorq","right"),QPointF(R(675,0,0,0).x(),C("motorq","right").y()),C("motorfault","left")],red);label(645,731,48,22,"NO",red)
 
-        # Separate winch note
-        p.setPen(QPen(QColor("#d8b24a"),1.5));p.setBrush(QColor("#fff9e8"))
-        note=R(70,1090,360,82);p.drawRoundedRect(note,10,10)
-        p.setPen(QColor("#6b4b08"));p.setFont(QFont(choose_ui_font_family(),8,QFont.Bold))
-        p.drawText(note.adjusted(9,6,-9,-6),Qt.AlignCenter|Qt.TextWordWrap,
-                   "WINCH: ใช้ชุดรีโมทของวินช์ + แบต 12 V แยก\nไม่อยู่ใน Control Flow หลักของ ESP32")
+        self._poly_arrow(p,[C("tiltq","left"),QPointF(C("warningon","right").x()+18,C("tiltq","left").y()),C("warningon","right")],green);label(310,852,55,22,"YES",green)
+        self._poly_arrow(p,[C("tiltq","right"),QPointF(C("warningoff","left").x()-18,C("tiltq","right").y()),C("warningoff","left")],blue);label(635,852,55,22,"NO",blue)
+        merge=QPointF(R(500,0,0,0).x(),R(944,0,0,0).y())
+        for key in ("warningon","warningoff"):
+            a=C(key);self._poly_arrow(p,[a,QPointF(a.x(),merge.y()),merge],col)
+        self._poly_arrow(p,[merge,C("drivecmd","top")],col)
 
+        for a,b in (("drivecmd","mix"),("mix","speedlimit"),("speedlimit","driveq")):self._poly_arrow(p,[C(a),C(b,"top")],col)
+        self._poly_arrow(p,[C("driveq","left"),QPointF(R(210,0,0,0).x(),C("driveq","left").y()),C("stopcrane_drive","top")],green);label(275,1237,55,22,"YES",green)
+        self._poly_arrow(p,[C("stopcrane_drive"),C("senddrive","top")],col)
+        self._poly_arrow(p,[C("driveq","right"),QPointF(R(790,0,0,0).x(),C("driveq","right").y()),C("stopdrive","top")],blue);label(660,1237,45,22,"NO",blue)
+        self._poly_arrow(p,[C("stopdrive"),C("movingq","top")],col)
+
+        self._poly_arrow(p,[C("movingq","right"),QPointF(R(930,0,0,0).x(),C("movingq","right").y()),C("keepmoving","top")],red);label(915,1460,55,22,"YES",red)
+        self._poly_arrow(p,[C("movingq"),C("stopped05","top")],blue);label(785,1523,45,22,"NO",blue)
+        self._poly_arrow(p,[C("stopped05","left"),QPointF(R(515,0,0,0).x(),C("stopped05","left").y()),C("controlcrane","top")],green);label(520,1570,55,22,"YES",green)
+        self._poly_arrow(p,[C("stopped05","right"),QPointF(R(900,0,0,0).x(),C("stopped05","right").y()),C("keepwait","top")],red);label(870,1570,45,22,"NO",red)
+        self._poly_arrow(p,[C("controlcrane"),C("cranedir","top")],col)
+
+        self._poly_arrow(p,[C("cranedir","left"),QPointF(R(200,0,0,0).x(),C("cranedir","left").y()),C("leftlimitq","top")],blue);label(250,1765,60,22,"LEFT",blue)
+        self._poly_arrow(p,[C("cranedir"),C("cranestop","top")],col);label(482,1840,55,22,"STOP","#60758b")
+        self._poly_arrow(p,[C("cranedir","right"),QPointF(R(800,0,0,0).x(),C("cranedir","right").y()),C("rightlimitq","top")],blue);label(690,1765,65,22,"RIGHT",blue)
+
+        self._poly_arrow(p,[C("leftlimitq","left"),QPointF(R(135,0,0,0).x(),C("leftlimitq","left").y()),C("stopleft","top")],red);label(50,1900,55,22,"YES",red)
+        self._poly_arrow(p,[C("leftlimitq","right"),QPointF(R(315,0,0,0).x(),C("leftlimitq","right").y()),C("turnleft","top")],green);label(330,1900,45,22,"NO",green)
+        self._poly_arrow(p,[C("rightlimitq","left"),QPointF(R(685,0,0,0).x(),C("rightlimitq","left").y()),C("turnright","top")],green);label(620,1900,45,22,"NO",green)
+        self._poly_arrow(p,[C("rightlimitq","right"),QPointF(R(865,0,0,0).x(),C("rightlimitq","right").y()),C("stopright","top")],red);label(900,1900,55,22,"YES",red)
+
+        target=C("A","top");returnY=R(2045,0,0,0).y()
+        for key in ("senddrive","keepmoving","keepwait","cranestop","stopleft","turnleft","turnright","stopright","remotefault","motorfault"):
+            a=C(key)
+            if key in ("remotefault","motorfault"):
+                rx=R(972,0,0,0).x();self._poly_arrow(p,[a,QPointF(rx,a.y()),QPointF(rx,returnY),QPointF(target.x(),returnY),target],col)
+            else:self._poly_arrow(p,[a,QPointF(a.x(),returnY),QPointF(target.x(),returnY),target],col)
+
+        a=C("A");rleft=C("remote","left");loopX=R(24,0,0,0).x()
+        self._poly_arrow(p,[a,QPointF(loopX,a.y()),QPointF(loopX,rleft.y()),rleft],"#526f8a",2.2)
+        label(25,282,95,28,"Next loop","#526f8a")
+
+        for key,(x,y,w,h,text,shape,kind) in nodes.items():self._node(p,key,R(x,y,w,h),text,shape,kind)
+
+        p.setPen(QColor("#60758b"));p.setFont(QFont(choose_ui_font_family(),7.8))
+        p.drawText(R(250,2120,500,24),Qt.AlignCenter,"Connector A = กลับไปอ่าน Remote Signal ใหม่ในรอบถัดไป")
 
 class TelemetryChartWidget(QWidget):
     """Three compact live plots for Current, Speed and Tilt."""
@@ -1188,19 +1247,27 @@ class App(QMainWindow):
     # =====================================================================
     def flowchart_scenario_path(self,name=None):
         name=(name or (self.flowScenario.currentText() if hasattr(self,"flowScenario") else "Drive Forward"))
+        normal=["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","tiltq","warningoff","drivecmd","mix","speedlimit"]
         paths={
-            "Drive Forward":["start","init","read","safe","driveq","stopcrane","mix","soft","send","A","read"],
-            "Idle / Ready":["start","init","read","safe","driveq","stopdrive","stopped","craneq","idle","A","read"],
-            "Crane LEFT":["start","init","read","safe","driveq","stopdrive","stopped","craneq","limit","craneout","A","read"],
-            "Crane RIGHT":["start","init","read","safe","driveq","stopdrive","stopped","craneq","limit","craneout","A","read"],
-            "RC Lost / E-stop":["start","init","read","safe","fault","A","read"],
-            "VESC Fault":["start","init","read","safe","fault","A","read"],
-            "Tilt Fault":["start","init","read","safe","fault","A","read"],
-            "Vehicle not stopped":["start","init","read","safe","driveq","stopdrive","stopped","wait","A","read"],
-            "LEFT Limit Active":["start","init","read","safe","driveq","stopdrive","stopped","craneq","limit","limitstop","A","read"],
-            "RIGHT Limit Active":["start","init","read","safe","driveq","stopdrive","stopped","craneq","limit","limitstop","A","read"],
+            "Drive Forward":normal+["driveq","stopcrane_drive","senddrive","A","remote"],
+            "Idle / Ready":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","cranestop","A","remote"],
+            "Crane LEFT":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","leftlimitq","turnleft","A","remote"],
+            "Crane RIGHT":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","rightlimitq","turnright","A","remote"],
+            "Remote Fault":["start","init","remote","remoteq","remotefault","A","remote"],
+            "Motor / VESC Fault":["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","motorfault","A","remote"],
+            "Tilt Warning":["start","init","remote","remoteq","tiltread","limitsread","motorread","motorq","tiltq","warningon","drivecmd","mix","speedlimit","driveq","stopcrane_drive","senddrive","A","remote"],
+            "Vehicle Still Moving":normal+["driveq","stopdrive","movingq","keepmoving","A","remote"],
+            "Stopped < 0.5 s":normal+["driveq","stopdrive","movingq","stopped05","keepwait","A","remote"],
+            "LEFT Limit Active":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","leftlimitq","stopleft","A","remote"],
+            "RIGHT Limit Active":normal+["driveq","stopdrive","movingq","stopped05","controlcrane","cranedir","rightlimitq","stopright","A","remote"],
         }
         return paths.get(name,paths["Idle / Ready"])
+
+    def set_flowchart_zoom(self,text):
+        if not hasattr(self,"flowBoard"):return
+        try:value=float(str(text).replace("%",""))/100.0
+        except Exception:value=.70
+        self.flowBoard.set_zoom(value)
 
     def set_flowchart_scenario(self,*_):
         path=self.flowchart_scenario_path()
@@ -1231,25 +1298,40 @@ class App(QMainWindow):
     def _update_flowchart_step_info(self):
         current=self.flowBoard.current_node()
         labels={
-            "start":"เริ่มระบบ / Power ON",
-            "init":"ตั้งค่า ESP32, RC, IMU, CAN/VESC และ Limit Switch",
-            "read":"อ่านรีโมท + IMU + Limit Switch + สถานะ VESC",
-            "safe":"ตรวจ Safety: RC, E-stop, VESC Fault และ Tilt",
-            "fault":"Fault → สั่ง Drive=0, Crane STOP และ Alarm",
-            "driveq":"ตรวจว่ามีคำสั่งขับหรือไม่",
-            "stopcrane":"มีคำสั่งขับ → ล็อก/หยุดการหมุนเครนก่อน",
-            "mix":"คำนวณ Differential Steering ซ้าย/ขวา",
-            "soft":"จำกัดความเร็ว + Soft Start",
-            "send":"ส่งคำสั่ง Left/Right ไป VESC",
-            "stopdrive":"ไม่มีคำสั่งขับ → ส่ง Drive=0 ไป VESC",
-            "stopped":"ตรวจว่ารถหยุดนิ่งต่อเนื่อง ≥ 0.5 s",
-            "wait":"ยังไม่หยุดครบเวลา → รอและคง Drive=0",
-            "craneq":"เมื่อรถหยุดแล้ว ตรวจคำสั่งหมุนเครน",
-            "limit":"ตรวจ Limit Switch ตามทิศที่สั่ง",
-            "limitstop":"ถึง Limit → Stop Crane",
-            "craneout":"ไม่ชน Limit → หมุนเครน LEFT/RIGHT",
-            "idle":"ไม่มีคำสั่งเครน → Crane STOP",
-            "A":"Connector A → กลับไปอ่าน Input รอบถัดไป",
+            "start":"Start (Power ON)",
+            "init":"Start System — เตรียม ESP32, remote, sensors และ motors",
+            "remote":"Read Remote Signal — รับ FlySky FS-i6X ผ่าน i-BUS",
+            "remoteq":"Remote OK? — ตรวจว่าสัญญาณรีโมทยังปกติ",
+            "remotefault":"Remote ผิดปกติ → หยุดรถ + หยุดการหมุนเครน + Alarm ON",
+            "tiltread":"Read Tilt (IMU)",
+            "limitsread":"Read Crane Limits (Left / Right)",
+            "motorread":"Read Motor Status (VESC)",
+            "motorq":"Motor System OK? — ตรวจ VESC / motor communication",
+            "motorfault":"Motor/VESC ผิดปกติ → หยุดรถ + หยุดเครน + Alarm ON",
+            "tiltq":"Vehicle Tilt Too High? — ตรวจมุมเอียง",
+            "warningon":"Tilt สูง → Warning ON (Buzzer + LED), แต่ Flowchart Final ไม่สั่งหยุดรถอัตโนมัติ",
+            "warningoff":"Tilt ปกติ → Warning OFF",
+            "drivecmd":"Read Driving Command — Forward / Reverse / Left / Right",
+            "mix":"Calculate Left / Right Motor Speed — Differential Steering",
+            "speedlimit":"Limit Speed to 1 km/h + Soft Start / Stop",
+            "driveq":"Drive Command Active?",
+            "stopcrane_drive":"มีคำสั่งขับ → Stop Crane Rotation ก่อน",
+            "senddrive":"Send Drive Command to VESC",
+            "stopdrive":"ไม่มีคำสั่งขับ → Send Stop Command to VESC",
+            "movingq":"Vehicle Still Moving?",
+            "keepmoving":"รถยังเคลื่อนที่ → Keep Crane Stopped",
+            "stopped05":"รถหยุดแล้วหรือยังหยุดนิ่งต่อเนื่องอย่างน้อย 0.5 s?",
+            "keepwait":"หยุดยังไม่ครบ 0.5 s → Keep Crane Stopped",
+            "controlcrane":"Control Crane — อ่าน LEFT / STOP / RIGHT จากรีโมท",
+            "cranedir":"Crane Direction?",
+            "leftlimitq":"LEFT → Left Limit Reached?",
+            "rightlimitq":"RIGHT → Right Limit Reached?",
+            "stopleft":"Left Limit ทำงาน → Stop Crane",
+            "turnleft":"Left Limit ยังไม่ทำงาน → Turn Left",
+            "turnright":"Right Limit ยังไม่ทำงาน → Turn Right",
+            "stopright":"Right Limit ทำงาน → Stop Crane",
+            "cranestop":"STOP → Stop Crane",
+            "A":"Connector A → กลับไปอ่าน Remote Signal ใหม่ในรอบถัดไป",
         }
         step=self.flowStep+1 if self.flowBoard.path else 0
         total=len(self.flowBoard.path)
@@ -1258,30 +1340,34 @@ class App(QMainWindow):
         <h2>Current Step</h2>
         <p style='font-size:12pt'><b>{labels.get(current,'—')}</b></p>
         <hr>
-        <h3>หลักการสำคัญ</h3>
-        <p>• Drive มีสิทธิ์เหนือ Crane: เมื่อรถต้องเคลื่อนที่ ต้องสั่ง <b>Stop Crane Rotation</b> ก่อนส่งคำสั่งไป VESC</p>
-        <p>• เมื่อ Drive command = 0 ต้องส่ง Stop ให้ VESC และยืนยันว่ารถหยุดนิ่งอย่างน้อย <b>0.5 s</b> ก่อนอนุญาต Crane</p>
-        <p>• Limit -90°/+90° ห้ามหมุนต่อเข้า Limit แต่ยังหมุนย้อนออกได้</p>
-        <p>• ทุกเส้นทางกลับ Connector <b>A</b> เพื่ออ่าน Remote/Sensor รอบใหม่</p>
-        <p>• Winch ใช้รีโมทของชุดวินช์และแบต 12 V แยก จึงไม่อยู่ใน ESP32 Control Flow หลัก</p>
+        <h3>Flowchart Final — หลักการตามเอกสาร</h3>
+        <p>• ถ้ารถกำลังเคลื่อนที่ → <b>ห้ามหมุนเครน</b></p>
+        <p>• ก่อนหมุนเครน รถต้องหยุดนิ่งต่อเนื่องอย่างน้อย <b>0.5 s</b></p>
+        <p>• คำสั่งขับรถถูกคำนวณเป็นความเร็วมอเตอร์ซ้าย/ขวาด้วย <b>Differential Steering</b> และจำกัดความเร็วประมาณ <b>1 km/h</b></p>
+        <p>• Tilt สูง → เปิด <b>Buzzer + LED</b>. ใน Flowchart Final ที่แนบ การเอียงเป็นการเตือนและ <b>ไม่สั่งหยุดรถอัตโนมัติ</b></p>
+        <p>• Limit ด้านใดทำงาน จะห้ามหมุนต่อเข้าด้านนั้น แต่ยังหมุนย้อนออกจาก Limit ได้</p>
+        <p>• Connector <b>A</b> หมายถึงกลับไปอ่าน Remote Signal ใหม่ในรอบถัดไป</p>
+        <p style='background:#eef6ff;padding:9px;border:1px solid #cfe2f5'>
+        หน้านี้ทำตามลำดับ Flowchart Final ในเอกสารที่ผู้ใช้ส่งมา ไม่รวม Winch ใน Control Flow หลัก.
+        </p>
         """)
 
     def sync_flowchart_from_safety(self):
         if not hasattr(self,"flowBoard"):return
         v=self.safety_input_values() if hasattr(self,"safetyEStop") else {}
-        tilt_fault=abs(float(v.get("tilt",0)))>=float(v.get("tilt_limit",12))
+        tilt_warning=abs(float(v.get("tilt",0)))>=float(v.get("tilt_limit",12))
         drive_req=abs(int(v.get("throttle",0)))>2 or abs(int(v.get("steer",0)))>2
         crane=str(v.get("crane","STOP"))
         if v.get("estop") or not v.get("rc_ok",True):
-            scenario="RC Lost / E-stop"
+            scenario="Remote Fault"
         elif v.get("vesc_fault",False):
-            scenario="VESC Fault"
-        elif tilt_fault:
-            scenario="Tilt Fault"
+            scenario="Motor / VESC Fault"
+        elif tilt_warning:
+            scenario="Tilt Warning"
         elif drive_req:
             scenario="Drive Forward"
         elif not v.get("stationary_05",True):
-            scenario="Vehicle not stopped"
+            scenario="Stopped < 0.5 s"
         elif crane.startswith("LEFT") and v.get("left_limit",False):
             scenario="LEFT Limit Active"
         elif crane.startswith("RIGHT") and v.get("right_limit",False):
@@ -2103,43 +2189,58 @@ void loop() {{
 
     def make_system_flowchart_page(self):
         w=QWidget();self.flowchartPage=w
-        root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(10)
+        root=QVBoxLayout(w);root.setContentsMargins(12,10,12,12);root.setSpacing(8)
         root.addWidget(make_page_header(
-            "FINAL SYSTEM FLOWCHART",
-            "ESP32 Vehicle + Crane Control • RC/IBUS • IMU • VESC • Interlock • Limit ±90°",
-            self.show_home_mode,"V53 FLOW","#e8f4ff","#245fbb"
+            "FLOWCHART FINAL — VEHICLE + CRANE CONTROL",
+            "อ้างอิง Flowchart Final • Remote → IMU/Limits/VESC → Drive Interlock → 0.5 s Stop Gate → Crane Limits",
+            self.show_home_mode,"V53.2 FLOW","#e8f4ff","#245fbb"
         ))
 
         toolbar=QFrame();toolbar.setObjectName("softPanel")
-        tl=QHBoxLayout(toolbar);tl.setContentsMargins(10,8,10,8);tl.setSpacing(8)
-        tl.addWidget(QLabel("Scenario"))
+        tl=QGridLayout(toolbar);tl.setContentsMargins(10,8,10,8);tl.setHorizontalSpacing(8);tl.setVerticalSpacing(7)
+        tl.addWidget(QLabel("Scenario"),0,0)
         self.flowScenario=QComboBox();self.flowScenario.addItems([
             "Drive Forward","Idle / Ready","Crane LEFT","Crane RIGHT",
-            "RC Lost / E-stop","VESC Fault","Tilt Fault","Vehicle not stopped",
-            "LEFT Limit Active","RIGHT Limit Active"
+            "Remote Fault","Motor / VESC Fault","Tilt Warning","Vehicle Still Moving",
+            "Stopped < 0.5 s","LEFT Limit Active","RIGHT Limit Active"
         ])
         self.flowScenario.currentIndexChanged.connect(self.set_flowchart_scenario)
-        tl.addWidget(self.flowScenario,1)
-        sync=QPushButton("Sync from Control Logic");sync.clicked.connect(self.sync_flowchart_from_safety);tl.addWidget(sync)
-        prev=QPushButton("◀ Prev");prev.clicked.connect(self.flowchart_prev_step);tl.addWidget(prev)
-        nxt=QPushButton("Next ▶");nxt.clicked.connect(self.flowchart_next_step);tl.addWidget(nxt)
-        self.flowPlayButton=QPushButton("▶ Play");self.flowPlayButton.setObjectName("primaryButton");self.flowPlayButton.clicked.connect(self.toggle_flowchart_play);tl.addWidget(self.flowPlayButton)
-        exp=QPushButton("Export PNG");exp.clicked.connect(self.export_flowchart_png);tl.addWidget(exp)
+        tl.addWidget(self.flowScenario,0,1,1,3)
+        sync=QPushButton("Sync from Control Logic");sync.clicked.connect(self.sync_flowchart_from_safety);tl.addWidget(sync,0,4)
+        exp=QPushButton("Export PNG");exp.clicked.connect(self.export_flowchart_png);tl.addWidget(exp,0,5)
+
+        prev=QPushButton("◀ Prev");prev.clicked.connect(self.flowchart_prev_step);tl.addWidget(prev,1,0)
+        nxt=QPushButton("Next ▶");nxt.clicked.connect(self.flowchart_next_step);tl.addWidget(nxt,1,1)
+        self.flowPlayButton=QPushButton("▶ Play");self.flowPlayButton.setObjectName("primaryButton");self.flowPlayButton.clicked.connect(self.toggle_flowchart_play);tl.addWidget(self.flowPlayButton,1,2)
+        tl.addWidget(QLabel("Zoom"),1,3)
+        self.flowZoom=QComboBox();self.flowZoom.addItems(["60%","70%","80%","90%","100%","115%"])
+        self.flowZoom.setCurrentText("70%");self.flowZoom.currentTextChanged.connect(self.set_flowchart_zoom);tl.addWidget(self.flowZoom,1,4)
+        fit=QPushButton("Fit Laptop");fit.clicked.connect(lambda:self.flowZoom.setCurrentText("70%"));tl.addWidget(fit,1,5)
+        tl.setColumnStretch(1,1);tl.setColumnStretch(2,1);tl.setColumnStretch(4,2)
         root.addWidget(toolbar)
 
         self.flowStepLabel=QLabel("Step 1")
-        self.flowStepLabel.setStyleSheet("font-size:11pt;font-weight:900;color:#245fbb;padding:3px 4px;")
+        self.flowStepLabel.setWordWrap(True)
+        self.flowStepLabel.setStyleSheet("font-size:10.5pt;font-weight:900;color:#245fbb;padding:4px 6px;background:#f5f9ff;border-radius:6px;")
         root.addWidget(self.flowStepLabel)
 
-        split=QSplitter(Qt.Horizontal);split.setChildrenCollapsible(False)
+        self.flowTabs=QTabWidget();self.flowTabs.setUsesScrollButtons(True);root.addWidget(self.flowTabs,1)
+
+        flowPage=QWidget();fl=QVBoxLayout(flowPage);fl.setContentsMargins(0,0,0,0)
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame)
-        self.flowBoard=SystemFlowchartWidget(self);scroll.setWidget(self.flowBoard);split.addWidget(scroll)
-        self.flowExplanation=QTextEdit();self.flowExplanation.setReadOnly(True);self.flowExplanation.setMinimumWidth(310);split.addWidget(self.flowExplanation)
-        split.setStretchFactor(0,4);split.setStretchFactor(1,1);split.setSizes([950,330])
-        root.addWidget(split,1)
+        self.flowBoard=SystemFlowchartWidget(self);scroll.setWidget(self.flowBoard);fl.addWidget(scroll)
+        self.flowTabs.addTab(flowPage,"Flowchart")
+
+        explainPage=QWidget();el=QVBoxLayout(explainPage);el.setContentsMargins(8,8,8,8)
+        note=QLabel("คำอธิบายหน้านี้อ้างอิง Flowchart Final ที่ส่งมา: Tilt เป็น Warning only และรถต้องหยุดนิ่ง ≥0.5 s ก่อนหมุนเครน")
+        note.setWordWrap(True);note.setStyleSheet("background:#fff8e9;color:#68420b;padding:9px;border:1px solid #ead39a;border-radius:8px;font-weight:700;")
+        el.addWidget(note)
+        self.flowExplanation=QTextEdit();self.flowExplanation.setReadOnly(True);el.addWidget(self.flowExplanation,1)
+        self.flowTabs.addTab(explainPage,"คำอธิบาย / Explanation")
 
         self.flowPlayTimer=QTimer(self);self.flowPlayTimer.timeout.connect(self.flowchart_next_step)
         self.flowStep=0
+        self.set_flowchart_zoom("70%")
         self.set_flowchart_scenario()
         self.tabs.addTab(w,"")
 
