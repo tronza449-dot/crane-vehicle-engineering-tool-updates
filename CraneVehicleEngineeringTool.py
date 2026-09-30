@@ -3049,7 +3049,8 @@ void loop() {{
         if not ok or not name.strip():return
         note,ok2=QInputDialog.getText(self,"Capture Revision","Note (optional):")
         if not ok2:note=""
-        state=self.capture_project_state();state.pop("revisions",None)
+        state=self.capture_project_state()
+        if isinstance(state.get("integration"),dict):state["integration"].pop("revisions",None)
         rev=dict(name=name.strip(),created=datetime.now().isoformat(timespec="seconds"),version=APP_VERSION,note=note,state=state)
         self.designRevisions.append(rev);self.refresh_revision_table()
         self.revisionTable.selectRow(len(self.designRevisions)-1)
@@ -4627,7 +4628,7 @@ void loop() {{
         if hasattr(self,"bomTable"):
             self._load_table_rows_text(self.bomTable,integration.get("bom",[]))
             self.update_bom_summary()
-        if hasattr(self,"designRevisions"):
+        if hasattr(self,"designRevisions") and "revisions" in integration:
             revs=integration.get("revisions",[])
             self.designRevisions=revs if isinstance(revs,list) else []
             self.refresh_revision_table()
