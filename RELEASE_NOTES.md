@@ -1,86 +1,31 @@
-# Crane Vehicle Engineering Tool V53.2.1
+# Crane Vehicle Engineering Tool V53.2.2
 
-## Flowchart Final + Responsive UI Hotfix
+## Flowchart display + responsive UI fix
 
-ปรับหน้า System Flowchart ใหม่ตามเอกสาร “คำอธิบาย Flowchart รถและเครน Final” ที่ผู้ใช้ส่งมา และแก้ UI เดิมที่แน่น/เส้นย้อนกลับไขว้กัน
+แก้ปัญหาหน้าจอจาก V53.2.1 ที่ Flowchart ถูกยืด/บีบและบางหน้ามีข้อความโดนตัดบนจอ Laptop / Windows scaling
 
-### Flowchart sequence
-Flowchart ใหม่แยกขั้นตอนตามเอกสาร Final:
-- Start / Power ON
-- Start System
-- Read Remote Signal
-- Remote OK?
-- Read Tilt (IMU)
-- Read Crane Limits Left/Right
-- Read Motor Status (VESC)
-- Motor System OK?
-- Vehicle Tilt Too High?
-- Warning ON / OFF
-- Read Driving Command
-- Calculate Left / Right Motor Speed
-- Limit Speed to 1 km/h + Soft Start / Stop
-- Drive Command Active?
-- Stop Crane Rotation before Drive
-- Send Drive Command to VESC
-- Send Stop Command to VESC
-- Vehicle Still Moving?
-- Stopped for at least 0.5 s?
-- Control Crane
-- Crane Direction LEFT / STOP / RIGHT
-- Directional Left / Right Limit checks
-- Connector A returns to Read Remote Signal on the next loop
+### Flowchart UI
+- เปลี่ยน Flowchart เป็น fixed-size canvas ตามค่า Zoom เพื่อไม่ให้ Qt ยืดแกน X/Y คนละอัตรา
+- ใช้ uniform painter scale เพื่อรักษาสัดส่วนกล่อง, diamond และเส้น connector
+- เปลี่ยน QScrollArea เป็น non-resizable canvas + vertical/horizontal scrolling ตามจริง
+- Default Flowchart zoom เป็น 90%
+- เปลี่ยน Fit Laptop เป็น Fit Width ที่คำนวณตาม viewport จริง
+- ป้องกันการลดขนาด font ซ้ำตาม zoom ทำให้ข้อความอ่านง่ายขึ้น
+- ลำดับ Flowchart Final และ Connector A เดิมยังคงไว้
 
-### Important behavior from submitted Final document
-- Vehicle moving → Crane rotation is not allowed
-- Crane may rotate only after the vehicle has been stationary continuously for at least 0.5 s
-- Differential Steering is calculated before the VESC command
-- Maximum speed is limited to approximately 1 km/h with Soft Start / Stop
-- Tilt above the limit is shown as Warning ON (Buzzer + LED) in the Flowchart Final and the flow continues to Driving Command
-- Hitting a crane limit blocks further travel into that limit but still allows movement back out
+### Main UI / Hardware I/O
+- ขยายเมนูซ้ายจาก 185 px เป็น 225 px ลดการตัดชื่อเมนู
+- เพิ่ม tooltip และความสูงขั้นต่ำให้ปุ่มเมนู
+- ปิด tab text elision เพื่อไม่ให้ชื่อ tab กลายเป็น ...
+- ย่อชื่อ Hardware tabs ให้เหมาะกับจอ Laptop
+- ลด minimum width ของ Board GPIO Summary
+- ลด margin หน้า Hardware I/O เพื่อเพิ่มพื้นที่ทำงาน
 
-This release changes the Flowchart visualization to match the submitted Final document. It does not silently replace the separate Control Logic simulator's existing tilt policy.
+### Control logic retained
+- Vehicle moving → Crane rotation not allowed
+- Crane control requires vehicle stationary continuously for at least 0.5 s
+- Tilt in the submitted Final flowchart remains Warning ON/OFF and does not automatically stop the vehicle in that visualization
+- Crane limits remain directional: a hit limit blocks travel further into that side while allowing movement back out
 
-### UI fixes
-- Removed the cramped horizontal Flowchart/Explanation splitter
-- Flowchart and Explanation are now separate tabs
-- Added 60 / 70 / 80 / 90 / 100 / 115% Flowchart zoom
-- Added Fit Laptop mode
-- Replaced long crossing return wires with local Connector A symbols like the Final reference
-- Fixed overlap around Vehicle Still Moving / 0.5 s stop gate
-- Scenario controls are arranged in a responsive two-row grid
-- Step description remains visible above the diagram
-- Export PNG remains available
-
-### Scenario animation
-Includes:
-- Drive Forward
-- Idle / Ready
-- Crane LEFT
-- Crane RIGHT
-- Remote Fault
-- Motor / VESC Fault
-- Tilt Warning
-- Vehicle Still Moving
-- Stopped < 0.5 s
-- LEFT Limit Active
-- RIGHT Limit Active
-
-### Windows regression gate
-Before release the Windows test verifies:
-- every Final Flowchart scenario renders
-- old merged Safety node is not used by the Final Flowchart
-- Tilt Warning continues to Driving Command
-- Vehicle Still Moving and 0.5 s gate are separate branches
-- LEFT / RIGHT limit paths remain directional
-- local Connector A nodes exist
-- Flowchart and Explanation tabs open at all supported UI scales
-- zoom modes render successfully
-- all previous Torque, Battery, Winch, Stability, Hardware I/O, Telemetry, Integration, PDF and Updater tests still pass
-
-หมายเหตุ: Flowchart หน้านี้เป็นการแสดงลำดับโปรแกรมตามเอกสาร Final ที่ผู้ใช้ส่งมา ไม่ใช่การรับรองระบบ Safety hardware จริง
-
-
-### V53.2.1 UI hotfix
-- Flowchart node text now scales with the Flowchart zoom level to prevent clipping at 60–70%
-- Branch labels scale with zoom as well
-- Added Windows regression checks that Vehicle Still Moving / 0.5 s gate boxes do not overlap at 1024×650 and 130% UI font scale
+### Release pipeline
+GitHub Actions performs syntax, engineering calculation, responsive UI, Flowchart, Hardware I/O, Telemetry, updater and PDF regression checks before publishing the Windows installer.
