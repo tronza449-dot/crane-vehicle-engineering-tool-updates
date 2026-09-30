@@ -85,7 +85,7 @@ jobs:
           modes = (
               w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
               w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
-              w.show_flowchart_mode,w.show_hardware_mode,w.show_telemetry_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
+              w.show_flowchart_mode,w.show_hardware_mode,w.show_telemetry_mode,w.show_integration_suite_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
           )
           for width,height in ((1024,650),(1280,720),(1366,768),(1600,900)):
               w.resize(width,height)
@@ -481,15 +481,89 @@ jobs:
           assert w.flowScenario.currentText()=="LEFT Limit Active"
           w.reset_safety_simulator()
 
+          # ---------- V53 Engineering Integration Suite ----------
+          w.show_integration_suite_mode()
+          QApplication.processEvents()
+          assert hasattr(w,"deviceLibraryTable") and hasattr(w,"validationTable") and hasattr(w,"bomTable")
+          assert hasattr(w,"diagnosticTable") and hasattr(w,"revisionTable") and hasattr(w,"finalVerificationView")
+
+          # Device Library: custom device can be added and pushed into Hardware I/O.
+          device={
+              "device":"Regression Sensor","category":"Sensor","signal":"TEST_SIGNAL",
+              "interface":"Digital IN","supply":"3.3V","logic":"3.3V","protection":"Direct","note":"regression"
+          }
+          dr=w._append_device_library_row(device)
+          w.deviceLibraryTable.selectRow(dr)
+          hw_before=len(w.hwRows)
+          w.add_library_device_to_hardware()
+          assert len(w.hwRows)==hw_before+1
+          assert w.hwRows[-1]["custom"] is True and w.hwRows[-1]["device"]=="Regression Sensor"
+
+          # Validation: current calculated targets can be loaded and exact measured values pass.
+          w.load_validation_targets()
+          assert w.validationTable.rowCount()>=6
+          w.validationTable.blockSignals(True)
+          for r in range(w.validationTable.rowCount()):
+              calc=w.validationTable.item(r,2).text()
+              w.validationTable.setItem(r,3,QTableWidgetItem(calc))
+          w.validationTable.blockSignals(False)
+          w.update_validation_results()
+          vc=w.validation_status_counts()
+          assert vc["FAIL"]==0 and vc["PENDING"]==0 and vc["PASS"]==w.validationTable.rowCount()
+
+          # Latest telemetry can populate measured speed/current/tilt.
+          w.telemetryHistory.append(w.normalize_telemetry_sample({
+              "speed_kmh":1.0,"battery_a":12.3,"tilt_deg":0.5,"rc_ok":True,"estop":False
+          }))
+          w.clear_validation_measured();w.fill_validation_from_telemetry()
+          measured_by_name={}
+          for r in range(w.validationTable.rowCount()):
+              measured_by_name[w.validationTable.item(r,0).text()]=w.validationTable.item(r,3).text()
+          assert measured_by_name["Vehicle speed"]!=""
+          assert measured_by_name["Uphill battery current"]!=""
+          assert measured_by_name["IMU zero tilt"]!=""
+
+          # BOM: baseline can be created and totals are computed; missing mass is explicit.
+          w.load_baseline_bom()
+          bt=w.bom_totals()
+          assert bt["items"]>=10 and bt["mass"]>=10
+          assert bt["mass_missing"]>0
+
+          # Revisions: snapshot must not recursively contain revision history.
+          rev_state=w.capture_project_state()
+          if isinstance(rev_state.get("integration"),dict):
+              rev_state["integration"].pop("revisions",None)
+          w.designRevisions=[{
+              "name":"Regression R1","created":"2026-09-30T00:00:00","version":cvet.APP_VERSION,
+              "note":"test","state":rev_state
+          }]
+          w.refresh_revision_table()
+          assert w.revisionTable.rowCount()==1
+          assert "revisions" not in w.designRevisions[0]["state"].get("integration",{})
+
+          # Diagnostics and final verification must render.
+          w.run_diagnostics()
+          assert w.diagnosticTable.rowCount()>=1
+          html=w.final_verification_html()
+          assert "FINAL PROJECT VERIFICATION" in html
+          assert "BOM" in html and "Validation" in html
+
           # ---------- Project state round-trip ----------
           original=w.tgrade.value()
           original_hw=w.hwRows[0]["gpio"].currentText()
+          device_rows=w.deviceLibraryTable.rowCount()
+          bom_rows=w.bomTable.rowCount()
+          revision_rows=len(w.designRevisions)
           state=w.capture_project_state()
           w.tgrade.setValue(7.0 if original != 7.0 else 8.0)
           w.hwRows[0]["gpio"].setCurrentText("GPIO 1" if original_hw!="GPIO 1" else "GPIO 2")
+          w.deviceLibraryTable.setRowCount(0);w.bomTable.setRowCount(0);w.designRevisions=[]
           w.apply_project_state(state,recalculate=True)
           assert abs(w.tgrade.value()-original)<1e-9
           assert w.hwRows[0]["gpio"].currentText()==original_hw
+          assert w.deviceLibraryTable.rowCount()==device_rows
+          assert w.bomTable.rowCount()==bom_rows
+          assert len(w.designRevisions)==revision_rows
 
           # ---------- Local updater / SHA regression ----------
           with tempfile.TemporaryDirectory() as td:
