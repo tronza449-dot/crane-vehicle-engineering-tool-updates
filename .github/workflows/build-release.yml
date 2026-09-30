@@ -566,6 +566,12 @@ jobs:
           # UI: Flowchart and Explanation are separate tabs, with laptop zoom controls.
           assert w.flowTabs.count()==2
           assert w.flowZoom.findText("70%")>=0 and w.flowZoom.findText("100%")>=0
+          w.show_flowchart_mode();w.resize(1024,650);w.apply_ui_scale(1.30,save=False);QApplication.processEvents()
+          w.flowScenario.setCurrentText("Vehicle Still Moving");w.set_flowchart_scenario()
+          w.flowBoard.grab()
+          assert not w.flowBoard.nodeRects["stopped05"].intersects(w.flowBoard.nodeRects["keepmoving"])
+          assert not w.flowBoard.nodeRects["controlcrane"].intersects(w.flowBoard.nodeRects["keepwait"])
+          assert w.flowTabs.isVisible()
           for zoom in ("60%","70%","100%","115%"):
               w.flowZoom.setCurrentText(zoom);QApplication.processEvents()
               shot=w.flowBoard.grab()
