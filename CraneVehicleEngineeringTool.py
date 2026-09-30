@@ -2151,7 +2151,7 @@ void loop() {{
         lay.addWidget(self._make_nav_button("safety","C   Control Logic",self.show_safety_logic_mode))
         lay.addWidget(self._make_nav_button("flowchart","F   System Flowchart",self.show_flowchart_mode))
         lay.addWidget(self._make_nav_button("hardware","H   Hardware I/O",self.show_hardware_mode))
-        lay.addWidget(self._make_nav_button("telemetry","D   Live Telemetry",self.show_telemetry_mode))
+        lay.addWidget(self._make_nav_button("telemetry","D   WiFi / Live Telemetry",self.show_telemetry_mode))
         lay.addWidget(self._make_nav_button("integration","I   Engineering Suite",self.show_integration_suite_mode))
 
         s2=QLabel("REFERENCE & OUTPUT");s2.setObjectName("navSection");lay.addWidget(s2)
@@ -3655,6 +3655,8 @@ void loop() {{
         self._show_only_page(self.telemetryPage)
         self._set_active_nav("telemetry")
         self.refresh_serial_ports()
+        self.refresh_telemetry_local_ips()
+        self.refresh_telemetry_code_view()
         self.update_telemetry_ui()
 
     def show_integration_suite_mode(self):
@@ -3796,7 +3798,7 @@ void loop() {{
         bv=ModeCardButton("VARIABLE DICTIONARY","ความหมายตัวแปร • หน่วย • ค่าปัจจุบัน","06","#4b647a")
         bh=ModeCardButton("HARDWARE I/O & WIRING","Animated Board • All GPIO • Used/Free/Conflict","07","#0b7a75")
         bflo=ModeCardButton("SYSTEM FLOWCHART","Animated ESP32 Vehicle + Crane Control Flow","08","#2b6cb0")
-        btele=ModeCardButton("LIVE TELEMETRY","ESP32 Serial • Live Graph • CSV Data Logger","09","#087e8b")
+        btele=ModeCardButton("LIVE TELEMETRY","ESP32 WiFi/Serial • Live Graph • CSV Data Logger","09","#087e8b")
         binteg=ModeCardButton("ENGINEERING SUITE","Validation • Diagnostics • BOM • Revisions • Final Check","10","#5b4bb7")
 
         cards.addWidget(bt,0,0);cards.addWidget(be,0,1)
