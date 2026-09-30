@@ -822,7 +822,7 @@ class Esp32AnimatedBoardWidget(QWidget):
 class SystemFlowchartWidget(QWidget):
     """Animated engineering flowchart for the vehicle + crane control sequence."""
     def __init__(self,owner):
-        super().__init__();self.o=owner;self.setMinimumSize(900,980)
+        super().__init__();self.o=owner;self.setMinimumSize(900,1280)
         self.phase=0.0;self.path=[];self.step_index=0;self.nodeRects={}
         self.anim=QTimer(self);self.anim.timeout.connect(self._tick);self.anim.start(70)
 
