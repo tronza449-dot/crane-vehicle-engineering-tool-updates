@@ -1352,12 +1352,12 @@ class App(QMainWindow):
 
         self.telemetryWifiLabel=QLabel("WiFi UDP")
         bl.addWidget(self.telemetryWifiLabel,2,0)
-        self.telemetryLocalIp=QComboBox();self.telemetryLocalIp.setMinimumWidth(150);bl.addWidget(self.telemetryLocalIp,2,1)
+        self.telemetryLocalIp=QComboBox();self.telemetryLocalIp.setMinimumWidth(150);self.telemetryLocalIp.currentIndexChanged.connect(self.refresh_telemetry_code_view);bl.addWidget(self.telemetryLocalIp,2,1)
         self.telemetryRefreshIp=QPushButton("Refresh PC IP");self.telemetryRefreshIp.clicked.connect(self.refresh_telemetry_local_ips);bl.addWidget(self.telemetryRefreshIp,2,2)
         self.telemetryUdpPortLabel=QLabel("UDP Port");bl.addWidget(self.telemetryUdpPortLabel,2,3)
-        self.telemetryUdpPort=QSpinBox();self.telemetryUdpPort.setRange(1024,65535);self.telemetryUdpPort.setValue(4210);bl.addWidget(self.telemetryUdpPort,2,4)
+        self.telemetryUdpPort=QSpinBox();self.telemetryUdpPort.setRange(1024,65535);self.telemetryUdpPort.setValue(4210);self.telemetryUdpPort.valueChanged.connect(self.refresh_telemetry_code_view);bl.addWidget(self.telemetryUdpPort,2,4)
         self.telemetryDeviceLabel=QLabel("Device ID");bl.addWidget(self.telemetryDeviceLabel,2,5)
-        self.telemetryDeviceId=QLineEdit("CVET-ESP32");self.telemetryDeviceId.setPlaceholderText("ว่าง = รับทุก device");bl.addWidget(self.telemetryDeviceId,2,6)
+        self.telemetryDeviceId=QLineEdit("CVET-ESP32");self.telemetryDeviceId.setPlaceholderText("ว่าง = รับทุก device");self.telemetryDeviceId.textChanged.connect(self.refresh_telemetry_code_view);bl.addWidget(self.telemetryDeviceId,2,6)
         self.telemetryLoopbackButton=QPushButton("Test WiFi Packet");self.telemetryLoopbackButton.clicked.connect(self.send_telemetry_loopback_test);bl.addWidget(self.telemetryLoopbackButton,2,7)
         self.telemetryWifiHelp=QLabel("Receive-only LAN telemetry");self.telemetryWifiHelp.setStyleSheet("color:#087e8b;font-weight:800;");bl.addWidget(self.telemetryWifiHelp,2,8)
 
@@ -1799,12 +1799,34 @@ class App(QMainWindow):
     def update_telemetry_ui(self,*_):
         if not hasattr(self,"telemetryConnLabel"):return
         connected=getattr(self,"telemetryConnected",False)
-        mode="SIM" if self.telemetrySource.currentIndex()==0 else "ESP32"
-        self.telemetryConnLabel.setText(f"{'CONNECTED' if connected else 'OFFLINE'}\n{mode}")
-        self.telemetryConnLabel.setStyleSheet(f"color:{'#176337' if connected else '#b42318'};font-size:13pt;font-weight:900;")
+        idx=self.telemetrySource.currentIndex()
+        now=time.monotonic()
+        wifi_live=(idx==2 and connected and getattr(self,"telemetryLastRx",0)>0 and now-self.telemetryLastRx<=2.5)
+        if idx==0:
+            conn_text=("CONNECTED\nSIM" if connected else "OFFLINE\nSIM");conn_ok=connected
+            remote_text="Local demo"
+        elif idx==1:
+            conn_text=("CONNECTED\nSERIAL" if connected else "OFFLINE\nSERIAL");conn_ok=connected
+            remote_text=(self.telemetryPort.currentText() if connected else "—")
+        else:
+            if not connected:
+                conn_text="OFFLINE\nWIFI UDP";conn_ok=False
+            elif wifi_live:
+                conn_text="LIVE\nWIFI UDP";conn_ok=True
+            else:
+                conn_text="LISTENING\nWIFI UDP";conn_ok=None
+            hz=self.telemetry_packet_rate()
+            remote_text=(getattr(self,"telemetryRemoteAddr","") or "waiting packet")
+            remote_text+=f"\n{hz:.1f} Hz"
+        color="#176337" if conn_ok is True else ("#b54708" if conn_ok is None else "#b42318")
+        self.telemetryConnLabel.setText(conn_text)
+        self.telemetryConnLabel.setStyleSheet(f"color:{color};font-size:13pt;font-weight:900;")
+        self.telemetryRemoteLabel.setText(remote_text)
+
         sample=self.telemetryHistory[-1] if self.telemetryHistory else None
         if sample:
-            self.telemetryBatteryLabel.setText(f"{sample['battery_v']:.2f} V")
+            pct=sample.get("battery_pct",-1)
+            self.telemetryBatteryLabel.setText(f"{sample['battery_v']:.2f} V"+(f"\n{pct:.0f}%" if pct>=0 else ""))
             self.telemetryCurrentLabel.setText(f"{sample['battery_a']:.2f} A")
             self.telemetrySpeedLabel.setText(f"{sample['speed_kmh']:.3f} km/h")
             self.telemetryTiltLabel.setText(f"{sample['tilt_deg']:.2f}°")
@@ -1817,6 +1839,10 @@ class App(QMainWindow):
             tilt_limit=getattr(getattr(self,"safetyTiltLimit",None),"value",lambda:12.0)()
             if abs(sample.get("tilt_deg",0))>=tilt_limit:fault.append("TILT LIMIT")
             state_color="#b42318" if fault else "#176337"
+            net=""
+            if sample.get("source_ip"):
+                rssi=sample.get("wifi_rssi_dbm",-999)
+                net=f"<tr><td>WiFi</td><td>{sample.get('device','') or 'ESP32'} @ {sample.get('source_ip','')}"+(f" / RSSI {rssi:.0f} dBm" if rssi>-200 else "")+"</td></tr>"
             self.telemetryStateView.setHtml(f"""
             <h2 style='color:{state_color}'>{sample.get('state','LIVE')}</h2>
             <table border='1' cellspacing='0' cellpadding='5'>
@@ -1827,17 +1853,30 @@ class App(QMainWindow):
             <tr><td>Motor RPM</td><td>L {sample['left_rpm']:.1f} / R {sample['right_rpm']:.1f}</td></tr>
             <tr><td>RC command</td><td>Throttle {sample['rc_throttle']:.1f}% / Steer {sample['rc_steer']:.1f}%</td></tr>
             <tr><td>Limits</td><td>L {int(sample['limit_left'])} / R {int(sample['limit_right'])}</td></tr>
+            {net}
             </table>
             <p><b>Fault:</b> {', '.join(fault) if fault else 'None'}</p>
             """)
         else:
             for lab in (self.telemetryBatteryLabel,self.telemetryCurrentLabel,self.telemetrySpeedLabel,self.telemetryTiltLabel,self.telemetryRpmLabel):lab.setText("—")
-            self.telemetryStateView.setHtml("<h3>ยังไม่มีข้อมูล</h3><p>กด Connect / Start เพื่อดู Simulation หรือเชื่อม ESP32 ผ่าน COM Port</p>")
+            self.telemetryStateView.setHtml("<h3>ยังไม่มีข้อมูล</h3><p>เลือก Simulation, Serial หรือ WiFi UDP แล้วกด Connect / Start</p>")
+
         count=len(self.telemetryLogRows)
         self.telemetryLogLabel.setText(("RECORDING" if self.telemetryLogging else "STOPPED")+f"\n{count} rows")
         self.telemetryLogLabel.setStyleSheet(f"color:{'#b42318' if self.telemetryLogging else '#17324d'};font-size:12pt;font-weight:900;")
         if hasattr(self,"telemetryChart"):self.telemetryChart.update()
+
+        extra=""
+        if idx==2:
+            local=self.telemetryLocalIp.currentText() if hasattr(self,"telemetryLocalIp") else ""
+            extra=(f"WiFi listener: 0.0.0.0:{self.telemetryUdpPort.value()}\n"
+                   f"PC IP for ESP32: {local}\n"
+                   f"Remote: {getattr(self,'telemetryRemoteAddr','') or 'waiting'}\n"
+                   f"Packet rate: {self.telemetry_packet_rate():.2f} Hz\n"
+                   f"Filtered packets: {getattr(self,'telemetryFilteredPackets',0)}\n")
         self.telemetryProtocolStatus.setPlainText(
+            f"Transport: {self.telemetrySource.currentText()}\n"
+            +extra+
             f"Serial support: {'OK' if SERIAL_AVAILABLE else 'NOT INSTALLED'}\n"
             f"Samples in live buffer: {len(self.telemetryHistory)}\n"
             f"Logged rows: {len(self.telemetryLogRows)}\n"
@@ -1865,7 +1904,8 @@ class App(QMainWindow):
         filename,_=QFileDialog.getSaveFileName(self,"Export Telemetry CSV",default,"CSV (*.csv)")
         if not filename:return
         if not filename.lower().endswith(".csv"):filename+=".csv"
-        fields=["timestamp","battery_v","battery_a","speed_kmh","tilt_deg","left_rpm","right_rpm",
+        fields=["timestamp","device","transport","source_ip","source_port","seq","uptime_ms","wifi_rssi_dbm",
+                "battery_v","battery_pct","battery_a","speed_kmh","tilt_deg","left_rpm","right_rpm",
                 "vesc_current_a","rc_throttle","rc_steer","limit_left","limit_right","estop","rc_ok","state"]
         try:
             with open(filename,"w",newline="",encoding="utf-8-sig") as fh:
@@ -1877,11 +1917,12 @@ class App(QMainWindow):
 
     def telemetry_esp32_template(self):
         header=self.generate_hardware_header_text() if hasattr(self,"hwRows") else "// Hardware map unavailable"
+        interval=max(50,int(1000/max(1,self.telemetryRateHz.value()))) if hasattr(self,"telemetryRateHz") else 100
         return f"""/*
-  CVET ESP32 Telemetry Sender Template
+  CVET ESP32 Serial Telemetry Sender
   Generated by Crane Vehicle Engineering Tool V{APP_VERSION}
 
-  Protocol: one JSON object + newline per sample.
+  Protocol: one JSON object + newline per sample over USB Serial.
   Replace TODO values with real VESC / BNO086 / RC / limit data.
 */
 
@@ -1892,15 +1933,15 @@ void setup() {{
 }}
 
 void loop() {{
-  float battery_v = 72.0;      // TODO: read battery voltage
-  float battery_a = 0.0;       // TODO: battery current
-  float speed_kmh = 0.0;       // TODO: vehicle speed
-  float tilt_deg = 0.0;        // TODO: BNO086 tilt
-  float left_rpm = 0.0;        // TODO: VESC / motor telemetry
+  float battery_v = 72.0;
+  float battery_a = 0.0;
+  float speed_kmh = 0.0;
+  float tilt_deg = 0.0;
+  float left_rpm = 0.0;
   float right_rpm = 0.0;
   float vesc_current_a = 0.0;
-  float rc_throttle = 0.0;     // -100..100
-  float rc_steer = 0.0;        // -100..100
+  float rc_throttle = 0.0;
+  float rc_steer = 0.0;
   bool limit_left = false;
   bool limit_right = false;
   bool estop = false;
@@ -1917,22 +1958,126 @@ void loop() {{
     limit_left,limit_right,estop,rc_ok
   );
 
-  delay(100); // 10 Hz
+  delay({interval});
 }}
 """
 
+    def telemetry_wifi_esp32_template(self):
+        header=self.generate_hardware_header_text() if hasattr(self,"hwRows") else "// Hardware map unavailable"
+        pc_ip=(self.telemetryLocalIp.currentText().strip() if hasattr(self,"telemetryLocalIp") else "") or "192.168.1.100"
+        if pc_ip.startswith("127."):pc_ip="192.168.1.100"
+        port=int(self.telemetryUdpPort.value()) if hasattr(self,"telemetryUdpPort") else 4210
+        rate=max(1,int(self.telemetryRateHz.value())) if hasattr(self,"telemetryRateHz") else 10
+        interval=max(50,int(1000/rate))
+        device=(self.telemetryDeviceId.text().strip() if hasattr(self,"telemetryDeviceId") else "CVET-ESP32") or "CVET-ESP32"
+        device=re.sub(r"[^A-Za-z0-9_.-]","_",device)[:40]
+        return f"""/*
+  CVET ESP32 WiFi UDP Telemetry Sender
+  Generated by Crane Vehicle Engineering Tool V{APP_VERSION}
+
+  PC destination: {pc_ip}:{port}
+  Sender rate: {rate} Hz
+  Device ID: {device}
+
+  IMPORTANT:
+  - Replace WIFI_SSID / WIFI_PASSWORD.
+  - PC and ESP32 must be on the same trusted LAN/WiFi.
+  - This sketch SENDS TELEMETRY ONLY. It does not receive drive commands.
+  - Replace TODO values with real VESC / BNO086 / RC / limit data.
+*/
+
+#include <WiFi.h>
+#include <WiFiUdp.h>
+
+{header}
+
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char* CVET_PC_IP = "{pc_ip}";
+const uint16_t CVET_UDP_PORT = {port};
+const char* CVET_DEVICE_ID = "{device}";
+
+WiFiUDP cvetUdp;
+uint32_t cvetSeq = 0;
+
+void connectWiFi() {{
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {{
+    delay(300);
+  }}
+}}
+
+void sendTelemetry() {{
+  float battery_v = 72.0;       // TODO
+  float battery_pct = 100.0;    // TODO
+  float battery_a = 0.0;        // TODO
+  float speed_kmh = 0.0;        // TODO
+  float tilt_deg = 0.0;         // TODO BNO086
+  float left_rpm = 0.0;         // TODO VESC/CAN
+  float right_rpm = 0.0;
+  float vesc_current_a = 0.0;
+  float rc_throttle = 0.0;
+  float rc_steer = 0.0;
+  bool limit_left = false;
+  bool limit_right = false;
+  bool estop = false;
+  bool rc_ok = true;
+
+  char payload[768];
+  int n = snprintf(
+    payload, sizeof(payload),
+    "{{\\\"device\\\":\\\"%s\\\",\\\"seq\\\":%lu,\\\"uptime_ms\\\":%lu,"
+    "\\\"wifi_rssi_dbm\\\":%ld,\\\"battery_v\\\":%.2f,\\\"battery_pct\\\":%.1f,"
+    "\\\"battery_a\\\":%.2f,\\\"speed_kmh\\\":%.3f,\\\"tilt_deg\\\":%.2f,"
+    "\\\"left_rpm\\\":%.1f,\\\"right_rpm\\\":%.1f,\\\"vesc_current_a\\\":%.2f,"
+    "\\\"rc_throttle\\\":%.1f,\\\"rc_steer\\\":%.1f,\\\"limit_left\\\":%d,"
+    "\\\"limit_right\\\":%d,\\\"estop\\\":%d,\\\"rc_ok\\\":%d,"
+    "\\\"state\\\":\\\"LIVE\\\"}}",
+    CVET_DEVICE_ID,(unsigned long)cvetSeq++,(unsigned long)millis(),(long)WiFi.RSSI(),
+    battery_v,battery_pct,battery_a,speed_kmh,tilt_deg,left_rpm,right_rpm,
+    vesc_current_a,rc_throttle,rc_steer,
+    limit_left,limit_right,estop,rc_ok
+  );
+
+  if (n > 0 && n < (int)sizeof(payload)) {{
+    cvetUdp.beginPacket(CVET_PC_IP, CVET_UDP_PORT);
+    cvetUdp.write((const uint8_t*)payload, (size_t)n);
+    cvetUdp.endPacket();
+  }}
+}}
+
+void setup() {{
+  Serial.begin(115200);
+  connectWiFi();
+  Serial.print("CVET WiFi connected. ESP32 IP: ");
+  Serial.println(WiFi.localIP());
+}}
+
+void loop() {{
+  if (WiFi.status() != WL_CONNECTED) connectWiFi();
+  sendTelemetry();
+  delay({interval});
+}}
+"""
+
+    def current_telemetry_esp32_template(self):
+        return self.telemetry_wifi_esp32_template() if hasattr(self,"telemetrySource") and self.telemetrySource.currentIndex()==2 else self.telemetry_esp32_template()
+
     def copy_telemetry_esp32_template(self,*_):
-        QApplication.clipboard().setText(self.telemetry_esp32_template())
-        self.statusBar().showMessage("คัดลอก ESP32 Telemetry template แล้ว",3000)
+        QApplication.clipboard().setText(self.current_telemetry_esp32_template())
+        mode="WiFi UDP" if self.telemetrySource.currentIndex()==2 else "Serial"
+        self.statusBar().showMessage(f"คัดลอก ESP32 {mode} Telemetry template แล้ว",3000)
 
     def export_telemetry_esp32_template(self,*_):
         docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
-        default=str(Path(docs)/"CVET_ESP32_Telemetry.ino")
+        wifi=hasattr(self,"telemetrySource") and self.telemetrySource.currentIndex()==2
+        default=str(Path(docs)/("CVET_ESP32_WiFi_Telemetry.ino" if wifi else "CVET_ESP32_Serial_Telemetry.ino"))
         filename,_=QFileDialog.getSaveFileName(self,"Export ESP32 Telemetry Template",default,"Arduino Sketch (*.ino);;Text (*.txt)")
         if not filename:return
         if not Path(filename).suffix:filename+=".ino"
         try:
-            Path(filename).write_text(self.telemetry_esp32_template(),encoding="utf-8")
+            Path(filename).write_text(self.current_telemetry_esp32_template(),encoding="utf-8")
             QMessageBox.information(self,"ESP32 Telemetry","บันทึก Template แล้ว:\n"+filename)
         except Exception as exc:
             QMessageBox.critical(self,"ESP32 Telemetry",str(exc))
@@ -4822,11 +4967,9 @@ void loop() {{
         self.easyAutoSavePeriodic.start(60000)
 
     def closeEvent(self,event):
-        # Always save once more when the program closes normally.
-        if hasattr(self,"telemetryTimer"):self.telemetryTimer.stop()
-        if getattr(self,"telemetrySerial",None) is not None:
-            try:self.telemetrySerial.close()
-            except Exception:pass
+        # Always stop serial/network acquisition and save once more.
+        try:self.disconnect_telemetry(silent=True)
+        except Exception:pass
         self.save_last_values(silent=True)
         event.accept()
 
