@@ -1317,7 +1317,7 @@ class App(QMainWindow):
         root.addWidget(make_page_header(
             "ESP32 REAL-TIME TELEMETRY / DATA LOGGER",
             "USB Serial JSON • Battery • VESC Current • Speed • IMU • RPM • RC • Limits • CSV",
-            self.show_home_mode,"V52.6 LIVE","#e6fbfa","#087e8b"
+            self.show_home_mode,"V53 LIVE","#e6fbfa","#087e8b"
         ))
 
         # Connection / acquisition toolbar
@@ -1715,7 +1715,7 @@ void loop() {{
         root.addWidget(make_page_header(
             "FINAL SYSTEM FLOWCHART",
             "ESP32 Vehicle + Crane Control • RC/IBUS • IMU • VESC • Interlock • Limit ±90°",
-            self.show_home_mode,"V52.5 FLOW","#e8f4ff","#245fbb"
+            self.show_home_mode,"V53 FLOW","#e8f4ff","#245fbb"
         ))
 
         toolbar=QFrame();toolbar.setObjectName("softPanel")
@@ -2214,7 +2214,7 @@ void loop() {{
         root.addWidget(make_page_header(
             "ESP32 / VESC HARDWARE I/O MANAGER",
             "ESP32 GPIO • VESC CAN • Voltage/Protection • Wiring • Pin Map",
-            self.show_home_mode,"V52.6 ESP32 I/O","#e4fbf5","#08705e"
+            self.show_home_mode,"V53 ESP32 I/O","#e4fbf5","#08705e"
         ))
 
         cfg=QFrame();cfg.setObjectName("softPanel")
@@ -3347,7 +3347,7 @@ void loop() {{
         hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
         left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        chips.addWidget(make_chip("V52.6  ESP32 LIVE","#ffffff","#174a74"))
+        chips.addWidget(make_chip("V53  ENGINEERING SUITE","#ffffff","#174a74"))
         chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
         chips.addStretch(1);left.addLayout(chips)
 
@@ -3356,7 +3356,7 @@ void loop() {{
         title.setStyleSheet("color:white;background:transparent;")
         left.addWidget(title)
 
-        sub=QLabel("คำนวณ • ESP32 Hardware I/O • System Flow • Real-Time Telemetry / Data Logger ในโปรแกรมเดียว")
+        sub=QLabel("คำนวณ • Hardware I/O • Telemetry • Validation • Diagnostics • BOM • Revisions • Final Verification ในโปรแกรมเดียว")
         sub.setWordWrap(True);sub.setStyleSheet("color:#e1eff9;font-size:10.5pt;font-weight:650;background:transparent;")
         left.addWidget(sub)
         hint=QLabel("เริ่มจากเลือกโมดูลด้านล่าง หรือใช้เมนูซ้ายเพื่อสลับหน้าได้ทันที")
@@ -4372,7 +4372,7 @@ void loop() {{
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
         root.addWidget(make_page_header("PROJECT TOOLS / ENGINEERING SUITE",
             "Save/Load • Presets • Compare Design • Design Check • Motor • BMS • Winch Duty • Final Report",
-            self.show_home_mode,"V52 TOOLS","#e8f4ff","#174a74"))
+            self.show_home_mode,"V53 TOOLS","#e8f4ff","#174a74"))
         self.projectTabs=QTabWidget();root.addWidget(self.projectTabs)
         self.compareA=None;self.compareB=None
 
