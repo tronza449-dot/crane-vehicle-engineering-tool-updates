@@ -186,7 +186,11 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- V53.3.1 Winch spec-sheet regression ----------
+          # ---------- V53.3.2 Winch spec-sheet + formula regression ----------
+          assert hasattr(w,"wTabs") and w.wTabs.count()==3
+          assert w.wTabs.tabText(0)=="Spec + Battery"
+          assert "สูตร" in w.wTabs.tabText(1)
+          assert "ตัวแปร" in w.wTabs.tabText(2)
           assert hasattr(w,"wSpecTable") and w.wSpecTable.rowCount()==13
           assert hasattr(w,"wPerfTable") and w.wPerfTable.rowCount()==4
           assert hasattr(w,"wLayerTable") and w.wLayerTable.rowCount()==5
@@ -217,12 +221,25 @@ jobs:
           assert wr50["rope_layer"]==1 and wr50["layer_pull_kg"]==2041.0
           assert wr50["max_spec_current"]==140.0
 
+          formula=w.winch_formula_html(wr50)
+          assert "Interpolation" in formula
+          assert "E<sub>cycle</sub>" in formula
+          assert "Ah<sub>design</sub>" in formula
+          assert "100.0 kg" in formula and "1.00 m" in formula
+          w.calc_winch()
+          assert "สูตร" in w.wTabs.tabText(1)
+          assert "WINCH" in w.wSteps.toPlainText()
+          assert "m_load" in w.wVars.toPlainText()
+
           # Lift distance changes time/energy and crossing 1.5 m enters layer 2.
           w.wheight.setValue(2.0)
           wr2m=w.winch_results()
           assert abs(wr2m["tu"]-2.0*wr50["tu"])<1e-9
           assert abs(wr2m["total"]-2.0*wr50["total"])<1e-9
           assert wr2m["rope_layer"]==2 and wr2m["layer_pull_kg"]==1597.0
+
+          formula2=w.winch_formula_html(wr2m)
+          assert "2.00 m" in formula2
 
           # Load changes interpolation automatically.
           w.wheight.setValue(1.0);w.wmass.setValue(454.0)
