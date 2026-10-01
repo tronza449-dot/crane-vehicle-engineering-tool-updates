@@ -1,56 +1,57 @@
-# Crane Vehicle Engineering Tool V53.3.2
+# Crane Vehicle Engineering Tool V53.3.3
 
-## Winch Formula + Calculation Pages
+## Winch Formula Explanation + Calculation Summary
 
-เพิ่มหน้าสูตรและวิธีคำนวณในเมนู Winch ให้รูปแบบใกล้เคียงกับโมดูลคำนวณอื่นของโปรแกรม
+ปรับหน้า Winch ให้สูตรอ่านง่ายขึ้นสำหรับใช้ตรวจแบบและอธิบายอาจารย์
+
+### สูตร + วิธีคำนวณ
+ทุกขั้นแสดง 3 ส่วน:
+- สูตรตัวแปร
+- ความหมายภาษาไทยว่ากำลังเอาอะไรคูณ/หารกับอะไร
+- แทนค่าปัจจุบันและคำตอบ
+
+ตัวอย่าง:
+- t_up = (h / v) × 60
+- ความหมาย: เวลายกขึ้น = ระยะยก ÷ ความเร็วสลิง × 60
+- h/v ได้หน่วยเป็นนาที และ ×60 เพื่อแปลงเป็นวินาที
+
+เพิ่มคำอธิบายแบบเดียวกันให้:
+- Interpolation factor
+- Line speed interpolation
+- Motor current interpolation
+- Lift time
+- Electrical power P = V × I
+- Energy up/down
+- Energy per cycle
+- Total energy
+- Ah used
+- Design Ah with DoD + Reserve
+
+### Calculation Summary
+เพิ่มแท็บ “สรุปการคำนวณ” ในหน้า Winch โดยรวม:
+- Input: Load / Lift Distance / Cycles
+- ค่าที่ได้จาก Datasheet / interpolation
+- เวลาขึ้น / เวลาลง / เวลาต่อรอบ
+- E_up / E_down / E_cycle / E_total
+- Ah ก่อนเผื่อ
+- DoD / Reserve
+- Ah_design
+- Standard battery size
+- Extra-margin battery size
+- Rope Layer / Line Pull / Status
+- ข้อสรุปขนาดแบตเชิงพลังงานและข้อควรตรวจเรื่องกระแส/BMS
 
 ### Winch tabs
 1. Spec + Battery
-   - ใบสเปก 4500LB
-   - Load / Lift Distance / Cycles
-   - ตาราง First Layer
-   - ตาราง Rope Layer
-   - ผล Battery Wh / Ah
-
 2. สูตร + วิธีคำนวณ
-   - เลือกช่วงข้อมูล First Layer ที่คร่อม Load
-   - Linear interpolation factor
-   - Interpolated line speed
-   - Interpolated motor current
-   - Lift time
-   - Electrical power P = VI
-   - Energy up/down
-   - Energy per cycle
-   - Total energy
-   - Ah before reserve
-   - Design Ah with DoD + Reserve
-   - Standard battery size
-   - Rope layer / line-pull check
-
 3. ตัวแปร / Variables
-   - ความหมาย
-   - หน่วย
-   - ค่าปัจจุบัน
-   - ใช้ในสูตรใด
+4. สรุปการคำนวณ
 
-### Live recalculation
-หน้า Formula และ Variables อัปเดตอัตโนมัติเมื่อเปลี่ยน:
+### Live update
+ทั้ง Formula, Variables และ Calculation Summary จะอัปเดตอัตโนมัติเมื่อเปลี่ยน:
 - Load
 - Lift Distance
 - Cycles
 
-ทุกขั้นแสดงรูปแบบ:
-สูตรตัวแปร → แทนค่าปัจจุบัน → คำตอบ
-
-### Source / assumption separation
-- Speed และ Current มาจาก First-layer performance table ในใบสเปกที่ผู้ใช้ส่งมา
-- ค่าระหว่างจุดในตารางใช้ linear interpolation
-- ใบสเปกไม่ให้ข้อมูล lowering current/speed จึงใช้ค่าเท่าขาขึ้นแบบ conservative
-- First-layer speed/current อาจไม่แทนพฤติกรรมบน rope layer สูงกว่าได้ทั้งหมด
-- Starting / stall surge ยังไม่ระบุและต้องตรวจจริงก่อนเลือก BMS/fuse/cable ขั้นสุดท้าย
-
 ### Export PDF
-Winch PDF ตอนนี้รวม:
-- สูตร + วิธีคำนวณ
-- Specification / Battery summary
-- Variable table
+Winch PDF รวม Calculation Summary, Formula, Specification และ Variable Table
