@@ -5465,7 +5465,7 @@ void loop() {{
         <h3>Winch 12 V Separate Battery</h3>
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Required design capacity</td><td>{w['ah']:.2f} Ah @ {w['v']:.1f} V</td><td>Selected {self.winchSelectedAh.value():.1f} Ah → {st(self.winchSelectedAh.value(),w['ah'])}</td></tr>
-        <tr><td>Interpolated current @ 100 kg</td><td>{winch_cont_req:.1f} A (First-layer table)</td><td>BMS {self.winchBMSCont.value():.1f} A → {st(self.winchBMSCont.value(),winch_cont_req)}</td></tr>
+        <tr><td>Interpolated current @ {w['m']:.1f} kg</td><td>{winch_cont_req:.1f} A (First-layer table)</td><td>BMS {self.winchBMSCont.value():.1f} A → {st(self.winchBMSCont.value(),winch_cont_req)}</td></tr>
         <tr><td>Manufacturer-table maximum</td><td>140 A at 4500 lb / 2041 kg first-layer pull; start/stall surge not stated</td><td>BMS peak {self.winchBMSPeak.value():.1f} A → {st(self.winchBMSPeak.value(),winch_peak_ind)}</td></tr></table>
         <p><b>ข้อจำกัด:</b> Controller current อาจเป็น phase/motor-current setting ไม่ใช่ battery current โดยตรง และ Winch stall current ยังไม่ทราบ จึงต้องยืนยัน datasheet/วัดจริงก่อนเลือก BMS ขั้นสุดท้าย</p>"""
 
@@ -5899,7 +5899,7 @@ void loop() {{
 
     def winch_speed_html(self,x):
         return (f"<h2>First-layer performance</h2>"
-                f"<p>Project load 100 kg → speed <b>{x['load_up']:.3f} m/min</b>, "
+                f"<p>Project load {self.wmass.value():.1f} kg → speed <b>{x['load_up']:.3f} m/min</b>, "
                 f"motor current <b>{x.get('current_a',self.wiup.value()):.2f} A</b>.</p>"
                 "<p>ได้จาก linear interpolation ของตาราง First Layer. ใบสเปกไม่ให้ performance ขาลงแยกต่างหาก.</p>")
 
@@ -5972,7 +5972,7 @@ void loop() {{
         <p>Ah_design = E_total × 1.20 / (12 × 0.80) = <b>{q['ah']:.2f} Ah</b></p>
         <p>Standard size ≥ calculation: <b>{q['standard_ah']:.0f} Ah</b>; next extra-margin size: <b>{q['extra_margin_ah']:.0f} Ah</b>.</p>
         <h2>BMS/current note</h2>
-        <p>Interpolated current at 100 kg ≈ {q['iup']:.1f} A. Manufacturer table reaches <b>140 A</b>.
+        <p>Interpolated current at {q['m']:.1f} kg ≈ {q['iup']:.1f} A. Manufacturer table reaches <b>140 A</b>.
         Starting/stall surge is not stated, so final BMS/fuse/contactor/cable sizing needs verification.</p>
         </body></html>
         """
