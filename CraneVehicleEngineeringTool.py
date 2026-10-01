@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.2.5"
+APP_VERSION = "53.3.0"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -4428,12 +4428,12 @@ void loop() {{
             ("i","อัตราทดเกียร์วินช์","-",f"{self.wratio.value():.0f}:1","ใช้แปลงรอบ/แรงบิดระหว่างมอเตอร์กับดรัม"),
             ("v_up","ความเร็วโหลดขาขึ้น","m/min",f"{q['up_speed']:.3f}","ใช้หาเวลายก"),
             ("v_down","ความเร็วโหลดขาลง","m/min",f"{q['down_speed']:.3f}","ใช้หาเวลาลด"),
-            ("I_up","กระแสขณะยก","A",f"{self.wiup.value():.1f}","ปัจจุบันเป็นสมมติฐานจนกว่าจะวัดจริง"),
-            ("I_down","กระแสขณะลด","A",f"{self.widown.value():.1f}","อาจต่างจากขาขึ้น"),
+            ("I_up","กระแสขณะยก","A",f"{self.wiup.value():.1f}","interpolate จากตาราง First Layer ของใบสเปก"),
+            ("I_down","กระแสขณะลด","A",f"{self.widown.value():.1f}","ใบสเปกไม่ระบุ; ใช้เท่าขาขึ้นแบบ conservative"),
             ("N_cycle","จำนวนรอบยกขึ้น+ลง","รอบ",str(self.wcycles.value()),"ใช้หาพลังงานรวม"),
             ("DoD","สัดส่วนแบตเตอรี่ที่อนุญาตให้ใช้","%",f"{self.wdod.value():.1f}","ใช้เผื่อความลึกการคายประจุ"),
             ("Reserve","พลังงานสำรอง","%",f"{self.wreserve.value():.1f}","เผื่อความคลาดเคลื่อน"),
-            ("D_drum","เส้นผ่านศูนย์กลางดรัมรวมสลิง","mm",f"{self.wdiameter.value():.1f}","0 = ยังไม่ทราบ"),
+            ("D_drum","เส้นผ่านศูนย์กลางดรัม","mm",f"{self.wdiameter.value():.1f}","Ø37 mm จากใบสเปก"),
             ("SF_force","ตัวคูณแรงวิเคราะห์เบื้องต้น","-",f"{self.wsf.value():.2f}","ไม่ใช่ WLL ของอุปกรณ์ยก"),
             ("t_up","เวลายกขึ้น","s",f"{q['tu']:.1f}","h ÷ v_up"),
             ("t_down","เวลาลดลง","s",f"{q['td']:.1f}","h ÷ v_down"),
@@ -5380,7 +5380,7 @@ void loop() {{
         elif key=="demo":
             self.tm.setValue(300);self.mt.setValue(300);self.ml.setValue(100);self.tgrade.setValue(19);self.tspeed.setValue(5)
             self.W.setValue(1.0);self.WB.setValue(1.10);self.L.setValue(1.20);self.th.setValue(90);self.espeed.setValue(1);self.eslopeDeg.setValue(12)
-            self.wmass.setValue(100);self.wheight.setValue(1.5);self.wvolt.setValue(12);self.wcycles.setValue(50)
+            self.wmass.setValue(100);self.wheight.setValue(1.0);self.wvolt.setValue(12);self.wcycles.setValue(50)
         self._core_recalculate();self.update_project_tools()
         self.projectStatus.setHtml(f"<h3>Applied preset: {key}</h3><p>Preset เป็นค่าช่วยสาธิตเท่านั้น โปรดตรวจ Input ก่อนนำผลไปใช้ในรายงาน</p>")
 
@@ -5450,7 +5450,7 @@ void loop() {{
         t=self.torque_results();e=self.electrical_results();w=self.winch_results()
         main_cont_req=max(t['Ibatt'],e['Icalc_up']);main_peak_ind=max(e['Iworst'],e.get('Icalc_peak',0),self.controllerCurrent.value()*t['n'])
         br=self.battery_selection_results() if hasattr(self,"bselTargetContC") else None
-        winch_cont_req=w['iup'];label_current=self.wrated.value()/max(self.wvolt.value(),.1);winch_peak_ind=max(w['iup'],label_current)
+        winch_cont_req=w['iup'];label_current=self.wrated.value()/max(self.wvolt.value(),.1);winch_peak_ind=max(w['iup'],w.get("max_spec_current",140.0))
         def st(sel,req):
             if sel<=0:return "NOT SET / กรุณากรอก"
             return "PASS (preliminary)" if sel>=req else "CHECK / ต่ำกว่าค่าที่คำนวณ"
@@ -5465,8 +5465,8 @@ void loop() {{
         <h3>Winch 12 V Separate Battery</h3>
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Required design capacity</td><td>{w['ah']:.2f} Ah @ {w['v']:.1f} V</td><td>Selected {self.winchSelectedAh.value():.1f} Ah → {st(self.winchSelectedAh.value(),w['ah'])}</td></tr>
-        <tr><td>Assumed operating current</td><td>{winch_cont_req:.1f} A</td><td>BMS {self.winchBMSCont.value():.1f} A → {st(self.winchBMSCont.value(),winch_cont_req)}</td></tr>
-        <tr><td>Label-power current indicator</td><td>{self.wrated.value():.0f} W ÷ {self.wvolt.value():.1f} V = {label_current:.1f} A; stall current unknown</td><td>BMS peak {self.winchBMSPeak.value():.1f} A → {st(self.winchBMSPeak.value(),winch_peak_ind)}</td></tr></table>
+        <tr><td>Interpolated current @ 100 kg</td><td>{winch_cont_req:.1f} A (First-layer table)</td><td>BMS {self.winchBMSCont.value():.1f} A → {st(self.winchBMSCont.value(),winch_cont_req)}</td></tr>
+        <tr><td>Manufacturer-table maximum</td><td>140 A at 4500 lb / 2041 kg first-layer pull; start/stall surge not stated</td><td>BMS peak {self.winchBMSPeak.value():.1f} A → {st(self.winchBMSPeak.value(),winch_peak_ind)}</td></tr></table>
         <p><b>ข้อจำกัด:</b> Controller current อาจเป็น phase/motor-current setting ไม่ใช่ battery current โดยตรง และ Winch stall current ยังไม่ทราบ จึงต้องยืนยัน datasheet/วัดจริงก่อนเลือก BMS ขั้นสุดท้าย</p>"""
 
     def update_bms_check(self):
@@ -5613,303 +5613,387 @@ void loop() {{
         except Exception as exc:
             if hasattr(self,"projectStatus"):self.projectStatus.setPlainText("Project Tools update error: "+str(exc))
 
+
+    # =====================================================================
+    # V53.3 WINCH — SPEC-SHEET DRIVEN SINGLE-PAGE CALCULATOR
+    # =====================================================================
+    def _winch_locked_spec(self):
+        return {
+            "rated_pull_lb":4500.0,
+            "rated_pull_kg":2041.0,
+            "motor_kw":1.4,
+            "motor_hp":1.9,
+            "gear_ratio":136.0,
+            "gear_train":"Differential Planetary",
+            "rope_d_mm":5.0,
+            "rope_len_m":10.0,
+            "control":"Remote switch",
+            "drum_d_mm":37.0,
+            "drum_l_mm":72.0,
+            "clutch":"Sliding Ring Gear",
+            "braking":"Automatic In-The-Drum",
+            "overall_mm":"316 × 120 × 106 mm",
+            "mounting":"166 × 76 mm, Ø9 mm",
+            "net_weight_kg":9.0,
+            "gross_weight_kg":10.0,
+            "packing":"43 × 30.5 × 36 cm, 2PC",
+            "perf":[
+                (0.0,3.3,12.0,"0"),
+                (454.0,2.5,60.0,"1,000 lb / 454 kg"),
+                (907.0,1.1,100.0,"2,000 lb / 907 kg"),
+                (2041.0,0.8,140.0,"4,500 lb / 2041 kg"),
+            ],
+            "layers":[
+                (1,"4500 lb / 2041 kg","4.9 ft / 1.5 m"),
+                (2,"3520 lb / 1597 kg","14.2 ft / 4.4 m"),
+                (3,"2600 lb / 1197 kg","18.7 ft / 5.8 m"),
+                (4,"2050 lb / 930 kg","26.1 ft / 8.1 m"),
+                (5,"1630 lb / 739 kg","32.3 ft / 10.0 m"),
+            ],
+            # Project assumptions not printed in the visible sheet.
+            "project_load_kg":100.0,
+            "project_lift_m":1.0,
+            "project_voltage_v":12.0,
+            "project_dod":0.80,
+            "project_reserve":0.20,
+            "force_sf":1.50,
+        }
+
+    def _winch_interp_first_layer(self,load_kg):
+        spec=self._winch_locked_spec()
+        pts=spec["perf"]
+        x=max(pts[0][0],min(float(load_kg),pts[-1][0]))
+        if x<=pts[0][0]:
+            return pts[0][1],pts[0][2]
+        for (x0,v0,i0,_),(x1,v1,i1,_) in zip(pts[:-1],pts[1:]):
+            if x<=x1:
+                frac=(x-x0)/(x1-x0) if x1>x0 else 0.0
+                return v0+(v1-v0)*frac, i0+(i1-i0)*frac
+        return pts[-1][1],pts[-1][2]
+
+    def _make_locked_winch_spin(self,value,maximum=100000.0,decimals=2):
+        obj=QDoubleSpinBox(self.winchPage)
+        obj.setRange(0.0,maximum);obj.setDecimals(decimals);obj.setValue(float(value))
+        obj.setEnabled(False);obj.hide()
+        return obj
+
+    def _sync_locked_winch_widgets(self):
+        spec=self._winch_locked_spec()
+        speed,current=self._winch_interp_first_layer(spec["project_load_kg"])
+        locked={
+            "wmass":spec["project_load_kg"],
+            "wbasket":0.0,
+            "wheight":spec["project_lift_m"],
+            "wvolt":spec["project_voltage_v"],
+            "wrated":spec["motor_kw"]*1000.0,
+            "wratio":spec["gear_ratio"],
+            "wspeedup":speed,
+            "wspeeddown":speed,
+            "wiup":current,
+            "widown":current,
+            "wdod":spec["project_dod"]*100.0,
+            "wreserve":spec["project_reserve"]*100.0,
+            "wdiameter":spec["drum_d_mm"],
+            "wsf":spec["force_sf"],
+            "wdrumspeed":spec["drum_d_mm"],
+            "wgear_eff":100.0,
+            "wpulley_eff":100.0,
+            "wmeasuredropeup":speed,
+            "wmeasuredropedown":speed,
+        }
+        for attr,val in locked.items():
+            obj=getattr(self,attr,None)
+            if obj is not None and hasattr(obj,"setValue"):
+                old=obj.blockSignals(True);obj.setValue(float(val));obj.blockSignals(old)
+        if hasattr(self,"wparts"):
+            old=self.wparts.blockSignals(True);self.wparts.setValue(1);self.wparts.blockSignals(old)
+        d=spec["drum_d_mm"]/1000.0
+        drum_rpm=speed/(math.pi*d) if d>0 else 0.0
+        motor_rpm=drum_rpm*spec["gear_ratio"]
+        for attr,val in (("wrpmup",motor_rpm),("wrpmdown",motor_rpm)):
+            obj=getattr(self,attr,None)
+            if obj is not None:
+                old=obj.blockSignals(True);obj.setValue(val);obj.blockSignals(old)
+
     def make_winch(self):
-        w=QWidget();self.winchPage=w;root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
+        w=QWidget();self.winchPage=w
+        outer=QVBoxLayout(w);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame)
+        content=QWidget();root=QVBoxLayout(content);root.setContentsMargins(18,16,18,20);root.setSpacing(12)
+        scroll.setWidget(content);outer.addWidget(scroll)
+
         header=QFrame();header.setObjectName("topHeader");header.setMinimumHeight(96);add_soft_shadow(header,20,4,25)
         nav=QHBoxLayout(header);nav.setContentsMargins(18,14,18,14);nav.setSpacing(14)
         back=QPushButton("←  เมนูหลัก");back.setObjectName("secondaryButton");back.setMinimumWidth(120);back.clicked.connect(self.show_home_mode);nav.addWidget(back)
         textcol=QVBoxLayout();textcol.setSpacing(2)
-        head=QLabel("WINCH CALCULATION");hf=QFont();hf.setPointSize(15);hf.setBold(True);head.setFont(hf);head.setStyleSheet("color:white;background:transparent;")
-        subhead=QLabel("คำนวณแรง • ความเร็ว • เวลา • พลังงาน • แบตเตอรี่ 12 V แยกจากรถ");subhead.setWordWrap(True);subhead.setStyleSheet("color:#dbeafe;font-size:10pt;font-weight:600;background:transparent;")
+        head=QLabel("4500LB. WINCH SPECIFICATION + BATTERY")
+        hf=QFont();hf.setPointSize(15);hf.setBold(True);head.setFont(hf);head.setStyleSheet("color:white;background:transparent;")
+        subhead=QLabel("ยึดใบสเปกที่ผู้ใช้ส่งมา • First-layer performance • แก้ได้เฉพาะจำนวนรอบขึ้น+ลง")
+        subhead.setWordWrap(True);subhead.setStyleSheet("color:#dbeafe;font-size:10pt;font-weight:600;background:transparent;")
         textcol.addWidget(head);textcol.addWidget(subhead);nav.addLayout(textcol,1)
-        tag=make_chip("12 V WINCH", "#fff1dd", "#9a5800");nav.addWidget(tag)
-        export=QPushButton("Export PDF / ส่งออกรายงาน");export.setObjectName("primaryButton");export.setMinimumWidth(190);export.clicked.connect(self.export_winch_pdf);nav.addWidget(export)
+        nav.addWidget(make_chip("SPEC LOCKED","#fff1dd","#9a5800"))
+        export=QPushButton("Export PDF");export.setObjectName("primaryButton");export.setMinimumWidth(140);export.clicked.connect(self.export_winch_pdf);nav.addWidget(export)
         root.addWidget(header)
-        self.wTabs=QTabWidget();self.wTabs.setDocumentMode(True);root.addWidget(self.wTabs)
-        inp=QWidget();layout=QHBoxLayout(inp);layout.setContentsMargins(14,14,14,14);layout.setSpacing(22)
-        form=QFormLayout();form.setVerticalSpacing(10);form.setHorizontalSpacing(14);form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow);form.setRowWrapPolicy(QFormLayout.WrapLongRows);layout.addLayout(form,1)
-        def spin(v,lo,hi,dec=2):
-            x=QDoubleSpinBox();x.setRange(lo,hi);x.setDecimals(dec);x.setValue(v);return x
-        self.wmass=spin(100,0.1,10000);self.wbasket=spin(0,0,1000);self.wheight=spin(1.5,.01,100)
-        self.wvolt=spin(12,1,100);self.wrated=spin(1400,1,100000,0);self.wratio=spin(136,1,10000,0)
-        self.wspeedup=spin(3,.01,100);self.wspeeddown=spin(3,.01,100)
-        self.wiup=spin(60,0,2000);self.widown=spin(30,0,2000)
-        self.wcycles=QSpinBox();self.wcycles.setRange(1,100000);self.wcycles.setValue(50)
-        self.wdod=spin(80,1,100);self.wreserve=spin(20,0,300)
-        self.wdiameter=spin(0,0,1000);self.wsf=spin(1.5,1,10)
-        fields=[("น้ำหนักสิ่งที่ยก (kg)",self.wmass),("น้ำหนักตะกร้าและอุปกรณ์ยกเพิ่ม (kg)",self.wbasket),
-            ("ระยะยกแนวดิ่ง (m)",self.wheight),("แรงดันแบตเตอรี่แยก (V)",self.wvolt),
-            ("กำลังพิกัดตามฉลาก (W) — ไม่ใช้แทนกระแสจริง",self.wrated),("อัตราทดเกียร์",self.wratio),
-            ("ความเร็วโหลดขาขึ้น (m/min) [ใช้เมื่อปิด Auto]",self.wspeedup),("ความเร็วโหลดขาลง (m/min) [ใช้เมื่อปิด Auto]",self.wspeeddown),
-            ("กระแสขณะยก (A) [สมมติ]",self.wiup),("กระแสขณะลด (A) [สมมติ]",self.widown),
-            ("จำนวนรอบขึ้น+ลง",self.wcycles),("DoD ที่ใช้ได้ (%)",self.wdod),("พลังงานสำรอง (%)",self.wreserve),
-            ("เส้นผ่านศูนย์กลางดรัมรวมสลิง (mm; 0=ไม่ทราบ)",self.wdiameter),
-            ("ตัวคูณแรงเพื่อวิเคราะห์เบื้องต้น (ไม่ใช่ WLL)",self.wsf)]
-        for label,widget in fields:
-            lab=QLabel(label);lab.setWordWrap(True);lab.setMinimumWidth(245);lab.setSizePolicy(QSizePolicy.Preferred,QSizePolicy.Preferred)
-            widget.setMinimumWidth(150)
-            form.addRow(lab,widget)
-        right=QVBoxLayout();right.setSpacing(12);layout.addLayout(right,1)
-        self.wSummary=QLabel();self.wSummary.setWordWrap(True);self.wSummary.setMinimumWidth(350);self.wSummary.setStyleSheet("font-size:11pt;font-weight:700;background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #eefaf4,stop:1 #f8fffb);color:#155b2a;padding:16px;border:1px solid #a9d7ba;border-radius:11px")
-        right.addWidget(self.wSummary)
-        warn=QLabel("สมมติฐานเริ่มต้น: 3 m/min, 60 A ขาขึ้น, 30 A ขาลง, 50 รอบ\n"
-          "ค่าเหล่านี้ยังไม่ใช่สเปกที่ยืนยันจากผู้ผลิต; แบตเตอรี่ต้องตรวจ BMS/กระแสกระชากแยกจาก Ah\n"
-          "คำเตือน: พิกัดแรงดึง 4,500 lb ไม่ใช่ใบรับรองยกในแนวดิ่ง ตรวจสอบผู้ผลิตและระบบเบรกก่อนใช้จริง")
-        warn.setWordWrap(True);warn.setStyleSheet("font-size:9.5pt;background:#fff8e9;color:#68420b;padding:14px;border:1px solid #ead39a;border-radius:11px");right.addWidget(warn)
-        b=QPushButton("คำนวณใหม่ / Recalculate");b.setObjectName("primaryButton");b.clicked.connect(self.calc_winch);right.addWidget(b);right.addStretch()
-        inp_scroll=QScrollArea();inp_scroll.setWidgetResizable(True);inp_scroll.setFrameShape(QFrame.NoFrame);inp_scroll.setWidget(inp)
-        self.wTabs.addTab(inp_scroll,"Input / สมมติฐาน")
-        self.wVars=QTextEdit();self.wVars.setReadOnly(True);self.wTabs.addTab(self.wVars,"ตัวแปร / Variables")
-        self.wSteps=QTextEdit();self.wSteps.setReadOnly(True);self.wTabs.addTab(self.wSteps,"สูตร + แทนค่า")
-        self.wGuide=QTextEdit();self.wGuide.setReadOnly(True);self.wTabs.addTab(self.wGuide,"คำอธิบายภาษาไทย")
-        self.wResult=QTextEdit();self.wResult.setReadOnly(True);self.wTabs.addTab(self.wResult,"ผลแบตเตอรี่")
-        # Independent speed calculator: measured line speed or motor RPM + effective drum diameter.
-        speedpage=QWidget();speedlayout=QHBoxLayout(speedpage);speedlayout.setContentsMargins(14,14,14,14);speedlayout.setSpacing(22)
-        speedform=QFormLayout();speedform.setVerticalSpacing(10);speedform.setHorizontalSpacing(14);speedform.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow);speedform.setRowWrapPolicy(QFormLayout.WrapLongRows);speedlayout.addLayout(speedform,1)
-        self.wrpmup=spin(3000,1,100000,0); self.wrpmdown=spin(3000,1,100000,0)
-        self.wdrumspeed=spin(60,1,1000); self.wparts=QSpinBox();self.wparts.setRange(1,12);self.wparts.setValue(1)
-        self.wgear_eff=spin(80,1,100);self.wpulley_eff=spin(95,1,100)
-        self.wmeasuredropeup=spin(3,.01,100);self.wmeasuredropedown=spin(3,.01,100)
-        self.wspeedmethod=QComboBox();self.wspeedmethod.addItems(["คำนวณจากรอบมอเตอร์ + ดรัม (สมมติ)","ใช้ความเร็วสลิงที่วัด/กรอกในหน้า Speed"])
-        for label,widget in [("วิธีหาความเร็ว",self.wspeedmethod),("รอบมอเตอร์ขาขึ้นขณะมีโหลด (RPM) [สมมติ]",self.wrpmup),
-            ("รอบมอเตอร์ขาลง (RPM) [สมมติ]",self.wrpmdown),("เส้นผ่านศูนย์กลางดรัมรวมชั้นสลิง (mm) [สมมติ]",self.wdrumspeed),
-            ("จำนวนเส้นสลิงที่รองรับโหลด (ส่วน)",self.wparts),("ประสิทธิภาพเกียร์ (%) [สมมติ]",self.wgear_eff),
-            ("ประสิทธิภาพรอก (%) [สมมติ]",self.wpulley_eff),
-            ("ความเร็วสลิงขาขึ้นที่วัด/สมมติ (m/min)",self.wmeasuredropeup),
-            ("ความเร็วสลิงขาลงที่วัด/สมมติ (m/min)",self.wmeasuredropedown)]:
-            lab=QLabel(label);lab.setWordWrap(True);lab.setMinimumWidth(245);widget.setMinimumWidth(150);speedform.addRow(lab,widget)
-        speedright=QVBoxLayout();speedlayout.addLayout(speedright,1)
-        self.wSpeedSummary=QLabel();self.wSpeedSummary.setWordWrap(True);self.wSpeedSummary.setMinimumWidth(350)
-        self.wSpeedSummary.setStyleSheet("font-size:11pt;background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #eefaf4,stop:1 #f8fffb);color:#155b2a;padding:15px;border:1px solid #a9d7ba;border-radius:11px")
-        speedright.addWidget(self.wSpeedSummary)
-        self.wSpeedSteps=QTextEdit();self.wSpeedSteps.setReadOnly(True);speedright.addWidget(self.wSpeedSteps,1)
-        applyspeed=QPushButton("นำความเร็วไปใช้ในหน้าแบตเตอรี่  →");applyspeed.setObjectName("primaryButton")
-        applyspeed.clicked.connect(self.apply_winch_speed);speedright.addWidget(applyspeed)
-        speed_scroll=QScrollArea();speed_scroll.setWidgetResizable(True);speed_scroll.setFrameShape(QFrame.NoFrame);speed_scroll.setWidget(speedpage)
-        self.wTabs.addTab(speed_scroll,"ความเร็ววินช์ / Speed")
-        for widget in (self.wrpmup,self.wrpmdown,self.wdrumspeed,self.wparts,self.wgear_eff,self.wpulley_eff,self.wmeasuredropeup,self.wmeasuredropedown):
-            widget.valueChanged.connect(self.calc_winch)
-        self.wspeedmethod.currentIndexChanged.connect(self.calc_winch)
-        self.wusecalc=QCheckBox("ใช้ความเร็วจากหน้า Speed คำนวณแบตเตอรี่อัตโนมัติ (ไม่ต้องกดนำค่าไปใช้)")
-        self.wusecalc.setChecked(True);speedform.addRow(self.wusecalc)
-        self.wusecalc.toggled.connect(self.calc_winch)
 
-        for _,widget in fields:
-            widget.valueChanged.connect(self.calc_winch)
+        # Hidden compatibility widgets for Project/Report/Variable Dictionary.
+        self.wmass=self._make_locked_winch_spin(100)
+        self.wbasket=self._make_locked_winch_spin(0)
+        self.wheight=self._make_locked_winch_spin(1.0)
+        self.wvolt=self._make_locked_winch_spin(12)
+        self.wrated=self._make_locked_winch_spin(1400)
+        self.wratio=self._make_locked_winch_spin(136)
+        self.wspeedup=self._make_locked_winch_spin(3.0)
+        self.wspeeddown=self._make_locked_winch_spin(3.0)
+        self.wiup=self._make_locked_winch_spin(20)
+        self.widown=self._make_locked_winch_spin(20)
+        self.wdod=self._make_locked_winch_spin(80)
+        self.wreserve=self._make_locked_winch_spin(20)
+        self.wdiameter=self._make_locked_winch_spin(37)
+        self.wsf=self._make_locked_winch_spin(1.5)
+        self.wrpmup=self._make_locked_winch_spin(3000)
+        self.wrpmdown=self._make_locked_winch_spin(3000)
+        self.wdrumspeed=self._make_locked_winch_spin(37)
+        self.wgear_eff=self._make_locked_winch_spin(100)
+        self.wpulley_eff=self._make_locked_winch_spin(100)
+        self.wmeasuredropeup=self._make_locked_winch_spin(3.0)
+        self.wmeasuredropedown=self._make_locked_winch_spin(3.0)
+        self.wparts=QSpinBox(w);self.wparts.setRange(1,12);self.wparts.setValue(1);self.wparts.setEnabled(False);self.wparts.hide()
+        self.wspeedmethod=QComboBox(w);self.wspeedmethod.addItem("Manufacturer spec interpolation");self.wspeedmethod.setEnabled(False);self.wspeedmethod.hide()
+        self.wusecalc=QCheckBox(w);self.wusecalc.setChecked(True);self.wusecalc.setEnabled(False);self.wusecalc.hide()
+        self.wTabs=QTabWidget(w);self.wTabs.hide()
+        self.wVars=QTextEdit(w);self.wVars.hide()
+        self.wSteps=QTextEdit(w);self.wSteps.hide()
+        self.wGuide=QTextEdit(w);self.wGuide.hide()
+        self.wResult=QTextEdit(w);self.wResult.hide()
+        self.wSpeedSummary=QLabel(w);self.wSpeedSummary.hide()
+        self.wSpeedSteps=QTextEdit(w);self.wSpeedSteps.hide()
+
+        spec=self._winch_locked_spec()
+
+        specBox=QGroupBox("4500LB. WINCH SPECIFICATION — จากใบสเปก")
+        sl=QVBoxLayout(specBox)
+        self.wSpecTable=QTableWidget(13,2)
+        self.wSpecTable.setHorizontalHeaderLabels(["Item","Specification"])
+        self.wSpecTable.verticalHeader().setVisible(False)
+        self.wSpecTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.wSpecTable.setSelectionMode(QAbstractItemView.NoSelection)
+        spec_rows=[
+            ("Rated line pull","4500 lb (2041 kg) single line"),
+            ("Motor","Permanent magnet, 1.4 kW / 1.9 hp"),
+            ("Gear reduction ratio","136 : 1"),
+            ("Gear train","Differential Planetary"),
+            ("Cable (Dia × L)","Diameter 5 mm × Length 10 m"),
+            ("Control","Remote switch"),
+            ("Drum size (Dia × L)","Ø37 mm × 72 mm"),
+            ("Clutch","Sliding Ring Gear"),
+            ("Braking action","Automatic In-The-Drum"),
+            ("Overall dimensions (L×W×H)","316 × 120 × 106 mm"),
+            ("Mounting bolt pattern","166 × 76 mm, Ø9 mm"),
+            ("Weight","N.W. 9 kg / G.W. 10 kg"),
+            ("Packing size","43 × 30.5 × 36 cm, 2PC"),
+        ]
+        for r,(a,b) in enumerate(spec_rows):
+            self.wSpecTable.setItem(r,0,QTableWidgetItem(a));self.wSpecTable.setItem(r,1,QTableWidgetItem(b))
+        self.wSpecTable.horizontalHeader().setSectionResizeMode(0,QHeaderView.ResizeToContents)
+        self.wSpecTable.horizontalHeader().setSectionResizeMode(1,QHeaderView.Stretch)
+        self.wSpecTable.setMinimumHeight(410)
+        sl.addWidget(self.wSpecTable);root.addWidget(specBox)
+
+        tables=QHBoxLayout();tables.setSpacing(12)
+        perfBox=QGroupBox("Pull, Speed, Motor Current — First Layer")
+        pl=QVBoxLayout(perfBox)
+        self.wPerfTable=QTableWidget(4,3)
+        self.wPerfTable.setHorizontalHeaderLabels(["Line Pull","Line Speed","Motor (A)"])
+        self.wPerfTable.verticalHeader().setVisible(False);self.wPerfTable.setEditTriggers(QAbstractItemView.NoEditTriggers);self.wPerfTable.setSelectionMode(QAbstractItemView.NoSelection)
+        perf_rows=[
+            ("0","10.8 ft/min (3.3 m/min)","12"),
+            ("1,000 lb (454 kg)","8.2 ft/min (2.5 m/min)","60"),
+            ("2,000 lb (907 kg)","3.6 ft/min (1.1 m/min)","100"),
+            ("4,500 lb (2041 kg)","2.6 ft/min (0.8 m/min)","140"),
+        ]
+        for r,row in enumerate(perf_rows):
+            for c,val in enumerate(row):self.wPerfTable.setItem(r,c,QTableWidgetItem(val))
+        self.wPerfTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.wPerfTable.setMinimumHeight(190)
+        pl.addWidget(self.wPerfTable);tables.addWidget(perfBox,1)
+
+        layerBox=QGroupBox("Line Pull And Rope Capacity In Layer")
+        ll=QVBoxLayout(layerBox)
+        self.wLayerTable=QTableWidget(5,3)
+        self.wLayerTable.setHorizontalHeaderLabels(["Layer","Rated Line Pull","Total Rope On Drum"])
+        self.wLayerTable.verticalHeader().setVisible(False);self.wLayerTable.setEditTriggers(QAbstractItemView.NoEditTriggers);self.wLayerTable.setSelectionMode(QAbstractItemView.NoSelection)
+        for r,row in enumerate(spec["layers"]):
+            for c,val in enumerate(row):self.wLayerTable.setItem(r,c,QTableWidgetItem(str(val)))
+        self.wLayerTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.wLayerTable.setMinimumHeight(210)
+        ll.addWidget(self.wLayerTable);tables.addWidget(layerBox,1)
+        root.addLayout(tables)
+
+        calcBox=QGroupBox("Battery Calculation — แก้ได้เฉพาะจำนวนรอบ")
+        cg=QGridLayout(calcBox);cg.setContentsMargins(14,14,14,14);cg.setHorizontalSpacing(16);cg.setVerticalSpacing(10)
+        locked=QLabel(
+            "<b>ค่าล็อกของโปรเจกต์ (ไม่ใช่ข้อมูลทั้งหมดจากใบสเปก)</b><br>"
+            "Payload = 100 kg • ระยะยก = 1.00 m/เที่ยว • Battery = 12 V separate<br>"
+            "DoD = 80% • Reserve = 20% • ใช้ First-layer interpolation<br>"
+            "ใบสเปกไม่ให้ข้อมูลขาลง จึงใช้กระแส/ความเร็วเท่าขาขึ้นแบบ conservative จนกว่าจะวัดจริง"
+        )
+        locked.setWordWrap(True);locked.setStyleSheet("background:#fff8e9;color:#68420b;padding:12px;border:1px solid #ead39a;border-radius:10px;")
+        cg.addWidget(locked,0,0,1,3)
+
+        lab=QLabel("จำนวนรอบขึ้น + ลง");lab.setStyleSheet("font-size:12pt;font-weight:900;color:#17324d;")
+        self.wcycles=QSpinBox();self.wcycles.setRange(1,100000);self.wcycles.setValue(50);self.wcycles.setSuffix(" รอบ");self.wcycles.setMinimumWidth(180)
+        recalc=QPushButton("คำนวณแบตเตอรี่");recalc.setObjectName("primaryButton");recalc.clicked.connect(self.calc_winch)
+        cg.addWidget(lab,1,0);cg.addWidget(self.wcycles,1,1);cg.addWidget(recalc,1,2)
+
+        self.wSummary=QLabel();self.wSummary.setWordWrap(True)
+        self.wSummary.setStyleSheet("font-size:11pt;font-weight:700;background:#eefaf4;color:#155b2a;padding:14px;border:1px solid #a9d7ba;border-radius:10px")
+        cg.addWidget(self.wSummary,2,0,1,3)
+        self.wBatteryResult=QLabel();self.wBatteryResult.setWordWrap(True)
+        self.wBatteryResult.setStyleSheet("font-size:12pt;background:#eef6ff;color:#174a74;padding:14px;border:1px solid #bfd6ee;border-radius:10px")
+        cg.addWidget(self.wBatteryResult,3,0,1,3)
+        root.addWidget(calcBox)
+
+        safety=QLabel(
+            "<b>หมายเหตุ:</b> ใบนี้ให้ performance ที่ First Layer แต่ไม่ระบุ starting/stall surge และไม่ยืนยันว่าเป็น lifting-rated. "
+            "การเลือก BMS/ฟิวส์/สายไฟขั้นสุดท้ายต้องตรวจข้อมูลผู้ผลิต/ทดสอบจริง และตารางนี้มีค่าสูงสุด 140 A."
+        )
+        safety.setWordWrap(True);safety.setStyleSheet("background:#fff4f4;color:#8a241c;padding:12px;border:1px solid #efb6b1;border-radius:10px")
+        root.addWidget(safety);root.addStretch(1)
+
+        self.wcycles.valueChanged.connect(self.calc_winch)
         self.tabs.addTab(w,"Winch")
-        self.calc_winch()
+        self._sync_locked_winch_widgets();self.calc_winch()
 
     def winch_speed_results(self):
-        ratio=self.wratio.value();d=self.wdrumspeed.value()/1000;parts=self.wparts.value()
-        if self.wspeedmethod.currentIndex()==0:
-            rope_up=math.pi*d*self.wrpmup.value()/ratio
-            rope_down=math.pi*d*self.wrpmdown.value()/ratio
-        else:
-            rope_up=self.wmeasuredropeup.value();rope_down=self.wmeasuredropedown.value()
-        load_up=rope_up/parts;load_down=rope_down/parts
-        h=self.wheight.value();m=self.wmass.value()+self.wbasket.value()
-        tension=m*G/(parts*self.wpulley_eff.value()/100)
-        drum_torque=tension*d/2
-        shaft_torque=drum_torque/(ratio*self.wgear_eff.value()/100)
-        return dict(rope_up=rope_up,rope_down=rope_down,load_up=load_up,load_down=load_down,
-                    time_up=h/load_up*60,time_down=h/load_down*60,diameter=d,parts=parts,
+        self._sync_locked_winch_widgets()
+        spec=self._winch_locked_spec()
+        m=spec["project_load_kg"];h=spec["project_lift_m"]
+        speed,current=self._winch_interp_first_layer(m)
+        d=spec["drum_d_mm"]/1000.0
+        drum_rpm=speed/(math.pi*d) if d>0 else 0.0
+        motor_rpm=drum_rpm*spec["gear_ratio"]
+        tension=m*G
+        drum_torque=tension*d/2.0
+        shaft_torque=drum_torque/spec["gear_ratio"]
+        t=h/speed*60.0 if speed>0 else 0.0
+        return dict(rope_up=speed,rope_down=speed,load_up=speed,load_down=speed,
+                    time_up=t,time_down=t,diameter=d,parts=1,
                     tension=tension,drum_torque=drum_torque,shaft_torque=shaft_torque,
-                    drum_rpm_up=rope_up/(math.pi*d),drum_rpm_down=rope_down/(math.pi*d),
-                    # Backward-compatible aliases used by the Variable Dictionary.
-                    motor_up=self.wrpmup.value(),motor_down=self.wrpmdown.value(),
-                    drum_up=rope_up/(math.pi*d),drum_down=rope_down/(math.pi*d))
+                    drum_rpm_up=drum_rpm,drum_rpm_down=drum_rpm,
+                    motor_up=motor_rpm,motor_down=motor_rpm,drum_up=drum_rpm,drum_down=drum_rpm,
+                    current_a=current)
 
     def winch_speed_html(self,x):
-        def frac(top,bottom):
-            return "<table cellspacing='0' style='display:inline-table;margin:5px'><tr><td align='center' style='border-bottom:1px solid #333'>"+str(top)+"</td></tr><tr><td align='center'>"+str(bottom)+"</td></tr></table>"
-        def sec(n,title,thai,formula,sub,result):
-            return (f"<h3 style='color:#b45309'>{n}. {title}</h3>"
-                    f"<p><b>คำอธิบายภาษาไทย:</b> {thai}</p>"
-                    f"<p><b>สูตรภาษาไทย</b></p><div style='margin-left:18px;font-size:12pt;color:#17324d'><b>{self._thai_formula_text(title)}</b></div>"
-                    f"<p><b>สูตรตัวแปร</b></p><div style='margin-left:18px;font-size:12pt'>{formula}</div>"
-                    f"<p><b>แทนค่า</b></p><div style='margin-left:18px'>{sub}</div>"
-                    f"<p style='color:#176337'><b>คำตอบ: {result}</b></p><hr>")
-        ratio=self.wratio.value(); d=x['diameter']; n=x['parts']
-        mode="คำนวณจากรอบมอเตอร์" if self.wspeedmethod.currentIndex()==0 else "ใช้ความเร็วสลิงที่กรอก/วัดจริง"
-        h=("<html><body style=\"font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt\">"
-           "<h2>ความเร็วและเวลาวินช์ — คำอธิบาย → สูตรภาษาไทย → สูตรตัวแปร → แทนค่า → คำตอบ</h2>"
-           f"<p><b>วิธีที่เลือก:</b> {mode}</p>")
-        if self.wspeedmethod.currentIndex()==0:
-            h+=sec(1,"รอบดรัม","เกียร์ทดทำให้ดรัมหมุนช้ากว่ามอเตอร์ โดยนำรอบมอเตอร์หารด้วยอัตราทดเกียร์",
-                   "n<sub>drum</sub> = "+frac("n_motor","i"),
-                   "n<sub>drum,up</sub> = "+frac(f"{self.wrpmup.value():.0f}",f"{ratio:.0f}")+f" = {x['drum_rpm_up']:.3f} RPM<br>"+
-                   "n<sub>drum,down</sub> = "+frac(f"{self.wrpmdown.value():.0f}",f"{ratio:.0f}")+f" = {x['drum_rpm_down']:.3f} RPM",
-                   f"รอบดรัมขึ้น {x['drum_rpm_up']:.3f} RPM, ลง {x['drum_rpm_down']:.3f} RPM")
-            h+=sec(2,"ความเร็วสลิง","เมื่อดรัมหมุนหนึ่งรอบ สลิงเคลื่อนที่เท่ากับเส้นรอบวงของดรัม จึงใช้ πD คูณรอบดรัม",
-                   "v<sub>rope</sub> = π D n<sub>drum</sub>",
-                   f"v<sub>rope,up</sub> = π × {d:.3f} × {x['drum_rpm_up']:.3f} = {x['rope_up']:.3f} m/min<br>"
-                   f"v<sub>rope,down</sub> = π × {d:.3f} × {x['drum_rpm_down']:.3f} = {x['rope_down']:.3f} m/min",
-                   f"ความเร็วสลิงขึ้น {x['rope_up']:.3f} m/min, ลง {x['rope_down']:.3f} m/min")
-        else:
-            h+=sec(1,"ความเร็วสลิงที่วัด/กรอก","กรณีมีข้อมูล Line Speed จริง ให้ใช้ค่าที่วัดหรือผู้ผลิตระบุโดยตรง ไม่ต้องคำนวณจาก RPM",
-                   "v<sub>rope</sub> = ค่าที่วัดหรือข้อมูลผู้ผลิต",
-                   f"v<sub>rope,up</sub> = {x['rope_up']:.3f} m/min<br>v<sub>rope,down</sub> = {x['rope_down']:.3f} m/min",
-                   f"ใช้ค่าความเร็วสลิงขึ้น/ลง {x['rope_up']:.3f}/{x['rope_down']:.3f} m/min")
-        h+=sec(3,"ความเร็วของโหลด","ถ้ามีสลิงรองรับโหลดหลายส่วน ความเร็วโหลดจะช้าลงตามจำนวนส่วนสลิง",
-               "v<sub>load</sub> = "+frac("v_rope","n"),
-               "v<sub>load,up</sub> = "+frac(f"{x['rope_up']:.3f}",f"{n}")+f" = {x['load_up']:.3f} m/min<br>"+
-               "v<sub>load,down</sub> = "+frac(f"{x['rope_down']:.3f}",f"{n}")+f" = {x['load_down']:.3f} m/min",
-               f"ความเร็วโหลดขึ้น {x['load_up']:.3f} m/min, ลง {x['load_down']:.3f} m/min")
-        h+=sec(4,"เวลายกและลด","เวลาเท่ากับระยะทางหารด้วยความเร็ว และคูณ 60 เพื่อเปลี่ยนนาทีเป็นวินาที",
-               "t = "+frac("h × 60","v_load"),
-               "t<sub>up</sub> = "+frac(f"{self.wheight.value():.2f} × 60",f"{x['load_up']:.3f}")+f" = {x['time_up']:.2f} s<br>"+
-               "t<sub>down</sub> = "+frac(f"{self.wheight.value():.2f} × 60",f"{x['load_down']:.3f}")+f" = {x['time_down']:.2f} s",
-               f"เวลายก {x['time_up']:.2f} s, เวลาลด {x['time_down']:.2f} s")
-        h+=sec(5,"แรงดึงสลิง","แรงจากน้ำหนักถูกแบ่งด้วยจำนวนส่วนสลิงและประสิทธิภาพของรอก",
-               "T<sub>rope</sub> = "+frac("m g","n η_pulley"),
-               "T<sub>rope</sub> = "+frac(f"{self.wmass.value()+self.wbasket.value():.2f} × 9.81",f"{n} × {self.wpulley_eff.value()/100:.3f}")+f" = {x['tension']:.2f} N",
-               f"แรงดึงสลิง {x['tension']:.2f} N")
-        h+=sec(6,"แรงบิดที่ดรัม","แรงดึงสลิงกระทำที่รัศมีดรัม จึงได้แรงบิดจากแรงคูณรัศมี",
-               "τ<sub>drum</sub> = T<sub>rope</sub> × "+frac("D","2"),
-               f"τ<sub>drum</sub> = {x['tension']:.2f} × {d:.3f}/2 = {x['drum_torque']:.2f} N·m",
-               f"แรงบิดดรัม {x['drum_torque']:.2f} N·m")
-        h+=sec(7,"แรงบิดที่เพลามอเตอร์","เกียร์ช่วยทดแรงบิด จึงหารแรงบิดดรัมด้วยอัตราทดและประสิทธิภาพเกียร์",
-               "τ<sub>motor</sub> = "+frac("τ_drum","i η_gear"),
-               "τ<sub>motor</sub> = "+frac(f"{x['drum_torque']:.2f}",f"{ratio:.0f} × {self.wgear_eff.value()/100:.3f}")+f" = {x['shaft_torque']:.3f} N·m",
-               f"แรงบิดเพลามอเตอร์ประมาณ {x['shaft_torque']:.3f} N·m")
-        power=x['tension']*x['rope_up']/60
-        available=self.wrated.value()*self.wgear_eff.value()/100
-        h+=sec(8,"กำลังกลที่ดรัม","กำลังกลเท่ากับแรงดึงคูณความเร็วสลิงในหน่วย m/s ใช้ตรวจความสมเหตุสมผลของสมมติฐาน",
-               "P<sub>drum</sub> = T<sub>rope</sub> × "+frac("v_rope","60"),
-               f"P<sub>drum</sub> = {x['tension']:.2f} × {x['rope_up']:.3f}/60 = {power:.2f} W",
-               f"กำลังกลที่ดรัมประมาณ {power:.2f} W; กำลังดรัมจากพิกัดสมมติ ≈ {available:.2f} W")
-        h+=("<p><b>ข้อจำกัด:</b> รอบมอเตอร์, ขนาดดรัม, ประสิทธิภาพ และกำลัง 1,400 W ยังเป็นค่าที่ต้องยืนยันจากรุ่นจริง "
-            "ชั้นสลิงทำให้เส้นผ่านศูนย์กลางดรัมเปลี่ยน และ Winch ดึงรถอาจไม่ได้รับรองสำหรับยกแนวดิ่ง</p></body></html>")
-        return h
+        return (f"<h2>First-layer performance</h2>"
+                f"<p>Project load 100 kg → speed <b>{x['load_up']:.3f} m/min</b>, "
+                f"motor current <b>{x.get('current_a',self.wiup.value()):.2f} A</b>.</p>"
+                "<p>ได้จาก linear interpolation ของตาราง First Layer. ใบสเปกไม่ให้ performance ขาลงแยกต่างหาก.</p>")
 
     def apply_winch_speed(self):
-        x=self.winch_speed_results()
-        # Explicit manual override: copy load speeds once, then turn off auto mode.
-        self.wusecalc.setChecked(False)
-        self.wspeedup.setValue(x['load_up']);self.wspeeddown.setValue(x['load_down'])
-        self.wTabs.setCurrentIndex(0)
-        QMessageBox.information(self,"อัปเดตความเร็ว","คัดลอกความเร็วโหลดไปยังหน้าแบตเตอรี่แล้ว และปิดโหมดเชื่อมอัตโนมัติ")
+        self.calc_winch()
+        QMessageBox.information(self,"Winch","V53.3 ใช้ความเร็วจากตาราง First Layer ของใบสเปกโดยอัตโนมัติ")
+
+    @staticmethod
+    def _next_standard_capacity(required_ah,step_up=False):
+        sizes=[10,12,15,20,30,40,50,60,80,100,120,150,200,250,300]
+        for idx,size in enumerate(sizes):
+            if size+1e-9>=required_ah:
+                if step_up and idx+1<len(sizes):return sizes[idx+1]
+                return size
+        return math.ceil(required_ah/50.0)*50.0
 
     def winch_results(self):
-        m=self.wmass.value()+self.wbasket.value();h=self.wheight.value();v=self.wvolt.value()
-        if self.wusecalc.isChecked():
-            speed=self.winch_speed_results()
-            up_speed=speed['load_up'];down_speed=speed['load_down']
-        else:
-            # Manual input fields ALWAYS mean load speed (not raw rope speed).
-            up_speed=self.wspeedup.value();down_speed=self.wspeeddown.value()
-        tu=h/up_speed*60;td=h/down_speed*60
-        eu=v*self.wiup.value()*tu/3600;ed=v*self.widown.value()*td/3600
-        n=self.wcycles.value();total=n*(eu+ed);dod=self.wdod.value()/100;reserve=self.wreserve.value()/100
-        ah=total*(1+reserve)/(v*dod)
+        self._sync_locked_winch_widgets()
+        spec=self._winch_locked_spec()
+        m=spec["project_load_kg"];h=spec["project_lift_m"];v=spec["project_voltage_v"]
+        speed,current=self._winch_interp_first_layer(m)
+        tu=h/speed*60.0;td=tu
+        eu=v*current*tu/3600.0;ed=v*current*td/3600.0
+        n=int(self.wcycles.value());total=n*(eu+ed)
+        dod=spec["project_dod"];reserve=spec["project_reserve"]
+        ah=total*(1.0+reserve)/(v*dod)
+        std=self._next_standard_capacity(ah,False);extra=self._next_standard_capacity(ah,True)
         return dict(m=m,h=h,v=v,tu=tu,td=td,eu=eu,ed=ed,n=n,total=total,ah=ah,
-            f=m*9.81,fd=m*9.81*self.wsf.value(),mechanical=m*9.81*h/3600,
-            iup=self.wiup.value(),idown=self.widown.value(),up_speed=up_speed,
-            down_speed=down_speed,dod=dod,reserve=reserve)
+                    f=m*G,fd=m*G*spec["force_sf"],mechanical=m*G*h/3600.0,
+                    iup=current,idown=current,up_speed=speed,down_speed=speed,
+                    dod=dod,reserve=reserve,standard_ah=std,extra_margin_ah=extra,
+                    max_spec_current=140.0,spec_source="4500LB WINCH SPECIFICATION — user supplied")
 
     def winch_html(self,q):
-        def frac(a,b):
-            return ("<table style='display:inline-table;border-collapse:collapse;margin:4px 12px;vertical-align:middle'>"
-                    "<tr><td align='center' style='border-bottom:1px solid black;padding:3px 8px'>"+str(a)+"</td></tr>"
-                    "<tr><td align='center' style='padding:3px 8px'>"+str(b)+"</td></tr></table>")
-        def sec(n,title,thai,formula,sub,result):
-            return (f"<h3 style='color:#b45309'>{n}. {title}</h3>"
-                    f"<p><b>คำอธิบายภาษาไทย:</b> {thai}</p>"
-                    f"<p><b>สูตรภาษาไทย</b></p><div style='margin-left:18px;font-size:12pt;color:#17324d'><b>{self._thai_formula_text(title)}</b></div>"
-                    f"<p><b>สูตรตัวแปร</b></p><div style='margin-left:18px;font-size:12pt'>{formula}</div>"
-                    f"<p><b>แทนค่า</b></p><div style='margin-left:18px'>{sub}</div>"
-                    f"<p style='color:#176337'><b>คำตอบ: {result}</b></p><hr>")
-        x=q
-        h=("<html><body style=\"font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:12pt\">"
-           "<h2>WINCH CALCULATION — คำอธิบาย → สูตรภาษาไทย → สูตรตัวแปร → แทนค่า → คำตอบ</h2>"
-           "<p><b>ข้อควรระวัง:</b> ความเร็วและกระแสเป็นสมมติฐานที่แก้ได้ ไม่ใช่ข้อมูลทดสอบจริงของวินช์รุ่นนี้</p>"
-           f"<h3>ตัวแปรและหน่วย</h3><table cellpadding='5' cellspacing='0' border='1'><tr><td>m</td><td>มวลโหลดรวม</td><td>{x['m']:.2f} kg</td></tr><tr><td>h</td><td>ระยะยก</td><td>{x['h']:.2f} m</td></tr><tr><td>V</td><td>แรงดันแบตวินช์</td><td>{x['v']:.2f} V</td></tr><tr><td>Iup / Idown</td><td>กระแสสมมติขณะขึ้น / ลง</td><td>{x['iup']:.1f} / {x['idown']:.1f} A</td></tr><tr><td>N</td><td>จำนวนรอบขึ้น+ลง</td><td>{x['n']}</td></tr><tr><td>DoD / Reserve</td><td>เงื่อนไขออกแบบแบตเตอรี่</td><td>{x['dod']:.3f} / {x['reserve']:.3f}</td></tr></table>"
-           f"<p>แหล่งความเร็วโหลด: {'คำนวณจากหน้า Speed โดยอัตโนมัติ' if self.wusecalc.isChecked() else 'กรอกจากหน้า Input'}; ขึ้น {x['up_speed']:.3f} และลง {x['down_speed']:.3f} m/min</p>")
-        h+=sec(1,"แรงยก","น้ำหนักของโหลดสร้างแรงลงจากแรงโน้มถ่วง จึงใช้มวลรวมคูณความเร่งโน้มถ่วง",
-               "F = m g",f"F = {x['m']:.2f} × 9.81 = {x['f']:.2f} N",f"F = {x['f']:.2f} N")
-        h+=sec(2,"แรงยกออกแบบ","คูณแรงยกด้วย Safety Factor เพื่อใช้เป็นแรงออกแบบเบื้องต้น ไม่ใช่การรับรองพิกัดยก",
-               "F<sub>design</sub> = F × SF",f"F<sub>design</sub> = {x['f']:.2f} × {self.wsf.value():.2f} = {x['fd']:.2f} N",f"F_design = {x['fd']:.2f} N")
-        h+=sec(3,"พลังงานกลขั้นต่ำในการยก","พลังงานศักย์ที่ต้องเพิ่มให้โหลดเท่ากับ mgh และแปลงจากจูลเป็น Wh ด้วยการหาร 3600",
-               "E<sub>mech</sub> = "+frac("m g h","3600"),
-               "E<sub>mech</sub> = "+frac(f"{x['m']:.2f} × 9.81 × {x['h']:.2f}","3600")+f" = {x['mechanical']:.4f} Wh",f"E_mech = {x['mechanical']:.4f} Wh")
-        h+=sec(4,"เวลายกขึ้น","เวลาเท่ากับระยะยกหารด้วยความเร็วโหลด และคูณ 60 เพราะความเร็วเป็น m/min",
-               "t<sub>up</sub> = "+frac("h × 60","v_up"),
-               "t<sub>up</sub> = "+frac(f"{x['h']:.2f} × 60",f"{x['up_speed']:.3f}")+f" = {x['tu']:.2f} s",f"t_up = {x['tu']:.2f} s")
-        h+=sec(5,"เวลาลดลง","ใช้หลักเดียวกับขาขึ้น แต่ใช้ความเร็วขาลงซึ่งอาจต่างกัน",
-               "t<sub>down</sub> = "+frac("h × 60","v_down"),
-               "t<sub>down</sub> = "+frac(f"{x['h']:.2f} × 60",f"{x['down_speed']:.3f}")+f" = {x['td']:.2f} s",f"t_down = {x['td']:.2f} s")
-        h+=sec(6,"กำลังไฟฟ้าขณะยก","ประมาณกำลังไฟฟ้าจากแรงดันคูณกระแสที่วินช์ใช้ขณะยก",
-               "P<sub>up</sub> = V I<sub>up</sub>",f"P<sub>up</sub> = {x['v']:.2f} × {x['iup']:.2f} = {x['v']*x['iup']:.2f} W",f"P_up = {x['v']*x['iup']:.2f} W")
-        h+=sec(7,"พลังงานไฟฟ้าขณะยก","พลังงานไฟฟ้าเท่ากับกำลังคูณเวลา โดยหาร 3600 เพื่อให้เป็น Wh",
-               "E<sub>up</sub> = "+frac("V I_up t_up","3600"),
-               "E<sub>up</sub> = "+frac(f"{x['v']:.2f} × {x['iup']:.2f} × {x['tu']:.2f}","3600")+f" = {x['eu']:.3f} Wh",f"E_up = {x['eu']:.3f} Wh")
-        h+=sec(8,"กำลังและพลังงานขณะลด","ขาลงอาจใช้กระแสน้อยกว่าขาขึ้น จึงคำนวณแยกด้วย I_down และ t_down",
-               "P<sub>down</sub> = V I<sub>down</sub><br>E<sub>down</sub> = "+frac("V I_down t_down","3600"),
-               f"P<sub>down</sub> = {x['v']:.2f} × {x['idown']:.2f} = {x['v']*x['idown']:.2f} W<br>E<sub>down</sub> = "+frac(f"{x['v']:.2f} × {x['idown']:.2f} × {x['td']:.2f}","3600")+f" = {x['ed']:.3f} Wh",f"P_down = {x['v']*x['idown']:.2f} W, E_down = {x['ed']:.3f} Wh")
-        cycle=x['eu']+x['ed']
-        h+=sec(9,"พลังงานรวมตามจำนวนรอบ","หนึ่งรอบประกอบด้วยยกขึ้นหนึ่งครั้งและลดลงหนึ่งครั้ง จากนั้นคูณจำนวนรอบใช้งาน",
-               "E<sub>cycle</sub> = E_up + E_down<br>E<sub>total</sub> = N E_cycle",
-               f"E<sub>cycle</sub> = {x['eu']:.3f} + {x['ed']:.3f} = {cycle:.3f} Wh<br>E<sub>total</sub> = {x['n']} × {cycle:.3f} = {x['total']:.3f} Wh",f"E_total = {x['total']:.3f} Wh")
-        h+=sec(10,"ความจุแบตเตอรี่ 12 V","เผื่อ Reserve และจำกัดการใช้ความจุตาม DoD ก่อนแปลงพลังงาน Wh เป็น Ah",
-               "Ah = "+frac("E_total (1 + Reserve)","V × DoD"),
-               "Ah = "+frac(f"{x['total']:.3f} × (1 + {x['reserve']:.3f})",f"{x['v']:.2f} × {x['dod']:.3f}")+f" = {x['ah']:.2f} Ah",f"แบตเตอรี่ตามสมมติฐาน = {x['v']:.1f} V, {x['ah']:.2f} Ah")
-        total_min=x['n']*(x['tu']+x['td'])/60
-        h+=sec(11,"เวลาทำงานสะสมของวินช์","ใช้สำหรับตรวจ Duty Cycle โดยรวมเวลาขึ้นและลงทุกครั้ง",
-               "t<sub>motor,total</sub> = "+frac("N (t_up + t_down)","60"),
-               "t<sub>motor,total</sub> = "+frac(f"{x['n']} × ({x['tu']:.2f} + {x['td']:.2f})","60")+f" = {total_min:.2f} min",f"เวลามอเตอร์ทำงานรวม ≈ {total_min:.2f} นาที")
-        h+=("<p><b>ข้อจำกัด:</b> กระแส 60/30 A และความเร็วยังเป็นสมมติฐาน ต้องตรวจจากผู้ผลิตหรือวัดจริง รวมถึงกระแสกระชาก, BMS, ฟิวส์, สายไฟ, Duty Cycle และพิกัดเบรกของวินช์</p></body></html>")
-        return h
+        return f"""
+        <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt">
+        <h1>4500LB. WINCH SPECIFICATION + BATTERY CALCULATION</h1>
+        <p><b>Source:</b> ใบ 4500LB. WINCH SPECIFICATION ที่ผู้ใช้ส่งมา</p>
+        <h2>Manufacturer specification</h2>
+        <table border="1" cellspacing="0" cellpadding="6">
+        <tr><td>Rated line pull</td><td>4500 lb (2041 kg), single line</td></tr>
+        <tr><td>Motor</td><td>Permanent magnet, 1.4 kW / 1.9 hp</td></tr>
+        <tr><td>Gear ratio</td><td>136:1</td></tr>
+        <tr><td>Cable</td><td>Ø5 mm × 10 m</td></tr>
+        <tr><td>Drum</td><td>Ø37 mm × 72 mm</td></tr>
+        <tr><td>Braking</td><td>Automatic In-The-Drum</td></tr>
+        </table>
+        <h2>First-layer performance</h2>
+        <table border="1" cellspacing="0" cellpadding="6">
+        <tr><th>Line pull</th><th>Line speed</th><th>Motor current</th></tr>
+        <tr><td>0</td><td>3.3 m/min</td><td>12 A</td></tr>
+        <tr><td>454 kg</td><td>2.5 m/min</td><td>60 A</td></tr>
+        <tr><td>907 kg</td><td>1.1 m/min</td><td>100 A</td></tr>
+        <tr><td>2041 kg</td><td>0.8 m/min</td><td>140 A</td></tr>
+        </table>
+        <h2>Locked project assumptions</h2>
+        <p>Payload = <b>{q['m']:.0f} kg</b>; lift distance = <b>{q['h']:.2f} m</b>; separate battery = <b>{q['v']:.1f} V</b>;
+        DoD = {q['dod']*100:.0f}%; Reserve = {q['reserve']*100:.0f}%.</p>
+        <p>At 100 kg: interpolated speed = <b>{q['up_speed']:.3f} m/min</b>; current = <b>{q['iup']:.2f} A</b>.</p>
+        <p><b>Lowering:</b> sheet does not list separate current/speed; calculation uses the same values conservatively.</p>
+        <h2>Battery result — {q['n']} cycles</h2>
+        <p>t_up = 1.00 / {q['up_speed']:.3f} × 60 = <b>{q['tu']:.2f} s</b></p>
+        <p>E_up = 12 × {q['iup']:.2f} × {q['tu']:.2f} / 3600 = <b>{q['eu']:.3f} Wh</b></p>
+        <p>E_cycle = <b>{q['eu']+q['ed']:.3f} Wh/cycle</b></p>
+        <p>E_total = <b>{q['total']:.2f} Wh</b></p>
+        <p>Ah_design = E_total × 1.20 / (12 × 0.80) = <b>{q['ah']:.2f} Ah</b></p>
+        <p>Standard size ≥ calculation: <b>{q['standard_ah']:.0f} Ah</b>; next extra-margin size: <b>{q['extra_margin_ah']:.0f} Ah</b>.</p>
+        <h2>BMS/current note</h2>
+        <p>Interpolated current at 100 kg ≈ {q['iup']:.1f} A. Manufacturer table reaches <b>140 A</b>.
+        Starting/stall surge is not stated, so final BMS/fuse/contactor/cable sizing needs verification.</p>
+        </body></html>
+        """
 
     def calc_winch(self):
-        if not hasattr(self,"wSummary"):return
-        q=self.winch_results()
-        self.wSummary.setText(f"เวลายกขึ้น: {q['tu']:.1f} วินาที | เวลาลง: {q['td']:.1f} วินาที\n"
-            f"พลังงานขึ้น/ลง: {q['eu']:.2f} / {q['ed']:.2f} Wh\n"
-            f"พลังงานรวม {q['n']} รอบ: {q['total']:.2f} Wh\n"
-            f"แบตเตอรี่ตามสมมติฐาน: {q['v']:.1f} V, {q['ah']:.2f} Ah\n"
-            f"แหล่งความเร็ว: {'Speed (อัตโนมัติ)' if self.wusecalc.isChecked() else 'Input (กำหนดเอง)'}\n"
-            "ยังต้องตรวจสอบกระแสกระชาก, BMS, Duty Cycle และการรับรองงานยก")
-        self.wSteps.setHtml(self.winch_html(q))
+        if not hasattr(self,"wcycles"):return
+        self._sync_locked_winch_widgets();q=self.winch_results()
+        self.wSummary.setText(
+            f"โหลดโปรเจกต์ 100 kg → First Layer interpolation: {q['up_speed']:.3f} m/min, {q['iup']:.2f} A\\n"
+            f"เวลาขึ้น ≈ {q['tu']:.1f} s/ครั้ง | ขาลงใช้ค่าเท่ากันแบบ conservative\\n"
+            f"พลังงานต่อรอบขึ้น+ลง ≈ {q['eu']+q['ed']:.2f} Wh | {q['n']} รอบ = {q['total']:.2f} Wh"
+        )
+        self.wBatteryResult.setText(
+            f"ความจุออกแบบ = {q['ah']:.2f} Ah @ 12 V\\n"
+            f"ขนาดมาตรฐานอย่างน้อย ≈ {q['standard_ah']:.0f} Ah | เผื่อเพิ่มอีกขั้น ≈ {q['extra_margin_ah']:.0f} Ah\\n"
+            f"กระแสใช้งาน ≈ {q['iup']:.1f} A • ตารางผู้ผลิตสูงสุด 140 A • Start/Stall surge: ไม่ระบุ"
+        )
+        if hasattr(self,"wSteps"):self.wSteps.setHtml(self.winch_html(q))
         if hasattr(self,"wVars"):self.wVars.setHtml(self.winch_variables_html())
         if hasattr(self,"allWVars"):self.allWVars.setHtml(self.winch_variables_html())
         sp=self.winch_speed_results()
-        self.wSpeedSummary.setText(f"ความเร็วสลิงขึ้น/ลง: {sp['rope_up']:.3f} / {sp['rope_down']:.3f} m/min\n"
-            f"ความเร็วโหลดขึ้น/ลง: {sp['load_up']:.3f} / {sp['load_down']:.3f} m/min\n"
-            f"เวลายกขึ้น/ลง: {sp['time_up']:.1f} / {sp['time_down']:.1f} วินาที\n"
-            f"แรงดึงสลิง: {sp['tension']:.1f} N | แรงบิดดรัม: {sp['drum_torque']:.2f} N·m\n"
-            "ความเร็วในหน้านี้เป็นการประมาณการ ต้องยืนยันด้วยข้อมูลผู้ผลิต/การทดสอบ")
-        self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-
-        self.wGuide.setHtml("<h2>อธิบายภาษาไทย</h2><p>โหมดนี้คำนวณขนาดแบตเตอรี่ 12 V แยกจากแบตเตอรี่ขับรถ 72 V "
-            "โดยค่าเริ่มต้นยกตรง 1.5 เมตร เมื่อใช้รอกทด หน้า Speed จะแปลงความเร็วสลิงเป็นความเร็วโหลดหนึ่งครั้งเท่านั้น "
-            "และส่งความเร็วโหลดให้หน้าแบตเตอรี่เมื่อเปิดโหมดอัตโนมัติ; ช่องความเร็วใน Input คือความเร็วโหลดเสมอ</p>"
-            "<p>เวลายกหาได้จากระยะยกหารด้วยความเร็วโหลด (ซึ่งอาจช้ากว่าความเร็วสลิงเมื่อใช้รอกทด) ส่วนพลังงานไฟฟ้าหาจากแรงดัน × กระแส × เวลา "
-            "คำนวณขาขึ้นและขาลงแยกกัน เพราะกระแสและความเร็วอาจต่างกัน จากนั้นคูณจำนวนรอบ</p>"
-            "<p>DoD คือสัดส่วนความจุที่ตั้งใจนำมาใช้ และ Reserve คือพลังงานที่เผื่อเพิ่มเติม "
-            "ทั้งสองค่าเป็นเงื่อนไขการออกแบบ ไม่ใช่ค่าที่ผู้ผลิตยืนยันสำหรับแบตเตอรี่ของคุณ</p>"
-            "<p><b>ข้อจำกัด:</b> ค่ากระแส 60/30 A และความเร็ว 3/3 m/min เป็นเพียงตัวอย่าง "
-            "ต้องตรวจสอบกราฟกระแส-แรงดึงและความเร็ว-แรงดึงของวินช์รุ่นจริง "
-            "และไม่ควรใช้วินช์ดึงรถยกของในแนวดิ่งจนกว่าผู้ผลิตรับรองและมีเบรกสำหรับยกของ</p>")
-        torque="ยังไม่ระบุขนาดดรัม"
-        if self.wdiameter.value()>0:torque=f"{q['f']*self.wdiameter.value()/2000:.2f} N·m (เชิงทฤษฎีที่โหลดคงที่)"
-        self.wResult.setHtml(f"<h2>ผลประมาณการแบตเตอรี่วินช์</h2><p>พลังงานกลขั้นต่ำ {q['mechanical']:.4f} Wh ต่อการยก</p>"
-            f"<p>แหล่งความเร็ว: {'Speed (อัตโนมัติ)' if self.wusecalc.isChecked() else 'Input (กำหนดเอง)'}; "
-            f"ความเร็วโหลดขึ้น/ลง {q['up_speed']:.3f}/{q['down_speed']:.3f} m/min</p>"
-            f"<p>พลังงานไฟฟ้าต่อรอบ {q['eu']+q['ed']:.2f} Wh; พลังงาน {q['n']} รอบ = {q['total']:.2f} Wh</p>"
-            f"<h2>{q['v']:.1f} V — {q['ah']:.2f} Ah</h2><p>แรงบิดดรัม: {torque}</p>"
-            "<p>ห้ามเลือกซื้อจาก Ah อย่างเดียว: ตรวจ Continuous/Peak discharge, BMS, สายไฟ, ฟิวส์และระยะพัก</p>")
+        if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
+        if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3</h2><p>ใช้ใบสเปกจริงเป็นฐานและให้แก้เฉพาะจำนวนรอบขึ้น+ลง.</p>")
+        if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html(q))
+        if hasattr(self,"wDutyView"):self.update_winch_duty()
+        if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
 
     def export_winch_pdf(self):
-        filename,_=QFileDialog.getSaveFileName(self,"Export Winch PDF","Winch_Battery_Report.pdf","PDF (*.pdf)")
+        filename,_=QFileDialog.getSaveFileName(self,"Export Winch PDF","Winch_4500LB_Spec_Battery.pdf","PDF (*.pdf)")
         if not filename:return
         if not filename.lower().endswith(".pdf"):filename+=".pdf"
         try:
-            q=self.winch_results();doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10))
-            doc.setHtml(self.winch_html(q)+"<hr/>"+self.winch_speed_html(self.winch_speed_results())+"<hr/>"+self.wGuide.toHtml()+"<hr/>"+self.wResult.toHtml())
+            q=self.winch_results()
+            doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(self.winch_html(q))
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
-            QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\n"+filename)
-        except Exception as exc:QMessageBox.critical(self,"Export PDF ไม่สำเร็จ",str(exc))
+            QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\\n"+filename)
+        except Exception as exc:
+            QMessageBox.critical(self,"Export PDF ไม่สำเร็จ",str(exc))
+
 
     def make_electrical(self):
         w=QWidget();self.electricalPage=w
