@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.0"
+APP_VERSION = "53.3.1"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -5671,6 +5671,15 @@ void loop() {{
                 return v0+(v1-v0)*frac, i0+(i1-i0)*frac
         return pts[-1][1],pts[-1][2]
 
+    def _winch_layer_for_distance(self,distance_m):
+        """Estimate ending rope layer from cumulative rope-on-drum values on the supplied sheet."""
+        d=max(0.0,float(distance_m))
+        limits=[(1,1.5,2041.0),(2,4.4,1597.0),(3,5.8,1197.0),(4,8.1,930.0),(5,10.0,739.0)]
+        for layer,cap,pull in limits:
+            if d<=cap+1e-9:
+                return layer,cap,pull
+        return 5,10.0,739.0
+
     def _make_locked_winch_spin(self,value,maximum=100000.0,decimals=2):
         obj=QDoubleSpinBox(self.winchPage)
         obj.setRange(0.0,maximum);obj.setDecimals(decimals);obj.setValue(float(value))
@@ -5679,11 +5688,10 @@ void loop() {{
 
     def _sync_locked_winch_widgets(self):
         spec=self._winch_locked_spec()
-        speed,current=self._winch_interp_first_layer(spec["project_load_kg"])
+        load=self.wmass.value() if hasattr(self,"wmass") else spec["project_load_kg"]
+        speed,current=self._winch_interp_first_layer(load)
         locked={
-            "wmass":spec["project_load_kg"],
             "wbasket":0.0,
-            "wheight":spec["project_lift_m"],
             "wvolt":spec["project_voltage_v"],
             "wrated":spec["motor_kw"]*1000.0,
             "wratio":spec["gear_ratio"],
@@ -5728,17 +5736,18 @@ void loop() {{
         textcol=QVBoxLayout();textcol.setSpacing(2)
         head=QLabel("4500LB. WINCH SPECIFICATION + BATTERY")
         hf=QFont();hf.setPointSize(15);hf.setBold(True);head.setFont(hf);head.setStyleSheet("color:white;background:transparent;")
-        subhead=QLabel("ยึดใบสเปกที่ผู้ใช้ส่งมา • First-layer performance • แก้ได้เฉพาะจำนวนรอบขึ้น+ลง")
+        subhead=QLabel("ยึดใบสเปกที่ผู้ใช้ส่งมา • ปรับ Load / Lift Distance / Cycles ได้ • คำนวณจาก First-layer performance")
         subhead.setWordWrap(True);subhead.setStyleSheet("color:#dbeafe;font-size:10pt;font-weight:600;background:transparent;")
         textcol.addWidget(head);textcol.addWidget(subhead);nav.addLayout(textcol,1)
-        nav.addWidget(make_chip("SPEC LOCKED","#fff1dd","#9a5800"))
+        nav.addWidget(make_chip("SPEC + 3 INPUTS","#fff1dd","#9a5800"))
         export=QPushButton("Export PDF");export.setObjectName("primaryButton");export.setMinimumWidth(140);export.clicked.connect(self.export_winch_pdf);nav.addWidget(export)
         root.addWidget(header)
 
-        # Hidden compatibility widgets for Project/Report/Variable Dictionary.
-        self.wmass=self._make_locked_winch_spin(100)
+        # Three editable design inputs: load, lift distance and cycle count.
+        self.wmass=QDoubleSpinBox(w);self.wmass.setRange(1.0,2041.0);self.wmass.setDecimals(1);self.wmass.setValue(100.0);self.wmass.setSuffix(" kg");self.wmass.setMinimumWidth(180)
+        self.wheight=QDoubleSpinBox(w);self.wheight.setRange(0.05,10.0);self.wheight.setDecimals(2);self.wheight.setValue(1.0);self.wheight.setSuffix(" m");self.wheight.setMinimumWidth(180)
+        # Remaining compatibility/report values stay hidden and locked.
         self.wbasket=self._make_locked_winch_spin(0)
-        self.wheight=self._make_locked_winch_spin(1.0)
         self.wvolt=self._make_locked_winch_spin(12)
         self.wrated=self._make_locked_winch_spin(1400)
         self.wratio=self._make_locked_winch_spin(136)
@@ -5827,28 +5836,33 @@ void loop() {{
         ll.addWidget(self.wLayerTable);tables.addWidget(layerBox,1)
         root.addLayout(tables)
 
-        calcBox=QGroupBox("Battery Calculation — แก้ได้เฉพาะจำนวนรอบ")
+        calcBox=QGroupBox("Battery Calculation — Design Inputs")
         cg=QGridLayout(calcBox);cg.setContentsMargins(14,14,14,14);cg.setHorizontalSpacing(16);cg.setVerticalSpacing(10)
         locked=QLabel(
-            "<b>ค่าล็อกของโปรเจกต์ (ไม่ใช่ข้อมูลทั้งหมดจากใบสเปก)</b><br>"
-            "Payload = 100 kg • ระยะยก = 1.00 m/เที่ยว • Battery = 12 V separate<br>"
-            "DoD = 80% • Reserve = 20% • ใช้ First-layer interpolation<br>"
+            "<b>ค่าจากใบสเปกยังล็อกเหมือนเดิม</b><br>"
+            "แก้ได้เฉพาะ Load, Lift Distance และ Cycles • Battery = 12 V separate • DoD = 80% • Reserve = 20%<br>"
+            "Speed/Current interpolate จากตาราง First Layer ตาม Load ที่กรอก<br>"
             "ใบสเปกไม่ให้ข้อมูลขาลง จึงใช้กระแส/ความเร็วเท่าขาขึ้นแบบ conservative จนกว่าจะวัดจริง"
         )
         locked.setWordWrap(True);locked.setStyleSheet("background:#fff8e9;color:#68420b;padding:12px;border:1px solid #ead39a;border-radius:10px;")
         cg.addWidget(locked,0,0,1,3)
 
-        lab=QLabel("จำนวนรอบขึ้น + ลง");lab.setStyleSheet("font-size:12pt;font-weight:900;color:#17324d;")
+        loadLab=QLabel("โหลดที่ยก / Load");loadLab.setStyleSheet("font-size:11pt;font-weight:900;color:#17324d;")
+        heightLab=QLabel("ระยะยก / Lift Distance");heightLab.setStyleSheet("font-size:11pt;font-weight:900;color:#17324d;")
+        cycleLab=QLabel("จำนวนรอบขึ้น + ลง / Cycles");cycleLab.setStyleSheet("font-size:11pt;font-weight:900;color:#17324d;")
         self.wcycles=QSpinBox();self.wcycles.setRange(1,100000);self.wcycles.setValue(50);self.wcycles.setSuffix(" รอบ");self.wcycles.setMinimumWidth(180)
+        cg.addWidget(loadLab,1,0);cg.addWidget(self.wmass,1,1)
+        cg.addWidget(heightLab,2,0);cg.addWidget(self.wheight,2,1)
+        cg.addWidget(cycleLab,3,0);cg.addWidget(self.wcycles,3,1)
         recalc=QPushButton("คำนวณแบตเตอรี่");recalc.setObjectName("primaryButton");recalc.clicked.connect(self.calc_winch)
-        cg.addWidget(lab,1,0);cg.addWidget(self.wcycles,1,1);cg.addWidget(recalc,1,2)
+        cg.addWidget(recalc,1,2,3,1)
 
         self.wSummary=QLabel();self.wSummary.setWordWrap(True)
         self.wSummary.setStyleSheet("font-size:11pt;font-weight:700;background:#eefaf4;color:#155b2a;padding:14px;border:1px solid #a9d7ba;border-radius:10px")
-        cg.addWidget(self.wSummary,2,0,1,3)
+        cg.addWidget(self.wSummary,4,0,1,3)
         self.wBatteryResult=QLabel();self.wBatteryResult.setWordWrap(True)
         self.wBatteryResult.setStyleSheet("font-size:12pt;background:#eef6ff;color:#174a74;padding:14px;border:1px solid #bfd6ee;border-radius:10px")
-        cg.addWidget(self.wBatteryResult,3,0,1,3)
+        cg.addWidget(self.wBatteryResult,5,0,1,3)
         root.addWidget(calcBox)
 
         safety=QLabel(
@@ -5858,6 +5872,8 @@ void loop() {{
         safety.setWordWrap(True);safety.setStyleSheet("background:#fff4f4;color:#8a241c;padding:12px;border:1px solid #efb6b1;border-radius:10px")
         root.addWidget(safety);root.addStretch(1)
 
+        self.wmass.valueChanged.connect(self.calc_winch)
+        self.wheight.valueChanged.connect(self.calc_winch)
         self.wcycles.valueChanged.connect(self.calc_winch)
         self.tabs.addTab(w,"Winch")
         self._sync_locked_winch_widgets();self.calc_winch()
@@ -5865,7 +5881,7 @@ void loop() {{
     def winch_speed_results(self):
         self._sync_locked_winch_widgets()
         spec=self._winch_locked_spec()
-        m=spec["project_load_kg"];h=spec["project_lift_m"]
+        m=self.wmass.value();h=self.wheight.value()
         speed,current=self._winch_interp_first_layer(m)
         d=spec["drum_d_mm"]/1000.0
         drum_rpm=speed/(math.pi*d) if d>0 else 0.0
@@ -5903,8 +5919,9 @@ void loop() {{
     def winch_results(self):
         self._sync_locked_winch_widgets()
         spec=self._winch_locked_spec()
-        m=spec["project_load_kg"];h=spec["project_lift_m"];v=spec["project_voltage_v"]
+        m=self.wmass.value();h=self.wheight.value();v=spec["project_voltage_v"]
         speed,current=self._winch_interp_first_layer(m)
+        layer,layer_capacity_m,layer_pull_kg=self._winch_layer_for_distance(h)
         tu=h/speed*60.0;td=tu
         eu=v*current*tu/3600.0;ed=v*current*td/3600.0
         n=int(self.wcycles.value());total=n*(eu+ed)
@@ -5915,7 +5932,9 @@ void loop() {{
                     f=m*G,fd=m*G*spec["force_sf"],mechanical=m*G*h/3600.0,
                     iup=current,idown=current,up_speed=speed,down_speed=speed,
                     dod=dod,reserve=reserve,standard_ah=std,extra_margin_ah=extra,
-                    max_spec_current=140.0,spec_source="4500LB WINCH SPECIFICATION — user supplied")
+                    max_spec_current=140.0,spec_source="4500LB WINCH SPECIFICATION — user supplied",
+                    rope_layer=layer,layer_capacity_m=layer_capacity_m,layer_pull_kg=layer_pull_kg,
+                    layer_pull_ok=(m<=layer_pull_kg))
 
     def winch_html(self,q):
         return f"""
@@ -5939,13 +5958,14 @@ void loop() {{
         <tr><td>907 kg</td><td>1.1 m/min</td><td>100 A</td></tr>
         <tr><td>2041 kg</td><td>0.8 m/min</td><td>140 A</td></tr>
         </table>
-        <h2>Locked project assumptions</h2>
-        <p>Payload = <b>{q['m']:.0f} kg</b>; lift distance = <b>{q['h']:.2f} m</b>; separate battery = <b>{q['v']:.1f} V</b>;
-        DoD = {q['dod']*100:.0f}%; Reserve = {q['reserve']*100:.0f}%.</p>
-        <p>At 100 kg: interpolated speed = <b>{q['up_speed']:.3f} m/min</b>; current = <b>{q['iup']:.2f} A</b>.</p>
+        <h2>Design inputs</h2>
+        <p>Load = <b>{q['m']:.1f} kg</b>; lift distance = <b>{q['h']:.2f} m</b>; cycles = <b>{q['n']}</b>.</p>
+        <p>Locked settings: separate battery = <b>{q['v']:.1f} V</b>; DoD = {q['dod']*100:.0f}%; Reserve = {q['reserve']*100:.0f}%.</p>
+        <p>At {q['m']:.1f} kg: interpolated first-layer speed = <b>{q['up_speed']:.3f} m/min</b>; current = <b>{q['iup']:.2f} A</b>.</p>
+        <p>Lift distance {q['h']:.2f} m ends approximately on rope layer <b>{q['rope_layer']}</b>. Sheet line-pull at that layer = <b>{q['layer_pull_kg']:.0f} kg</b> → <b>{'WITHIN SHEET LINE-PULL' if q['layer_pull_ok'] else 'OVER SHEET LINE-PULL'}</b>.</p>
         <p><b>Lowering:</b> sheet does not list separate current/speed; calculation uses the same values conservatively.</p>
         <h2>Battery result — {q['n']} cycles</h2>
-        <p>t_up = 1.00 / {q['up_speed']:.3f} × 60 = <b>{q['tu']:.2f} s</b></p>
+        <p>t_up = {q['h']:.2f} / {q['up_speed']:.3f} × 60 = <b>{q['tu']:.2f} s</b></p>
         <p>E_up = 12 × {q['iup']:.2f} × {q['tu']:.2f} / 3600 = <b>{q['eu']:.3f} Wh</b></p>
         <p>E_cycle = <b>{q['eu']+q['ed']:.3f} Wh/cycle</b></p>
         <p>E_total = <b>{q['total']:.2f} Wh</b></p>
@@ -5961,9 +5981,10 @@ void loop() {{
         if not hasattr(self,"wcycles"):return
         self._sync_locked_winch_widgets();q=self.winch_results()
         self.wSummary.setText(
-            f"โหลดโปรเจกต์ 100 kg → First Layer interpolation: {q['up_speed']:.3f} m/min, {q['iup']:.2f} A\\n"
-            f"เวลาขึ้น ≈ {q['tu']:.1f} s/ครั้ง | ขาลงใช้ค่าเท่ากันแบบ conservative\\n"
-            f"พลังงานต่อรอบขึ้น+ลง ≈ {q['eu']+q['ed']:.2f} Wh | {q['n']} รอบ = {q['total']:.2f} Wh"
+            f"Load {q['m']:.1f} kg • Lift {q['h']:.2f} m • {q['n']} cycles\\n"
+            f"First Layer interpolation: {q['up_speed']:.3f} m/min, {q['iup']:.2f} A • เวลาขึ้น ≈ {q['tu']:.1f} s\\n"
+            f"Estimated rope layer {q['rope_layer']} • sheet line-pull {q['layer_pull_kg']:.0f} kg • {'OK' if q['layer_pull_ok'] else 'CHECK LOAD'}\\n"
+            f"พลังงานต่อรอบขึ้น+ลง ≈ {q['eu']+q['ed']:.2f} Wh • รวม = {q['total']:.2f} Wh"
         )
         self.wBatteryResult.setText(
             f"ความจุออกแบบ = {q['ah']:.2f} Ah @ 12 V\\n"
@@ -5976,7 +5997,7 @@ void loop() {{
         sp=self.winch_speed_results()
         if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
         if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3</h2><p>ใช้ใบสเปกจริงเป็นฐานและให้แก้เฉพาะจำนวนรอบขึ้น+ลง.</p>")
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.1</h2><p>ใช้ใบสเปกจริงเป็นฐาน และให้แก้ Load, Lift Distance และจำนวนรอบขึ้น+ลง.</p>")
         if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html(q))
         if hasattr(self,"wDutyView"):self.update_winch_duty()
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
