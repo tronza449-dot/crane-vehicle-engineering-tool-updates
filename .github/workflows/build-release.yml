@@ -186,18 +186,35 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- Winch regression ----------
-          for method in (0,1):
-              w.wspeedmethod.setCurrentIndex(method)
-              for parts in (1,2):
-                  w.wparts.setValue(parts)
-                  sp=w.winch_speed_results()
-                  for key in ("motor_up","drum_up","tension","drum_torque","load_up","load_down","time_up","time_down"):
-                      assert key in sp, f"Missing winch key: {key}"
-                      finite(sp[key])
-                  wr=w.winch_results()
-                  finite(wr["ah"],wr["tu"],wr["td"],wr["total"])
-                  assert wr["ah"] >= 0
+          # ---------- V53.3 Winch spec-sheet regression ----------
+          assert hasattr(w,"wSpecTable") and w.wSpecTable.rowCount()==13
+          assert hasattr(w,"wPerfTable") and w.wPerfTable.rowCount()==4
+          assert hasattr(w,"wLayerTable") and w.wLayerTable.rowCount()==5
+          assert w.wcycles.isEnabled() and w.wcycles.isVisible()
+          for locked_name in ("wmass","wheight","wvolt","wrated","wratio","wiup","widown","wdod","wreserve","wdiameter"):
+              locked=getattr(w,locked_name)
+              assert not locked.isEnabled(), f"{locked_name} must be locked in V53.3"
+
+          sp=w.winch_speed_results()
+          for key in ("motor_up","drum_up","tension","drum_torque","load_up","load_down","time_up","time_down","current_a"):
+              assert key in sp, f"Missing winch key: {key}"
+              finite(sp[key])
+          # 100 kg interpolation between 0 kg (3.3 m/min, 12 A) and 454 kg (2.5 m/min, 60 A).
+          expected_speed=3.3+(2.5-3.3)*(100.0/454.0)
+          expected_current=12.0+(60.0-12.0)*(100.0/454.0)
+          assert abs(sp["load_up"]-expected_speed)<1e-9
+          assert abs(sp["current_a"]-expected_current)<1e-9
+
+          w.wcycles.setValue(50)
+          wr50=w.winch_results()
+          finite(wr50["ah"],wr50["tu"],wr50["td"],wr50["total"])
+          assert wr50["n"]==50 and wr50["ah"]>0
+          assert wr50["max_spec_current"]==140.0
+          w.wcycles.setValue(100)
+          wr100=w.winch_results()
+          assert abs(wr100["total"]-2.0*wr50["total"])<1e-9
+          assert abs(wr100["ah"]-2.0*wr50["ah"])<1e-9
+          w.wcycles.setValue(50)
 
           # ---------- Stability regression ----------
           d=w.inputs()
