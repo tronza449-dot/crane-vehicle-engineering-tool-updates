@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.1"
+APP_VERSION = "53.3.2"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -4440,7 +4440,7 @@ void loop() {{
             ("F_lift","แรงยกเชิงน้ำหนัก","N",f"{q['f']:.1f}","(m_load + m_basket) × g"),
             ("E_total","พลังงานไฟฟ้ารวมตามจำนวนรอบ","Wh",f"{q['total']:.2f}","รวมขาขึ้นและขาลง"),
             ("Ah","ความจุแบตเตอรี่ที่คำนวณได้","Ah",f"{q['ah']:.2f}","ยังต้องตรวจ BMS/กระแสกระชาก"),
-            ("n_motor","รอบมอเตอร์ที่ใช้หน้า Speed","rpm",f"{sp['motor_up']:.0f}","ค่าที่กรอก/สมมติใน Speed model"),
+            ("n_motor","รอบมอเตอร์โดยอนุมานจาก Line Speed","rpm",f"{sp['motor_up']:.0f}","derived จาก line speed, drum Ø37 mm และ ratio 136:1; ไม่ใช่ค่าที่ใบสเปกระบุ"),
             ("n_drum","รอบดรัมขาขึ้น","rpm",f"{sp['drum_up']:.2f}","รอบมอเตอร์ ÷ อัตราทด"),
             ("T_rope","แรงตึงสลิง","N",f"{sp['tension']:.1f}","ขึ้นกับจำนวนส่วนสลิงและประสิทธิภาพรอก"),
             ("T_drum","แรงบิดดรัม","N·m",f"{sp['drum_torque']:.2f}","T_rope × รัศมีดรัม"),
@@ -5726,9 +5726,11 @@ void loop() {{
     def make_winch(self):
         w=QWidget();self.winchPage=w
         outer=QVBoxLayout(w);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
+        self.wTabs=QTabWidget(w);self.wTabs.setDocumentMode(True);self.wTabs.setUsesScrollButtons(True)
+        outer.addWidget(self.wTabs)
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame)
         content=QWidget();root=QVBoxLayout(content);root.setContentsMargins(18,16,18,20);root.setSpacing(12)
-        scroll.setWidget(content);outer.addWidget(scroll)
+        scroll.setWidget(content);self.wTabs.addTab(scroll,"Spec + Battery")
 
         header=QFrame();header.setObjectName("topHeader");header.setMinimumHeight(96);add_soft_shadow(header,20,4,25)
         nav=QHBoxLayout(header);nav.setContentsMargins(18,14,18,14);nav.setSpacing(14)
@@ -5769,9 +5771,12 @@ void loop() {{
         self.wparts=QSpinBox(w);self.wparts.setRange(1,12);self.wparts.setValue(1);self.wparts.setEnabled(False);self.wparts.hide()
         self.wspeedmethod=QComboBox(w);self.wspeedmethod.addItem("Manufacturer spec interpolation");self.wspeedmethod.setEnabled(False);self.wspeedmethod.hide()
         self.wusecalc=QCheckBox(w);self.wusecalc.setChecked(True);self.wusecalc.setEnabled(False);self.wusecalc.hide()
-        self.wTabs=QTabWidget(w);self.wTabs.hide()
-        self.wVars=QTextEdit(w);self.wVars.hide()
-        self.wSteps=QTextEdit(w);self.wSteps.hide()
+        self.wSteps=QTextEdit(w);self.wSteps.setReadOnly(True)
+        self.wSteps.setStyleSheet("font-size:11pt;padding:8px;")
+        self.wVars=QTextEdit(w);self.wVars.setReadOnly(True)
+        self.wVars.setStyleSheet("font-size:10.5pt;padding:8px;")
+        self.wTabs.addTab(self.wSteps,"สูตร + วิธีคำนวณ")
+        self.wTabs.addTab(self.wVars,"ตัวแปร / Variables")
         self.wGuide=QTextEdit(w);self.wGuide.hide()
         self.wResult=QTextEdit(w);self.wResult.hide()
         self.wSpeedSummary=QLabel(w);self.wSpeedSummary.hide()
@@ -5936,6 +5941,95 @@ void loop() {{
                     rope_layer=layer,layer_capacity_m=layer_capacity_m,layer_pull_kg=layer_pull_kg,
                     layer_pull_ok=(m<=layer_pull_kg))
 
+    def winch_formula_html(self,q):
+        spec=self._winch_locked_spec()
+        pts=spec["perf"]
+        m=q["m"]
+        x0,v0,i0,_=pts[0];x1,v1,i1,_=pts[1]
+        for a,b in zip(pts[:-1],pts[1:]):
+            if m<=b[0]:
+                x0,v0,i0,_=a;x1,v1,i1,_=b
+                break
+        alpha=(m-x0)/(x1-x0) if x1>x0 else 0.0
+        alpha=max(0.0,min(1.0,alpha))
+        p_up=q["v"]*q["iup"]
+        e_cycle=q["eu"]+q["ed"]
+        ah_raw=q["total"]/q["v"] if q["v"]>0 else 0.0
+        layer_status="PASS / อยู่ในค่าพิกัดจากตาราง" if q["layer_pull_ok"] else "CHECK / โหลดเกินค่าพิกัดของชั้นสลิงนี้"
+        return f"""
+        <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt;line-height:1.45">
+        <h1 style="color:#17324d">WINCH — สูตร + วิธีคำนวณ</h1>
+        <p><b>Input ปัจจุบัน:</b> Load = {q['m']:.1f} kg, Lift Distance = {q['h']:.2f} m, Cycles = {q['n']} รอบ</p>
+        <p><b>ค่าคงที่ที่ใช้:</b> V = {q['v']:.1f} V, DoD = {q['dod']*100:.0f}%, Reserve = {q['reserve']*100:.0f}%</p>
+
+        <h2>1) เลือกช่วงข้อมูลจากตาราง First Layer</h2>
+        <p>โหลด {q['m']:.1f} kg อยู่ระหว่าง <b>{x0:.0f} kg</b> และ <b>{x1:.0f} kg</b></p>
+        <p>จุดล่าง: v₀ = {v0:.3f} m/min, I₀ = {i0:.2f} A<br>
+        จุดบน: v₁ = {v1:.3f} m/min, I₁ = {i1:.2f} A</p>
+
+        <h2>2) หาอัตราส่วน Interpolation</h2>
+        <p><b>สูตร:</b> α = (m - m₀) / (m₁ - m₀)</p>
+        <p><b>แทนค่า:</b> α = ({q['m']:.1f} - {x0:.1f}) / ({x1:.1f} - {x0:.1f}) = <b>{alpha:.4f}</b></p>
+
+        <h2>3) คำนวณความเร็วสลิงตามโหลด</h2>
+        <p><b>สูตร:</b> v = v₀ + α(v₁ - v₀)</p>
+        <p><b>แทนค่า:</b> v = {v0:.3f} + {alpha:.4f}({v1:.3f} - {v0:.3f}) = <b>{q['up_speed']:.3f} m/min</b></p>
+
+        <h2>4) คำนวณกระแสมอเตอร์ตามโหลด</h2>
+        <p><b>สูตร:</b> I = I₀ + α(I₁ - I₀)</p>
+        <p><b>แทนค่า:</b> I = {i0:.2f} + {alpha:.4f}({i1:.2f} - {i0:.2f}) = <b>{q['iup']:.2f} A</b></p>
+
+        <h2>5) คำนวณเวลายก</h2>
+        <p><b>สูตร:</b> t<sub>up</sub> = (h / v) × 60</p>
+        <p><b>แทนค่า:</b> t<sub>up</sub> = ({q['h']:.2f} / {q['up_speed']:.3f}) × 60 = <b>{q['tu']:.2f} s</b></p>
+        <p>ใบสเปกไม่ระบุค่าขาลงแยกต่างหาก จึงใช้แบบ conservative:
+        t<sub>down</sub> = t<sub>up</sub> = <b>{q['td']:.2f} s</b></p>
+
+        <h2>6) คำนวณกำลังไฟฟ้าขณะทำงาน</h2>
+        <p><b>สูตร:</b> P = V × I</p>
+        <p><b>แทนค่า:</b> P = {q['v']:.1f} × {q['iup']:.2f} = <b>{p_up:.2f} W</b></p>
+
+        <h2>7) คำนวณพลังงานขาขึ้น</h2>
+        <p><b>สูตร:</b> E<sub>up</sub> = V × I × t / 3600</p>
+        <p><b>แทนค่า:</b> E<sub>up</sub> = {q['v']:.1f} × {q['iup']:.2f} × {q['tu']:.2f} / 3600
+        = <b>{q['eu']:.3f} Wh</b></p>
+
+        <h2>8) คำนวณพลังงานขาลง</h2>
+        <p>ใช้ I<sub>down</sub> = I<sub>up</sub> และ t<sub>down</sub> = t<sub>up</sub> เป็นสมมติฐาน conservative</p>
+        <p><b>สูตร:</b> E<sub>down</sub> = V × I<sub>down</sub> × t<sub>down</sub> / 3600</p>
+        <p><b>คำตอบ:</b> E<sub>down</sub> = <b>{q['ed']:.3f} Wh</b></p>
+
+        <h2>9) พลังงานต่อ 1 รอบขึ้น+ลง</h2>
+        <p><b>สูตร:</b> E<sub>cycle</sub> = E<sub>up</sub> + E<sub>down</sub></p>
+        <p><b>แทนค่า:</b> {q['eu']:.3f} + {q['ed']:.3f} = <b>{e_cycle:.3f} Wh/รอบ</b></p>
+
+        <h2>10) พลังงานรวมตามจำนวนรอบ</h2>
+        <p><b>สูตร:</b> E<sub>total</sub> = N × E<sub>cycle</sub></p>
+        <p><b>แทนค่า:</b> {q['n']} × {e_cycle:.3f} = <b>{q['total']:.2f} Wh</b></p>
+
+        <h2>11) แปลงเป็น Ah ก่อนเผื่อ</h2>
+        <p><b>สูตร:</b> Ah<sub>used</sub> = E<sub>total</sub> / V</p>
+        <p><b>แทนค่า:</b> {q['total']:.2f} / {q['v']:.1f} = <b>{ah_raw:.2f} Ah</b></p>
+
+        <h2>12) ความจุแบตออกแบบหลัง DoD + Reserve</h2>
+        <p><b>สูตร:</b> Ah<sub>design</sub> = E<sub>total</sub>(1 + Reserve) / (V × DoD)</p>
+        <p><b>แทนค่า:</b> {q['total']:.2f} × (1 + {q['reserve']:.2f}) / ({q['v']:.1f} × {q['dod']:.2f})
+        = <b>{q['ah']:.2f} Ah</b></p>
+        <p>ขนาดมาตรฐานที่ไม่น้อยกว่าค่าคำนวณ = <b>{q['standard_ah']:.0f} Ah</b><br>
+        ถ้าต้องการเผื่อเพิ่มอีกหนึ่งขนาด = <b>{q['extra_margin_ah']:.0f} Ah</b></p>
+
+        <h2>13) ตรวจ Rope Layer ตามระยะยก</h2>
+        <p>ระยะยก {q['h']:.2f} m → ประมาณ Layer <b>{q['rope_layer']}</b>
+        (สมมติเริ่มพันจากชั้นแรก) และในใบสเปกระบุ Line Pull ของชั้นนี้ = <b>{q['layer_pull_kg']:.0f} kg</b></p>
+        <p>Load = {q['m']:.1f} kg → <b>{layer_status}</b></p>
+
+        <hr>
+        <p><b>ข้อจำกัดของวิธีนี้:</b> ตาราง Speed/Current ในใบที่ส่งมาเป็นข้อมูล <b>First Layer</b>.
+        เมื่อสลิงขึ้นชั้นสูงกว่า ความเร็ว/แรงดึงจริงอาจเปลี่ยน และใบสเปกไม่ได้ให้กระแสขาลงหรือ Starting/Stall surge.
+        ดังนั้นหน้าคำนวณนี้เหมาะสำหรับประมาณแบตเตอรี่เชิงออกแบบ และควรยืนยันด้วยการวัดจริงก่อนเลือก BMS/ฟิวส์/สายขั้นสุดท้าย.</p>
+        </body></html>
+        """
+
     def winch_html(self,q):
         return f"""
         <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt">
@@ -5991,7 +6085,7 @@ void loop() {{
             f"ขนาดมาตรฐานอย่างน้อย ≈ {q['standard_ah']:.0f} Ah | เผื่อเพิ่มอีกขั้น ≈ {q['extra_margin_ah']:.0f} Ah\\n"
             f"กระแสใช้งาน ≈ {q['iup']:.1f} A • ตารางผู้ผลิตสูงสุด 140 A • Start/Stall surge: ไม่ระบุ"
         )
-        if hasattr(self,"wSteps"):self.wSteps.setHtml(self.winch_html(q))
+        if hasattr(self,"wSteps"):self.wSteps.setHtml(self.winch_formula_html(q))
         if hasattr(self,"wVars"):self.wVars.setHtml(self.winch_variables_html())
         if hasattr(self,"allWVars"):self.allWVars.setHtml(self.winch_variables_html())
         sp=self.winch_speed_results()
@@ -6008,7 +6102,8 @@ void loop() {{
         if not filename.lower().endswith(".pdf"):filename+=".pdf"
         try:
             q=self.winch_results()
-            doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(self.winch_html(q))
+            doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10))
+            doc.setHtml(self.winch_formula_html(q)+"<hr>"+self.winch_html(q)+"<hr>"+self.winch_variables_html())
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
             QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\\n"+filename)
