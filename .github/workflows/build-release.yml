@@ -186,31 +186,52 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- V53.3 Winch spec-sheet regression ----------
+          # ---------- V53.3.1 Winch spec-sheet regression ----------
           assert hasattr(w,"wSpecTable") and w.wSpecTable.rowCount()==13
           assert hasattr(w,"wPerfTable") and w.wPerfTable.rowCount()==4
           assert hasattr(w,"wLayerTable") and w.wLayerTable.rowCount()==5
-          assert w.wcycles.isEnabled() and w.wcycles.isVisible()
-          for locked_name in ("wmass","wheight","wvolt","wrated","wratio","wiup","widown","wdod","wreserve","wdiameter"):
-              locked=getattr(w,locked_name)
-              assert not locked.isEnabled(), f"{locked_name} must be locked in V53.3"
 
+          # Exactly the three design inputs are editable on the Winch page.
+          for editable_name in ("wmass","wheight","wcycles"):
+              editable=getattr(w,editable_name)
+              assert editable.isEnabled(), f"{editable_name} must be editable in V53.3.1"
+              assert not editable.isHidden(), f"{editable_name} must be visible in V53.3.1"
+          for locked_name in ("wvolt","wrated","wratio","wiup","widown","wdod","wreserve","wdiameter"):
+              locked=getattr(w,locked_name)
+              assert not locked.isEnabled(), f"{locked_name} must remain locked"
+
+          # 100 kg interpolation between 0 kg (3.3 m/min, 12 A) and 454 kg (2.5 m/min, 60 A).
+          w.wmass.setValue(100.0);w.wheight.setValue(1.0);w.wcycles.setValue(50)
           sp=w.winch_speed_results()
           for key in ("motor_up","drum_up","tension","drum_torque","load_up","load_down","time_up","time_down","current_a"):
               assert key in sp, f"Missing winch key: {key}"
               finite(sp[key])
-          # 100 kg interpolation between 0 kg (3.3 m/min, 12 A) and 454 kg (2.5 m/min, 60 A).
           expected_speed=3.3+(2.5-3.3)*(100.0/454.0)
           expected_current=12.0+(60.0-12.0)*(100.0/454.0)
           assert abs(sp["load_up"]-expected_speed)<1e-9
           assert abs(sp["current_a"]-expected_current)<1e-9
 
-          w.wcycles.setValue(50)
           wr50=w.winch_results()
           finite(wr50["ah"],wr50["tu"],wr50["td"],wr50["total"])
           assert wr50["n"]==50 and wr50["ah"]>0
+          assert wr50["rope_layer"]==1 and wr50["layer_pull_kg"]==2041.0
           assert wr50["max_spec_current"]==140.0
-          w.wcycles.setValue(100)
+
+          # Lift distance changes time/energy and crossing 1.5 m enters layer 2.
+          w.wheight.setValue(2.0)
+          wr2m=w.winch_results()
+          assert abs(wr2m["tu"]-2.0*wr50["tu"])<1e-9
+          assert abs(wr2m["total"]-2.0*wr50["total"])<1e-9
+          assert wr2m["rope_layer"]==2 and wr2m["layer_pull_kg"]==1597.0
+
+          # Load changes interpolation automatically.
+          w.wheight.setValue(1.0);w.wmass.setValue(454.0)
+          wr454=w.winch_results()
+          assert abs(wr454["up_speed"]-2.5)<1e-9
+          assert abs(wr454["iup"]-60.0)<1e-9
+
+          # Cycle count remains linear.
+          w.wmass.setValue(100.0);w.wcycles.setValue(100)
           wr100=w.winch_results()
           assert abs(wr100["total"]-2.0*wr50["total"])<1e-9
           assert abs(wr100["ah"]-2.0*wr50["ah"])<1e-9
