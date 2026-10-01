@@ -1,48 +1,44 @@
-# Crane Vehicle Engineering Tool V53.3.0
+# Crane Vehicle Engineering Tool V53.3.1
 
-## Winch page redesigned from the supplied 4500LB specification sheet
+## Winch design inputs update
 
-เปลี่ยนเมนู Winch จากหน้ากรอกสมมติฐานหลายค่า เป็นหน้า Specification + Battery Calculator หน้าเดียว
+ปรับหน้า Winch จาก V53.3.0 ให้รองรับการเปลี่ยนแบบระหว่างออกแบบ โดยยังยึดใบ 4500LB. WINCH SPECIFICATION เป็นฐาน
 
-### Manufacturer data shown as locked specification
-- Rated line pull: 4500 lb (2041 kg), single line
-- Motor: Permanent magnet, 1.4 kW / 1.9 hp
-- Gear reduction: 136:1
-- Gear train: Differential Planetary
-- Cable: Ø5 mm × 10 m
-- Control: Remote switch
-- Drum: Ø37 mm × 72 mm
-- Clutch: Sliding Ring Gear
-- Braking: Automatic In-The-Drum
-- Dimensions: 316 × 120 × 106 mm
-- Mounting pattern: 166 × 76 mm, Ø9 mm
-- Weight: N.W. 9 kg / G.W. 10 kg
-- Packing: 43 × 30.5 × 36 cm, 2PC
-- First-layer pull / speed / motor-current table
-- Rope-layer pull / capacity table
+### Editable Winch inputs
+ผู้ใช้แก้ได้ 3 ค่า:
+- Load / โหลดที่ยก (kg)
+- Lift Distance / ระยะยก (m)
+- Cycles / จำนวนรอบขึ้น+ลง
 
-### User-editable input
-- จำนวนรอบขึ้น + ลง เท่านั้น
+### Locked manufacturer / calculation settings
+ข้อมูลจากใบสเปกยังล็อก:
+- Rated pull 4500 lb / 2041 kg
+- Motor 1.4 kW / 1.9 hp
+- Gear ratio 136:1
+- Rope Ø5 mm × 10 m
+- Drum Ø37 mm × 72 mm
+- First-layer pull / speed / current table
+- Rope layer capacity / line-pull table
 
-### Locked project assumptions
-These are shown separately because they are not all stated in the visible specification sheet:
-- Payload = 100 kg
-- Lift distance = 1.00 m per travel
-- Separate winch battery = 12 V
+ค่าคำนวณที่ยังล็อก:
+- Separate Winch battery = 12 V
 - DoD = 80%
 - Reserve = 20%
 
-### Battery calculation
-- Interpolates first-layer speed and current at 100 kg from the manufacturer table
-- 100 kg result is approximately 3.124 m/min and 22.57 A
-- Calculates lift time, Wh/cycle, total Wh and design Ah from cycle count
-- Shows minimum standard battery size and next extra-margin size
-- Manufacturer table maximum current 140 A is used as the high-current BMS check reference
+### Automatic recalculation
+- เปลี่ยน Load → โปรแกรม interpolate ความเร็วและกระแสจาก First Layer table ใหม่ทันที
+- เปลี่ยน Lift Distance → เวลา, Wh และ Ah เปลี่ยนตามระยะ
+- เปลี่ยน Cycles → พลังงานรวมและ Ah เปลี่ยนตามจำนวนรอบ
+- แสดง estimated ending rope layer จากตาราง rope capacity
+- แสดง line-pull ของ layer นั้นเพื่อช่วยตรวจว่า Load อยู่ภายในข้อมูลบนใบสเปกหรือไม่
+- ข้อมูลขาลงยังไม่อยู่ในใบสเปก จึงใช้ค่าเท่าขาขึ้นแบบ conservative และระบุชัดใน UI
 
-### Source limitation shown in the UI
-The sheet does not provide separate lowering current/speed or starting/stall surge. V53.3 therefore uses the lifting current/speed for lowering as a conservative calculation assumption and clearly labels it as an assumption rather than manufacturer data.
-
-### Other project changes retained
-- System Flowchart remains removed from the active application
-- Control Logic / Safety Simulator remains available
-- Hardware I/O, WiFi Telemetry, Drive, Battery, Stability and Engineering Suite remain available
+### Regression tests
+GitHub Actions ทดสอบว่า:
+- Load / Lift Distance / Cycles เป็น input ที่แก้ได้
+- ค่า spec อื่นยังล็อก
+- 100 kg interpolation ถูกต้อง
+- 454 kg ให้ 2.5 m/min และ 60 A ตามตาราง
+- ระยะยกเพิ่ม 2 เท่า ทำให้เวลาและพลังงานเพิ่มตาม
+- ระยะมากกว่า 1.5 m เปลี่ยนไปตรวจ rope layer 2
+- จำนวนรอบเพิ่ม 2 เท่า ทำให้ Wh/Ah เพิ่ม 2 เท่า
