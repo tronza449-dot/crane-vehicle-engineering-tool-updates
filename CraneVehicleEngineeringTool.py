@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.2"
+APP_VERSION = "53.3.3"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -5776,7 +5776,11 @@ void loop() {{
         self.wVars=QTextEdit(w);self.wVars.setReadOnly(True)
         self.wVars.setStyleSheet("font-size:10.5pt;padding:8px;")
         self.wTabs.addTab(self.wSteps,"สูตร + วิธีคำนวณ")
+        self.wVars.setReadOnly(True)
         self.wTabs.addTab(self.wVars,"ตัวแปร / Variables")
+        self.wCalcSummary=QTextEdit(w);self.wCalcSummary.setReadOnly(True)
+        self.wCalcSummary.setStyleSheet("font-size:11pt;padding:8px;")
+        self.wTabs.addTab(self.wCalcSummary,"สรุปการคำนวณ")
         self.wGuide=QTextEdit(w);self.wGuide.hide()
         self.wResult=QTextEdit(w);self.wResult.hide()
         self.wSpeedSummary=QLabel(w);self.wSpeedSummary.hide()
@@ -5969,50 +5973,61 @@ void loop() {{
 
         <h2>2) หาอัตราส่วน Interpolation</h2>
         <p><b>สูตร:</b> α = (m - m₀) / (m₁ - m₀)</p>
+        <p><b>ความหมาย:</b> อัตราส่วน interpolation = (โหลดที่ต้องการ - โหลดจุดล่าง) ÷ (โหลดจุดบน - โหลดจุดล่าง)</p>
         <p><b>แทนค่า:</b> α = ({q['m']:.1f} - {x0:.1f}) / ({x1:.1f} - {x0:.1f}) = <b>{alpha:.4f}</b></p>
 
         <h2>3) คำนวณความเร็วสลิงตามโหลด</h2>
         <p><b>สูตร:</b> v = v₀ + α(v₁ - v₀)</p>
+        <p><b>ความหมาย:</b> ความเร็วสลิงที่โหลดปัจจุบัน = ความเร็วจุดล่าง + อัตราส่วน interpolation × ส่วนต่างความเร็วระหว่างสองจุด</p>
         <p><b>แทนค่า:</b> v = {v0:.3f} + {alpha:.4f}({v1:.3f} - {v0:.3f}) = <b>{q['up_speed']:.3f} m/min</b></p>
 
         <h2>4) คำนวณกระแสมอเตอร์ตามโหลด</h2>
         <p><b>สูตร:</b> I = I₀ + α(I₁ - I₀)</p>
+        <p><b>ความหมาย:</b> กระแสมอเตอร์ที่โหลดปัจจุบัน = กระแสจุดล่าง + อัตราส่วน interpolation × ส่วนต่างกระแสระหว่างสองจุด</p>
         <p><b>แทนค่า:</b> I = {i0:.2f} + {alpha:.4f}({i1:.2f} - {i0:.2f}) = <b>{q['iup']:.2f} A</b></p>
 
         <h2>5) คำนวณเวลายก</h2>
         <p><b>สูตร:</b> t<sub>up</sub> = (h / v) × 60</p>
+        <p><b>ความหมาย:</b> เวลายกขึ้น = ระยะยก ÷ ความเร็วสลิง × 60 เพราะ h/v ได้หน่วยเป็นนาที แล้วคูณ 60 เพื่อแปลงเป็นวินาที</p>
         <p><b>แทนค่า:</b> t<sub>up</sub> = ({q['h']:.2f} / {q['up_speed']:.3f}) × 60 = <b>{q['tu']:.2f} s</b></p>
         <p>ใบสเปกไม่ระบุค่าขาลงแยกต่างหาก จึงใช้แบบ conservative:
         t<sub>down</sub> = t<sub>up</sub> = <b>{q['td']:.2f} s</b></p>
 
         <h2>6) คำนวณกำลังไฟฟ้าขณะทำงาน</h2>
         <p><b>สูตร:</b> P = V × I</p>
+        <p><b>ความหมาย:</b> กำลังไฟฟ้าที่วินช์ใช้ = แรงดันแบตเตอรี่ × กระแสมอเตอร์</p>
         <p><b>แทนค่า:</b> P = {q['v']:.1f} × {q['iup']:.2f} = <b>{p_up:.2f} W</b></p>
 
         <h2>7) คำนวณพลังงานขาขึ้น</h2>
         <p><b>สูตร:</b> E<sub>up</sub> = V × I × t / 3600</p>
+        <p><b>ความหมาย:</b> พลังงานขาขึ้น = กำลังไฟฟ้า × เวลาทำงาน และหาร 3600 เพื่อแปลงวินาทีเป็นชั่วโมง จึงได้หน่วย Wh</p>
         <p><b>แทนค่า:</b> E<sub>up</sub> = {q['v']:.1f} × {q['iup']:.2f} × {q['tu']:.2f} / 3600
         = <b>{q['eu']:.3f} Wh</b></p>
 
         <h2>8) คำนวณพลังงานขาลง</h2>
         <p>ใช้ I<sub>down</sub> = I<sub>up</sub> และ t<sub>down</sub> = t<sub>up</sub> เป็นสมมติฐาน conservative</p>
         <p><b>สูตร:</b> E<sub>down</sub> = V × I<sub>down</sub> × t<sub>down</sub> / 3600</p>
+        <p><b>ความหมาย:</b> พลังงานขาลง = แรงดัน × กระแสขาลง × เวลาขาลง ÷ 3600</p>
         <p><b>คำตอบ:</b> E<sub>down</sub> = <b>{q['ed']:.3f} Wh</b></p>
 
         <h2>9) พลังงานต่อ 1 รอบขึ้น+ลง</h2>
         <p><b>สูตร:</b> E<sub>cycle</sub> = E<sub>up</sub> + E<sub>down</sub></p>
+        <p><b>ความหมาย:</b> พลังงาน 1 รอบ = พลังงานตอนยกขึ้น + พลังงานตอนปล่อยลง</p>
         <p><b>แทนค่า:</b> {q['eu']:.3f} + {q['ed']:.3f} = <b>{e_cycle:.3f} Wh/รอบ</b></p>
 
         <h2>10) พลังงานรวมตามจำนวนรอบ</h2>
         <p><b>สูตร:</b> E<sub>total</sub> = N × E<sub>cycle</sub></p>
+        <p><b>ความหมาย:</b> พลังงานรวม = จำนวนรอบ × พลังงานที่ใช้ต่อหนึ่งรอบขึ้น+ลง</p>
         <p><b>แทนค่า:</b> {q['n']} × {e_cycle:.3f} = <b>{q['total']:.2f} Wh</b></p>
 
         <h2>11) แปลงเป็น Ah ก่อนเผื่อ</h2>
         <p><b>สูตร:</b> Ah<sub>used</sub> = E<sub>total</sub> / V</p>
+        <p><b>ความหมาย:</b> ความจุที่ถูกใช้จริง = พลังงานรวม Wh ÷ แรงดันแบตเตอรี่ V</p>
         <p><b>แทนค่า:</b> {q['total']:.2f} / {q['v']:.1f} = <b>{ah_raw:.2f} Ah</b></p>
 
         <h2>12) ความจุแบตออกแบบหลัง DoD + Reserve</h2>
         <p><b>สูตร:</b> Ah<sub>design</sub> = E<sub>total</sub>(1 + Reserve) / (V × DoD)</p>
+        <p><b>ความหมาย:</b> ความจุแบตที่ควรออกแบบ = พลังงานรวมที่เผื่อ Reserve แล้ว ÷ (แรงดันแบต × สัดส่วน DoD ที่อนุญาตให้ใช้)</p>
         <p><b>แทนค่า:</b> {q['total']:.2f} × (1 + {q['reserve']:.2f}) / ({q['v']:.1f} × {q['dod']:.2f})
         = <b>{q['ah']:.2f} Ah</b></p>
         <p>ขนาดมาตรฐานที่ไม่น้อยกว่าค่าคำนวณ = <b>{q['standard_ah']:.0f} Ah</b><br>
@@ -6027,6 +6042,72 @@ void loop() {{
         <p><b>ข้อจำกัดของวิธีนี้:</b> ตาราง Speed/Current ในใบที่ส่งมาเป็นข้อมูล <b>First Layer</b>.
         เมื่อสลิงขึ้นชั้นสูงกว่า ความเร็ว/แรงดึงจริงอาจเปลี่ยน และใบสเปกไม่ได้ให้กระแสขาลงหรือ Starting/Stall surge.
         ดังนั้นหน้าคำนวณนี้เหมาะสำหรับประมาณแบตเตอรี่เชิงออกแบบ และควรยืนยันด้วยการวัดจริงก่อนเลือก BMS/ฟิวส์/สายขั้นสุดท้าย.</p>
+        </body></html>
+        """
+
+    def winch_summary_html(self,q):
+        ah_used=q["total"]/q["v"] if q["v"]>0 else 0.0
+        e_cycle=q["eu"]+q["ed"]
+        layer_status="PASS" if q["layer_pull_ok"] else "CHECK"
+        return f"""
+        <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt;line-height:1.5">
+        <h1 style="color:#17324d">WINCH — สรุปการคำนวณ</h1>
+        <p>สรุปค่าหลักตั้งแต่ Input → Datasheet → เวลา → พลังงาน → Battery Capacity</p>
+
+        <h2>1. ข้อมูลที่ผู้ใช้กำหนด</h2>
+        <table border="1" cellspacing="0" cellpadding="7" width="100%">
+        <tr><td><b>Load</b></td><td>{q['m']:.1f} kg</td><td>น้ำหนักที่ต้องการยก</td></tr>
+        <tr><td><b>Lift Distance</b></td><td>{q['h']:.2f} m</td><td>ระยะยกแนวดิ่งต่อเที่ยว</td></tr>
+        <tr><td><b>Cycles</b></td><td>{q['n']} รอบ</td><td>1 รอบ = ขึ้น + ลง</td></tr>
+        </table>
+
+        <h2>2. ค่าที่ใช้จากใบสเปก / การ Interpolate</h2>
+        <table border="1" cellspacing="0" cellpadding="7" width="100%">
+        <tr><td>Battery voltage</td><td>{q['v']:.1f} V</td><td>แบตวินช์แยก</td></tr>
+        <tr><td>Line speed @ {q['m']:.1f} kg</td><td><b>{q['up_speed']:.3f} m/min</b></td><td>Interpolate จาก First Layer table</td></tr>
+        <tr><td>Motor current @ {q['m']:.1f} kg</td><td><b>{q['iup']:.2f} A</b></td><td>Interpolate จาก First Layer table</td></tr>
+        <tr><td>Manufacturer table maximum</td><td>140 A</td><td>ที่ 4500 lb / 2041 kg First Layer</td></tr>
+        </table>
+
+        <h2>3. เวลาในการทำงาน</h2>
+        <table border="1" cellspacing="0" cellpadding="7" width="100%">
+        <tr><td>t_up</td><td><b>{q['tu']:.2f} s</b></td><td>ระยะยก ÷ ความเร็ว × 60</td></tr>
+        <tr><td>t_down</td><td><b>{q['td']:.2f} s</b></td><td>ใช้เท่าขาขึ้นแบบ conservative</td></tr>
+        <tr><td>เวลามอเตอร์ต่อรอบ</td><td><b>{q['tu']+q['td']:.2f} s</b></td><td>t_up + t_down</td></tr>
+        </table>
+
+        <h2>4. พลังงาน</h2>
+        <table border="1" cellspacing="0" cellpadding="7" width="100%">
+        <tr><td>E_up</td><td>{q['eu']:.3f} Wh</td><td>พลังงานยกขึ้น 1 ครั้ง</td></tr>
+        <tr><td>E_down</td><td>{q['ed']:.3f} Wh</td><td>พลังงานลง 1 ครั้ง (สมมติฐาน)</td></tr>
+        <tr><td>E_cycle</td><td><b>{e_cycle:.3f} Wh/รอบ</b></td><td>ขึ้น + ลง</td></tr>
+        <tr><td>E_total</td><td><b>{q['total']:.2f} Wh</b></td><td>{q['n']} รอบ</td></tr>
+        </table>
+
+        <h2>5. ขนาดแบตเตอรี่</h2>
+        <table border="1" cellspacing="0" cellpadding="7" width="100%">
+        <tr><td>Ah ที่ใช้ก่อนเผื่อ</td><td>{ah_used:.2f} Ah</td><td>E_total ÷ V</td></tr>
+        <tr><td>DoD</td><td>{q['dod']*100:.0f}%</td><td>สัดส่วนความจุที่ยอมให้ใช้งาน</td></tr>
+        <tr><td>Reserve</td><td>{q['reserve']*100:.0f}%</td><td>เผื่อพลังงานเพิ่ม</td></tr>
+        <tr><td>Ah_design</td><td><b>{q['ah']:.2f} Ah</b></td><td>ค่าความจุออกแบบ</td></tr>
+        <tr><td>Standard size ≥ calculation</td><td><b>{q['standard_ah']:.0f} Ah</b></td><td>ขั้นต่ำเชิงพลังงาน</td></tr>
+        <tr><td>Extra-margin size</td><td><b>{q['extra_margin_ah']:.0f} Ah</b></td><td>เผื่อเพิ่มอีกหนึ่งขนาด</td></tr>
+        </table>
+
+        <h2>6. Rope Layer Check</h2>
+        <table border="1" cellspacing="0" cellpadding="7" width="100%">
+        <tr><td>Estimated ending layer</td><td>Layer {q['rope_layer']}</td></tr>
+        <tr><td>Sheet line-pull at layer</td><td>{q['layer_pull_kg']:.0f} kg</td></tr>
+        <tr><td>Project load</td><td>{q['m']:.1f} kg</td></tr>
+        <tr><td>Status</td><td><b>{layer_status}</b></td></tr>
+        </table>
+
+        <h2>สรุปสุดท้าย</h2>
+        <p>สำหรับ Load <b>{q['m']:.1f} kg</b>, ระยะยก <b>{q['h']:.2f} m</b>, จำนวน <b>{q['n']} รอบ</b>:
+        ต้องการความจุเชิงพลังงานประมาณ <b>{q['ah']:.2f} Ah @ {q['v']:.1f} V</b>.
+        โปรแกรมจึงเลือกขนาดมาตรฐานขั้นต่ำที่ไม่น้อยกว่าค่าคำนวณเป็น <b>{q['standard_ah']:.0f} Ah</b>.</p>
+        <p><b>สำคัญ:</b> Ah อย่างเดียวไม่พอในการเลือกแบตจริง ต้องตรวจความสามารถจ่ายกระแสของเซลล์/BMS ด้วย.
+        ใบสเปกระบุกระแสสูงสุดในตาราง 140 A แต่ไม่ได้ระบุ Starting/Stall surge.</p>
         </body></html>
         """
 
@@ -6087,11 +6168,12 @@ void loop() {{
         )
         if hasattr(self,"wSteps"):self.wSteps.setHtml(self.winch_formula_html(q))
         if hasattr(self,"wVars"):self.wVars.setHtml(self.winch_variables_html())
+        if hasattr(self,"wCalcSummary"):self.wCalcSummary.setHtml(self.winch_summary_html(q))
         if hasattr(self,"allWVars"):self.allWVars.setHtml(self.winch_variables_html())
         sp=self.winch_speed_results()
         if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
         if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.1</h2><p>ใช้ใบสเปกจริงเป็นฐาน และให้แก้ Load, Lift Distance และจำนวนรอบขึ้น+ลง.</p>")
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.3</h2><p>ใช้ใบสเปกจริงเป็นฐาน และให้แก้ Load, Lift Distance และจำนวนรอบขึ้น+ลง.</p>")
         if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html(q))
         if hasattr(self,"wDutyView"):self.update_winch_duty()
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
@@ -6103,7 +6185,7 @@ void loop() {{
         try:
             q=self.winch_results()
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10))
-            doc.setHtml(self.winch_formula_html(q)+"<hr>"+self.winch_html(q)+"<hr>"+self.winch_variables_html())
+            doc.setHtml(self.winch_summary_html(q)+"<hr>"+self.winch_formula_html(q)+"<hr>"+self.winch_html(q)+"<hr>"+self.winch_variables_html())
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
             QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\\n"+filename)
