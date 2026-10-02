@@ -186,7 +186,7 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- V53.3.6 Winch single-source-of-truth regression ----------
+          # ---------- V53.3.7 Winch Thai-formula + single-source regression ----------
           assert hasattr(w,"wTabs") and w.wTabs.count()==5
           assert w.wTabs.tabText(0)=="Spec / Datasheet"
           assert "สูตร" in w.wTabs.tabText(1)
@@ -257,6 +257,18 @@ jobs:
           assert "Datasheet" in formula and "Battery" in formula and "รอบการทำงาน" in formula
           assert "Ah_design" in formula
           assert "64" in formula and "34." in formula
+          # V53.3.7: every important symbolic formula also has a Thai-language formula.
+          assert "สูตรภาษาไทย" in formula
+          assert "เวลายกขึ้น = ระยะยก ÷ ความเร็ววินช์ขาขึ้น × 60" in formula
+          assert "พลังงานขาขึ้น = แรงดันแบต × กระแสขณะยกขึ้น × เวลายกขึ้น ÷ 3600" in formula
+          assert "พลังงานขาลง = แรงดันแบต × กระแสขณะลดลง × เวลาลดลง ÷ 3600" in formula
+          assert "ความจุแบตออกแบบ = พลังงานรวม" in formula
+          op_html=w.winch_operation_html(op)
+          assert "สูตรภาษาไทย" in op_html
+          assert "เวลารวมต่อรอบ = เวลาวิ่งรถไป-กลับ + เวลางานยกรวม + เวลาหยุดอื่น" in op_html
+          bat_html=w.winch_battery_html(b)
+          assert "สูตรภาษาไทย" in bat_html
+          assert "ความจุแบตที่ใช้จริง = พลังงานรวม ÷ แรงดันแบตเตอรี่" in bat_html
           summary=w.winch_summary_html()
           assert "Data flow" in summary
           assert "32 round trips" in summary
