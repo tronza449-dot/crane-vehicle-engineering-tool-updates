@@ -1,68 +1,25 @@
-# Crane Vehicle Engineering Tool V53.6.1
+# Crane Vehicle Engineering Tool V53.6.2
 
-## Main Battery 72 V — Purchase Check + Reverse Runtime
+## Web Dashboard Click Fix
 
-อัปเดตรอบนี้เพิ่ม 3 ส่วนตามที่ต้องการสำหรับการเลือกแบตรถจริง
+แก้ปัญหาหน้าเว็บเปิดได้ แต่ปุ่ม/แท็บ/การ์ด Dashboard กดไม่ได้ทั้งหมด
 
-### 1) BMS Continuous / Peak Check
-โปรแกรมแสดงค่ากระแสที่แบตและ BMS ต้องรองรับ:
-- Continuous current requirement
-- Peak current requirement
-- Recommended BMS floor (ปัดขึ้นทีละ 5 A)
-- Candidate BMS Continuous = PASS / CHECK
-- Candidate BMS Peak = PASS / CHECK
+### สาเหตุ
+JavaScript ของหน้า Dashboard ใช้ single-element selector กับ `.forEach()`
+ทำให้ script หยุดทำงานตั้งแต่ตอน bind ปุ่ม:
+- Server status ค้างที่ "กำลังเชื่อมต่อ Server..."
+- Version ค้างเป็น "-"
+- Dashboard tabs กดไม่ได้
+- Dashboard cards กดไม่ได้
+- ปุ่มคำนวณทั้งหมดไม่ทำงาน
 
-ยังคงเตือนว่าต้องยืนยัน Battery Current limit ของ VESC และ datasheet ของ Pack/BMS จริงก่อนซื้อ
+### แก้ไข
+- เปลี่ยนการ bind tabs/pages/cards ให้ใช้ querySelectorAll helper (`$$`) ถูกต้อง
+- เพิ่ม regression check ใน workflow เพื่อกัน bug แบบนี้กลับมาอีก
 
-### 2) Compare Battery Size
-หน้า Battery Selection เปรียบเทียบขนาดมาตรฐานหลายขนาดพร้อมกัน:
-- Capacity Ah
-- Rated Wh
-- Estimated runtime
-- Full operating rounds
-- Capacity margin เทียบกับเป้าหมาย
-- Required continuous C-rate
-- Required peak C-rate
-- PASS / ENERGY LOW / C-RATE CHECK
-
-Runtime ใช้ Operating Cycle ปัจจุบัน:
-Drive + Lift time + Other stop + Auxiliary
-
-พลังงาน Winch 12 V ยังแยกออกจาก Main Battery 72 V เหมือนเดิม
-
-### 3) Reverse Calculation
-เมื่อกรอก Candidate Battery เช่น 72 V 40 Ah โปรแกรมคำนวณย้อนกลับ:
-- ใช้งานได้ประมาณกี่ชั่วโมง
-- ทำงานได้กี่รอบเต็ม
-- พลังงานที่ใช้ได้ตาม DoD + Reserve
-- Capacity margin เทียบกับเป้าหมาย 3 ชั่วโมง
-
-สูตรหลัก:
-`Load budget = V × Ah × DoD / (1 + Reserve)`
-
-`Runtime ≈ Load budget / Average operating power`
-
-`Full rounds = floor(Runtime / Round time)`
-
-### Desktop
-- ปรับ Battery Selection table เป็น 8 คอลัมน์
-- Candidate section แสดง Reverse Runtime และ Full Rounds
-- Suggested Battery แสดง Runtime โดยประมาณ
-- แสดง BMS minimum ชัดเจน
-
-### Web
-หน้า Main Battery เพิ่มช่อง:
-- Target continuous C
-- Target peak C
-- Candidate Ah
-- Candidate BMS continuous A
-- Candidate BMS peak A
-
-และเพิ่ม:
-- Reverse Calculation
-- Candidate BMS Check
-- Compare Battery Size table
-- Suggested standard battery
-
-### หมายเหตุ
-ผล Reverse Runtime เป็นค่าประมาณเชิงออกแบบจากโมเดลปัจจุบัน ยังต้องยืนยันด้วย VESC log, กระแสจริง, pack voltage sag, อุณหภูมิ และสเปกแบตจริงก่อนซื้อ
+### ผลที่ควรเห็นหลังอัปเดต
+- CVET WEB STATUS เปลี่ยนเป็น Server Online
+- Version แสดงเลขเวอร์ชัน
+- Dashboard tabs กดเปลี่ยนหน้าได้
+- การ์ด Drive Torque / Main Battery / Winch / Stability / Vehicle Parameters / Live Telemetry / Project Summary กดได้
+- ปุ่มคำนวณกลับมาทำงานตามปกติ
