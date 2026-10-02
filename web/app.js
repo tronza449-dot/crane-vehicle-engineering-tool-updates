@@ -19,7 +19,7 @@ const CVET_INPUT_STORE="cvet_web_inputs_v1";
 
 function storedInputElements(){
   const els=[];
-  ["driveForm","batteryForm","winchForm","stabilityForm"].forEach(id=>{
+  ["driveForm","rampForm","batteryForm","winchForm","stabilityForm"].forEach(id=>{
     const form=$("#"+id);
     if(form) els.push(...$$("input,select",form));
   });
@@ -114,7 +114,7 @@ function syncVehicleParameters(){
 const CVET_SHARED_STORE="cvet_web_shared_project_v1";
 
 const SHARED_PARAMETER_GROUPS={
-  mass_kg:[["driveForm","mass_kg"],["batteryForm","mass_kg"]],
+  mass_kg:[["driveForm","mass_kg"],["rampForm","mass_kg"],["batteryForm","mass_kg"]],
   slope_deg:[["driveForm","slope_deg"],["batteryForm","slope_deg"]],
   speed_kmh:[["driveForm","speed_kmh"],["batteryForm","speed_kmh"],["winchForm","vehicle_speed_kmh"]],
   voltage_v:[["driveForm","voltage_v"],["batteryForm","voltage_v"]],
@@ -278,6 +278,88 @@ $("#calcDrive").addEventListener("click",async()=>{
   }catch(e){setError(out,e);}
 });
 
+let lastRampResult=null;
+
+async function calculateRampGeometry(){
+  const out=$("#rampResult");setLoading(out);
+  try{
+    const r=await api("/api/calc/ramp-geometry",formObject($("#rampForm")));
+    lastRampResult=r;
+
+    const measuredAngle=(r.measured_angle_deg===null||r.measured_angle_deg===undefined)
+      ? "—" : f(r.measured_angle_deg,2)+"°";
+
+    out.innerHTML=
+      '<h3>Ramp Geometry Result</h3>'+
+      '<div class="ramp-diagram">'+
+      '<svg viewBox="0 0 620 260" role="img" aria-label="Ramp triangle">'+
+      '<line x1="80" y1="215" x2="555" y2="215" class="ramp-base"/>'+
+      '<line x1="80" y1="215" x2="80" y2="55" class="ramp-rise"/>'+
+      '<line x1="80" y1="55" x2="555" y2="215" class="ramp-slant"/>'+
+      '<text x="18" y="140">h = '+f(r.rise_cm,1)+' cm</text>'+
+      '<text x="275" y="242">x = '+f(r.run_cm,1)+' cm</text>'+
+      '<text x="292" y="112" class="slant-label">L = '+f(r.theoretical_slant_cm,2)+' cm</text>'+
+      '<text x="475" y="198" class="angle-label">θ = '+f(r.angle_deg,2)+'°</text>'+
+      '</svg></div>'+
+
+      '<div class="metric-grid">'+
+      '<div class="metric"><div class="k">L ทฤษฎี</div><div class="v">'+f(r.theoretical_slant_cm,2)+' cm</div></div>'+
+      '<div class="metric"><div class="k">L ทฤษฎี</div><div class="v">'+f(r.theoretical_slant_m,3)+' m</div></div>'+
+      '<div class="metric"><div class="k">มุมทางลาด θ</div><div class="v">'+f(r.angle_deg,2)+'°</div></div>'+
+      '<div class="metric"><div class="k">Slope</div><div class="v">'+f(r.slope_percent,2)+'%</div></div>'+
+      '<div class="metric"><div class="k">L ที่วัดได้</div><div class="v">'+f(r.measured_slant_cm,2)+' cm</div></div>'+
+      '<div class="metric"><div class="k">ต่างจากทฤษฎี</div><div class="v">'+f(r.measured_difference_abs_cm,2)+' cm</div></div>'+
+      '<div class="metric"><div class="k">มุมจาก L ที่วัด</div><div class="v">'+measuredAngle+'</div></div>'+
+      '<div class="metric"><div class="k">F_slope @ '+f(r.mass_kg,0)+' kg</div><div class="v">'+f(r.f_slope_n,1)+' N</div></div></div>'+
+
+      '<h3>1) ความยาวทางลาดจากพีทาโกรัส</h3>'+
+      '<div class="formula"><b>L = √(x² + h²)</b><br>'+
+      'แทนค่า: √('+f(r.run_cm,1)+'² + '+f(r.rise_cm,1)+'²) = <b>'+f(r.theoretical_slant_cm,2)+' cm</b> = '+f(r.theoretical_slant_m,3)+' m<br>'+
+      'ค่าที่วัดได้ = '+f(r.measured_slant_cm,2)+' cm → ต่างประมาณ <b>'+f(r.measured_difference_abs_cm,2)+' cm</b> ('+f(r.measured_difference_pct,2)+'%)</div>'+
+
+      '<h3>2) มุมทางลาด</h3>'+
+      '<div class="formula"><b>θ = tan⁻¹(h / x)</b><br>'+
+      'แทนค่า: tan⁻¹('+f(r.rise_cm,1)+' / '+f(r.run_cm,1)+') = <b>'+f(r.angle_deg,2)+'°</b></div>'+
+
+      '<h3>3) เปอร์เซ็นต์ความชัน</h3>'+
+      '<div class="formula"><b>Slope (%) = (h / x) × 100</b><br>'+
+      'แทนค่า: ('+f(r.rise_cm,1)+' / '+f(r.run_cm,1)+') × 100 = <b>'+f(r.slope_percent,2)+'%</b></div>'+
+
+      '<h3>4) ค่าที่ใช้คำนวณแรงมอเตอร์</h3>'+
+      '<div class="formula"><b>F_slope = m g sin(θ)</b><br>'+
+      'แทนค่า: '+f(r.mass_kg,1)+' × 9.81 × sin('+f(r.angle_deg,2)+'°) = <b>'+f(r.f_slope_n,2)+' N</b><br>'+
+      'ตรวจซ้ำด้วย <b>F_slope = m g (h/L)</b> = '+f(r.f_slope_ratio_n,2)+' N</div>'+
+
+      '<div class="notice"><b>สำคัญ:</b> '+f(r.slope_percent,2)+'% คือเปอร์เซ็นต์ความชัน ไม่ใช่ '+f(r.slope_percent,2)+'°. '+
+      'สำหรับสูตร sin/cos ของมอเตอร์ให้ใช้ <b>'+f(r.angle_deg,2)+'°</b>.</div>';
+    return r;
+  }catch(e){setError(out,e);throw e;}
+}
+
+$("#calcRamp").addEventListener("click",()=>{calculateRampGeometry().catch(()=>{});});
+
+$("#applyRampAngle").addEventListener("click",async()=>{
+  try{
+    const r=lastRampResult||await calculateRampGeometry();
+    const value=Number(r.angle_deg).toFixed(4);
+    syncSharedProjectParameter("slope_deg",value);
+    saveWebInputs();syncVehicleParameters();
+    $("#rampResult").insertAdjacentHTML("beforeend",
+      '<div class="pass-note">ใช้มุม <b>'+f(r.angle_deg,2)+'°</b> กับ Drive Torque และ Main Battery แล้ว</div>');
+  }catch(e){}
+});
+
+$("#applyRampLength").addEventListener("click",async()=>{
+  try{
+    const r=lastRampResult||await calculateRampGeometry();
+    const el=getField("batteryForm","slope_length_m");
+    if(el) el.value=Number(r.theoretical_slant_m).toFixed(4);
+    saveWebInputs();syncVehicleParameters();
+    $("#rampResult").insertAdjacentHTML("beforeend",
+      '<div class="pass-note">ใช้ความยาวทางลาดทฤษฎี <b>'+f(r.theoretical_slant_m,3)+' m</b> ใน Main Battery แล้ว</div>');
+  }catch(e){}
+});
+
 $("#calcBattery").addEventListener("click",async()=>{
   const out=$("#batteryResult");setLoading(out);
   try{
@@ -392,4 +474,5 @@ $("#calcStability").addEventListener("click",async()=>{
 
 setupDynamicProjectParameters();
 checkHealth();
+setTimeout(()=>$("#calcRamp").click(),180);
 setTimeout(()=>$("#calcWinch").click(),300);
