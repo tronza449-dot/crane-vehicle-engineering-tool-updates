@@ -15,6 +15,118 @@ function formObject(form){
 }
 function getPin(){return localStorage.getItem("cvet_web_pin")||"";}
 
+const CVET_INPUT_STORE="cvet_web_inputs_v1";
+
+function storedInputElements(){
+  const els=[];
+  ["driveForm","batteryForm","winchForm","stabilityForm"].forEach(id=>{
+    const form=$("#"+id);
+    if(form) els.push(...$("input,select",form));
+  });
+  ["projectVehicleWidth","projectVehicleLength","projectCraneRotation","projectDriveControl"].forEach(id=>{
+    const el=$("#"+id); if(el) els.push(el);
+  });
+  return els;
+}
+
+function inputStorageKey(el){
+  const form=el.closest("form");
+  return (form?form.id:"project")+"."+(el.name||el.id);
+}
+
+function saveWebInputs(){
+  try{
+    const data={};
+    storedInputElements().forEach(el=>{
+      data[inputStorageKey(el)]=el.type==="checkbox"?!!el.checked:el.value;
+    });
+    localStorage.setItem(CVET_INPUT_STORE,JSON.stringify(data));
+  }catch(e){}
+}
+
+function restoreWebInputs(){
+  try{
+    const data=JSON.parse(localStorage.getItem(CVET_INPUT_STORE)||"{}");
+    storedInputElements().forEach(el=>{
+      const key=inputStorageKey(el);
+      if(!(key in data)) return;
+      if(el.type==="checkbox") el.checked=!!data[key];
+      else el.value=data[key];
+    });
+  }catch(e){}
+}
+
+function formValue(formId,name,fallback=0){
+  const form=$("#"+formId);
+  if(!form||!form.elements[name]) return fallback;
+  const raw=form.elements[name].value;
+  const n=Number(raw);
+  return Number.isFinite(n)?n:fallback;
+}
+
+function projectValue(id,fallback=""){
+  const el=$("#"+id);
+  return el?el.value:fallback;
+}
+
+function setParam(id,value){
+  const el=$("#"+id); if(el) el.textContent=value;
+}
+
+function smart(n,d=1){
+  const x=Number(n);
+  if(!Number.isFinite(x)) return "—";
+  if(Math.abs(x-Math.round(x))<1e-9) return String(Math.round(x));
+  return x.toFixed(d).replace(/\.?0+$/,"");
+}
+
+function syncVehicleParameters(){
+  const width=formValue("__none__","",Number(projectValue("projectVehicleWidth",1000))) || Number(projectValue("projectVehicleWidth",1000));
+  const length=Number(projectValue("projectVehicleLength",1500))||1500;
+  const rotation=Number(projectValue("projectCraneRotation",90));
+  const driveControl=projectValue("projectDriveControl","Differential");
+
+  const mass=formValue("batteryForm","mass_kg",formValue("driveForm","mass_kg",300));
+  const payload=formValue("stabilityForm","payload_mass_kg",100);
+  const mainV=formValue("batteryForm","voltage_v",72);
+  const motorW=formValue("batteryForm","motor_rated_w",1500);
+  const motors=formValue("batteryForm","motors",2);
+  const slope=formValue("batteryForm","slope_deg",19);
+  const runtime=formValue("batteryForm","runtime_h",3);
+  const arm=formValue("stabilityForm","boom_length_m",1.2);
+  const trackM=formValue("stabilityForm","track_width_m",0.7);
+  const winchV=formValue("winchForm","winch_voltage_v",12);
+
+  setParam("paramVehicleSize",smart(width,0)+" × "+smart(length,0)+" mm");
+  setParam("paramMass",smart(mass,1)+" kg");
+  setParam("paramPayload",smart(payload,1)+" kg");
+  setParam("paramMainBattery",smart(mainV,1)+" V");
+  setParam("paramDriveMotors",smart(motors,0)+" × "+smart(motorW,0)+" W");
+  setParam("paramDriveControl",driveControl);
+  setParam("paramSlope",smart(slope,1)+"°");
+  setParam("paramRuntime",smart(runtime,2)+" h");
+  setParam("paramCraneRotation","±"+smart(rotation,1)+"°");
+  setParam("paramCraneArm",smart(arm,2)+" m");
+  setParam("paramTrack",smart(trackM*1000,0)+" mm");
+  setParam("paramWinchSupply",smart(winchV,1)+" V Separate");
+}
+
+function setupDynamicProjectParameters(){
+  restoreWebInputs();
+  storedInputElements().forEach(el=>{
+    ["input","change"].forEach(evt=>el.addEventListener(evt,()=>{
+      saveWebInputs();
+      syncVehicleParameters();
+    }));
+  });
+  // Restore dependent visibility after persisted select values.
+  const eventMode=$("#eventMode");
+  if(eventMode) $("#manualEventsWrap").classList.toggle("hidden",eventMode.value!=="manual");
+  const downMode=$("#downMode");
+  if(downMode) $(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
+  syncVehicleParameters();
+}
+
 async function api(path,payload){
   const headers={"Content-Type":"application/json"};
   const pin=getPin(); if(pin) headers["X-CVET-PIN"]=pin;
@@ -187,5 +299,6 @@ $("#calcStability").addEventListener("click",async()=>{
   }catch(e){setError(out,e);}
 });
 
+setupDynamicProjectParameters();
 checkHealth();
 setTimeout(()=>$("#calcWinch").click(),300);
