@@ -98,6 +98,15 @@ jobs:
           assert web_manual["battery"]["up_count"]==50 and web_manual["battery"]["down_count"]==50
           assert web_manual["battery"]["winch_moves"]==100
 
+          web_ramp=webcalc.calculate_ramp_geometry({
+              "rise_cm":55.0,"run_cm":280.0,"measured_slant_cm":290.0,"mass_kg":300.0
+          })
+          assert 285.34 < web_ramp["theoretical_slant_cm"] < 285.36
+          assert 11.10 < web_ramp["angle_deg"] < 11.12
+          assert 19.64 < web_ramp["slope_percent"] < 19.65
+          assert 4.64 < web_ramp["measured_difference_abs_cm"] < 4.66
+          assert abs(web_ramp["f_slope_n"]-web_ramp["f_slope_ratio_n"]) < 1e-8
+
           web_torque=webcalc.calculate_drive_torque({
               "mass_kg":300.0,"wheel_diameter_in":16.0,"slope_deg":19.0,
               "speed_kmh":1.0,"motors":2,"safety_factor":1.5
@@ -145,6 +154,10 @@ jobs:
           assert "syncVehicleParameters()" in web_js
           assert "restoreWebInputs()" in web_js
           assert "saveWebInputs()" in web_js
+          assert 'id="rampForm"' in Path("web/index.html").read_text(encoding="utf-8")
+          assert "/api/calc/ramp-geometry" in Path("web_server.py").read_text(encoding="utf-8")
+          assert "calculateRampGeometry" in web_js
+          assert "applyRampAngle" in Path("web/index.html").read_text(encoding="utf-8")
           assert "SHARED_PARAMETER_GROUPS" in web_js
           assert "syncSharedProjectParameter" in web_js
           assert "setupSharedProjectParameterSync()" in web_js
@@ -202,6 +215,23 @@ jobs:
           for b in w.statusBar().findChildren(QPushButton):
               if b.text() in ("A-","A+","100%"):
                   assert b.width() >= 40, f"Font button squeezed: {b.text()} width={b.width()}"
+
+          # ---------- Ramp geometry regression ----------
+          assert hasattr(w,"rampRiseCm") and hasattr(w,"rampRunCm") and hasattr(w,"rampGeomOut")
+          w.rampUseMainMass.setChecked(False)
+          w.rampRiseCm.setValue(55.0);w.rampRunCm.setValue(280.0);w.rampMeasuredCm.setValue(290.0);w.rampMass.setValue(300.0)
+          rg=w.ramp_geometry_results()
+          assert 285.34 < rg["L"] < 285.36
+          assert 11.10 < rg["angle"] < 11.12
+          assert 19.64 < rg["slope_pct"] < 19.65
+          assert 4.64 < rg["diff_abs"] < 4.66
+          assert abs(rg["f_slope"]-rg["f_ratio"]) < 1e-8
+          w.apply_ramp_angle_to_project()
+          assert abs(w.tgrade.value()-rg["angle"]) < 0.011
+          assert abs(w.eslopeDeg.value()-rg["angle"]) < 0.011
+          assert abs(w.slope.value()-rg["angle"]) < 0.011
+          w.apply_ramp_length_to_battery()
+          assert abs(w.eslopeLen.value()-rg["L"]/100.0) < 0.0011
 
           # ---------- Torque regression ----------
           w.tUseMain.setChecked(False)
