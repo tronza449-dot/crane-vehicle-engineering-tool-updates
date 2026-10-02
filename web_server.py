@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from web_engine import (
     calculate_drive_battery,
     calculate_drive_torque,
+    calculate_ramp_geometry,
     calculate_stability,
     calculate_winch,
 )
@@ -92,6 +93,11 @@ def safe_calc(fn, payload: Dict[str, Any]):
             status_code=400,
             content={"ok": False, "error": type(exc).__name__, "message": str(exc)},
         )
+
+
+@app.post("/api/calc/ramp-geometry")
+def api_ramp_geometry(payload: Dict[str, Any] = Body(default_factory=dict)):
+    return safe_calc(calculate_ramp_geometry, payload)
 
 
 @app.post("/api/calc/drive-torque")
