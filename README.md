@@ -3,7 +3,7 @@
 Repository นี้ใช้เป็นช่องทางตรวจสอบและแจกจ่ายเวอร์ชันใหม่ของ **Crane Vehicle Engineering Tool**
 
 ## Current version
-- **V53.5.0**
+- **V53.5.1**
 
 ## Main additions
 - ESP32 DevKit V1 / ESP-WROOM-32 as current project controller target
@@ -14,6 +14,15 @@ Repository นี้ใช้เป็นช่องทางตรวจสอ
 - CSV Data Logger
 - ESP32 telemetry sender template
 
+
+## Free Permanent Web Link
+
+V53.5.1 เพิ่ม Tailscale Funnel สำหรับลิงก์ HTTPS แบบใช้ซ้ำได้ฟรี เช่น `https://cvet.<tailnet>.ts.net`
+
+- ไม่ต้องซื้อ Domain
+- ไม่ต้อง Port Forward
+- Web PIN ยังใช้ได้
+- Cloudflare Quick Tunnel เดิมยังอยู่เป็นตัวเลือกสำรอง
 
 ## Web Server
 V53.4.0 เพิ่ม **CraneVehicleWebServer.exe** สำหรับเปิดโปรแกรมเป็น Web App โดยใช้เครื่อง Windows ของผู้ใช้เป็น Server
