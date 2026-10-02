@@ -186,13 +186,15 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- V53.3.3 Winch formula explanation + summary regression ----------
-          assert hasattr(w,"wTabs") and w.wTabs.count()==4
+          # ---------- V53.3.4 Winch formula + operating-cycle regression ----------
+          assert hasattr(w,"wTabs") and w.wTabs.count()==5
           assert w.wTabs.tabText(0)=="Spec + Battery"
           assert "สูตร" in w.wTabs.tabText(1)
           assert "ตัวแปร" in w.wTabs.tabText(2)
           assert "สรุป" in w.wTabs.tabText(3)
+          assert "รอบการทำงาน" in w.wTabs.tabText(4)
           assert hasattr(w,"wCalcSummary")
+          assert hasattr(w,"wopSummary") and hasattr(w,"wopDetails")
           assert hasattr(w,"wSpecTable") and w.wSpecTable.rowCount()==13
           assert hasattr(w,"wPerfTable") and w.wPerfTable.rowCount()==4
           assert hasattr(w,"wLayerTable") and w.wLayerTable.rowCount()==5
@@ -241,6 +243,36 @@ jobs:
           assert "Ah_design" in summary
           assert "Rope Layer Check" in summary
           assert "สรุปการคำนวณ" in w.wCalcSummary.toPlainText()
+
+          # V53.3.4 operating cycle: 1 km/h, 30 m one-way, 3 h,
+          # load 100 kg, lift 1.5 m, 2 animal-handling events/round.
+          w.wmass.setValue(100.0);w.wheight.setValue(1.5);w.wcycles.setValue(50)
+          w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
+          w.wopEvents.setValue(2);w.wopOther.setValue(0.0)
+          op=w.winch_operation_results()
+          finite(op["t_up"],op["t_down"],op["t_event"],op["t_round"],op["remaining"])
+          assert abs(op["t_one"]-108.0)<1e-9
+          assert abs(op["t_up"]-28.811169087575802)<1e-6
+          assert abs(op["t_event"]-57.622338175151604)<1e-6
+          assert abs(op["t_round"]-331.2446763503032)<1e-6
+          assert op["rounds"]==32
+          assert op["trips"]==64
+          assert op["lift_events"]==64
+          assert op["up_count"]==64 and op["down_count"]==64 and op["winch_moves"]==128
+          assert abs(op["distance_total"]-1920.0)<1e-9
+          assert abs(op["remaining"]-200.17035679029686)<1e-6
+          oph=w.winch_operation_html(op)
+          assert "108.00" in oph and "331.24" in oph
+          assert "64 งาน" in oph and "128" in oph
+          w.calc_winch_operation()
+          assert "32 รอบไป-กลับ" in w.wopSummary.text()
+          assert "วินช์ขึ้น 64" in w.wopSummary.text()
+          assert "รอบการทำงาน" in w.wopDetails.toPlainText()
+          w.apply_winch_operation_cycles()
+          assert w.wcycles.value()==64
+
+          # Reset for the existing battery/rope regression below.
+          w.wheight.setValue(1.0);w.wcycles.setValue(50)
 
           # Lift distance changes time/energy and crossing 1.5 m enters layer 2.
           w.wheight.setValue(2.0)
