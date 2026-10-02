@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.3"
+APP_VERSION = "53.3.4"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -5471,6 +5471,7 @@ void loop() {{
 
     def update_bms_check(self):
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
+        if hasattr(self,"wopSummary"):self.calc_winch_operation()
         if hasattr(self,"designCheckView"):self.update_design_check()
 
     def design_check_rows(self):
@@ -5781,6 +5782,52 @@ void loop() {{
         self.wCalcSummary=QTextEdit(w);self.wCalcSummary.setReadOnly(True)
         self.wCalcSummary.setStyleSheet("font-size:11pt;padding:8px;")
         self.wTabs.addTab(self.wCalcSummary,"สรุปการคำนวณ")
+
+        # V53.3.4 — Operating-cycle calculator: driving + winch UP/DOWN on outbound and return trips.
+        opScroll=QScrollArea(w);opScroll.setWidgetResizable(True);opScroll.setFrameShape(QFrame.NoFrame)
+        opContent=QWidget();opRoot=QVBoxLayout(opContent);opRoot.setContentsMargins(18,16,18,20);opRoot.setSpacing(12)
+        opScroll.setWidget(opContent)
+        opTitle=QLabel("OPERATING CYCLES / จำนวนรอบการทำงาน")
+        of=QFont();of.setPointSize(15);of.setBold(True);opTitle.setFont(of);opTitle.setStyleSheet("color:#17324d;")
+        opSub=QLabel(
+            "1 รอบ = วิ่งไป + งานยกสัตว์ขาไป (วินช์ขึ้น+ลง) + วิ่งกลับ + "
+            "งานยกสัตว์ขากลับ (วินช์ขึ้น+ลง) • Load และ Lift Distance ใช้ค่าจากหน้า Spec + Battery"
+        )
+        opSub.setWordWrap(True);opSub.setStyleSheet("color:#60758b;font-size:10.3pt;font-weight:650;")
+        opRoot.addWidget(opTitle);opRoot.addWidget(opSub)
+
+        opInputBox=QGroupBox("ข้อมูลการทำงาน / Operation Inputs")
+        opForm=QFormLayout(opInputBox);opForm.setVerticalSpacing(10);opForm.setHorizontalSpacing(14)
+        self.wopSpeed=QDoubleSpinBox(w);self.wopSpeed.setRange(0.05,50.0);self.wopSpeed.setDecimals(2);self.wopSpeed.setValue(1.0);self.wopSpeed.setSuffix(" km/h")
+        self.wopDistance=QDoubleSpinBox(w);self.wopDistance.setRange(0.1,10000.0);self.wopDistance.setDecimals(2);self.wopDistance.setValue(30.0);self.wopDistance.setSuffix(" m")
+        self.wopHours=QDoubleSpinBox(w);self.wopHours.setRange(0.01,48.0);self.wopHours.setDecimals(2);self.wopHours.setValue(3.0);self.wopHours.setSuffix(" h")
+        self.wopEvents=QSpinBox(w);self.wopEvents.setRange(1,20);self.wopEvents.setValue(2);self.wopEvents.setSuffix(" งาน/รอบ")
+        self.wopOther=QDoubleSpinBox(w);self.wopOther.setRange(0.0,36000.0);self.wopOther.setDecimals(1);self.wopOther.setValue(0.0);self.wopOther.setSuffix(" s/รอบ")
+        for qx in (self.wopSpeed,self.wopDistance,self.wopHours,self.wopEvents,self.wopOther):qx.setMinimumWidth(190)
+        opForm.addRow("ความเร็วรถ / Vehicle speed",self.wopSpeed)
+        opForm.addRow("ระยะเที่ยวเดียว / One-way distance",self.wopDistance)
+        opForm.addRow("เวลาทำงานรวม / Operating time",self.wopHours)
+        opForm.addRow("งานยกสัตว์ต่อรอบ / Lift events per round",self.wopEvents)
+        opForm.addRow("เวลาหยุดอื่นต่อรอบ / Other stop time",self.wopOther)
+        opRoot.addWidget(opInputBox)
+
+        opButtons=QHBoxLayout()
+        opCalc=QPushButton("คำนวณรอบการทำงาน");opCalc.setObjectName("primaryButton");opCalc.clicked.connect(self.calc_winch_operation)
+        self.wopApply=QPushButton("ใช้จำนวนงานยกนี้เป็น Battery Cycles")
+        self.wopApply.setObjectName("secondaryButton");self.wopApply.clicked.connect(self.apply_winch_operation_cycles)
+        opButtons.addWidget(opCalc);opButtons.addWidget(self.wopApply);opButtons.addStretch(1);opRoot.addLayout(opButtons)
+
+        self.wopSummary=QLabel();self.wopSummary.setWordWrap(True)
+        self.wopSummary.setStyleSheet("font-size:12pt;font-weight:800;background:#eefaf4;color:#155b2a;padding:14px;border:1px solid #a9d7ba;border-radius:10px")
+        opRoot.addWidget(self.wopSummary)
+        self.wopDetails=QTextEdit(w);self.wopDetails.setReadOnly(True);self.wopDetails.setMinimumHeight(520)
+        self.wopDetails.setStyleSheet("font-size:10.8pt;padding:8px;")
+        opRoot.addWidget(self.wopDetails);opRoot.addStretch(1)
+        self.wTabs.addTab(opScroll,"รอบการทำงาน / 3h")
+
+        for qx in (self.wopSpeed,self.wopDistance,self.wopHours,self.wopEvents,self.wopOther):
+            qx.valueChanged.connect(self.calc_winch_operation)
+
         self.wGuide=QTextEdit(w);self.wGuide.hide()
         self.wResult=QTextEdit(w);self.wResult.hide()
         self.wSpeedSummary=QLabel(w);self.wSpeedSummary.hide()
@@ -5944,6 +5991,134 @@ void loop() {{
                     max_spec_current=140.0,spec_source="4500LB WINCH SPECIFICATION — user supplied",
                     rope_layer=layer,layer_capacity_m=layer_capacity_m,layer_pull_kg=layer_pull_kg,
                     layer_pull_ok=(m<=layer_pull_kg))
+
+    def winch_operation_results(self):
+        q=self.winch_results()
+        speed_kmh=float(self.wopSpeed.value()) if hasattr(self,"wopSpeed") else 1.0
+        one_way=float(self.wopDistance.value()) if hasattr(self,"wopDistance") else 30.0
+        hours=float(self.wopHours.value()) if hasattr(self,"wopHours") else 3.0
+        events_per_round=int(self.wopEvents.value()) if hasattr(self,"wopEvents") else 2
+        other=float(self.wopOther.value()) if hasattr(self,"wopOther") else 0.0
+        car_mps=speed_kmh*1000.0/3600.0
+        t_one=one_way/car_mps if car_mps>0 else 0.0
+        t_event=q["tu"]+q["td"]
+        t_drive_round=2.0*t_one
+        t_lift_round=t_event*events_per_round
+        t_round=t_drive_round+t_lift_round+other
+        total_s=hours*3600.0
+        n_theory=total_s/t_round if t_round>0 else 0.0
+        rounds=int(math.floor(n_theory+1e-12))
+        trips=rounds*2
+        lift_events=rounds*events_per_round
+        up_count=lift_events
+        down_count=lift_events
+        winch_moves=up_count+down_count
+        distance_total=rounds*(2.0*one_way)
+        time_used=rounds*t_round
+        remaining=max(0.0,total_s-time_used)
+        return dict(
+            speed_kmh=speed_kmh,car_mps=car_mps,one_way=one_way,hours=hours,
+            events_per_round=events_per_round,other=other,
+            load_kg=q["m"],lift_m=q["h"],winch_speed=q["up_speed"],
+            t_up=q["tu"],t_down=q["td"],t_event=t_event,t_one=t_one,
+            t_drive_round=t_drive_round,t_lift_round=t_lift_round,t_round=t_round,
+            total_s=total_s,n_theory=n_theory,rounds=rounds,trips=trips,
+            lift_events=lift_events,up_count=up_count,down_count=down_count,
+            winch_moves=winch_moves,distance_total=distance_total,
+            time_used=time_used,remaining=remaining
+        )
+
+    def winch_operation_html(self,r):
+        return f"""
+        <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt;line-height:1.5">
+        <h1 style="color:#17324d">WINCH + VEHICLE — รอบการทำงาน</h1>
+        <p><b>นิยาม:</b> 1 รอบไป-กลับ = วิ่งไป {r['one_way']:.2f} m + งานยกสัตว์ขาไป 1 งาน +
+        วิ่งกลับ {r['one_way']:.2f} m + งานยกสัตว์ขากลับ 1 งาน โดย 1 งานยก = วินช์ขึ้น + วินช์ลง</p>
+        <p><b>Input:</b> Vehicle speed = {r['speed_kmh']:.2f} km/h, Operating time = {r['hours']:.2f} h,
+        Lift events/round = {r['events_per_round']}, Other stop = {r['other']:.1f} s/round,
+        Load = {r['load_kg']:.1f} kg, Lift distance = {r['lift_m']:.2f} m</p>
+
+        <h2>1) แปลงความเร็วรถ</h2>
+        <p><b>สูตร:</b> v<sub>car</sub> = V<sub>km/h</sub> × 1000 / 3600</p>
+        <p><b>ความหมาย:</b> แปลงความเร็วรถจาก km/h เป็น m/s</p>
+        <p><b>แทนค่า:</b> {r['speed_kmh']:.2f} × 1000 / 3600 = <b>{r['car_mps']:.5f} m/s</b></p>
+
+        <h2>2) เวลาวิ่งเที่ยวเดียว</h2>
+        <p><b>สูตร:</b> t<sub>oneway</sub> = d / v<sub>car</sub></p>
+        <p><b>ความหมาย:</b> เวลาวิ่งขาไปหรือขากลับ = ระยะทางเที่ยวเดียว ÷ ความเร็วรถ</p>
+        <p><b>แทนค่า:</b> {r['one_way']:.2f} / {r['car_mps']:.5f} = <b>{r['t_one']:.2f} s</b></p>
+
+        <h2>3) เวลาวินช์ขึ้น</h2>
+        <p><b>สูตร:</b> t<sub>up</sub> = (h / v<sub>winch</sub>) × 60</p>
+        <p><b>ความหมาย:</b> เวลาขึ้น = ระยะยก ÷ ความเร็วสลิง × 60</p>
+        <p><b>แทนค่า:</b> ({r['lift_m']:.2f} / {r['winch_speed']:.3f}) × 60 = <b>{r['t_up']:.2f} s</b></p>
+
+        <h2>4) เวลาวินช์ลง</h2>
+        <p><b>สูตร:</b> t<sub>down</sub> = t<sub>up</sub></p>
+        <p><b>ความหมาย:</b> ใบสเปกไม่ให้ความเร็วขาลง จึงใช้เวลาเท่าขาขึ้นแบบ conservative</p>
+        <p><b>แทนค่า:</b> t<sub>down</sub> = <b>{r['t_down']:.2f} s</b></p>
+
+        <h2>5) เวลา 1 งานยกสัตว์</h2>
+        <p><b>สูตร:</b> t<sub>event</sub> = t<sub>up</sub> + t<sub>down</sub></p>
+        <p><b>ความหมาย:</b> งานยกสัตว์ 1 งาน = วินช์ขึ้นหนึ่งครั้ง + วินช์ลงหนึ่งครั้ง</p>
+        <p><b>แทนค่า:</b> {r['t_up']:.2f} + {r['t_down']:.2f} = <b>{r['t_event']:.2f} s</b></p>
+
+        <h2>6) เวลาวิ่งไป-กลับ</h2>
+        <p><b>สูตร:</b> t<sub>drive,round</sub> = 2 × t<sub>oneway</sub></p>
+        <p><b>แทนค่า:</b> 2 × {r['t_one']:.2f} = <b>{r['t_drive_round']:.2f} s</b></p>
+
+        <h2>7) เวลางานยกรวมต่อรอบ</h2>
+        <p><b>สูตร:</b> t<sub>lift,round</sub> = t<sub>event</sub> × N<sub>event/round</sub></p>
+        <p><b>ความหมาย:</b> เวลา 1 งานยก × จำนวนงานยกสัตว์ในหนึ่งรอบไป-กลับ</p>
+        <p><b>แทนค่า:</b> {r['t_event']:.2f} × {r['events_per_round']} = <b>{r['t_lift_round']:.2f} s</b></p>
+
+        <h2>8) เวลารวมต่อ 1 รอบไป-กลับ</h2>
+        <p><b>สูตร:</b> t<sub>round</sub> = t<sub>drive,round</sub> + t<sub>lift,round</sub> + t<sub>other</sub></p>
+        <p><b>แทนค่า:</b> {r['t_drive_round']:.2f} + {r['t_lift_round']:.2f} + {r['other']:.2f}
+        = <b>{r['t_round']:.2f} s/รอบ</b></p>
+
+        <h2>9) จำนวนรอบในเวลาที่กำหนด</h2>
+        <p><b>สูตร:</b> N<sub>theory</sub> = t<sub>available</sub> / t<sub>round</sub></p>
+        <p><b>แทนค่า:</b> ({r['hours']:.2f} × 3600) / {r['t_round']:.2f}
+        = <b>{r['n_theory']:.2f} รอบ</b></p>
+        <p>นับเฉพาะรอบที่ทำครบ → <b>{r['rounds']} รอบไป-กลับ</b></p>
+
+        <h2>10) สรุปจำนวนงาน</h2>
+        <table border="1" cellspacing="0" cellpadding="7" width="100%">
+        <tr><td>รอบไป-กลับที่ทำครบ</td><td><b>{r['rounds']} รอบ</b></td><td>floor({r['n_theory']:.2f})</td></tr>
+        <tr><td>เที่ยวทางเดียว</td><td><b>{r['trips']} เที่ยว</b></td><td>{r['rounds']} × 2</td></tr>
+        <tr><td>งานยกสัตว์</td><td><b>{r['lift_events']} งาน</b></td><td>{r['rounds']} × {r['events_per_round']}</td></tr>
+        <tr><td>วินช์ขึ้น</td><td><b>{r['up_count']} ครั้ง</b></td><td>1 ครั้ง/งาน</td></tr>
+        <tr><td>วินช์ลง</td><td><b>{r['down_count']} ครั้ง</b></td><td>1 ครั้ง/งาน</td></tr>
+        <tr><td>การเคลื่อนที่วินช์รวม</td><td><b>{r['winch_moves']} ครั้ง</b></td><td>UP + DOWN</td></tr>
+        <tr><td>ระยะทางรวม</td><td><b>{r['distance_total']:.0f} m</b></td><td>{r['rounds']} × 2 × {r['one_way']:.2f}</td></tr>
+        <tr><td>เวลาที่ใช้</td><td><b>{r['time_used']:.2f} s</b></td><td>{r['rounds']} × {r['t_round']:.2f}</td></tr>
+        <tr><td>เวลาเหลือ</td><td><b>{r['remaining']:.2f} s</b></td><td>{r['total_s']:.0f} - {r['time_used']:.2f}</td></tr>
+        </table>
+
+        <hr>
+        <p><b>หมายเหตุ:</b> ค่านี้ยังไม่รวมเวลาจัดตะกร้า/เกี่ยวสลิง/ปลดสลิง เว้นแต่กรอกใน Other stop time.
+        ความเร็วและเวลาวินช์อิง First Layer interpolation และใช้ขาลงเท่าขาขึ้นเพราะใบสเปกไม่ได้ให้ข้อมูลขาลงแยก.</p>
+        </body></html>
+        """
+
+    def calc_winch_operation(self):
+        if not hasattr(self,"wopSummary"):return
+        r=self.winch_operation_results()
+        self.wopSummary.setText(
+            f"{r['rounds']} รอบไป-กลับ • {r['trips']} เที่ยวทางเดียว • {r['lift_events']} งานยกสัตว์\n"
+            f"วินช์ขึ้น {r['up_count']} ครั้ง + ลง {r['down_count']} ครั้ง = {r['winch_moves']} การเคลื่อนที่\n"
+            f"เวลา 1 รอบ = {r['t_round']:.2f} s • ระยะทางรวม = {r['distance_total']:.0f} m • เวลาเหลือ = {r['remaining']:.2f} s"
+        )
+        self.wopDetails.setHtml(self.winch_operation_html(r))
+
+    def apply_winch_operation_cycles(self):
+        if not hasattr(self,"wcycles"):return
+        r=self.winch_operation_results()
+        self.wcycles.setValue(max(1,int(r["lift_events"])))
+        self.calc_winch()
+        if hasattr(self,"wopSummary"):
+            self.wopSummary.setText(self.wopSummary.text()+f"\nตั้ง Battery Cycles = {r['lift_events']} รอบขึ้น+ลงแล้ว")
 
     def winch_formula_html(self,q):
         spec=self._winch_locked_spec()
@@ -6173,7 +6348,7 @@ void loop() {{
         sp=self.winch_speed_results()
         if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
         if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.3</h2><p>ใช้ใบสเปกจริงเป็นฐาน และให้แก้ Load, Lift Distance และจำนวนรอบขึ้น+ลง.</p>")
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.4</h2><p>ใช้ใบสเปกจริงเป็นฐาน และให้แก้ Load, Lift Distance และจำนวนรอบขึ้น+ลง.</p>")
         if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html(q))
         if hasattr(self,"wDutyView"):self.update_winch_duty()
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
@@ -6185,7 +6360,8 @@ void loop() {{
         try:
             q=self.winch_results()
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10))
-            doc.setHtml(self.winch_summary_html(q)+"<hr>"+self.winch_formula_html(q)+"<hr>"+self.winch_html(q)+"<hr>"+self.winch_variables_html())
+            op_html=self.winch_operation_html(self.winch_operation_results()) if hasattr(self,"wopSpeed") else ""
+            doc.setHtml(self.winch_summary_html(q)+"<hr>"+self.winch_formula_html(q)+"<hr>"+op_html+"<hr>"+self.winch_html(q)+"<hr>"+self.winch_variables_html())
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
             QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\\n"+filename)
