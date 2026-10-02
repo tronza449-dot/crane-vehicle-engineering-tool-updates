@@ -185,7 +185,16 @@
           <label>Energy model
             <select name="energy_model"><option value="calculated">Calculated</option><option value="worst">Worst / Rated Motor</option></select>
           </label>
-          <button id="calcBattery" class="primary full">คำนวณ Main Battery</button>
+
+          <h3 class="full section-label">Battery Purchase / Reverse Calculation</h3>
+          <label>Target max continuous C<input name="target_cont_c" type="number" value="3" step="0.1"></label>
+          <label>Target max peak C<input name="target_peak_c" type="number" value="5" step="0.1"></label>
+          <label>Candidate battery (Ah)<input name="candidate_ah" type="number" value="40" step="1"></label>
+          <label>Candidate BMS continuous (A)<input name="candidate_bms_cont_a" type="number" value="0" step="5"></label>
+          <label>Candidate BMS peak (A)<input name="candidate_bms_peak_a" type="number" value="0" step="5"></label>
+          <div class="full notice compact-note">กรอกแบตที่กำลังจะซื้อ แล้วโปรแกรมจะคำนวณย้อนกลับว่าใช้งานได้ประมาณกี่ชั่วโมง / กี่รอบ และตรวจ BMS Continuous + Peak ให้</div>
+
+          <button id="calcBattery" class="primary full">คำนวณ Main Battery + ตรวจแบตที่จะซื้อ</button>
         </form>
         <div id="batteryResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
       </div>
