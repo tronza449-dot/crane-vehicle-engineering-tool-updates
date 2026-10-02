@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.4.0"
+APP_VERSION = "53.4.1"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -3810,6 +3810,82 @@ void loop() {{
         self.tabs.setCurrentWidget(page)
         self.tabs.tabBar().hide()
 
+    def _web_server_command(self):
+        """Return the bundled Web Server command for installed and source modes."""
+        if getattr(sys,"frozen",False):
+            exe=Path(sys.executable).resolve().parent/"CraneVehicleWebServer.exe"
+            return [str(exe)] if exe.exists() else None
+        launcher=Path(__file__).resolve().parent/"web_launcher.py"
+        return [sys.executable,str(launcher)] if launcher.exists() else None
+
+    def launch_web_server_dialog(self):
+        cmd=self._web_server_command()
+        if not cmd:
+            QMessageBox.warning(
+                self,"Web Server not found",
+                "ไม่พบ CraneVehicleWebServer.exe\n\n"
+                "กรุณาอัปเดต/ติดตั้ง V53.4.1 หรือใหม่กว่า แล้วลองอีกครั้ง."
+            )
+            return
+
+        choices=[
+            "PUBLIC INTERNET — คนนอก Wi-Fi เข้าได้",
+            "LAN / Wi-Fi — เครือข่ายเดียวกัน",
+            "LOCAL — ใช้เฉพาะเครื่องนี้",
+        ]
+        choice,ok=QInputDialog.getItem(
+            self,"เปิด Web Server","เลือกโหมดการเปิดเว็บ:",choices,0,False
+        )
+        if not ok:return
+
+        args=list(cmd)
+        mode="PUBLIC"
+        if choice.startswith("PUBLIC"):
+            args.append("--public")
+            pin,okpin=QInputDialog.getText(
+                self,"Web PIN (แนะนำ)",
+                "ตั้ง PIN สำหรับคนที่เปิดลิงก์เว็บ\nเว้นว่างได้ แต่แนะนำให้ตั้ง:",
+                QLineEdit.Password
+            )
+            if not okpin:return
+            pin=pin.strip()
+            if pin:args.extend(["--pin",pin])
+        elif choice.startswith("LAN"):
+            mode="LAN";args.append("--lan")
+        else:
+            mode="LOCAL"
+
+        try:
+            kwargs={}
+            if os.name=="nt":
+                kwargs["creationflags"]=getattr(subprocess,"CREATE_NEW_CONSOLE",0)
+            subprocess.Popen(args,**kwargs)
+            if hasattr(self,"webServerStatusLabel"):
+                self.webServerStatusLabel.setText(
+                    f"{mode} Server กำลังเปิด • Browser จะเปิดอัตโนมัติเมื่อ Server พร้อม"
+                )
+            QMessageBox.information(
+                self,"Web Server",
+                ("กำลังเปิด Web Server แล้วครับ\n\n"
+                 + ("PUBLIC: รอจนหน้าต่าง Server แสดงลิงก์ https://xxxxx.trycloudflare.com แล้ว Browser จะเปิดอัตโนมัติ\n"
+                    if mode=="PUBLIC" else
+                    "Browser จะเปิดหน้า Web Calculator อัตโนมัติ\n")
+                 + "อย่าปิดหน้าต่าง Web Server ระหว่างที่ต้องการให้คนอื่นเข้าเว็บ")
+            )
+        except Exception as ex:
+            QMessageBox.critical(self,"Web Server",f"เปิด Web Server ไม่สำเร็จ:\n{ex}")
+
+    def show_web_server_help(self):
+        QMessageBox.information(
+            self,"วิธีใช้ Web Server",
+            "1) กด ‘เปิด Web Server’\n"
+            "2) เลือก PUBLIC INTERNET ถ้าต้องการให้คนนอก Wi-Fi เข้า\n"
+            "3) ตั้ง Web PIN (แนะนำ)\n"
+            "4) รอหน้าต่าง Server สร้างลิงก์ HTTPS\n"
+            "5) Browser จะเปิดเว็บอัตโนมัติ และส่งลิงก์นั้นให้คนอื่นได้\n\n"
+            "เครื่องนี้ต้องเปิด Web Server ค้างไว้ตลอดเวลาที่ใช้งานเว็บ"
+        )
+
     def show_home_mode(self):
         self._show_only_page(self.homePage)
         self._set_active_nav("home")
@@ -3912,7 +3988,7 @@ void loop() {{
         hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
         left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        chips.addWidget(make_chip("V53.2.5  ENGINEERING SUITE","#ffffff","#174a74"))
+        chips.addWidget(make_chip(f"V{APP_VERSION}  ENGINEERING SUITE","#ffffff","#174a74"))
         chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
         chips.addStretch(1);left.addLayout(chips)
 
@@ -3968,6 +4044,22 @@ void loop() {{
         updateSettings=QPushButton("Settings");updateSettings.setObjectName("secondaryButton");updateSettings.clicked.connect(self.show_update_settings)
         ur.addWidget(checkUpdate);ur.addWidget(self.updateNowButton);ur.addWidget(repairUpdate);ur.addWidget(updateSettings);upl.addLayout(ur)
         system.addWidget(updatePanel,1)
+
+        webPanel=QFrame();webPanel.setObjectName("softPanel")
+        wpl=QVBoxLayout(webPanel);wpl.setContentsMargins(15,11,15,11);wpl.setSpacing(7)
+        webTitle=QLabel("WEB SERVER  •  PUBLIC INTERNET")
+        webTitle.setStyleSheet("color:#173f5f;font-size:10.5pt;font-weight:900;")
+        self.webServerStatusLabel=QLabel("เปิดเว็บให้มือถือ/คอมเครื่องอื่นคำนวณได้ • รองรับ Internet ภายนอก")
+        self.webServerStatusLabel.setWordWrap(True);self.webServerStatusLabel.setStyleSheet("color:#667b8e;font-size:9.2pt;")
+        wpl.addWidget(webTitle);wpl.addWidget(self.webServerStatusLabel)
+        wr=QHBoxLayout()
+        self.openWebServerButton=QPushButton("เปิด Web Server")
+        self.openWebServerButton.setObjectName("primaryButton")
+        self.openWebServerButton.setToolTip("เลือก Public Internet / LAN / Local แล้วเปิด Web Calculator")
+        self.openWebServerButton.clicked.connect(self.launch_web_server_dialog)
+        webHelp=QPushButton("วิธีใช้");webHelp.setObjectName("secondaryButton");webHelp.clicked.connect(self.show_web_server_help)
+        wr.addWidget(self.openWebServerButton);wr.addWidget(webHelp);wr.addStretch(1);wpl.addLayout(wr)
+        system.addWidget(webPanel,1)
         root.addLayout(system)
 
         # Modules heading
