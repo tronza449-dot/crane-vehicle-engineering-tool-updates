@@ -1,42 +1,76 @@
-# Crane Vehicle Engineering Tool V53.3.9
+# Crane Vehicle Engineering Tool V53.4.0
 
-## Winch Battery — Auto / Manual Lift Events
+## Web Server — ใช้เครื่องของคุณเป็น Server ได้แล้ว
 
-เพิ่มการเลือกจำนวนงานยกในหน้า Battery ให้ชัดเจนขึ้น
+เพิ่ม Web App สำหรับคนที่ไม่มีโปรแกรม Desktop ให้เปิดผ่าน Browser แล้วคำนวณได้ โดยเครื่อง Windows ของคุณเป็น Server
 
-### Lift Event Mode
-มี 2 โหมด:
+### ไฟล์ใหม่
+- CraneVehicleWebServer.exe
+- ติดตั้งรวมมากับ CraneVehicleEngineeringTool_Setup.exe
+- มี Shortcut ใน Start Menu ชื่อ Crane Vehicle Web Server
 
-1. Auto — ใช้จำนวนงานยกจากรอบการทำงาน / 3h
-- โปรแกรมดึงจำนวนงานยกจากหน้า Operating Cycles อัตโนมัติ
-- ช่องกรอก Manual ถูกล็อก
-- ตัวอย่างโปรเจกต์ 3 ชั่วโมง: 64 งานยก
+### โหมด Web Server
+1. PUBLIC INTERNET
+- เปิด CraneVehicleWebServer.exe แล้วเลือก 1
+- โปรแกรมเปิด FastAPI Server ที่เครื่องคุณ
+- ถ้ายังไม่มี cloudflared โปรแกรมจะดาวน์โหลดจาก GitHub ทางการของ Cloudflare
+- สร้าง HTTPS Quick Tunnel
+- ได้ลิงก์รูปแบบ https://xxxxx.trycloudflare.com
+- ส่งลิงก์ให้คนอื่นเปิดจากมือถือหรือคอมผ่านอินเทอร์เน็ตภายนอกได้
+- ไม่ต้อง Port Forward Router
 
-2. Manual — กำหนดจำนวนงานยกเอง
-- ผู้ใช้กรอกจำนวนงานยกเองได้
-- โปรแกรมใช้จำนวนที่กรอกคำนวณ E_total, Ah_used และ Ah_design โดยตรง
+2. LAN / Wi-Fi
+- เลือก 2
+- เครื่องในเครือข่ายเดียวกันเปิดผ่าน IP ของเครื่อง Server
 
-### Definition
-1 งานยก = วินช์ขึ้น 1 ครั้ง + วินช์ลง 1 ครั้ง
+3. LOCAL
+- เลือก 3
+- ใช้เฉพาะเครื่อง Server
 
-ตัวอย่าง:
-- Manual = 50 งาน
-- Winch UP = 50 ครั้ง
-- Winch DOWN = 50 ครั้ง
-- การเคลื่อนที่วินช์รวม = 100 ครั้ง
+### Web PIN
+Public mode สามารถตั้ง PIN ได้
+ผู้ที่มีลิงก์ต้องกรอก PIN ก่อนใช้ API คำนวณ
 
-### UI Improvements
-- เปลี่ยนจาก checkbox เดิมเป็น dropdown ที่เห็นชัด:
-  - Auto — ใช้จำนวนงานยกจากรอบการทำงาน / 3h
-  - Manual — กำหนดจำนวนงานยกเอง
-- เปลี่ยนชื่อช่องเป็น “จำนวนงานยกที่กำหนดเอง / Manual events”
-- แสดงข้อความอธิบาย 1 งาน = ขึ้น 1 + ลง 1
-- Summary ระบุชัดว่ากำลังใช้ AUTO หรือ MANUAL และแสดงจำนวน UP / DOWN
+### Web Calculators
+- Drive Torque
+- Main Battery 72 V
+- Winch Datasheet interpolation
+- Operating Cycles / 3 h
+- Winch Battery
+- Auto / Manual Lift Events
+- Crane Stability / Tipping
 
-### Calculation
-ยังคงใช้ Battery calculator ชุดเดียว:
-E_total = N_event × E_event
+### Winch Manual Events
+- Auto = ใช้จำนวนงานยกจากรอบการทำงาน
+- Manual = ผู้ใช้กำหนดจำนวนงานยกเอง
+- 1 งานยก = Winch UP 1 ครั้ง + Winch DOWN 1 ครั้ง
 
-Ah_used = E_total / V
+### สูตรภาษาไทย
+หน้า Web แสดง:
+- สูตรตัวแปร
+- สูตรภาษาไทย
+- แทนค่า
+- ผลลัพธ์
 
-Ah_design = E_total × (1 + Reserve) / (V × DoD)
+### Web Calculation Engine
+เพิ่ม web_engine.py เป็น Pure Python calculation layer สำหรับ Web โดยไม่มี Qt dependency
+Regression Test ตรวจค่าหลักกับ Project baseline เช่น:
+- 100 kg
+- Lift 1.5 m
+- 1 km/h
+- 30 m one-way
+- 3 h
+- Conservative Down
+- 32 รอบไป-กลับ
+- 64 งานยก
+
+### Public access
+Public mode ใช้ Cloudflare Quick Tunnel ดังนั้น URL จะเปลี่ยนเมื่อปิดแล้วเปิด Server ใหม่
+ถ้าต้องการ URL คงที่แบบโดเมนจริง สามารถต่อยอดเป็น Named Cloudflare Tunnel ได้ภายหลัง
+
+### Installer / Release
+Release มี 2 ไฟล์:
+- CraneVehicleEngineeringTool_Setup.exe
+- CraneVehicleWebServer.exe
+
+Setup.exe ติดตั้งทั้ง Desktop App และ Web Server
