@@ -3829,7 +3829,8 @@ void loop() {{
             return
 
         choices=[
-            "PUBLIC INTERNET — คนนอก Wi-Fi เข้าได้",
+            "FREE PERMANENT LINK — Tailscale Funnel (*.ts.net) [แนะนำ]",
+            "QUICK PUBLIC LINK — Cloudflare (ลิงก์สุ่ม)",
             "LAN / Wi-Fi — เครือข่ายเดียวกัน",
             "LOCAL — ใช้เฉพาะเครื่องนี้",
         ]
@@ -3839,9 +3840,19 @@ void loop() {{
         if not ok:return
 
         args=list(cmd)
-        mode="PUBLIC"
-        if choice.startswith("PUBLIC"):
-            args.append("--public")
+        mode="PERMANENT"
+        if choice.startswith("FREE PERMANENT"):
+            args.extend(["--tailscale","--tailscale-hostname","cvet"])
+            pin,okpin=QInputDialog.getText(
+                self,"Web PIN (แนะนำ)",
+                "ตั้ง PIN สำหรับลิงก์ถาวร\nเว้นว่างได้ แต่แนะนำให้ตั้ง:",
+                QLineEdit.Password
+            )
+            if not okpin:return
+            pin=pin.strip()
+            if pin:args.extend(["--pin",pin])
+        elif choice.startswith("QUICK PUBLIC"):
+            mode="QUICK";args.append("--public")
             pin,okpin=QInputDialog.getText(
                 self,"Web PIN (แนะนำ)",
                 "ตั้ง PIN สำหรับคนที่เปิดลิงก์เว็บ\nเว้นว่างได้ แต่แนะนำให้ตั้ง:",
@@ -3864,13 +3875,22 @@ void loop() {{
                 self.webServerStatusLabel.setText(
                     f"{mode} Server กำลังเปิด • Browser จะเปิดอัตโนมัติเมื่อ Server พร้อม"
                 )
+            if mode=="PERMANENT":
+                detail=("FREE PERMANENT LINK:\n"
+                        "• ครั้งแรกโปรแกรมจะช่วยติดตั้ง/เปิด Tailscale\n"
+                        "• Login Tailscale ฟรี 1 ครั้ง\n"
+                        "• อนุญาต Funnel 1 ครั้ง\n"
+                        "• จากนั้นจะได้ลิงก์ HTTPS แบบ https://cvet.<tailnet>.ts.net\n"
+                        "• ลิงก์เดิมใช้ซ้ำได้ ไม่สุ่มใหม่ทุกครั้ง\n")
+            elif mode=="QUICK":
+                detail=("QUICK PUBLIC: รอ Server แสดงลิงก์ https://xxxxx.trycloudflare.com\n"
+                        "ลิงก์นี้จะเปลี่ยนเมื่อปิดแล้วเปิดใหม่\n")
+            else:
+                detail="Browser จะเปิดหน้า Web Calculator อัตโนมัติ\n"
             QMessageBox.information(
                 self,"Web Server",
-                ("กำลังเปิด Web Server แล้วครับ\n\n"
-                 + ("PUBLIC: รอจนหน้าต่าง Server แสดงลิงก์ https://xxxxx.trycloudflare.com แล้ว Browser จะเปิดอัตโนมัติ\n"
-                    if mode=="PUBLIC" else
-                    "Browser จะเปิดหน้า Web Calculator อัตโนมัติ\n")
-                 + "อย่าปิดหน้าต่าง Web Server ระหว่างที่ต้องการให้คนอื่นเข้าเว็บ")
+                "กำลังเปิด Web Server แล้วครับ\n\n"+detail+
+                "\nอย่าปิดหน้าต่าง Web Server ระหว่างที่ต้องการให้คนอื่นเข้าเว็บ"
             )
         except Exception as ex:
             QMessageBox.critical(self,"Web Server",f"เปิด Web Server ไม่สำเร็จ:\n{ex}")
@@ -3878,12 +3898,15 @@ void loop() {{
     def show_web_server_help(self):
         QMessageBox.information(
             self,"วิธีใช้ Web Server",
+            "โหมดแนะนำ: FREE PERMANENT LINK\n"
             "1) กด ‘เปิด Web Server’\n"
-            "2) เลือก PUBLIC INTERNET ถ้าต้องการให้คนนอก Wi-Fi เข้า\n"
-            "3) ตั้ง Web PIN (แนะนำ)\n"
-            "4) รอหน้าต่าง Server สร้างลิงก์ HTTPS\n"
-            "5) Browser จะเปิดเว็บอัตโนมัติ และส่งลิงก์นั้นให้คนอื่นได้\n\n"
-            "เครื่องนี้ต้องเปิด Web Server ค้างไว้ตลอดเวลาที่ใช้งานเว็บ"
+            "2) เลือก FREE PERMANENT LINK — Tailscale Funnel\n"
+            "3) ครั้งแรกติดตั้งและ Login Tailscale ฟรี\n"
+            "4) อนุญาต Funnel 1 ครั้ง\n"
+            "5) โปรแกรมจะได้ลิงก์ https://cvet.<tailnet>.ts.net\n"
+            "6) ครั้งต่อไปใช้ลิงก์เดิมได้ ไม่ต้องซื้อ Domain\n\n"
+            "QUICK PUBLIC LINK ยังใช้ Cloudflare ได้เหมือนเดิม แต่ URL จะสุ่มใหม่\n"
+            "เครื่องนี้ต้องเปิด CVET Web Server และ Tailscale ขณะใช้งานเว็บ"
         )
 
     def show_home_mode(self):
@@ -4047,15 +4070,15 @@ void loop() {{
 
         webPanel=QFrame();webPanel.setObjectName("softPanel")
         wpl=QVBoxLayout(webPanel);wpl.setContentsMargins(15,11,15,11);wpl.setSpacing(7)
-        webTitle=QLabel("WEB SERVER  •  PUBLIC INTERNET")
+        webTitle=QLabel("WEB SERVER  •  FREE PERMANENT LINK")
         webTitle.setStyleSheet("color:#173f5f;font-size:10.5pt;font-weight:900;")
-        self.webServerStatusLabel=QLabel("เปิดเว็บให้มือถือ/คอมเครื่องอื่นคำนวณได้ • รองรับ Internet ภายนอก")
+        self.webServerStatusLabel=QLabel("ฟรี • ลิงก์ HTTPS เดิมผ่าน Tailscale Funnel • Quick Cloudflare ยังใช้ได้")
         self.webServerStatusLabel.setWordWrap(True);self.webServerStatusLabel.setStyleSheet("color:#667b8e;font-size:9.2pt;")
         wpl.addWidget(webTitle);wpl.addWidget(self.webServerStatusLabel)
         wr=QHBoxLayout()
         self.openWebServerButton=QPushButton("เปิด Web Server")
         self.openWebServerButton.setObjectName("primaryButton")
-        self.openWebServerButton.setToolTip("เลือก Public Internet / LAN / Local แล้วเปิด Web Calculator")
+        self.openWebServerButton.setToolTip("แนะนำ Free Permanent Link (*.ts.net) • รองรับ Quick Public / LAN / Local")
         self.openWebServerButton.clicked.connect(self.launch_web_server_dialog)
         webHelp=QPushButton("วิธีใช้");webHelp.setObjectName("secondaryButton");webHelp.clicked.connect(self.show_web_server_help)
         wr.addWidget(self.openWebServerButton);wr.addWidget(webHelp);wr.addStretch(1);wpl.addLayout(wr)
