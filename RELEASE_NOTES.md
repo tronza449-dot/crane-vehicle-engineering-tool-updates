@@ -1,79 +1,78 @@
-# Crane Vehicle Engineering Tool V53.3.5
+# Crane Vehicle Engineering Tool V53.3.6
 
-## Winch Battery — Separate UP / DOWN Energy
+## Winch Calculation Cleanup — Single Source of Truth
 
-เพิ่มฟังก์ชันคำนวณแบตเตอรี่วินช์แบบแยกพลังงานขาขึ้นและขาลง เพื่อไม่บังคับให้การยกขึ้นและการลดลงกินพลังงานเท่ากัน
+ปรับโครงสร้างหน้า Winch เพื่อตัดการคำนวณซ้ำซ้อนระหว่าง Spec, Formula, Summary และ Battery
 
-### New Battery tab
-เพิ่มแท็บ:
-- Battery / แบตวินช์
+### New data flow
+Datasheet → Operating Cycles → Battery → Summary
 
-### Inputs
-- System voltage (default 12 V)
+### Visible Winch tabs
+1. Spec / Datasheet
+2. สูตร + วิธีคำนวณ
+3. รอบการทำงาน / 3h
+4. Battery / แบตวินช์
+5. สรุป / Summary
+
+### Spec / Datasheet
+- แก้ได้เฉพาะ Load และ Lift Distance
+- แสดง First Layer interpolation
+- แสดง Up speed / Up current / Up time
+- แสดง Rope Layer / Line Pull check
+- ยกเลิกการคำนวณ Wh / Ah / Battery Cycles ในหน้านี้
+
+### Operating Cycles
+เป็นแหล่งข้อมูลหลักสำหรับจำนวนงานยก:
+- Vehicle speed
+- One-way distance
+- Operating time
+- Lift events per round
+- Other stop time
+- Completed round trips
+- One-way trips
 - Lift events
-- ใช้จำนวนงานยกจากหน้า รอบการทำงาน / 3h อัตโนมัติ
-- DoD
-- Reserve
+- Winch UP / DOWN counts
+- Total distance / remaining time
 
-Load และ Lift Distance ใช้ค่าปัจจุบันจาก Winch Spec + Battery
+จำนวนงานยกถูกส่งไปหน้า Battery อัตโนมัติเมื่อเปิด Use Operating Cycles
 
-### DOWN Calculation Modes
-1. Conservative — Down = Up
-   - I_down = I_up
-   - t_down = t_up
+### Battery
+เป็นตัวคำนวณพลังงานและ Ah หลักเพียงชุดเดียว:
+- E_up
+- E_down
+- E_event
+- E_total
+- Ah_used
+- Ah_design
+- Standard Ah
+- Candidate Battery / BMS check
 
-2. Measured / Custom
-   - กรอก Down Current
-   - เลือกคำนวณเวลาขาลงจาก Down Speed หรือกรอก Down Time โดยตรง
+รองรับ Conservative และ Measured / Custom DOWN เหมือน V53.3.5
 
-### Energy formulas
-E_up = V × I_up × t_up / 3600
+### Formula
+หน้า Formula ไม่สร้าง Battery calculation แยกอีกชุด
+แต่แสดงสูตรและแทนค่าจากผล Datasheet + Operating Cycles + Battery ชุดเดียวกัน
 
-E_down = V × I_down × t_down / 3600
+### Summary
+หน้า Summary ไม่คำนวณใหม่
+แสดงผลรวมจากแหล่งข้อมูลเดียว:
+- Load / Lift
+- First-layer speed/current
+- Rope layer
+- UP/DOWN time
+- Completed round trips
+- Lift events
+- Winch movements
+- Total Wh
+- Ah used / Ah design
+- Standard battery size
+- Candidate battery status
 
-E_event = E_up + E_down
-
-E_total = N_event × E_event
-
-Ah_used = E_total / V
-
-Ah_design = E_total × (1 + Reserve) / (V × DoD)
-
-ทุกขั้นแสดง:
-สูตร → ความหมาย → แทนค่าตัวเลข → ผลลัพธ์
-
-### Operating-cycle integration
-หน้า รอบการทำงาน ใช้ Down mode ที่เลือกใน Battery tab ด้วย
-ดังนั้นเมื่อมีค่าขาลงที่วัดจริง เวลาต่อรอบและจำนวนงานใน 3 ชั่วโมงจะอัปเดตตามจริง
-
-ค่า default Conservative ของโปรเจกต์:
-- 1 km/h
-- 30 m one-way
-- 3 h
-- Load 100 kg
-- Lift 1.5 m
-- 2 lift events/round
-
-ให้ประมาณ:
-- 32 รอบไป-กลับ
-- 64 งานยกสัตว์
-- 64 Winch UP
-- 64 Winch DOWN
-
-### Battery Check
-เพิ่มช่องตรวจแบตที่จะซื้อ:
-- Candidate Ah
-- BMS Continuous Current
-- BMS Peak Current
-
-แสดงแยก:
-- Energy Capacity PASS / FAIL
-- Operating Continuous Current PASS / FAIL
-- Manufacturer table maximum 140 A เป็น Reference
-- Peak Current = CHECK เพราะใบสเปกไม่ระบุ Starting/Stall surge
-
-หมายเหตุ:
-140 A คือค่าสูงสุดใน First Layer table ที่ 2041 kg ไม่ใช่กระแสใช้งานปกติของโหลด 100 kg
+### Compatibility
+ตัวแปรและ compatibility widgets เก่ายังคงอยู่ภายในเพื่อไม่ทำให้โมดูลอื่นเสีย
+แต่ไม่แสดงเป็นหน้าคำนวณซ้ำใน Winch UI
 
 ### PDF
-Winch PDF รวม Advanced Battery report พร้อม UP/DOWN energy และ Battery Check
+จัดรายงานเป็น:
+Summary → Datasheet → Operating Cycles → Battery → Formula → Variables
+โดย Battery totals มาจาก calculator หลักชุดเดียว
