@@ -73,3 +73,16 @@ python web_launcher.py --lan
 - Quick Tunnel URL จะเปลี่ยนเมื่อปิดแล้วเปิดใหม่
 - Quick Tunnel เหมาะกับการทดสอบ/แชร์ชั่วคราว
 - ถ้าต้องการ URL คงที่ เช่น https://crane.example.com ให้สร้าง Named Cloudflare Tunnel + Domain ในขั้นถัดไป
+
+## V53.5 Full Calculation
+
+ผลลัพธ์ของ Drive Torque, Main Battery, Winch และ Stability มีตารางรายละเอียดเพิ่ม:
+- ตัวแปร / รายการ
+- สูตรสัญลักษณ์
+- แทนค่าตัวเลขอัตโนมัติ
+- ผลลัพธ์
+- หน่วย
+- คำนวณหาอะไร
+- คำอธิบายสูตรแบบง่าย
+
+ตารางจะใช้ค่าที่ผู้ใช้กรอกในหน้าเว็บและคำนวณใหม่ตามผลจาก Web API
