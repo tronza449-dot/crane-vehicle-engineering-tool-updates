@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import queue
 import re
 import shutil
 import socket
@@ -250,55 +251,188 @@ def tailscale_dns_name(ts: Path) -> str:
     return name
 
 
-def enable_tailscale_funnel(ts: Path, port: int) -> tuple[bool, str]:
-    target = f"http://127.0.0.1:{port}"
-    cmd = [str(ts), "funnel", "--bg", "--yes", target]
-    print("\n[CVET] กำลังเปิด Tailscale Funnel...")
-    print("[CVET] ครั้งแรก Tailscale อาจให้กดยืนยัน Enable Funnel ใน Browser")
+def funnel_status_text(ts: Path) -> str:
     try:
         cp = subprocess.run(
-            cmd,
+            [str(ts), "funnel", "status"],
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=45,
+            timeout=8,
         )
-        combined = ((cp.stdout or "") + "\n" + (cp.stderr or "")).strip()
-        if combined:
-            print(combined)
+        return ((cp.stdout or "") + "\n" + (cp.stderr or "")).strip()
+    except Exception:
+        return ""
 
-        if cp.returncode != 0:
-            approval_urls = [u.rstrip(".,)") for u in HTTPS_RE.findall(combined)]
-            for url in approval_urls:
-                if "tailscale" in url.lower():
-                    print("\n[CVET] เปิดหน้ารับรอง Funnel ให้แล้ว กรุณากด Enable/Allow")
+
+def funnel_looks_active(ts: Path, port: int) -> bool:
+    status = funnel_status_text(ts).lower()
+    if not status:
+        return False
+    target1 = f"127.0.0.1:{port}".lower()
+    target2 = f"localhost:{port}".lower()
+    return ("funnel on" in status or "available on the internet" in status) and (target1 in status or target2 in status or f":{port}" in status)
+
+
+def _reader_to_queue(stream, q):
+    try:
+        for line in iter(stream.readline, ""):
+            q.put(line)
+    except Exception:
+        pass
+    finally:
+        q.put(None)
+
+
+def enable_tailscale_funnel(ts: Path, port: int) -> tuple[bool, str]:
+    """Enable Funnel without hiding the first-time approval URL.
+
+    Tailscale's first Funnel command can wait for browser approval.  Older CVET
+    builds used subprocess.run(..., timeout=45), which hid the approval URL
+    until timeout.  This version streams the output, opens the approval page as
+    soon as Tailscale prints it, and patiently waits for the user to approve.
+    """
+    target = f"http://127.0.0.1:{port}"
+    cmd = [str(ts), "funnel", "--bg", "--yes", target]
+    deadline = time.time() + 300.0
+    approval_url = ""
+    combined_lines = []
+    attempt = 0
+
+    while time.time() < deadline and attempt < 6:
+        attempt += 1
+        print("\n[CVET] กำลังเปิด Tailscale Funnel...")
+        if attempt == 1:
+            print("[CVET] ถ้าเป็นครั้งแรก Browser จะเปิดหน้า Enable Funnel ให้อัตโนมัติ")
+
+        write_web_status(
+            "PERMANENT",
+            "funnel_starting",
+            message="กำลังสร้างลิงก์ HTTPS... ถ้าเป็นครั้งแรก Browser จะเปิดหน้า Enable Funnel ให้อัตโนมัติ",
+        )
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+        except Exception as exc:
+            return False, str(exc)
+
+        q = queue.Queue()
+        reader = threading.Thread(
+            target=_reader_to_queue,
+            args=(proc.stdout, q),
+            name="CVET-Tailscale-Output",
+            daemon=True,
+        )
+        reader.start()
+
+        last_status_check = 0.0
+        saw_eof = False
+
+        while time.time() < deadline:
+            try:
+                item = q.get(timeout=0.35)
+            except queue.Empty:
+                item = ""
+
+            if item is None:
+                saw_eof = True
+            elif item:
+                line = item.rstrip()
+                if line:
+                    print(line)
+                    combined_lines.append(line)
+                    if len(combined_lines) > 80:
+                        combined_lines = combined_lines[-80:]
+
+                for raw_url in HTTPS_RE.findall(line):
+                    url = raw_url.rstrip(".,)")
+                    low = url.lower()
+                    if "tailscale.com" in low and ("funnel" in low or "/f/" in low or "login." in low):
+                        if url != approval_url:
+                            approval_url = url
+                            write_web_status(
+                                "PERMANENT",
+                                "approval_required",
+                                url=url,
+                                message="ต้องอนุญาต Funnel ครั้งแรก • เปิดหน้า Tailscale ให้แล้ว กรุณากด Enable Funnel",
+                            )
+                            print("\n[CVET] ต้องอนุญาต Funnel ครั้งแรก")
+                            print(f"[CVET] เปิด Browser: {url}")
+                            try:
+                                webbrowser.open(url)
+                            except Exception:
+                                pass
+
+            now = time.time()
+            if now - last_status_check >= 2.0:
+                last_status_check = now
+                if funnel_looks_active(ts, port):
                     try:
-                        webbrowser.open(url)
+                        if proc.poll() is None:
+                            proc.terminate()
                     except Exception:
                         pass
-                    input("เมื่อกดอนุญาตเรียบร้อยแล้ว กด Enter เพื่อทำต่อ: ")
-                    cp = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace",
-                        timeout=45,
+                    dns = tailscale_dns_name(ts)
+                    public_url = f"https://{dns}" if dns else ""
+                    if public_url:
+                        return True, public_url
+                    return True, ""
+
+            code = proc.poll()
+            if code is not None and saw_eof:
+                if code == 0:
+                    dns = tailscale_dns_name(ts)
+                    public_url = f"https://{dns}" if dns else ""
+                    return True, public_url
+
+                # First-time authorization can cause the command to end before
+                # the browser approval is completed.  Keep waiting and retry.
+                if approval_url:
+                    write_web_status(
+                        "PERMANENT",
+                        "approval_required",
+                        url=approval_url,
+                        message="รอการกด Enable Funnel ใน Browser... โปรแกรมจะลองต่อให้อัตโนมัติ",
                     )
-                    combined = ((cp.stdout or "") + "\n" + (cp.stderr or "")).strip()
-                    if combined:
-                        print(combined)
                     break
 
-        if cp.returncode != 0:
-            return False, combined
+                text_out = "\n".join(combined_lines[-20:])
+                return False, text_out or f"tailscale funnel exited with code {code}"
 
-        dns = tailscale_dns_name(ts)
-        url = f"https://{dns}" if dns else ""
-        return True, url
-    except Exception as exc:
-        return False, str(exc)
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=3)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+        if approval_url and time.time() < deadline:
+            # Give the admin console a moment to propagate the Funnel capability,
+            # then retry the exact command automatically.
+            for _ in range(10):
+                if time.time() >= deadline:
+                    break
+                if funnel_looks_active(ts, port):
+                    dns = tailscale_dns_name(ts)
+                    return True, f"https://{dns}" if dns else ""
+                time.sleep(1.0)
+            continue
+
+    if approval_url:
+        return False, "หมดเวลารอการอนุญาต Funnel (5 นาที) • เปิดหน้า Tailscale ที่โปรแกรมเปิดไว้ กด Enable Funnel แล้วลองใหม่"
+    return False, "\n".join(combined_lines[-20:]) or "เปิด Tailscale Funnel ไม่สำเร็จ"
 
 
 def run_server_thread(host: str, port: int):
