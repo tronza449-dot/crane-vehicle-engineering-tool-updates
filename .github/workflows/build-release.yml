@@ -911,9 +911,7 @@ jobs:
           python -m PyInstaller --noconfirm --clean --distpath "$dist" --workpath "$work" CraneEngineeringTool.spec
 
           $webwork = Join-Path $env:RUNNER_TEMP "cvet-web-work"
-          $webspec = Join-Path $env:RUNNER_TEMP "cvet-web-spec"
-          New-Item -ItemType Directory -Force -Path $webspec | Out-Null
-          python -m PyInstaller --noconfirm --clean --onefile --console --name "CraneVehicleWebServer" --icon "assets/CraneEngineeringTool.ico" --distpath "$dist" --workpath "$webwork" --specpath "$webspec" --add-data "web;web" --add-data "VERSION;." --hidden-import "uvicorn.logging" --hidden-import "uvicorn.loops" --hidden-import "uvicorn.loops.auto" --hidden-import "uvicorn.protocols" --hidden-import "uvicorn.protocols.http" --hidden-import "uvicorn.protocols.http.auto" --hidden-import "uvicorn.protocols.websockets" --hidden-import "uvicorn.protocols.websockets.auto" --hidden-import "uvicorn.lifespan" --hidden-import "uvicorn.lifespan.on" web_launcher.py
+          python -m PyInstaller --noconfirm --clean --onefile --console --name "CraneVehicleWebServer" --icon "assets/CraneEngineeringTool.ico" --distpath "$dist" --workpath "$webwork" --add-data "web;web" --add-data "VERSION;." --hidden-import "uvicorn.logging" --hidden-import "uvicorn.loops" --hidden-import "uvicorn.loops.auto" --hidden-import "uvicorn.protocols" --hidden-import "uvicorn.protocols.http" --hidden-import "uvicorn.protocols.http.auto" --hidden-import "uvicorn.protocols.websockets" --hidden-import "uvicorn.protocols.websockets.auto" --hidden-import "uvicorn.lifespan" --hidden-import "uvicorn.lifespan.on" web_launcher.py
 
           $webexe=Join-Path $dist "CraneVehicleWebServer.exe"
           if (-not (Test-Path $webexe)) { throw "CraneVehicleWebServer.exe was not generated" }
