@@ -186,176 +186,140 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- V53.3.5 Winch formula + operation + advanced battery regression ----------
-          assert hasattr(w,"wTabs") and w.wTabs.count()==6
-          assert w.wTabs.tabText(0)=="Spec + Battery"
+          # ---------- V53.3.6 Winch single-source-of-truth regression ----------
+          assert hasattr(w,"wTabs") and w.wTabs.count()==5
+          assert w.wTabs.tabText(0)=="Spec / Datasheet"
           assert "สูตร" in w.wTabs.tabText(1)
-          assert "ตัวแปร" in w.wTabs.tabText(2)
-          assert "สรุป" in w.wTabs.tabText(3)
-          assert "รอบการทำงาน" in w.wTabs.tabText(4)
-          assert "Battery" in w.wTabs.tabText(5)
-          assert hasattr(w,"wCalcSummary")
+          assert "รอบการทำงาน" in w.wTabs.tabText(2)
+          assert "Battery" in w.wTabs.tabText(3)
+          assert "สรุป" in w.wTabs.tabText(4)
+          assert hasattr(w,"wCalcSummary") and hasattr(w,"wSpecResult")
           assert hasattr(w,"wopSummary") and hasattr(w,"wopDetails")
           assert hasattr(w,"wbSummary") and hasattr(w,"wbDetails")
           assert hasattr(w,"wSpecTable") and w.wSpecTable.rowCount()==13
           assert hasattr(w,"wPerfTable") and w.wPerfTable.rowCount()==4
           assert hasattr(w,"wLayerTable") and w.wLayerTable.rowCount()==5
 
-          # Exactly the three design inputs are editable on the Winch page.
-          for editable_name in ("wmass","wheight","wcycles"):
-              editable=getattr(w,editable_name)
-              assert editable.isEnabled(), f"{editable_name} must be editable in V53.3.1"
-              assert not editable.isHidden(), f"{editable_name} must be visible in V53.3.1"
+          # Datasheet page exposes only Load and Lift Distance.
+          assert w.wmass.isEnabled() and not w.wmass.isHidden()
+          assert w.wheight.isEnabled() and not w.wheight.isHidden()
+          assert hasattr(w,"wcycles") and (not w.wcycles.isEnabled()) and w.wcycles.isHidden()
+          assert hasattr(w,"wVars") and w.wVars.isHidden()
           for locked_name in ("wvolt","wrated","wratio","wiup","widown","wdod","wreserve","wdiameter"):
               locked=getattr(w,locked_name)
               assert not locked.isEnabled(), f"{locked_name} must remain locked"
 
-          # 100 kg interpolation between 0 kg (3.3 m/min, 12 A) and 454 kg (2.5 m/min, 60 A).
-          w.wmass.setValue(100.0);w.wheight.setValue(1.0);w.wcycles.setValue(50)
-          sp=w.winch_speed_results()
-          for key in ("motor_up","drum_up","tension","drum_torque","load_up","load_down","time_up","time_down","current_a"):
-              assert key in sp, f"Missing winch key: {key}"
-              finite(sp[key])
+          # Datasheet interpolation: 100 kg between 0 and 454 kg.
+          w.wmass.setValue(100.0);w.wheight.setValue(1.5)
           expected_speed=3.3+(2.5-3.3)*(100.0/454.0)
           expected_current=12.0+(60.0-12.0)*(100.0/454.0)
-          assert abs(sp["load_up"]-expected_speed)<1e-9
-          assert abs(sp["current_a"]-expected_current)<1e-9
-
-          wr50=w.winch_results()
-          finite(wr50["ah"],wr50["tu"],wr50["td"],wr50["total"])
-          assert wr50["n"]==50 and wr50["ah"]>0
-          assert wr50["rope_layer"]==1 and wr50["layer_pull_kg"]==2041.0
-          assert wr50["max_spec_current"]==140.0
-
-          formula=w.winch_formula_html(wr50)
-          assert "Interpolation" in formula
-          assert "E<sub>cycle</sub>" in formula
-          assert "Ah<sub>design</sub>" in formula
-          assert "100.0 kg" in formula and "1.00 m" in formula
+          core=w.winch_core_results()
+          assert abs(core["up_speed"]-expected_speed)<1e-9
+          assert abs(core["iup"]-expected_current)<1e-9
+          assert abs(core["tu"]-28.811169087575802)<1e-6
+          assert core["rope_layer"]==1 and core["layer_pull_kg"]==2041.0
           w.calc_winch()
-          assert "สูตร" in w.wTabs.tabText(1)
-          assert "WINCH" in w.wSteps.toPlainText()
-          assert "m_load" in w.wVars.toPlainText()
+          assert "First Layer" in w.wSpecResult.text()
+          assert "Ah" not in w.wSpecResult.text()
 
-          assert "ความหมาย" in w.wSteps.toPlainText()
-          assert "ระยะยก" in w.wSteps.toPlainText()
-          summary=w.winch_summary_html(wr50)
-          assert "สรุปการคำนวณ" in summary
-          assert "100.0 kg" in summary and "1.00 m" in summary and "50 รอบ" in summary
-          assert "Ah_design" in summary
-          assert "Rope Layer Check" in summary
-          assert "สรุปการคำนวณ" in w.wCalcSummary.toPlainText()
-
-          # V53.3.4 operating cycle: 1 km/h, 30 m one-way, 3 h,
-          # load 100 kg, lift 1.5 m, 2 animal-handling events/round.
-          w.wmass.setValue(100.0);w.wheight.setValue(1.5);w.wcycles.setValue(50)
+          # Operating cycle is the only source for automatic event count.
           w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
           w.wopEvents.setValue(2);w.wopOther.setValue(0.0)
+          w.wbUseOp.setChecked(True)
+          w.wbDownMode.setCurrentIndex(0)
           op=w.winch_operation_results()
           finite(op["t_up"],op["t_down"],op["t_event"],op["t_round"],op["remaining"])
           assert abs(op["t_one"]-108.0)<1e-9
-          assert abs(op["t_up"]-28.811169087575802)<1e-6
           assert abs(op["t_event"]-57.622338175151604)<1e-6
           assert abs(op["t_round"]-331.2446763503032)<1e-6
-          assert op["rounds"]==32
-          assert op["trips"]==64
-          assert op["lift_events"]==64
+          assert op["rounds"]==32 and op["trips"]==64 and op["lift_events"]==64
           assert op["up_count"]==64 and op["down_count"]==64 and op["winch_moves"]==128
           assert abs(op["distance_total"]-1920.0)<1e-9
           assert abs(op["remaining"]-200.17035679029686)<1e-6
-          oph=w.winch_operation_html(op)
-          assert "108.00" in oph and "331.24" in oph
-          assert "64 งาน" in oph and "128" in oph
-          w.calc_winch_operation()
-          assert "32 รอบไป-กลับ" in w.wopSummary.text()
-          assert "วินช์ขึ้น 64" in w.wopSummary.text()
-          assert "รอบการทำงาน" in w.wopDetails.toPlainText()
-          w.apply_winch_operation_cycles()
-          assert w.wcycles.value()==64
-          assert w.wbEvents.value()==64
 
-          # Advanced Winch Battery — Conservative mode.
-          assert w.wbUseOp.isChecked()
-          assert w.wbDownMode.currentIndex()==0
-          bc=w.winch_battery_results()
-          assert bc["events"]==64
-          assert bc["down_mode"]=="Conservative"
-          assert abs(bc["up_current"]-expected_current)<1e-9
-          assert abs(bc["down_current"]-expected_current)<1e-9
-          assert abs(bc["down_time"]-bc["up_time"])<1e-9
-          assert abs(bc["e_down"]-bc["e_up"])<1e-9
-          expected_total=64.0*(bc["e_up"]+bc["e_down"])
-          assert abs(bc["total"]-expected_total)<1e-9
-          expected_design=bc["total"]*1.20/(12.0*0.80)
-          assert abs(bc["ah_design"]-expected_design)<1e-9
-          assert 34.0 < bc["ah_design"] < 35.5
-          bh=w.winch_battery_html(bc)
-          assert "ขึ้น / ลงแยกพลังงาน" in bh
-          assert "E<sub>down</sub>" in bh
-          w.calc_winch_battery()
-          assert "64 งานยก" in w.wbSummary.text()
+          # Battery is the only source for Wh/Ah totals.
+          b=w.winch_battery_results()
+          assert b["events"]==op["lift_events"]==64
+          assert b["down_mode"]=="Conservative"
+          assert abs(b["up_current"]-expected_current)<1e-9
+          assert abs(b["down_current"]-expected_current)<1e-9
+          assert abs(b["down_time"]-b["up_time"])<1e-9
+          assert abs(b["e_down"]-b["e_up"])<1e-9
+          assert 34.0 < b["ah_design"] < 35.5
+          wr=w.winch_results()
+          assert wr["n"]==b["events"]
+          assert abs(wr["total"]-b["total"])<1e-9
+          assert abs(wr["ah"]-b["ah_design"])<1e-9
+          assert abs(wr["ed"]-b["e_down"])<1e-9
 
-          # Custom DOWN mode — independent current and speed/time.
+          # Formula and Summary are display-only views of those same canonical results.
+          formula=w.winch_formula_html()
+          assert "Datasheet" in formula and "Operating Cycles" in formula
+          assert "Ah_design" in formula
+          assert "64" in formula and "34." in formula
+          summary=w.winch_summary_html()
+          assert "Data flow" in summary
+          assert "32 round trips" in summary
+          assert "64 events" in summary
+          assert f"{b['ah_design']:.2f} Ah" in summary
+          w.calc_winch()
+          assert "สูตร" in w.wSteps.toPlainText()
+          assert "32 round trips" in w.wCalcSummary.toPlainText()
+          assert "N_event" in w.wVars.toPlainText()
+
+          # Custom DOWN mode changes both operating time and battery energy from one shared setting.
           w.wbDownMode.setCurrentIndex(1)
           w.wbDownBasis.setCurrentIndex(0)
           w.wbDownCurrent.setValue(10.0)
           w.wbDownSpeed.setValue(3.0)
-          bcustom=w.winch_battery_results()
-          assert bcustom["down_mode"]=="Measured / Custom"
-          assert abs(bcustom["down_current"]-10.0)<1e-9
-          assert abs(bcustom["down_speed"]-3.0)<1e-9
-          assert abs(bcustom["down_time"]-30.0)<1e-9
-          assert bcustom["e_down"] < bcustom["e_up"]
-          assert bcustom["ah_design"] < bc["ah_design"]
+          custom=w.winch_battery_results()
+          op_custom=w.winch_operation_results()
+          assert abs(custom["down_current"]-10.0)<1e-9
+          assert abs(custom["down_time"]-30.0)<1e-9
+          assert custom["e_down"] < b["e_down"]
+          assert custom["ah_design"] < b["ah_design"]
+          assert abs(op_custom["t_down"]-30.0)<1e-9
 
-          # Custom Time basis.
-          w.wbDownBasis.setCurrentIndex(1)
-          w.wbDownTime.setValue(25.0)
-          btime=w.winch_battery_results()
-          assert abs(btime["down_time"]-25.0)<1e-9
-          assert abs(btime["down_speed"]-(1.5/(25.0/60.0)))<1e-9
+          # Manual event count is available only when automatic Operating Cycles link is off.
+          w.wbUseOp.setChecked(False)
+          w.wbEvents.setValue(100)
+          manual=w.winch_battery_results()
+          assert manual["events"]==100
+          w.wbEvents.setValue(200)
+          manual2=w.winch_battery_results()
+          assert abs(manual2["total"]-2.0*manual["total"])<1e-9
 
-          # Candidate battery / BMS checks.
+          # Candidate battery/BMS checks stay in the Battery tab.
           w.wbCandidateAh.setValue(40.0)
           w.wbBmsCont.setValue(30.0)
           w.wbBmsPeak.setValue(150.0)
           bcheck=w.winch_battery_results()
           assert bcheck["energy_ok"]
           assert bcheck["cont_ok"]
-          assert not bcheck["table140_ok"]  # 30 A is enough for this operating point, not the 140 A table maximum.
+          assert not bcheck["table140_ok"]
           assert "Starting/Stall surge" in w.winch_battery_html(bcheck)
 
-          # Reset conservative defaults for the existing battery/rope regression below.
+          # Reset normal project defaults for remaining regressions.
+          w.wbUseOp.setChecked(True)
           w.wbDownMode.setCurrentIndex(0)
           w.wbDownBasis.setCurrentIndex(0)
           w.wbBmsCont.setValue(0.0);w.wbBmsPeak.setValue(0.0)
-          w.wheight.setValue(1.0);w.wcycles.setValue(50)
+          w.wmass.setValue(100.0);w.wheight.setValue(1.0)
 
-          # Lift distance changes time/energy and crossing 1.5 m enters layer 2.
+          # Lift distance changes core time and rope layer without a second battery calculator.
+          core1=w.winch_core_results()
           w.wheight.setValue(2.0)
-          wr2m=w.winch_results()
-          assert abs(wr2m["tu"]-2.0*wr50["tu"])<1e-9
-          assert abs(wr2m["total"]-2.0*wr50["total"])<1e-9
-          assert wr2m["rope_layer"]==2 and wr2m["layer_pull_kg"]==1597.0
-
-          formula2=w.winch_formula_html(wr2m)
-          assert "2.00 m" in formula2
-
-          summary2=w.winch_summary_html(wr2m)
-          assert "2.00 m" in summary2 and "Layer 2" in summary2
+          core2=w.winch_core_results()
+          assert abs(core2["tu"]-2.0*core1["tu"])<1e-9
+          assert core2["rope_layer"]==2 and core2["layer_pull_kg"]==1597.0
+          assert "2.00 m" in w.winch_formula_html()
+          assert "Layer 2" in w.winch_summary_html()
 
           # Load changes interpolation automatically.
           w.wheight.setValue(1.0);w.wmass.setValue(454.0)
-          wr454=w.winch_results()
-          assert abs(wr454["up_speed"]-2.5)<1e-9
-          assert abs(wr454["iup"]-60.0)<1e-9
-
-          # Cycle count remains linear.
-          w.wmass.setValue(100.0);w.wcycles.setValue(100)
-          wr100=w.winch_results()
-          assert abs(wr100["total"]-2.0*wr50["total"])<1e-9
-          assert abs(wr100["ah"]-2.0*wr50["ah"])<1e-9
-          w.wcycles.setValue(50)
+          core454=w.winch_core_results()
+          assert abs(core454["up_speed"]-2.5)<1e-9
+          assert abs(core454["iup"]-60.0)<1e-9
 
           # ---------- Stability regression ----------
           d=w.inputs()
