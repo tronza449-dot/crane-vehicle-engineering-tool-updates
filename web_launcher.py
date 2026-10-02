@@ -28,6 +28,31 @@ def app_data_dir() -> Path:
     return path
 
 
+def web_status_path() -> Path:
+    return app_data_dir() / "web_status.json"
+
+
+def write_web_status(mode: str, state: str, url: str = "", message: str = "") -> None:
+    """Share Web Server state back to the desktop CVET UI."""
+    path = web_status_path()
+    tmp = path.with_suffix(".tmp")
+    payload = {
+        "mode": str(mode or ""),
+        "state": str(state or ""),
+        "url": str(url or ""),
+        "message": str(message or ""),
+        "updated_at": time.time(),
+    }
+    try:
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(path)
+    except Exception:
+        try:
+            path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+
+
 def local_ip() -> str:
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -295,33 +320,53 @@ def run_server_thread(host: str, port: int):
 
 
 def run_tailscale_mode(port: int, hostname: str, no_browser: bool) -> int:
+    write_web_status("PERMANENT", "starting", message="กำลังเตรียม Tailscale Permanent Link...")
     ts = find_tailscale()
     if ts is None and os.name == "nt":
+        write_web_status("PERMANENT", "installing", message="ยังไม่พบ Tailscale • กำลังติดตั้ง/เปิดหน้าดาวน์โหลดครั้งแรก")
         ts = install_tailscale_windows()
     if ts is None:
+        msg="ไม่พบ Tailscale • กรุณาติดตั้ง Tailscale แล้วลองใหม่"
+        write_web_status("PERMANENT", "error", message=msg)
         print("\n[CVET] ไม่พบ Tailscale CLI")
         print("ติดตั้งฟรีจาก https://tailscale.com/download แล้วลองใหม่")
         return 3
 
+    write_web_status("PERMANENT", "login", message="กำลังตรวจสอบ Tailscale Login • ถ้า Browser เปิดขึ้นมาให้ Login ให้เสร็จ")
     if not ensure_tailscale_login(ts):
+        msg="ยัง Login Tailscale ไม่สำเร็จ • เปิด Tailscale จาก System Tray → Log in แล้วลองใหม่"
+        write_web_status("PERMANENT", "error", message=msg)
         print("\n[CVET] ยัง Login Tailscale ไม่สำเร็จ")
         print("เปิด Tailscale จาก System Tray → Log in แล้วลองใหม่")
         return 4
 
     set_tailscale_hostname(ts, hostname)
 
+    write_web_status("PERMANENT", "server_starting", message="Login สำเร็จ • กำลังเปิด CVET Web Server...")
     server, thread = run_server_thread("127.0.0.1", port)
     if not wait_for_server(port):
+        msg="CVET Web Server เริ่มทำงานไม่สำเร็จ"
+        write_web_status("PERMANENT", "error", message=msg)
         print("[CVET] Web server เริ่มทำงานไม่สำเร็จ")
         return 2
 
+    write_web_status("PERMANENT", "funnel_starting", message="Web Server พร้อม • กำลังสร้างลิงก์ HTTPS แบบถาวร...")
     ok, public_url = enable_tailscale_funnel(ts, port)
     if not ok:
+        msg="เปิด Tailscale Funnel ไม่สำเร็จ"
+        if public_url:
+            msg += " • " + str(public_url)[:300]
+        write_web_status("PERMANENT", "error", message=msg)
         print("\n[CVET] เปิด Tailscale Funnel ไม่สำเร็จ")
         print(public_url)
         server.should_exit = True
         thread.join(timeout=5)
         return 5
+
+    if public_url:
+        write_web_status("PERMANENT", "ready", url=public_url, message="FREE PERMANENT LINK พร้อมใช้งาน")
+    else:
+        write_web_status("PERMANENT", "error", message="Funnel เปิดแล้ว แต่ยังอ่าน URL *.ts.net ไม่ได้ • ลองเปิดใหม่อีกครั้ง")
 
     print("\n" + "=" * 68)
     print(" FREE PERMANENT WEB พร้อมใช้งาน")
@@ -353,8 +398,10 @@ def run_tailscale_mode(port: int, hostname: str, no_browser: bool) -> int:
 
 
 def run_cloudflare_mode(port: int, no_browser: bool) -> int:
+    write_web_status("QUICK", "starting", message="กำลังเปิด Cloudflare Quick Public Link...")
     server, thread = run_server_thread("127.0.0.1", port)
     if not wait_for_server(port):
+        write_web_status("QUICK", "error", message="CVET Web Server เริ่มทำงานไม่สำเร็จ")
         print("[CVET] Web server เริ่มทำงานไม่สำเร็จ")
         return 2
 
@@ -384,6 +431,7 @@ def run_cloudflare_mode(port: int, no_browser: bool) -> int:
             match = TUNNEL_RE.search(line)
             if match and public_url is None:
                 public_url = match.group(0)
+                write_web_status("QUICK", "ready", url=public_url, message="Quick Public Link พร้อมใช้งาน")
                 print("\n" + "=" * 68)
                 print(" QUICK PUBLIC WEB พร้อมใช้งาน")
                 print(f" {public_url}")
@@ -468,6 +516,8 @@ def main() -> int:
         return run_cloudflare_mode(port, args.no_browser)
 
     host = "0.0.0.0" if args.lan else "127.0.0.1"
+    ready_url = f"http://{local_ip()}:{port}" if args.lan else f"http://127.0.0.1:{port}"
+    write_web_status("LAN" if args.lan else "LOCAL", "ready", url=ready_url, message="Web Server พร้อมใช้งาน")
     import uvicorn
     from web_server import app
     if not args.no_browser:
