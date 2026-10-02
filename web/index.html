@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Crane Vehicle Engineering Tool — Web</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">CVET WEB</div>
+      <h1>Crane Vehicle Engineering Tool</h1>
+      <p>Engineering calculator สำหรับรถขนซากสัตว์พร้อมเครน — ใช้งานผ่าน Browser</p>
+    </div>
+    <div class="server-box">
+      <div><span id="serverDot" class="dot"></span><span id="serverStatus">กำลังเชื่อมต่อ Server...</span></div>
+      <div class="small">Version <b id="appVersion">-</b></div>
+    </div>
+  </header>
+
+  <section id="pinBar" class="pinbar hidden">
+    <label>รหัสเข้าใช้งาน / Web PIN</label>
+    <input id="webPin" type="password" inputmode="numeric" placeholder="กรอก PIN">
+    <button id="savePin" class="secondary">บันทึก PIN</button>
+    <span id="pinStatus"></span>
+  </section>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="home">ภาพรวม</button>
+    <button class="tab" data-tab="drive">Drive Torque</button>
+    <button class="tab" data-tab="battery">Main Battery 72V</button>
+    <button class="tab" data-tab="winch">Winch</button>
+    <button class="tab" data-tab="stability">Stability</button>
+  </nav>
+
+  <main>
+    <section id="home" class="page active">
+      <div class="hero-card">
+        <h2>Web Engineering Calculator</h2>
+        <p>คนที่ไม่มีโปรแกรม Desktop สามารถเปิดลิงก์นี้จากมือถือหรือคอม แล้วกรอกค่าคำนวณได้ทันที</p>
+        <div class="flow">Input → สูตรวิศวกรรม → แทนค่า → ผลลัพธ์</div>
+      </div>
+      <div class="summary-grid">
+        <article><h3>Drive Torque</h3><p>แรงต้านทางลาด แรงกลิ้ง แรงเร่ง แรงบิด/มอเตอร์ กำลัง และกระแสแบต</p></article>
+        <article><h3>Main Battery</h3><p>พลังงานการขับ 72 V, 3 ชั่วโมง, DoD, Reserve และ Ah ออกแบบ</p></article>
+        <article><h3>Winch</h3><p>Datasheet interpolation, รอบการทำงาน, Auto/Manual งานยก และแบตวินช์</p></article>
+        <article><h3>Stability</h3><p>Side / Front / Rear tipping Safety Factor พร้อมโมเมนต์</p></article>
+      </div>
+      <div class="notice">
+        <b>หมายเหตุ:</b> ผลเป็นการคำนวณทางวิศวกรรมเบื้องต้น ต้องยืนยันด้วยน้ำหนักจริง ตำแหน่ง CG จริง และการทดสอบก่อนผลิตใช้งานจริง
+      </div>
+    </section>
+
+    <section id="drive" class="page">
+      <div class="page-title"><h2>Drive Torque</h2><p>คำนวณแรงขับและแรงบิดของ Hub Motor 2 ตัว</p></div>
+      <div class="layout">
+        <form id="driveForm" class="panel form-grid" onsubmit="return false;">
+          <label>มวลรวมรถ (kg)<input name="mass_kg" type="number" value="300" step="1"></label>
+          <label>เส้นผ่านศูนย์กลางล้อ (inch)<input name="wheel_diameter_in" type="number" value="16" step="0.1"></label>
+          <label>มุมทางลาด (deg)<input name="slope_deg" type="number" value="19" step="0.1"></label>
+          <label>ความเร็วรถ (km/h)<input name="speed_kmh" type="number" value="1" step="0.1"></label>
+          <label>เวลาเร่งถึงความเร็วเป้าหมาย (s)<input name="accel_time_s" type="number" value="5" step="0.1"></label>
+          <label>Crr แรงต้านการกลิ้ง<input name="rolling_coeff" type="number" value="0.02" step="0.001"></label>
+          <label>จำนวนมอเตอร์<input name="motors" type="number" value="2" step="1"></label>
+          <label>Safety Factor<input name="safety_factor" type="number" value="1.5" step="0.1"></label>
+          <label>ประสิทธิภาพระบบขับ (%)<input name="drive_eff_pct" type="number" value="85" step="1"></label>
+          <label>แรงดันแบต (V)<input name="voltage_v" type="number" value="72" step="1"></label>
+          <label>น้ำหนักบนล้อขับ (%)<input name="driven_load_pct" type="number" value="50" step="1"></label>
+          <label>สัมประสิทธิ์ยึดเกาะ<input name="traction_coeff" type="number" value="0.7" step="0.05"></label>
+          <button id="calcDrive" class="primary full">คำนวณ Drive Torque</button>
+        </form>
+        <div id="driveResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
+      </div>
+    </section>
+
+    <section id="battery" class="page">
+      <div class="page-title"><h2>Main Battery 72 V</h2><p>พลังงานขับรถ + Auxiliary + DoD + Reserve</p></div>
+      <div class="layout">
+        <form id="batteryForm" class="panel form-grid" onsubmit="return false;">
+          <label>มวลรวมรถ (kg)<input name="mass_kg" type="number" value="300" step="1"></label>
+          <label>แรงดันแบต (V)<input name="voltage_v" type="number" value="72" step="1"></label>
+          <label>ความเร็วรถ (km/h)<input name="speed_kmh" type="number" value="1" step="0.1"></label>
+          <label>ระยะเที่ยวเดียว (m)<input name="one_way_m" type="number" value="30" step="1"></label>
+          <label>ระยะทางลาดต่อเที่ยว (m)<input name="slope_length_m" type="number" value="30" step="1"></label>
+          <label>มุมทางลาด (deg)<input name="slope_deg" type="number" value="19" step="0.1"></label>
+          <label>เวลาทำงาน (h)<input name="runtime_h" type="number" value="3" step="0.1"></label>
+          <label>หยุดต่อรอบ (s)<input name="stop_time_per_round_s" type="number" value="0" step="1"></label>
+          <label>Crr<input name="rolling_coeff" type="number" value="0.02" step="0.001"></label>
+          <label>Drive efficiency (%)<input name="drive_eff_pct" type="number" value="85" step="1"></label>
+          <label>Uphill efficiency (%)<input name="uphill_eff_pct" type="number" value="85" step="1"></label>
+          <label>จำนวนการออกตัว/รอบ<input name="starts_per_round" type="number" value="2" step="1"></label>
+          <label>เวลาเร่ง (s)<input name="accel_time_s" type="number" value="5" step="0.1"></label>
+          <label>กำลังมอเตอร์/ตัว (W)<input name="motor_rated_w" type="number" value="1500" step="100"></label>
+          <label>จำนวนมอเตอร์<input name="motors" type="number" value="2" step="1"></label>
+          <label>Auxiliary power (W)<input name="aux_power_w" type="number" value="100" step="10"></label>
+          <label>DoD (%)<input name="dod_pct" type="number" value="80" step="1"></label>
+          <label>Reserve (%)<input name="reserve_pct" type="number" value="20" step="1"></label>
+          <label>Energy model
+            <select name="energy_model"><option value="calculated">Calculated</option><option value="worst">Worst / Rated Motor</option></select>
+          </label>
+          <button id="calcBattery" class="primary full">คำนวณ Main Battery</button>
+        </form>
+        <div id="batteryResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
+      </div>
+    </section>
+
+    <section id="winch" class="page">
+      <div class="page-title"><h2>Winch 4500 lb</h2><p>First Layer interpolation + Operating Cycles + Winch Battery</p></div>
+      <div class="layout">
+        <form id="winchForm" class="panel form-grid" onsubmit="return false;">
+          <h3 class="full section-label">Datasheet / Load</h3>
+          <label>โหลดที่ยก (kg)<input name="load_kg" type="number" value="100" step="1"></label>
+          <label>ระยะยก (m)<input name="lift_m" type="number" value="1.5" step="0.1"></label>
+
+          <h3 class="full section-label">รอบการทำงาน</h3>
+          <label>ความเร็วรถ (km/h)<input name="vehicle_speed_kmh" type="number" value="1" step="0.1"></label>
+          <label>ระยะเที่ยวเดียว (m)<input name="one_way_m" type="number" value="30" step="1"></label>
+          <label>เวลาทำงานรวม (h)<input name="operating_hours" type="number" value="3" step="0.1"></label>
+          <label>งานยก/รอบ<input name="events_per_round" type="number" value="2" step="1"></label>
+          <label>เวลาหยุดอื่น/รอบ (s)<input name="other_stop_s" type="number" value="0" step="1"></label>
+
+          <h3 class="full section-label">จำนวนงานยกสำหรับแบต</h3>
+          <label class="full">โหมดจำนวนงานยก
+            <select id="eventMode" name="event_mode">
+              <option value="auto">Auto — ใช้จากรอบการทำงาน</option>
+              <option value="manual">Manual — กำหนดเอง</option>
+            </select>
+          </label>
+          <label id="manualEventsWrap" class="full hidden">จำนวนงานยกที่กำหนดเอง
+            <input name="manual_events" type="number" value="50" step="1">
+            <span class="hint">1 งานยก = ขึ้น 1 ครั้ง + ลง 1 ครั้ง</span>
+          </label>
+
+          <h3 class="full section-label">DOWN</h3>
+          <label>Down mode
+            <select id="downMode" name="down_mode"><option value="conservative">Conservative — Down = Up</option><option value="custom">Measured / Custom</option></select>
+          </label>
+          <label id="downBasisWrap" class="customDown hidden">Custom basis
+            <select name="down_basis"><option value="speed">ใช้ Down Speed</option><option value="time">ใช้ Down Time</option></select>
+          </label>
+          <label class="customDown hidden">Down current (A)<input name="down_current_a" type="number" value="10" step="0.1"></label>
+          <label class="customDown hidden">Down speed (m/min)<input name="down_speed_m_min" type="number" value="3" step="0.1"></label>
+          <label class="customDown hidden">Down time (s)<input name="down_time_s" type="number" value="30" step="0.1"></label>
+
+          <h3 class="full section-label">Winch Battery</h3>
+          <label>แรงดัน (V)<input name="winch_voltage_v" type="number" value="12" step="1"></label>
+          <label>DoD (%)<input name="dod_pct" type="number" value="80" step="1"></label>
+          <label>Reserve (%)<input name="reserve_pct" type="number" value="20" step="1"></label>
+          <label>Candidate capacity (Ah)<input name="candidate_ah" type="number" value="40" step="1"></label>
+          <label>BMS continuous (A)<input name="bms_cont_a" type="number" value="0" step="1"></label>
+          <label>BMS peak (A)<input name="bms_peak_a" type="number" value="0" step="1"></label>
+          <button id="calcWinch" class="primary full">คำนวณ Winch</button>
+        </form>
+        <div id="winchResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
+      </div>
+    </section>
+
+    <section id="stability" class="page">
+      <div class="page-title"><h2>Crane Stability / Tipping</h2><p>Side + Front + Rear Safety Factor</p></div>
+      <div class="layout">
+        <form id="stabilityForm" class="panel form-grid" onsubmit="return false;">
+          <label>มวลรวมรถ (kg)<input name="total_mass_kg" type="number" value="300" step="1"></label>
+          <label>Payload (kg)<input name="payload_mass_kg" type="number" value="100" step="1"></label>
+          <label>มวล Boom/Crane ที่ใช้ในโมเดล (kg)<input name="boom_mass_kg" type="number" value="80" step="1"></label>
+          <label>Track width (m)<input name="track_width_m" type="number" value="0.7" step="0.05"></label>
+          <label>Wheelbase (m)<input name="wheelbase_m" type="number" value="1.1" step="0.05"></label>
+          <label>ความยาวแขนเครน (m)<input name="boom_length_m" type="number" value="1.2" step="0.1"></label>
+          <label>มุมเครน (deg)<input name="crane_angle_deg" type="number" value="90" step="1"></label>
+          <label>Dynamic Factor<input name="dynamic_factor" type="number" value="1" step="0.1"></label>
+          <label>SF ที่ต้องการ<input name="required_sf" type="number" value="1.5" step="0.1"></label>
+          <label>ตำแหน่งเครนจากเพลาหลัง (m)<input name="crane_from_rear_m" type="number" value="0.2" step="0.05"></label>
+          <label>CG รถหลักจากกึ่งกลางรถ (m)<input name="vehicle_cg_x_from_center_m" type="number" value="0" step="0.05"></label>
+          <button id="calcStability" class="primary full">คำนวณ Stability</button>
+        </form>
+        <div id="stabilityResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Crane Vehicle Engineering Tool — Web</span>
+    <span>Server: เครื่องของผู้ใช้ • HTTPS Public Access ผ่าน Cloudflare Tunnel เมื่อเปิด Public mode</span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
