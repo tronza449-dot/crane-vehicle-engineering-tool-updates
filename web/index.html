@@ -8,14 +8,21 @@
 </head>
 <body>
   <header class="topbar">
-    <div>
-      <div class="eyebrow">CVET WEB</div>
+    <div class="brand-block">
+      <div class="brand-kicker">CAR ANIMAL • SENIOR PROJECT</div>
       <h1>Crane Vehicle Engineering Tool</h1>
-      <p>Engineering calculator สำหรับรถขนซากสัตว์พร้อมเครน — ใช้งานผ่าน Browser</p>
+      <p class="brand-subtitle">ระบบคำนวณวิศวกรรมสำหรับรถขนซากสัตว์พร้อมเครน</p>
+      <div class="brand-meta">
+        <span>Mechatronics Engineering</span>
+        <span class="meta-sep">•</span>
+        <span>Mahanakorn University of Technology</span>
+      </div>
     </div>
     <div class="server-box">
-      <div><span id="serverDot" class="dot"></span><span id="serverStatus">กำลังเชื่อมต่อ Server...</span></div>
+      <div class="server-title">CVET WEB STATUS</div>
+      <div class="server-state"><span id="serverDot" class="dot"></span><span id="serverStatus">กำลังเชื่อมต่อ Server...</span></div>
       <div class="small">Version <b id="appVersion">-</b></div>
+      <div class="small">Project: <b>CAR ANIMAL</b></div>
     </div>
   </header>
 
@@ -27,28 +34,104 @@
   </section>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="home">ภาพรวม</button>
+    <button class="tab active" data-tab="home">Dashboard</button>
     <button class="tab" data-tab="drive">Drive Torque</button>
     <button class="tab" data-tab="battery">Main Battery 72V</button>
     <button class="tab" data-tab="winch">Winch</button>
     <button class="tab" data-tab="stability">Stability</button>
+    <button class="tab" data-tab="parameters">Vehicle Parameters</button>
+    <button class="tab" data-tab="telemetry">Live Telemetry</button>
+    <button class="tab" data-tab="summary">Project Summary</button>
   </nav>
 
   <main>
     <section id="home" class="page active">
-      <div class="hero-card">
-        <h2>Web Engineering Calculator</h2>
-        <p>คนที่ไม่มีโปรแกรม Desktop สามารถเปิดลิงก์นี้จากมือถือหรือคอม แล้วกรอกค่าคำนวณได้ทันที</p>
-        <div class="flow">Input → สูตรวิศวกรรม → แทนค่า → ผลลัพธ์</div>
+      <div class="dashboard-hero">
+        <div>
+          <div class="dash-eyebrow">CAR ANIMAL • ENGINEERING DASHBOARD</div>
+          <h2>Project Control & Calculation Center</h2>
+          <p>รวมโมดูลคำนวณหลักของรถขนซากสัตว์พร้อมเครนไว้ในหน้าเดียว พร้อมสถานะ Web Server และข้อมูลโครงการ</p>
+        </div>
+        <div class="dash-badges">
+          <span class="badge">72 V DRIVE</span>
+          <span class="badge">2 × HUB MOTOR</span>
+          <span class="badge">±90° CRANE</span>
+          <span class="badge">WEB READY</span>
+        </div>
       </div>
-      <div class="summary-grid">
-        <article><h3>Drive Torque</h3><p>แรงต้านทางลาด แรงกลิ้ง แรงเร่ง แรงบิด/มอเตอร์ กำลัง และกระแสแบต</p></article>
-        <article><h3>Main Battery</h3><p>พลังงานการขับ 72 V, 3 ชั่วโมง, DoD, Reserve และ Ah ออกแบบ</p></article>
-        <article><h3>Winch</h3><p>Datasheet interpolation, รอบการทำงาน, Auto/Manual งานยก และแบตวินช์</p></article>
-        <article><h3>Stability</h3><p>Side / Front / Rear tipping Safety Factor พร้อมโมเมนต์</p></article>
+
+      <div class="dashboard-grid">
+        <button class="dash-card drive-card" data-open-tab="drive">
+          <span class="card-index">01</span>
+          <span class="card-icon">T</span>
+          <span class="card-title">Drive Torque</span>
+          <span class="card-text">แรงทางลาด • Rolling resistance • Torque / Motor • Current</span>
+          <span class="card-link">เปิดโมดูล →</span>
+        </button>
+        <button class="dash-card battery-card" data-open-tab="battery">
+          <span class="card-index">02</span>
+          <span class="card-icon">B</span>
+          <span class="card-title">Main Battery 72 V</span>
+          <span class="card-text">Trip energy • 3 h runtime • DoD • Reserve • Battery Ah</span>
+          <span class="card-link">เปิดโมดูล →</span>
+        </button>
+        <button class="dash-card winch-card" data-open-tab="winch">
+          <span class="card-index">03</span>
+          <span class="card-icon">W</span>
+          <span class="card-title">Winch Battery</span>
+          <span class="card-text">Load interpolation • Lift events • 12 V energy • BMS check</span>
+          <span class="card-link">เปิดโมดูล →</span>
+        </button>
+        <button class="dash-card stability-card" data-open-tab="stability">
+          <span class="card-index">04</span>
+          <span class="card-icon">S</span>
+          <span class="card-title">Stability</span>
+          <span class="card-text">Side / Front / Rear tipping • Moment • Safety Factor</span>
+          <span class="card-link">เปิดโมดูล →</span>
+        </button>
+        <button class="dash-card parameter-card" data-open-tab="parameters">
+          <span class="card-index">05</span>
+          <span class="card-icon">P</span>
+          <span class="card-title">Vehicle Parameters</span>
+          <span class="card-text">ขนาดรถ • น้ำหนัก • มอเตอร์ • ล้อ • เครน • Operating target</span>
+          <span class="card-link">ดูค่าพื้นฐาน →</span>
+        </button>
+        <button class="dash-card telemetry-card" data-open-tab="telemetry">
+          <span class="card-index">06</span>
+          <span class="card-icon">L</span>
+          <span class="card-title">Live Telemetry</span>
+          <span class="card-text">ESP32 Wi-Fi • Speed • Battery • Tilt • Drive / E-stop status</span>
+          <span class="card-link">เปิด Dashboard →</span>
+        </button>
+        <button class="dash-card summary-card" data-open-tab="summary">
+          <span class="card-index">07</span>
+          <span class="card-icon">R</span>
+          <span class="card-title">Project Summary</span>
+          <span class="card-text">ภาพรวมระบบ • Design baseline • Safety logic • Web architecture</span>
+          <span class="card-link">ดูสรุปโครงการ →</span>
+        </button>
       </div>
+
+      <div class="home-status-row">
+        <div class="status-panel">
+          <div class="status-label">SYSTEM</div>
+          <div class="status-value"><span class="dot ok"></span> CVET Web Interface</div>
+          <div class="status-help">คำนวณผ่าน Browser โดยใช้เครื่อง CVET เป็น Server</div>
+        </div>
+        <div class="status-panel">
+          <div class="status-label">PROJECT BASELINE</div>
+          <div class="status-value">300 kg • 72 V • 2 Motors</div>
+          <div class="status-help">Crane ±90° • Payload target 100 kg</div>
+        </div>
+        <div class="status-panel">
+          <div class="status-label">PUBLIC ACCESS</div>
+          <div class="status-value">HTTPS Ready</div>
+          <div class="status-help">Permanent Link ผ่าน Tailscale Funnel เมื่อเปิดจาก Desktop App</div>
+        </div>
+      </div>
+
       <div class="notice">
-        <b>หมายเหตุ:</b> ผลเป็นการคำนวณทางวิศวกรรมเบื้องต้น ต้องยืนยันด้วยน้ำหนักจริง ตำแหน่ง CG จริง และการทดสอบก่อนผลิตใช้งานจริง
+        <b>Engineering note:</b> ผลคำนวณบนเว็บเป็นเครื่องมือช่วยออกแบบเบื้องต้น ต้องยืนยันน้ำหนักจริง จุด CG จริง ข้อมูลผู้ผลิต และทดสอบระบบจริงก่อนผลิตใช้งาน
       </div>
     </section>
 
@@ -176,11 +259,74 @@
         <div id="stabilityResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
       </div>
     </section>
+    <section id="parameters" class="page">
+      <div class="page-title"><h2>Vehicle Parameters</h2><p>ค่าพื้นฐานของโปรเจกต์ CAR ANIMAL ที่ใช้เป็น Design Baseline</p></div>
+      <div class="parameter-grid">
+        <article class="parameter-panel"><div class="parameter-k">Vehicle Size</div><div class="parameter-v">1000 × 1500 mm</div><div class="parameter-note">เป้าหมายโครงรถหลัก</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Mass Target</div><div class="parameter-v">≤ 300 kg</div><div class="parameter-note">รวมรถ เครน แบตเตอรี่ และ Payload</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Payload</div><div class="parameter-v">100 kg</div><div class="parameter-note">น้ำหนักสัตว์/โหลดสูงสุดที่ใช้ในการออกแบบ</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Main Battery</div><div class="parameter-v">72 V</div><div class="parameter-note">ระบบขับเคลื่อนหลัก</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Drive Motors</div><div class="parameter-v">2 × 1500 W</div><div class="parameter-note">QS 10-inch Single Shaft Hub Motor</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Drive Control</div><div class="parameter-v">Differential</div><div class="parameter-note">มอเตอร์ซ้าย/ขวาควบคุมอิสระ</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Main Slope</div><div class="parameter-v">19°</div><div class="parameter-note">เงื่อนไขหลักสำหรับ Energy / Torque design</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Run Time Target</div><div class="parameter-v">3 h</div><div class="parameter-note">ช่วงเวลาทำงานต่อเนื่องที่ใช้คำนวณแบตเตอรี่</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Crane Rotation</div><div class="parameter-v">±90°</div><div class="parameter-note">จำกัดด้วย Limit Switch 2 จุด</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Crane Arm</div><div class="parameter-v">1.2 m</div><div class="parameter-note">Baseline reach สำหรับ Stability model</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Support / Track</div><div class="parameter-v">700 mm</div><div class="parameter-note">ระยะศูนย์กลางล้อซ้าย-ขวาที่ใช้ในบางกรณีศึกษา</div></article>
+        <article class="parameter-panel"><div class="parameter-k">Winch Supply</div><div class="parameter-v">12 V Separate</div><div class="parameter-note">แยกแบตเตอรี่จาก Main 72 V</div></article>
+      </div>
+      <div class="panel parameter-note-panel">
+        <h3>Design Note</h3>
+        <p>ค่าหน้านี้เป็น Project Baseline เพื่อช่วยให้ผู้ใช้เว็บเข้าใจรถที่กำลังออกแบบ ไม่ได้บังคับค่าฟอร์มคำนวณ ทุกโมดูลยังสามารถแก้ Input เพื่อทดสอบ Scenario อื่นได้</p>
+      </div>
+    </section>
+
+    <section id="telemetry" class="page">
+      <div class="page-title"><h2>Live Telemetry</h2><p>หน้าศูนย์กลางสำหรับข้อมูลสดจาก ESP32 / Vehicle Controller</p></div>
+      <div class="telemetry-grid">
+        <article class="telemetry-tile"><div class="telemetry-k">Speed</div><div class="telemetry-v">-- <small>km/h</small></div></article>
+        <article class="telemetry-tile"><div class="telemetry-k">Main Battery</div><div class="telemetry-v">-- <small>%</small></div></article>
+        <article class="telemetry-tile"><div class="telemetry-k">Tilt Angle</div><div class="telemetry-v">-- <small>deg</small></div></article>
+        <article class="telemetry-tile"><div class="telemetry-k">Drive State</div><div class="telemetry-v telemetry-state">WAITING</div></article>
+        <article class="telemetry-tile"><div class="telemetry-k">E-STOP</div><div class="telemetry-v telemetry-state">--</div></article>
+        <article class="telemetry-tile"><div class="telemetry-k">IMU Alarm</div><div class="telemetry-v telemetry-state">--</div></article>
+      </div>
+      <div class="panel telemetry-info">
+        <h3>ESP32 Live Data</h3>
+        <p>หน้า Dashboard นี้เตรียม UI สำหรับข้อมูล Speed, Battery %, Tilt, Drive State, E-stop และ IMU Alarm แล้ว</p>
+        <p class="check">สถานะตอนนี้: ยังไม่ได้ผูก Public Web Server เข้ากับ ESP32 telemetry stream โดยตรง จึงแสดง “--” จนกว่าจะเชื่อม Telemetry API / WebSocket</p>
+      </div>
+    </section>
+
+    <section id="summary" class="page">
+      <div class="page-title"><h2>Project Summary</h2><p>ภาพรวมสถาปัตยกรรมและขอบเขตการออกแบบ CAR ANIMAL</p></div>
+      <div class="summary-sections">
+        <article class="summary-panel">
+          <div class="summary-num">01</div><div><h3>Vehicle Platform</h3><p>รถไร้คนขับสำหรับขนย้ายซากสัตว์ ใช้ Hub Motor 2 ตัวแบบ Differential Steering และมีล้อ Support เพิ่มเติม</p></div>
+        </article>
+        <article class="summary-panel">
+          <div class="summary-num">02</div><div><h3>Crane & Winch</h3><p>เครนติดรถหมุนซ้าย/ขวา ±90° มี Limit Switch ป้องกันหมุนเกิน และใช้วินช์ 12 V แยกแหล่งจ่ายจาก Main Battery</p></div>
+        </article>
+        <article class="summary-panel">
+          <div class="summary-num">03</div><div><h3>Electrical Architecture</h3><p>Main Battery 72 V → Dual VESC → Hub Motors พร้อม ESP32 สำหรับ Control Logic, IMU, Receiver และ Safety Interlock</p></div>
+        </article>
+        <article class="summary-panel">
+          <div class="summary-num">04</div><div><h3>Safety Logic</h3><p>E-stop ตัดการทำงานทันที, IMU ตรวจ Tilt, Drive/Crane มี Interlock และ Limit Switch จำกัดมุมเครน</p></div>
+        </article>
+        <article class="summary-panel">
+          <div class="summary-num">05</div><div><h3>Engineering Calculations</h3><p>เว็บรองรับ Drive Torque, Battery Energy, Winch Battery และ Stability/Tipping พร้อมสูตร แทนค่า และคำอธิบาย</p></div>
+        </article>
+        <article class="summary-panel">
+          <div class="summary-num">06</div><div><h3>Web Architecture</h3><p>Desktop CVET รัน Web Server บนเครื่อง และสามารถเปิด HTTPS Public Link ผ่าน Tailscale Funnel สำหรับมือถือหรือคอมเครื่องอื่น</p></div>
+        </article>
+      </div>
+    </section>
+
   </main>
 
   <footer>
-    <span>Crane Vehicle Engineering Tool — Web</span>
-    <span>Server: เครื่องของผู้ใช้ • HTTPS Public Access ผ่าน Cloudflare Tunnel เมื่อเปิด Public mode</span>
+    <span><b>CAR ANIMAL</b> • Crane Vehicle Engineering Tool</span>
+    <span>CVET Web • Local Server • HTTPS Public Access ผ่าน Tailscale Funnel / Quick Tunnel</span>
   </footer>
 
   <script src="/static/app.js"></script>
