@@ -53,3 +53,8 @@
 ### Safe Default
 - หน้า Live Telemetry เปิดมาที่ ESP32 WiFi UDP JSON เป็นค่าเริ่มต้น
 - Simulation ต้องเลือกเอง และมีคำว่า NO ESP32 ชัดเจน
+
+
+### V53.5.8 CI Fix
+- Demo mode no longer opens a blocking popup during automated verification.
+- Demo is still clearly marked NO ESP32 in the telemetry status.
