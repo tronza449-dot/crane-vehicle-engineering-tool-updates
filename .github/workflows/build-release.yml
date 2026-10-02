@@ -186,15 +186,17 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- V53.3.4 Winch formula + operating-cycle regression ----------
-          assert hasattr(w,"wTabs") and w.wTabs.count()==5
+          # ---------- V53.3.5 Winch formula + operation + advanced battery regression ----------
+          assert hasattr(w,"wTabs") and w.wTabs.count()==6
           assert w.wTabs.tabText(0)=="Spec + Battery"
           assert "สูตร" in w.wTabs.tabText(1)
           assert "ตัวแปร" in w.wTabs.tabText(2)
           assert "สรุป" in w.wTabs.tabText(3)
           assert "รอบการทำงาน" in w.wTabs.tabText(4)
+          assert "Battery" in w.wTabs.tabText(5)
           assert hasattr(w,"wCalcSummary")
           assert hasattr(w,"wopSummary") and hasattr(w,"wopDetails")
+          assert hasattr(w,"wbSummary") and hasattr(w,"wbDetails")
           assert hasattr(w,"wSpecTable") and w.wSpecTable.rowCount()==13
           assert hasattr(w,"wPerfTable") and w.wPerfTable.rowCount()==4
           assert hasattr(w,"wLayerTable") and w.wLayerTable.rowCount()==5
@@ -270,8 +272,63 @@ jobs:
           assert "รอบการทำงาน" in w.wopDetails.toPlainText()
           w.apply_winch_operation_cycles()
           assert w.wcycles.value()==64
+          assert w.wbEvents.value()==64
 
-          # Reset for the existing battery/rope regression below.
+          # Advanced Winch Battery — Conservative mode.
+          assert w.wbUseOp.isChecked()
+          assert w.wbDownMode.currentIndex()==0
+          bc=w.winch_battery_results()
+          assert bc["events"]==64
+          assert bc["down_mode"]=="Conservative"
+          assert abs(bc["up_current"]-expected_current)<1e-9
+          assert abs(bc["down_current"]-expected_current)<1e-9
+          assert abs(bc["down_time"]-bc["up_time"])<1e-9
+          assert abs(bc["e_down"]-bc["e_up"])<1e-9
+          expected_total=64.0*(bc["e_up"]+bc["e_down"])
+          assert abs(bc["total"]-expected_total)<1e-9
+          expected_design=bc["total"]*1.20/(12.0*0.80)
+          assert abs(bc["ah_design"]-expected_design)<1e-9
+          assert 34.0 < bc["ah_design"] < 35.5
+          bh=w.winch_battery_html(bc)
+          assert "ขึ้น / ลงแยกพลังงาน" in bh
+          assert "E<sub>down</sub>" in bh
+          w.calc_winch_battery()
+          assert "64 งานยก" in w.wbSummary.text()
+
+          # Custom DOWN mode — independent current and speed/time.
+          w.wbDownMode.setCurrentIndex(1)
+          w.wbDownBasis.setCurrentIndex(0)
+          w.wbDownCurrent.setValue(10.0)
+          w.wbDownSpeed.setValue(3.0)
+          bcustom=w.winch_battery_results()
+          assert bcustom["down_mode"]=="Measured / Custom"
+          assert abs(bcustom["down_current"]-10.0)<1e-9
+          assert abs(bcustom["down_speed"]-3.0)<1e-9
+          assert abs(bcustom["down_time"]-30.0)<1e-9
+          assert bcustom["e_down"] < bcustom["e_up"]
+          assert bcustom["ah_design"] < bc["ah_design"]
+
+          # Custom Time basis.
+          w.wbDownBasis.setCurrentIndex(1)
+          w.wbDownTime.setValue(25.0)
+          btime=w.winch_battery_results()
+          assert abs(btime["down_time"]-25.0)<1e-9
+          assert abs(btime["down_speed"]-(1.5/(25.0/60.0)))<1e-9
+
+          # Candidate battery / BMS checks.
+          w.wbCandidateAh.setValue(40.0)
+          w.wbBmsCont.setValue(30.0)
+          w.wbBmsPeak.setValue(150.0)
+          bcheck=w.winch_battery_results()
+          assert bcheck["energy_ok"]
+          assert bcheck["cont_ok"]
+          assert not bcheck["table140_ok"]  # 30 A is enough for this operating point, not the 140 A table maximum.
+          assert "Starting/Stall surge" in w.winch_battery_html(bcheck)
+
+          # Reset conservative defaults for the existing battery/rope regression below.
+          w.wbDownMode.setCurrentIndex(0)
+          w.wbDownBasis.setCurrentIndex(0)
+          w.wbBmsCont.setValue(0.0);w.wbBmsPeak.setValue(0.0)
           w.wheight.setValue(1.0);w.wcycles.setValue(50)
 
           # Lift distance changes time/energy and crossing 1.5 m enters layer 2.
