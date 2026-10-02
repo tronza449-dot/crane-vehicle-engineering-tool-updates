@@ -6774,6 +6774,8 @@ void loop() {{
         )
         self.wopDetails.setHtml(self.winch_operation_html(r))
         if hasattr(self,"wbSummary"):self.calc_winch_battery()
+        if hasattr(self,"eSummary") and hasattr(self,"euseOperationCycle") and self.euseOperationCycle.isChecked():
+            self.calc_electrical()
 
     def apply_winch_operation_cycles(self):
         if not hasattr(self,"wcycles"):return
@@ -6967,6 +6969,11 @@ void loop() {{
         self.eruntime=ds(3,.01,48,2); self.err=ds(.02,0,1,3)
         self.eaccel=ds(5,.1,120,2); self.estops=QSpinBox();self.estops.setRange(0,20);self.estops.setValue(2);self.estops.setMinimumWidth(150);self.estops.setMaximumWidth(250)
         self.estopTime=ds(0,0,3600,1)
+        self.euseOperationCycle=QCheckBox("รวมเวลายกจาก Winch Operating Cycles อัตโนมัติ")
+        self.euseOperationCycle.setChecked(True)
+        self.eOperationTimeNote=QLabel("Auto: เวลายกถูกใช้คำนวณจำนวนรอบของรถ แต่พลังงานวินช์ 12 V ไม่ถูกรวมในแบตรถ 72 V")
+        self.eOperationTimeNote.setWordWrap(True)
+        self.eOperationTimeNote.setStyleSheet("background:#eef8ff;color:#294d6b;padding:8px;border:1px solid #d3e6f5;border-radius:8px")
         self.edriveEff=ds(60,1,100,1); self.eaux=ds(50,0,5000,1)
         self.edod=ds(80,1,100,1); self.ereserve=ds(20,0,200,1)
         self.emotorRated=ds(1500,1,50000,0); self.enmot=QSpinBox();self.enmot.setRange(1,8);self.enmot.setValue(2);self.enmot.setMinimumWidth(150);self.enmot.setMaximumWidth(250)
@@ -6978,11 +6985,13 @@ void loop() {{
             ("ความยาวทางลาดต่อเที่ยว (m)",self.eslopeLen),("มุมทางลาด (deg)",self.eslopeDeg),
             ("เวลาทำงาน (h)",self.eruntime),("Rolling resistance Crr",self.err),
             ("เวลาเร่ง 0→v (s)",self.eaccel),("จำนวนครั้งออกตัวต่อรอบ",self.estops),
-            ("เวลาหยุดต่อรอบ (s)",self.estopTime),("Estimated drive efficiency (%)",self.edriveEff),
+            ("เวลาหยุดอื่นต่อรอบ (s)",self.estopTime),("Estimated drive efficiency (%)",self.edriveEff),
             ("Auxiliary average power (W)",self.eaux),("Usable DoD (%)",self.edod),
             ("Battery reserve (%)",self.ereserve),("Motor rated power / motor (W)",self.emotorRated),
             ("จำนวนมอเตอร์",self.enmot),("Worst-case slope efficiency (%)",self.eupEff)
         ]: form.addRow(lab,q)
+        form.addRow(self.euseOperationCycle)
+        form.addRow(self.eOperationTimeNote)
         form.addRow(self.euseTorqueMass);left.setMinimumWidth(410);hl.addWidget(left,1)
 
         right=QWidget();right.setMinimumWidth(340);rv=QVBoxLayout(right)
@@ -7124,6 +7133,7 @@ void loop() {{
         self.estops.valueChanged.connect(self.calc_electrical);self.enmot.valueChanged.connect(self.calc_electrical)
         self.ecalcRadio.toggled.connect(self.calc_electrical);self.eworstRadio.toggled.connect(self.calc_electrical)
         self.euseTorqueMass.toggled.connect(self.calc_electrical)
+        self.euseOperationCycle.toggled.connect(self.calc_electrical)
         self.tabs.addTab(w,"Electrical / Battery")
         self.calc_electrical()
 
@@ -7132,11 +7142,39 @@ void loop() {{
         g=G; V=self.evolt.value(); v=self.espeed.value()/3.6
         one=self.eoneway.value(); Ls=min(self.eslopeLen.value(),one); theta=math.radians(self.eslopeDeg.value())
         runtime_h=self.eruntime.value(); runtime_s=runtime_h*3600.0
-        stop_s=self.estopTime.value()
+
+        # 1 operating round = drive out/back + lifting time + other stop.
+        # Winch energy is excluded from the 72 V main battery because the project
+        # uses a separate 12 V winch battery; only the lifting TIME affects how
+        # many complete driving rounds fit inside the operating window.
+        other_stop_s=self.estopTime.value()
+        use_operation_cycle=bool(
+            getattr(self,"euseOperationCycle",None)
+            and self.euseOperationCycle.isChecked()
+            and hasattr(self,"wopEvents")
+        )
+        lift_event_s=0.0
+        lift_events_per_round=0
+        lift_round_s=0.0
+        if use_operation_cycle:
+            op=self.winch_operation_results()
+            lift_event_s=float(op["t_event"])
+            lift_events_per_round=int(op["events_per_round"])
+            lift_round_s=lift_event_s*lift_events_per_round
+
         cycle_distance=2.0*one
-        drive_cycle_s=cycle_distance/v if v>0 else 0
+        drive_cycle_s=cycle_distance/v if v>0 else 0.0
+        stop_s=lift_round_s+other_stop_s
         cycle_total_s=drive_cycle_s+stop_s
-        cycles=runtime_s/cycle_total_s if cycle_total_s>0 else 0
+        cycles_theoretical=runtime_s/cycle_total_s if cycle_total_s>0 else 0.0
+        cycles=int(math.floor(cycles_theoretical+1e-12))
+
+        drive_time_total_s=cycles*drive_cycle_s
+        lift_time_total_s=cycles*lift_round_s
+        other_stop_total_s=cycles*other_stop_s
+        operation_time_used_s=cycles*cycle_total_s
+        remaining_time_s=max(0.0,runtime_s-operation_time_used_s)
+
         flat_cycle=max(0.0,cycle_distance-2.0*Ls)
         flat_time_h=(flat_cycle/v)/3600.0 if v>0 else 0
         up_time_h=(Ls/v)/3600.0 if v>0 else 0
@@ -7149,10 +7187,6 @@ void loop() {{
         Frrs=crr*m*g*math.cos(theta)
         Fup=Fgrade+Frrs
         Pup_mech=Fup*v
-
-        # Downhill: with no regen we never subtract energy from the battery.
-        # If gravity is stronger than rolling resistance, traction power is 0
-        # and the excess energy must be dissipated by braking/coasting losses.
         Fdown=max(0.0,Frrs-Fgrade)
         Pdown_mech=Fdown*v
 
@@ -7162,8 +7196,6 @@ void loop() {{
         Eup_mech_cycle=Pup_mech*up_time_h
         Edown_mech_cycle=Pdown_mech*down_time_h
 
-        # Acceleration kinetic energy. Acceleration time affects peak force/power,
-        # while ideal kinetic energy 1/2 mv² is independent of acceleration time.
         starts=self.estops.value()
         accel_time=max(self.eaccel.value(),.01)
         accel_a=v/accel_time
@@ -7171,8 +7203,10 @@ void loop() {{
         Pacc_peak_mech=(Fup+Facc_peak)*v
         Eacc_mech_cycle=(0.5*m*v*v/3600.0)*starts
 
-        Emech_total=(Eflat_mech_cycle+Eup_mech_cycle+Edown_mech_cycle+Eacc_mech_cycle)*cycles
-        Ecalc_drive=Emech_total/eff
+        Emech_cycle=Eflat_mech_cycle+Eup_mech_cycle+Edown_mech_cycle+Eacc_mech_cycle
+        Emech_total=Emech_cycle*cycles
+        Ecalc_drive_cycle=Emech_cycle/eff
+        Ecalc_drive=Ecalc_drive_cycle*cycles
 
         rated_total=self.emotorRated.value()*self.enmot.value()
         Pworst_batt=rated_total/up_eff
@@ -7180,10 +7214,14 @@ void loop() {{
         Eflat_batt_cycle=Eflat_mech_cycle/eff
         Edown_batt_cycle=Edown_mech_cycle/eff
         Eacc_batt_cycle=Eacc_mech_cycle/eff
-        Eworst_drive=(Eflat_batt_cycle+Edown_batt_cycle+Eacc_batt_cycle+Eworst_up_cycle)*cycles
+        Eworst_drive_cycle=Eflat_batt_cycle+Edown_batt_cycle+Eacc_batt_cycle+Eworst_up_cycle
+        Eworst_drive=Eworst_drive_cycle*cycles
 
         use_worst=self.eworstRadio.isChecked()
-        Edrive=Eworst_drive if use_worst else Ecalc_drive
+        Edrive_cycle=Eworst_drive_cycle if use_worst else Ecalc_drive_cycle
+        Edrive=Edrive_cycle*cycles
+
+        # Auxiliary electronics are assumed ON for the full requested runtime.
         Eaux=self.eaux.value()*runtime_h
         Eload=Edrive+Eaux
         dod=max(self.edod.value()/100.0,.01)
