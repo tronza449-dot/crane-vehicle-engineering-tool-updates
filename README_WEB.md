@@ -2,33 +2,52 @@
 
 Crane Vehicle Engineering Tool สามารถรันเป็น Web App โดยใช้เครื่อง Windows ของผู้ใช้เป็น Server
 
-## โหมดการใช้งาน
+## โหมดแนะนำ — FREE PERMANENT LINK
 
-### 1. PUBLIC INTERNET
-เปิด CraneVehicleWebServer.exe แล้วเลือก 1
+ใช้ Tailscale Funnel เพื่อให้ได้ลิงก์ HTTPS ที่ใช้ซ้ำได้โดยไม่ต้องซื้อ Domain
 
-โปรแกรมจะ:
-1. เปิด FastAPI Web Server ที่เครื่องนี้
-2. ดาวน์โหลด cloudflared.exe จาก GitHub ทางการของ Cloudflare ถ้ายังไม่มี
-3. เปิด Cloudflare Quick Tunnel
-4. แสดงลิงก์ HTTPS แบบ https://xxxxx.trycloudflare.com
-5. คนอื่นสามารถเปิดลิงก์จากมือถือหรือคอมผ่านอินเทอร์เน็ตภายนอกได้
+ลิงก์จะมีรูปแบบประมาณ:
 
-ไม่ต้อง Port Forward Router
+`https://cvet.<tailnet>.ts.net`
 
-ถ้าต้องการ PIN ให้กรอกตอนเปิด Public mode
+ครั้งแรก:
+1. เปิดโปรแกรม CVET
+2. กด `เปิด Web Server`
+3. เลือก `FREE PERMANENT LINK — Tailscale Funnel`
+4. ถ้ายังไม่มี Tailscale โปรแกรมจะช่วยเปิดขั้นตอนติดตั้ง
+5. Login Tailscale ฟรี
+6. อนุญาต Funnel หนึ่งครั้ง
+7. Browser จะเปิดลิงก์ HTTPS ให้
 
-### 2. LAN / Wi-Fi
-เลือก 2
+ครั้งถัดไปใช้ลิงก์เดิมได้ ตราบใดที่ยังใช้ Tailnet และชื่อเครื่องเดิม
+
+หมายเหตุ:
+- เครื่อง Server ต้องเปิด CVET Web Server อยู่ขณะใช้งาน
+- Tailscale ต้องทำงานอยู่
+- แนะนำตั้ง Web PIN
+
+## QUICK PUBLIC LINK — Cloudflare
+
+ใช้สำหรับแชร์ชั่วคราวผ่าน `trycloudflare.com`
+
+ข้อดี:
+- เปิดง่าย
+- ไม่ต้อง Login Tailscale
+
+ข้อจำกัด:
+- URL เปลี่ยนเมื่อปิดแล้วเปิดใหม่
+
+## LAN / Wi-Fi
 
 เครื่องอื่นใน Wi-Fi/LAN เดียวกันเข้าได้จาก:
-http://<IP-เครื่อง-server>:8000
 
-### 3. LOCAL
-เลือก 3
+`http://<IP-เครื่อง-server>:8000`
+
+## LOCAL
 
 ใช้เฉพาะเครื่อง Server:
-http://127.0.0.1:8000
+
+`http://127.0.0.1:8000`
 
 ## Web Calculators
 
@@ -38,51 +57,30 @@ http://127.0.0.1:8000
 - Operating Cycles / 3 h
 - Winch Battery Auto / Manual lift events
 - Crane Stability / Tipping
-
-## Winch Manual Mode
-
-หน้า Winch มี:
-- Auto — ใช้จำนวนงานยกจาก Operating Cycles
-- Manual — กำหนดจำนวนงานยกเอง
-
-นิยาม:
-1 งานยก = Winch UP 1 ครั้ง + Winch DOWN 1 ครั้ง
+- ตารางสูตร / แทนค่า / ผลลัพธ์ / หน่วย / คำอธิบายแบบละเอียด
 
 ## Security
 
-ตั้ง Web PIN ได้:
-CraneVehicleWebServer.exe --public --pin 123456
+ตั้ง Web PIN ได้ทั้ง Permanent Link และ Quick Public Link
 
-หรือจำกัดอีเมลด้วย Cloudflare Quick Tunnel:
-CraneVehicleWebServer.exe --public --allowed-mail user@example.com
+ตัวอย่าง Source mode:
+
+`python web_launcher.py --tailscale --tailscale-hostname cvet --pin 123456`
 
 ## Source mode
 
 ติดตั้ง dependency:
-pip install -r requirements-web.txt
 
-เปิด Public:
-python web_launcher.py --public
+`pip install -r requirements-web.txt`
+
+เปิด Permanent Link:
+
+`python web_launcher.py --tailscale --tailscale-hostname cvet`
+
+เปิด Quick Public:
+
+`python web_launcher.py --public`
 
 เปิด LAN:
-python web_launcher.py --lan
 
-## Important
-
-- เครื่อง Server ต้องเปิดอยู่ตลอดเวลาที่ต้องการให้เว็บเข้าได้
-- Quick Tunnel URL จะเปลี่ยนเมื่อปิดแล้วเปิดใหม่
-- Quick Tunnel เหมาะกับการทดสอบ/แชร์ชั่วคราว
-- ถ้าต้องการ URL คงที่ เช่น https://crane.example.com ให้สร้าง Named Cloudflare Tunnel + Domain ในขั้นถัดไป
-
-## V53.5 Full Calculation
-
-ผลลัพธ์ของ Drive Torque, Main Battery, Winch และ Stability มีตารางรายละเอียดเพิ่ม:
-- ตัวแปร / รายการ
-- สูตรสัญลักษณ์
-- แทนค่าตัวเลขอัตโนมัติ
-- ผลลัพธ์
-- หน่วย
-- คำนวณหาอะไร
-- คำอธิบายสูตรแบบง่าย
-
-ตารางจะใช้ค่าที่ผู้ใช้กรอกในหน้าเว็บและคำนวณใหม่ตามผลจาก Web API
+`python web_launcher.py --lan`
