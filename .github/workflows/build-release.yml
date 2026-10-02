@@ -44,7 +44,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          python -m py_compile CraneVehicleEngineeringTool.py
+          python -m py_compile CraneVehicleEngineeringTool.py web_engine.py web_server.py web_launcher.py
 
           @'
           import ast
@@ -58,6 +58,7 @@ jobs:
 
           from PySide6.QtWidgets import QApplication, QTabWidget, QPushButton, QTableWidgetItem
           import CraneVehicleEngineeringTool as cvet
+          import web_engine as webcalc
 
           # ---------- Static source audit ----------
           source = Path("CraneVehicleEngineeringTool.py").read_text(encoding="utf-8-sig")
@@ -72,6 +73,54 @@ jobs:
 
           assert "reportlab" not in source.lower(), "Unused ReportLab code remained"
           assert "UnicodeCIDFont" not in source, "Wrong CID PDF font code remained"
+
+          # ---------- Web engine regression ----------
+          web_winch=webcalc.calculate_winch({
+              "load_kg":100.0,"lift_m":1.5,
+              "vehicle_speed_kmh":1.0,"one_way_m":30.0,"operating_hours":3.0,
+              "events_per_round":2,"other_stop_s":0.0,
+              "event_mode":"auto","down_mode":"conservative",
+              "winch_voltage_v":12.0,"dod_pct":80.0,"reserve_pct":20.0,
+              "candidate_ah":40.0
+          })
+          assert web_winch["operation"]["completed_round_trips"]==32
+          assert web_winch["operation"]["lift_events"]==64
+          assert web_winch["battery"]["events"]==64
+          assert 34.0 < web_winch["battery"]["ah_design"] < 35.5
+          assert web_winch["battery"]["candidate_energy_ok"]
+
+          web_manual=webcalc.calculate_winch({
+              "load_kg":100.0,"lift_m":1.5,"event_mode":"manual","manual_events":50,
+              "down_mode":"conservative","winch_voltage_v":12.0,"dod_pct":80.0,"reserve_pct":20.0
+          })
+          assert web_manual["battery"]["events"]==50
+          assert web_manual["battery"]["up_count"]==50 and web_manual["battery"]["down_count"]==50
+          assert web_manual["battery"]["winch_moves"]==100
+
+          web_torque=webcalc.calculate_drive_torque({
+              "mass_kg":300.0,"wheel_diameter_in":16.0,"slope_deg":19.0,
+              "speed_kmh":1.0,"motors":2,"safety_factor":1.5
+          })
+          assert all(math.isfinite(float(x)) and x>=0 for x in (
+              web_torque["torque_per_motor_nm"],web_torque["battery_current_a"],web_torque["design_force_n"]
+          ))
+
+          web_battery=webcalc.calculate_drive_battery({
+              "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,
+              "one_way_m":30.0,"slope_length_m":30.0,"slope_deg":19.0,"runtime_h":3.0
+          })
+          assert web_battery["design_ah"]>0 and web_battery["design_energy_wh"]>0
+
+          web_stability=webcalc.calculate_stability({
+              "total_mass_kg":300.0,"payload_mass_kg":100.0,"boom_mass_kg":80.0,
+              "track_width_m":0.7,"wheelbase_m":1.1,"boom_length_m":1.2,
+              "crane_angle_deg":90.0,"required_sf":1.5
+          })
+          assert web_stability["side"]["sf"]>=0
+          assert "front" in web_stability and "rear" in web_stability
+
+          for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
+              assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
 
           app = QApplication.instance() or QApplication([])
           app.setApplicationName(cvet.APP_NAME)
