@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.5.6
+# Crane Vehicle Engineering Tool V53.5.7
 
 ## Real ESP32 Telemetry Verification
 
@@ -41,3 +41,10 @@
 `Simulation / Demo (NO ESP32)`
 
 และมีข้อความเตือนชัดเจนว่าข้อมูลเป็นข้อมูลจำลอง
+
+
+### Build / Regression
+- ปรับชุดทดสอบอัตโนมัติให้ตรวจหลักการใหม่อย่างถูกต้อง
+- ยืนยันว่าเปิด UDP listener อย่างเดียวต้องยังเป็น WAITING
+- ยืนยันว่า packet จริงจาก ESP32 จึงเปลี่ยนเป็น CONNECTED
+- ยืนยันว่า Local Test Packet ไม่สร้าง fake hardware connection
