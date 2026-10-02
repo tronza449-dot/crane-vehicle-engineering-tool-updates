@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.4"
+APP_VERSION = "53.3.5"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -5828,6 +5828,92 @@ void loop() {{
         for qx in (self.wopSpeed,self.wopDistance,self.wopHours,self.wopEvents,self.wopOther):
             qx.valueChanged.connect(self.calc_winch_operation)
 
+        # V53.3.5 — Advanced Winch Battery calculator.
+        # Separates UP and DOWN energy and can use measured/custom lowering data.
+        batScroll=QScrollArea(w);batScroll.setWidgetResizable(True);batScroll.setFrameShape(QFrame.NoFrame)
+        batContent=QWidget();batRoot=QVBoxLayout(batContent);batRoot.setContentsMargins(18,16,18,20);batRoot.setSpacing(12)
+        batScroll.setWidget(batContent)
+
+        batTitle=QLabel("WINCH BATTERY / คำนวณแบตเตอรี่วินช์")
+        btf=QFont();btf.setPointSize(15);btf.setBold(True);batTitle.setFont(btf);batTitle.setStyleSheet("color:#17324d;")
+        batSub=QLabel(
+            "แยกพลังงานขาขึ้นและขาลง • Conservative ใช้ค่าขาลงเท่าขาขึ้น • "
+            "Measured / Custom ให้กรอก Current และ Speed หรือ Time ขาลงจริง"
+        )
+        batSub.setWordWrap(True);batSub.setStyleSheet("color:#60758b;font-size:10.3pt;font-weight:650;")
+        batRoot.addWidget(batTitle);batRoot.addWidget(batSub)
+
+        batInputs=QGroupBox("Battery Design Inputs / ข้อมูลออกแบบแบต")
+        bif=QFormLayout(batInputs);bif.setVerticalSpacing(10);bif.setHorizontalSpacing(14)
+        self.wbVoltage=QDoubleSpinBox(w);self.wbVoltage.setRange(6.0,60.0);self.wbVoltage.setDecimals(2);self.wbVoltage.setValue(12.0);self.wbVoltage.setSuffix(" V")
+        self.wbUseOp=QCheckBox("ใช้จำนวนงานยกจากหน้า รอบการทำงาน / 3h");self.wbUseOp.setChecked(True)
+        self.wbEvents=QSpinBox(w);self.wbEvents.setRange(1,100000);self.wbEvents.setValue(64);self.wbEvents.setSuffix(" งาน")
+        self.wbDoD=QDoubleSpinBox(w);self.wbDoD.setRange(1.0,100.0);self.wbDoD.setDecimals(1);self.wbDoD.setValue(80.0);self.wbDoD.setSuffix(" %")
+        self.wbReserve=QDoubleSpinBox(w);self.wbReserve.setRange(0.0,200.0);self.wbReserve.setDecimals(1);self.wbReserve.setValue(20.0);self.wbReserve.setSuffix(" %")
+        for qx in (self.wbVoltage,self.wbEvents,self.wbDoD,self.wbReserve):qx.setMinimumWidth(190)
+        bif.addRow("System voltage / แรงดันระบบ",self.wbVoltage)
+        bif.addRow(self.wbUseOp)
+        bif.addRow("Manual lift events / งานยกแบบกำหนดเอง",self.wbEvents)
+        bif.addRow("Usable DoD",self.wbDoD)
+        bif.addRow("Reserve",self.wbReserve)
+        batRoot.addWidget(batInputs)
+
+        downBox=QGroupBox("DOWN Calculation / การคำนวณขาลง")
+        df=QFormLayout(downBox);df.setVerticalSpacing(10);df.setHorizontalSpacing(14)
+        self.wbDownMode=QComboBox(w)
+        self.wbDownMode.addItems(["Conservative — Down = Up","Measured / Custom"])
+        self.wbDownBasis=QComboBox(w)
+        self.wbDownBasis.addItems(["ใช้ Down Speed (m/min)","ใช้ Down Time (s)"])
+        self.wbDownCurrent=QDoubleSpinBox(w);self.wbDownCurrent.setRange(0.0,1000.0);self.wbDownCurrent.setDecimals(2);self.wbDownCurrent.setValue(10.0);self.wbDownCurrent.setSuffix(" A")
+        self.wbDownSpeed=QDoubleSpinBox(w);self.wbDownSpeed.setRange(0.01,100.0);self.wbDownSpeed.setDecimals(3);self.wbDownSpeed.setValue(3.0);self.wbDownSpeed.setSuffix(" m/min")
+        self.wbDownTime=QDoubleSpinBox(w);self.wbDownTime.setRange(0.01,3600.0);self.wbDownTime.setDecimals(2);self.wbDownTime.setValue(30.0);self.wbDownTime.setSuffix(" s")
+        for qx in (self.wbDownMode,self.wbDownBasis,self.wbDownCurrent,self.wbDownSpeed,self.wbDownTime):qx.setMinimumWidth(230)
+        df.addRow("Mode",self.wbDownMode)
+        df.addRow("Custom time method",self.wbDownBasis)
+        df.addRow("Down current",self.wbDownCurrent)
+        df.addRow("Down speed",self.wbDownSpeed)
+        df.addRow("Down time",self.wbDownTime)
+        downNote=QLabel(
+            "ใบสเปก 4500LB ที่ใช้ในโปรแกรมไม่ให้ Current/Speed ขาลงแยกต่างหาก "
+            "ดังนั้น Conservative เป็นค่าประมาณเพื่อออกแบบ ส่วน Measured / Custom ควรใช้ค่าที่วัดจากวินช์จริง."
+        )
+        downNote.setWordWrap(True);downNote.setStyleSheet("background:#fff8e9;color:#68420b;padding:10px;border:1px solid #ead39a;border-radius:9px")
+        df.addRow(downNote)
+        batRoot.addWidget(downBox)
+
+        candidateBox=QGroupBox("Battery Check / ตรวจแบตที่จะซื้อ")
+        cf=QFormLayout(candidateBox);cf.setVerticalSpacing(10);cf.setHorizontalSpacing(14)
+        self.wbCandidateAh=QDoubleSpinBox(w);self.wbCandidateAh.setRange(0.0,2000.0);self.wbCandidateAh.setDecimals(1);self.wbCandidateAh.setValue(40.0);self.wbCandidateAh.setSuffix(" Ah")
+        self.wbBmsCont=QDoubleSpinBox(w);self.wbBmsCont.setRange(0.0,2000.0);self.wbBmsCont.setDecimals(1);self.wbBmsCont.setValue(0.0);self.wbBmsCont.setSuffix(" A")
+        self.wbBmsPeak=QDoubleSpinBox(w);self.wbBmsPeak.setRange(0.0,5000.0);self.wbBmsPeak.setDecimals(1);self.wbBmsPeak.setValue(0.0);self.wbBmsPeak.setSuffix(" A")
+        for qx in (self.wbCandidateAh,self.wbBmsCont,self.wbBmsPeak):qx.setMinimumWidth(190)
+        cf.addRow("Candidate capacity",self.wbCandidateAh)
+        cf.addRow("BMS continuous current",self.wbBmsCont)
+        cf.addRow("BMS peak current",self.wbBmsPeak)
+        batRoot.addWidget(candidateBox)
+
+        batButtons=QHBoxLayout()
+        batCalc=QPushButton("คำนวณแบตวินช์");batCalc.setObjectName("primaryButton");batCalc.clicked.connect(self.calc_winch_battery)
+        batButtons.addWidget(batCalc);batButtons.addStretch(1);batRoot.addLayout(batButtons)
+
+        self.wbSummary=QLabel();self.wbSummary.setWordWrap(True)
+        self.wbSummary.setStyleSheet("font-size:12pt;font-weight:800;background:#eef6ff;color:#174a74;padding:14px;border:1px solid #bfd6ee;border-radius:10px")
+        batRoot.addWidget(self.wbSummary)
+        self.wbDetails=QTextEdit(w);self.wbDetails.setReadOnly(True);self.wbDetails.setMinimumHeight(620)
+        self.wbDetails.setStyleSheet("font-size:10.8pt;padding:8px;")
+        batRoot.addWidget(self.wbDetails);batRoot.addStretch(1)
+        self.wTabs.addTab(batScroll,"Battery / แบตวินช์")
+
+        self.wbDownMode.currentIndexChanged.connect(self.refresh_winch_battery_and_operation)
+        self.wbDownBasis.currentIndexChanged.connect(self.refresh_winch_battery_and_operation)
+        self.wbDownCurrent.valueChanged.connect(self.refresh_winch_battery_and_operation)
+        self.wbDownSpeed.valueChanged.connect(self.refresh_winch_battery_and_operation)
+        self.wbDownTime.valueChanged.connect(self.refresh_winch_battery_and_operation)
+        self.wbUseOp.toggled.connect(self.calc_winch_battery)
+        for qx in (self.wbVoltage,self.wbEvents,self.wbDoD,self.wbReserve,self.wbCandidateAh,self.wbBmsCont,self.wbBmsPeak):
+            qx.valueChanged.connect(self.calc_winch_battery)
+        self._update_winch_battery_mode_ui()
+
         self.wGuide=QTextEdit(w);self.wGuide.hide()
         self.wResult=QTextEdit(w);self.wResult.hide()
         self.wSpeedSummary=QLabel(w);self.wSpeedSummary.hide()
@@ -5992,6 +6078,162 @@ void loop() {{
                     rope_layer=layer,layer_capacity_m=layer_capacity_m,layer_pull_kg=layer_pull_kg,
                     layer_pull_ok=(m<=layer_pull_kg))
 
+    def _update_winch_battery_mode_ui(self):
+        if not hasattr(self,"wbDownMode"):return
+        custom=self.wbDownMode.currentIndex()==1
+        use_speed=self.wbDownBasis.currentIndex()==0
+        self.wbDownBasis.setEnabled(custom)
+        self.wbDownCurrent.setEnabled(custom)
+        self.wbDownSpeed.setEnabled(custom and use_speed)
+        self.wbDownTime.setEnabled(custom and not use_speed)
+        if hasattr(self,"wbEvents"):
+            self.wbEvents.setEnabled(not self.wbUseOp.isChecked())
+
+    def winch_down_profile(self,q=None):
+        if q is None:q=self.winch_results()
+        conservative=not hasattr(self,"wbDownMode") or self.wbDownMode.currentIndex()==0
+        if conservative:
+            return dict(mode="Conservative",current=q["iup"],speed=q["up_speed"],time=q["tu"],basis="Down = Up")
+        current=float(self.wbDownCurrent.value())
+        if self.wbDownBasis.currentIndex()==0:
+            speed=float(self.wbDownSpeed.value())
+            time=q["h"]/speed*60.0 if speed>0 else 0.0
+            basis="Measured / Custom Speed"
+        else:
+            time=float(self.wbDownTime.value())
+            speed=q["h"]/(time/60.0) if time>0 else 0.0
+            basis="Measured / Custom Time"
+        return dict(mode="Measured / Custom",current=current,speed=speed,time=time,basis=basis)
+
+    def winch_battery_results(self):
+        q=self.winch_results()
+        down=self.winch_down_profile(q)
+        voltage=float(self.wbVoltage.value()) if hasattr(self,"wbVoltage") else q["v"]
+        dod=(float(self.wbDoD.value())/100.0) if hasattr(self,"wbDoD") else q["dod"]
+        reserve=(float(self.wbReserve.value())/100.0) if hasattr(self,"wbReserve") else q["reserve"]
+        use_operation=bool(self.wbUseOp.isChecked()) if hasattr(self,"wbUseOp") else False
+        if use_operation and hasattr(self,"wopSpeed"):
+            op=self.winch_operation_results()
+            events=int(op["lift_events"])
+        else:
+            op=None
+            events=int(self.wbEvents.value()) if hasattr(self,"wbEvents") else int(q["n"])
+        e_up=voltage*q["iup"]*q["tu"]/3600.0
+        e_down=voltage*down["current"]*down["time"]/3600.0
+        e_event=e_up+e_down
+        total=events*e_event
+        ah_used=total/voltage if voltage>0 else 0.0
+        ah_design=total*(1.0+reserve)/(voltage*dod) if voltage>0 and dod>0 else 0.0
+        std=self._next_standard_capacity(ah_design,False)
+        extra=self._next_standard_capacity(ah_design,True)
+        candidate_ah=float(self.wbCandidateAh.value()) if hasattr(self,"wbCandidateAh") else 0.0
+        bms_cont=float(self.wbBmsCont.value()) if hasattr(self,"wbBmsCont") else 0.0
+        bms_peak=float(self.wbBmsPeak.value()) if hasattr(self,"wbBmsPeak") else 0.0
+        operating_current=max(q["iup"],down["current"])
+        energy_ok=(candidate_ah+1e-9)>=ah_design if candidate_ah>0 else False
+        cont_entered=bms_cont>0
+        cont_ok=bms_cont+1e-9>=operating_current if cont_entered else False
+        table140_ok=bms_cont+1e-9>=140.0 if cont_entered else False
+        return dict(
+            voltage=voltage,dod=dod,reserve=reserve,use_operation=use_operation,
+            events=events,op=op,load=q["m"],lift=q["h"],
+            up_speed=q["up_speed"],up_current=q["iup"],up_time=q["tu"],
+            down_mode=down["mode"],down_basis=down["basis"],
+            down_speed=down["speed"],down_current=down["current"],down_time=down["time"],
+            e_up=e_up,e_down=e_down,e_event=e_event,total=total,
+            ah_used=ah_used,ah_design=ah_design,standard_ah=std,extra_margin_ah=extra,
+            candidate_ah=candidate_ah,bms_cont=bms_cont,bms_peak=bms_peak,
+            operating_current=operating_current,energy_ok=energy_ok,
+            cont_entered=cont_entered,cont_ok=cont_ok,table140_ok=table140_ok,
+            max_spec_current=140.0
+        )
+
+    def winch_battery_html(self,b):
+        source_events=("จากหน้า รอบการทำงาน / 3h" if b["use_operation"] else "กรอกเอง")
+        energy_status=("PASS" if b["energy_ok"] else "FAIL")
+        if b["bms_cont"]<=0:
+            cont_status="CHECK — ยังไม่ได้กรอก BMS continuous"
+            table_status="CHECK — ยังไม่ได้กรอก BMS continuous"
+        else:
+            cont_status=("PASS" if b["cont_ok"] else "FAIL")
+            table_status=("PASS" if b["table140_ok"] else "CHECK")
+        peak_status="CHECK — ใบสเปกไม่ระบุ Starting/Stall surge"
+        return f"""
+        <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt;line-height:1.5">
+        <h1 style="color:#17324d">WINCH BATTERY — ขึ้น / ลงแยกพลังงาน</h1>
+        <p><b>Input:</b> Load = {b['load']:.1f} kg, Lift = {b['lift']:.2f} m,
+        Lift events = {b['events']} งาน ({source_events}), V = {b['voltage']:.2f} V,
+        DoD = {b['dod']*100:.0f}%, Reserve = {b['reserve']*100:.0f}%</p>
+
+        <h2>1) ขาขึ้น / UP</h2>
+        <p>จาก First Layer interpolation: v<sub>up</sub> = <b>{b['up_speed']:.3f} m/min</b>,
+        I<sub>up</sub> = <b>{b['up_current']:.2f} A</b></p>
+        <p><b>สูตรเวลา:</b> t<sub>up</sub> = (h / v<sub>up</sub>) × 60</p>
+        <p><b>แทนค่า:</b> ({b['lift']:.2f} / {b['up_speed']:.3f}) × 60 = <b>{b['up_time']:.2f} s</b></p>
+        <p><b>สูตรพลังงาน:</b> E<sub>up</sub> = V × I<sub>up</sub> × t<sub>up</sub> / 3600</p>
+        <p><b>แทนค่า:</b> {b['voltage']:.2f} × {b['up_current']:.2f} × {b['up_time']:.2f} / 3600
+        = <b>{b['e_up']:.3f} Wh</b></p>
+
+        <h2>2) ขาลง / DOWN</h2>
+        <p><b>Mode:</b> {b['down_mode']} — {b['down_basis']}</p>
+        <p>v<sub>down</sub> = <b>{b['down_speed']:.3f} m/min</b>,
+        I<sub>down</sub> = <b>{b['down_current']:.2f} A</b>,
+        t<sub>down</sub> = <b>{b['down_time']:.2f} s</b></p>
+        <p><b>สูตรพลังงาน:</b> E<sub>down</sub> = V × I<sub>down</sub> × t<sub>down</sub> / 3600</p>
+        <p><b>แทนค่า:</b> {b['voltage']:.2f} × {b['down_current']:.2f} × {b['down_time']:.2f} / 3600
+        = <b>{b['e_down']:.3f} Wh</b></p>
+
+        <h2>3) พลังงานต่อ 1 งานยกสัตว์</h2>
+        <p><b>สูตร:</b> E<sub>event</sub> = E<sub>up</sub> + E<sub>down</sub></p>
+        <p><b>แทนค่า:</b> {b['e_up']:.3f} + {b['e_down']:.3f} = <b>{b['e_event']:.3f} Wh/งาน</b></p>
+
+        <h2>4) พลังงานรวม</h2>
+        <p><b>สูตร:</b> E<sub>total</sub> = N<sub>event</sub> × E<sub>event</sub></p>
+        <p><b>แทนค่า:</b> {b['events']} × {b['e_event']:.3f} = <b>{b['total']:.2f} Wh</b></p>
+
+        <h2>5) Ah ที่ใช้จริง</h2>
+        <p><b>สูตร:</b> Ah<sub>used</sub> = E<sub>total</sub> / V</p>
+        <p><b>แทนค่า:</b> {b['total']:.2f} / {b['voltage']:.2f} = <b>{b['ah_used']:.2f} Ah</b></p>
+
+        <h2>6) Ah ออกแบบหลัง DoD + Reserve</h2>
+        <p><b>สูตร:</b> Ah<sub>design</sub> = E<sub>total</sub>(1+Reserve) / (V × DoD)</p>
+        <p><b>แทนค่า:</b> {b['total']:.2f} × (1+{b['reserve']:.2f}) /
+        ({b['voltage']:.2f} × {b['dod']:.2f}) = <b>{b['ah_design']:.2f} Ah</b></p>
+        <p>ขนาดมาตรฐาน ≥ ค่าคำนวณ = <b>{b['standard_ah']:.0f} Ah</b> •
+        เผื่อเพิ่มอีกหนึ่งขนาด = <b>{b['extra_margin_ah']:.0f} Ah</b></p>
+
+        <h2>7) Battery Check</h2>
+        <table border="1" cellspacing="0" cellpadding="7" width="100%">
+        <tr><th>Check</th><th>Candidate</th><th>Required / Reference</th><th>Status</th></tr>
+        <tr><td>Energy capacity</td><td>{b['candidate_ah']:.1f} Ah</td><td>≥ {b['ah_design']:.2f} Ah</td><td><b>{energy_status}</b></td></tr>
+        <tr><td>Operating continuous current</td><td>{b['bms_cont']:.1f} A</td><td>≥ {b['operating_current']:.2f} A</td><td><b>{cont_status}</b></td></tr>
+        <tr><td>Manufacturer table max reference</td><td>{b['bms_cont']:.1f} A</td><td>140 A</td><td><b>{table_status}</b></td></tr>
+        <tr><td>BMS peak</td><td>{b['bms_peak']:.1f} A</td><td>Starting/Stall surge ไม่ระบุ</td><td><b>{peak_status}</b></td></tr>
+        </table>
+
+        <p><b>สำคัญ:</b> 140 A คือค่าสูงสุดที่ปรากฏในตาราง First Layer ที่ 2041 kg ไม่ใช่กระแสใช้งานปกติของโหลด {b['load']:.1f} kg.
+        ส่วน Starting/Stall surge ไม่มีในใบสเปก จึงไม่ควรสรุป Peak PASS จากข้อมูลใบนี้เพียงอย่างเดียว.</p>
+        </body></html>
+        """
+
+    def calc_winch_battery(self):
+        if not hasattr(self,"wbSummary"):return
+        self._update_winch_battery_mode_ui()
+        b=self.winch_battery_results()
+        energy=("PASS" if b["energy_ok"] else "FAIL")
+        cont=("ยังไม่กรอก BMS" if b["bms_cont"]<=0 else ("PASS" if b["cont_ok"] else "FAIL"))
+        self.wbSummary.setText(
+            f"{b['events']} งานยก • UP {b['e_up']:.3f} Wh + DOWN {b['e_down']:.3f} Wh = {b['e_event']:.3f} Wh/งาน\n"
+            f"รวม {b['total']:.2f} Wh • ใช้จริง {b['ah_used']:.2f} Ah • Design {b['ah_design']:.2f} Ah @ {b['voltage']:.2f} V\n"
+            f"Standard ≥ {b['standard_ah']:.0f} Ah • Candidate {b['candidate_ah']:.1f} Ah: {energy} • Continuous current: {cont}"
+        )
+        self.wbDetails.setHtml(self.winch_battery_html(b))
+
+    def refresh_winch_battery_and_operation(self):
+        self._update_winch_battery_mode_ui()
+        if hasattr(self,"wopSummary"):self.calc_winch_operation()
+        elif hasattr(self,"wbSummary"):self.calc_winch_battery()
+
     def winch_operation_results(self):
         q=self.winch_results()
         speed_kmh=float(self.wopSpeed.value()) if hasattr(self,"wopSpeed") else 1.0
@@ -6001,7 +6243,8 @@ void loop() {{
         other=float(self.wopOther.value()) if hasattr(self,"wopOther") else 0.0
         car_mps=speed_kmh*1000.0/3600.0
         t_one=one_way/car_mps if car_mps>0 else 0.0
-        t_event=q["tu"]+q["td"]
+        down=self.winch_down_profile(q)
+        t_event=q["tu"]+down["time"]
         t_drive_round=2.0*t_one
         t_lift_round=t_event*events_per_round
         t_round=t_drive_round+t_lift_round+other
@@ -6020,7 +6263,8 @@ void loop() {{
             speed_kmh=speed_kmh,car_mps=car_mps,one_way=one_way,hours=hours,
             events_per_round=events_per_round,other=other,
             load_kg=q["m"],lift_m=q["h"],winch_speed=q["up_speed"],
-            t_up=q["tu"],t_down=q["td"],t_event=t_event,t_one=t_one,
+            t_up=q["tu"],t_down=down["time"],down_mode=down["mode"],down_basis=down["basis"],
+            t_event=t_event,t_one=t_one,
             t_drive_round=t_drive_round,t_lift_round=t_lift_round,t_round=t_round,
             total_s=total_s,n_theory=n_theory,rounds=rounds,trips=trips,
             lift_events=lift_events,up_count=up_count,down_count=down_count,
@@ -6054,9 +6298,8 @@ void loop() {{
         <p><b>แทนค่า:</b> ({r['lift_m']:.2f} / {r['winch_speed']:.3f}) × 60 = <b>{r['t_up']:.2f} s</b></p>
 
         <h2>4) เวลาวินช์ลง</h2>
-        <p><b>สูตร:</b> t<sub>down</sub> = t<sub>up</sub></p>
-        <p><b>ความหมาย:</b> ใบสเปกไม่ให้ความเร็วขาลง จึงใช้เวลาเท่าขาขึ้นแบบ conservative</p>
-        <p><b>แทนค่า:</b> t<sub>down</sub> = <b>{r['t_down']:.2f} s</b></p>
+        <p><b>Mode ขาลง:</b> {r['down_mode']} — {r['down_basis']}</p>
+        <p><b>เวลา:</b> t<sub>down</sub> = <b>{r['t_down']:.2f} s</b></p>
 
         <h2>5) เวลา 1 งานยกสัตว์</h2>
         <p><b>สูตร:</b> t<sub>event</sub> = t<sub>up</sub> + t<sub>down</sub></p>
@@ -6111,11 +6354,13 @@ void loop() {{
             f"เวลา 1 รอบ = {r['t_round']:.2f} s • ระยะทางรวม = {r['distance_total']:.0f} m • เวลาเหลือ = {r['remaining']:.2f} s"
         )
         self.wopDetails.setHtml(self.winch_operation_html(r))
+        if hasattr(self,"wbSummary"):self.calc_winch_battery()
 
     def apply_winch_operation_cycles(self):
         if not hasattr(self,"wcycles"):return
         r=self.winch_operation_results()
         self.wcycles.setValue(max(1,int(r["lift_events"])))
+        if hasattr(self,"wbEvents"):self.wbEvents.setValue(max(1,int(r["lift_events"])))
         self.calc_winch()
         if hasattr(self,"wopSummary"):
             self.wopSummary.setText(self.wopSummary.text()+f"\nตั้ง Battery Cycles = {r['lift_events']} รอบขึ้น+ลงแล้ว")
@@ -6348,7 +6593,7 @@ void loop() {{
         sp=self.winch_speed_results()
         if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
         if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.4</h2><p>ใช้ใบสเปกจริงเป็นฐาน และให้แก้ Load, Lift Distance และจำนวนรอบขึ้น+ลง.</p>")
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.5</h2><p>ใช้ใบสเปกจริงเป็นฐาน และให้แก้ Load, Lift Distance และจำนวนรอบขึ้น+ลง.</p>")
         if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html(q))
         if hasattr(self,"wDutyView"):self.update_winch_duty()
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
@@ -6361,7 +6606,8 @@ void loop() {{
             q=self.winch_results()
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10))
             op_html=self.winch_operation_html(self.winch_operation_results()) if hasattr(self,"wopSpeed") else ""
-            doc.setHtml(self.winch_summary_html(q)+"<hr>"+self.winch_formula_html(q)+"<hr>"+op_html+"<hr>"+self.winch_html(q)+"<hr>"+self.winch_variables_html())
+            battery_html=self.winch_battery_html(self.winch_battery_results()) if hasattr(self,"wbVoltage") else ""
+            doc.setHtml(self.winch_summary_html(q)+"<hr>"+self.winch_formula_html(q)+"<hr>"+op_html+"<hr>"+battery_html+"<hr>"+self.winch_html(q)+"<hr>"+self.winch_variables_html())
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
             QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\\n"+filename)
