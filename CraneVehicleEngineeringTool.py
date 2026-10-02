@@ -7095,12 +7095,15 @@ void loop() {{
         cf.addWidget(noteC,3,0,1,4)
         bselOuter.addWidget(controlBox)
 
-        self.bselCompareTable=QTableWidget(0,6)
-        self.bselCompareTable.setHorizontalHeaderLabels(["Capacity","Rated energy","Required cont C","Required peak C","Design runtime*","Check"])
+        self.bselCompareTable=QTableWidget(0,8)
+        self.bselCompareTable.setHorizontalHeaderLabels([
+            "Capacity","Rated energy","Runtime*","Full rounds",
+            "Margin vs target","Required cont C","Required peak C","Check"
+        ])
         self.bselCompareTable.verticalHeader().setVisible(False);self.bselCompareTable.setAlternatingRowColors(True)
         self.bselCompareTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.bselCompareTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.bselCompareTable.setMinimumHeight(245)
+        self.bselCompareTable.setMinimumHeight(300)
         bselOuter.addWidget(self.bselCompareTable)
 
         self.batterySelectionView=QTextEdit();self.batterySelectionView.setReadOnly(True);self.batterySelectionView.setMinimumHeight(210)
@@ -7354,6 +7357,35 @@ void loop() {{
         except Exception as exc:
             QMessageBox.critical(self,"Export PDF ไม่สำเร็จ",str(exc))
 
+    def battery_runtime_from_capacity(self,capacity_ah,e=None):
+        """Reverse-calculate runtime/rounds for a candidate 72 V main battery."""
+        e=e or self.electrical_results()
+        ah=max(0.0,float(capacity_ah))
+        rated_wh=e["V"]*ah
+        # Preserve the same DoD + Reserve policy used by forward sizing:
+        # Edesign=(Eload/DoD)*(1+Reserve)  -> allowed modeled load budget below.
+        load_budget_wh=(rated_wh*e["dod"]/(1.0+e["reserve"])) if (1.0+e["reserve"])>0 else 0.0
+        cycle_h=e["cycle_total_s"]/3600.0 if e["cycle_total_s"]>0 else 0.0
+        aux_per_cycle=self.eaux.value()*cycle_h
+        drive_per_cycle=max(0.0,e.get("Edrive_cycle",0.0))
+        load_per_cycle=drive_per_cycle+aux_per_cycle
+        avg_load_w=(load_per_cycle/cycle_h) if cycle_h>0 else 0.0
+        runtime_h=(load_budget_wh/avg_load_w) if avg_load_w>0 else 0.0
+        full_rounds=int(math.floor(runtime_h/cycle_h+1e-12)) if cycle_h>0 else 0
+        used_full_rounds_wh=full_rounds*load_per_cycle
+        remaining_after_full_rounds_wh=max(0.0,load_budget_wh-used_full_rounds_wh)
+        target_margin_wh=rated_wh-e["Edesign"]
+        target_margin_pct=(100.0*target_margin_wh/rated_wh) if rated_wh>0 else -100.0
+        return dict(
+            capacity_ah=ah,rated_wh=rated_wh,load_budget_wh=load_budget_wh,
+            drive_per_cycle_wh=drive_per_cycle,aux_per_cycle_wh=aux_per_cycle,
+            load_per_cycle_wh=load_per_cycle,avg_load_w=avg_load_w,
+            runtime_h=runtime_h,full_rounds=full_rounds,
+            remaining_after_full_rounds_wh=remaining_after_full_rounds_wh,
+            target_margin_wh=target_margin_wh,target_margin_pct=target_margin_pct,
+            target_energy_ok=(ah+1e-9>=e["Ah"])
+        )
+
     def battery_selection_results(self):
         e=self.electrical_results();t=self.torque_results()
         energy_min=max(0.0,e["Ah"])
@@ -7370,14 +7402,15 @@ void loop() {{
         if suggested is None:
             suggested=math.ceil(design_ah/10.0)*10.0
         suggested=float(suggested)
-        design_runtime=e["runtime_h"]*(suggested/max(energy_min,1e-9)) if energy_min>0 else 0.0
+        suggested_runtime=self.battery_runtime_from_capacity(suggested,e)
+        design_runtime=suggested_runtime["runtime_h"]
         bms_cont=math.ceil(cont_req/5.0)*5.0 if cont_req>0 else 0.0
         bms_peak=math.ceil(peak_calc/5.0)*5.0 if peak_calc>0 else 0.0
         return dict(e=e,t=t,energy_min=energy_min,cont_req=cont_req,peak_calc=peak_calc,
                     controller_indicator=controller_indicator,target_cont=target_cont,target_peak=target_peak,
                     ah_by_cont=ah_by_cont,ah_by_peak=ah_by_peak,design_ah=design_ah,
                     standards=standards,suggested=suggested,design_runtime=design_runtime,
-                    bms_cont=bms_cont,bms_peak=bms_peak)
+                    suggested_runtime=suggested_runtime,bms_cont=bms_cont,bms_peak=bms_peak)
 
     def apply_suggested_battery_capacity(self):
         if not hasattr(self,"eCandidateAh"):return
@@ -7417,24 +7450,31 @@ void loop() {{
         if not hasattr(self,"batterySelectionView"):return
         r=self.battery_selection_results();e=r["e"]
         self.bselMinAhLabel.setText(f"{r['energy_min']:.2f} Ah\n({e['Edesign']:.0f} Wh @ {e['V']:.0f} V)")
-        self.bselContLabel.setText(f"{r['cont_req']:.1f} A")
-        self.bselPeakLabel.setText(f"{r['peak_calc']:.1f} A")
-        self.bselSuggestedLabel.setText(f"{r['suggested']:.0f} Ah")
+        self.bselContLabel.setText(f"{r['cont_req']:.1f} A\nBMS ≥ {r['bms_cont']:.0f} A")
+        self.bselPeakLabel.setText(f"{r['peak_calc']:.1f} A\nBMS peak ≥ {r['bms_peak']:.0f} A")
+        self.bselSuggestedLabel.setText(f"{r['suggested']:.0f} Ah\n≈ {r['design_runtime']:.2f} h")
 
         rows=r["standards"]
         self.bselCompareTable.setRowCount(len(rows))
         for i,ah in enumerate(rows):
-            rated_wh=e["V"]*ah
+            rev=self.battery_runtime_from_capacity(ah,e)
+            rated_wh=rev["rated_wh"]
             cont_c=r["cont_req"]/ah if ah>0 else 999
             peak_c=r["peak_calc"]/ah if ah>0 else 999
-            runtime=e["runtime_h"]*(ah/max(r["energy_min"],1e-9)) if r["energy_min"]>0 else 0
             energy_ok=ah+1e-9>=r["energy_min"]
             c_ok=cont_c<=r["target_cont"]+1e-9 and peak_c<=r["target_peak"]+1e-9
             status="PASS*" if energy_ok and c_ok else ("ENERGY LOW" if not energy_ok else "C-RATE CHECK")
-            vals=[f"{ah:.0f} Ah",f"{rated_wh:.0f} Wh",f"{cont_c:.2f} C",f"{peak_c:.2f} C",f"{runtime:.1f} h",status]
+            margin=rev["target_margin_pct"]
+            vals=[
+                f"{ah:.0f} Ah",f"{rated_wh:.0f} Wh",f"{rev['runtime_h']:.2f} h",
+                f"{rev['full_rounds']} รอบ",f"{margin:+.1f}%",
+                f"{cont_c:.2f} C",f"{peak_c:.2f} C",status
+            ]
             for c,val in enumerate(vals):
                 item=QTableWidgetItem(val);item.setTextAlignment(Qt.AlignCenter)
-                if c==5:
+                if c==4:
+                    item.setForeground(QColor("#176337" if margin>=0 else "#b42318"))
+                if c==7:
                     item.setForeground(QColor("#176337" if status=="PASS*" else "#b42318"))
                     font=item.font();font.setBold(True);item.setFont(font)
                 self.bselCompareTable.setItem(i,c,item)
@@ -7444,8 +7484,11 @@ void loop() {{
         cont_ok=cand_cont>0 and cand_cont+1e-9>=r["cont_req"]
         peak_ok=cand_peak>0 and cand_peak+1e-9>=r["peak_calc"]
         all_ok=energy_ok and cont_ok and peak_ok
-        cand_wh=cand_ah*e["V"]
-        cand_runtime=e["runtime_h"]*(cand_ah/max(r["energy_min"],1e-9)) if cand_ah>0 and r["energy_min"]>0 else 0
+        cand_rev=self.battery_runtime_from_capacity(cand_ah,e)
+        cand_wh=cand_rev["rated_wh"]
+        cand_runtime=cand_rev["runtime_h"]
+        cand_rounds=cand_rev["full_rounds"]
+        cand_margin=cand_rev["target_margin_pct"]
         def state(ok,set_value=True):
             if not set_value:return "<span style='color:#b54708'><b>NOT SET</b></span>"
             return "<span style='color:#176337'><b>PASS</b></span>" if ok else "<span style='color:#b42318'><b>CHECK</b></span>"
@@ -7454,30 +7497,40 @@ void loop() {{
         overall_color="#176337" if all_ok else "#b42318"
         self.batterySelectionView.setHtml(f"""
         <h2>Battery Purchase Check / ตรวจแบตก่อนซื้อ</h2>
-        <p><b>Minimum by energy:</b> {r['energy_min']:.2f} Ah ({e['Edesign']:.0f} Wh) — ค่านี้รวม DoD และ Reserve จากหน้า Electrical แล้ว</p>
+        <p><b>Minimum by energy:</b> {r['energy_min']:.2f} Ah ({e['Edesign']:.0f} Wh) — รวม DoD และ Reserve แล้ว</p>
         <p><b>Current requirement:</b> Continuous ≈ {r['cont_req']:.1f} A, calculated Peak ≈ {r['peak_calc']:.1f} A</p>
+        <p><b>Recommended BMS floor:</b> Continuous ≥ <b>{r['bms_cont']:.0f} A</b> • Peak ≥ <b>{r['bms_peak']:.0f} A</b>
+        (ปัดขึ้นทีละ 5 A จากค่าคำนวณ)</p>
         <p><b>Design target C-rate:</b> ≤ {r['target_cont']:.1f}C continuous, ≤ {r['target_peak']:.1f}C peak
         → ต้องการอย่างน้อย max({r['energy_min']:.2f}, {r['ah_by_cont']:.2f}, {r['ah_by_peak']:.2f}) = <b>{r['design_ah']:.2f} Ah</b></p>
         <p style='background:#eefaf4;padding:10px;border:1px solid #a9d7ba'>
         <b>Suggested standard size to investigate: {r['suggested']:.0f} Ah @ {e['V']:.0f} V</b><br>
-        ที่ขนาดนี้ required C ≈ {r['cont_req']/max(r['suggested'],1e-9):.2f}C continuous /
-        {r['peak_calc']/max(r['suggested'],1e-9):.2f}C peak และ design-equivalent runtime ≈ {r['design_runtime']:.1f} h
+        Reverse calculation: runtime ≈ <b>{r['suggested_runtime']['runtime_h']:.2f} h</b> •
+        full operating rounds ≈ <b>{r['suggested_runtime']['full_rounds']} รอบ</b><br>
+        Required C ≈ {r['cont_req']/max(r['suggested'],1e-9):.2f}C continuous /
+        {r['peak_calc']/max(r['suggested'],1e-9):.2f}C peak
         </p>
-        <h3>Candidate ที่กรอก</h3>
+
+        <h3>Candidate ที่กรอก — Reverse Calculation</h3>
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><th>Check</th><th>Required</th><th>Candidate</th><th>Status</th></tr>
         <tr><td>Capacity</td><td>≥ {r['energy_min']:.2f} Ah</td><td>{cand_ah:.1f} Ah ({cand_wh:.0f} Wh)</td><td>{state(energy_ok,cand_ah>0)}</td></tr>
-        <tr><td>Continuous current</td><td>≥ {r['cont_req']:.1f} A</td><td>{cand_cont:.1f} A</td><td>{state(cont_ok,cand_cont>0)}</td></tr>
-        <tr><td>Peak current</td><td>≥ {r['peak_calc']:.1f} A</td><td>{cand_peak:.1f} A</td><td>{state(peak_ok,cand_peak>0)}</td></tr>
+        <tr><td>BMS Continuous</td><td>≥ {r['cont_req']:.1f} A</td><td>{cand_cont:.1f} A</td><td>{state(cont_ok,cand_cont>0)}</td></tr>
+        <tr><td>BMS Peak</td><td>≥ {r['peak_calc']:.1f} A</td><td>{cand_peak:.1f} A</td><td>{state(peak_ok,cand_peak>0)}</td></tr>
         </table>
-        <p><b>Candidate design-equivalent runtime:</b> {cand_runtime:.1f} h (ใช้ duty/DoD/reserve แบบเดียวกับโมเดลปัจจุบัน)</p>
+        <p><b>ถ้าใช้แบต Candidate นี้:</b> Estimated repeating-operation runtime ≈ <b>{cand_runtime:.2f} h</b>
+        • ทำงานครบประมาณ <b>{cand_rounds} รอบ</b>
+        • Capacity margin เทียบเป้าหมาย {e['runtime_h']:.2f} h = <b>{cand_margin:+.1f}%</b></p>
+        <p>พลังงานที่อนุญาตให้ใช้ตาม DoD + Reserve policy ≈ {cand_rev['load_budget_wh']:.0f} Wh;
+        พลังงานเฉลี่ยต่อ Operating Cycle ≈ {cand_rev['load_per_cycle_wh']:.2f} Wh</p>
         <p style='color:{overall_color};font-size:13pt'><b>{overall}</b></p>
         <p style='background:#fff8e9;padding:10px;border:1px solid #ead39a'>
-        <b>สำคัญ:</b> ค่า {r['suggested']:.0f} Ah เป็นขนาดมาตรฐานที่ควรนำไป “ตรวจสเปกต่อ” ไม่ใช่คำสั่งให้ซื้อทันที.
-        ต้องยืนยันแรงดัน Pack จริง, chemistry, Continuous/Peak current ของเซลล์และ BMS, connector, fuse, charger และขีดจำกัด Battery Current ของ VESC.
-        ค่า Controller indicator ใน Project Tools ปัจจุบัน ≈ {r['controller_indicator']:.1f} A เป็น conservative indicator และอาจเป็น motor/phase-current setting ไม่ใช่ battery current โดยตรง.
+        <b>สำคัญ:</b> Runtime เป็นค่าประมาณจาก Operating Cycle ปัจจุบัน (Drive + Lift time + Other stop + Auxiliary).
+        พลังงานวินช์ 12 V ไม่ถูกรวมในแบตรถ 72 V.
+        ก่อนซื้อจริงต้องยืนยัน Pack voltage, chemistry, Continuous/Peak current ของเซลล์และ BMS, connector, fuse, charger และ Battery Current limit ของ VESC.
+        ค่า Controller indicator ≈ {r['controller_indicator']:.1f} A เป็น conservative indicator และอาจเป็น motor/phase-current setting ไม่ใช่ battery current โดยตรง.
         </p>
-        <p>*PASS ในตารางขนาดมาตรฐานหมายถึงผ่าน Energy + C-rate target ที่ผู้ใช้กำหนดเท่านั้น ไม่ได้ยืนยันสเปกแบตจากร้าน</p>
+        <p>*PASS ในตารางหมายถึงผ่าน Energy + C-rate target ที่กำหนด ไม่ใช่การรับรองแบตจากผู้ขาย</p>
         """)
         self._sync_battery_candidate_to_project_tools()
 
