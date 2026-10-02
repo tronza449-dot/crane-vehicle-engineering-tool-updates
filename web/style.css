@@ -45,3 +45,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid 
 footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:18px max(18px,4vw);background:#10263d;color:#dbeafe;font-size:12px}
 @media(max-width:1000px){.summary-grid{grid-template-columns:1fr 1fr}.layout{grid-template-columns:1fr}.result{min-height:0}}
 @media(max-width:620px){.topbar{align-items:flex-start;flex-direction:column}.server-box{width:100%}.summary-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.full{grid-column:1}.metric-grid{grid-template-columns:1fr 1fr}.pinbar{align-items:stretch;flex-direction:column}.pinbar input{width:100%}}
+
+/* V53.5 detailed formula tables */
+.detail-title{margin-top:26px!important}
+.detail-scroll{overflow-x:auto;margin-top:10px;border:1px solid var(--line);border-radius:12px}
+.detail-table{min-width:1120px;margin:0;background:white}
+.detail-table th{position:sticky;top:0;z-index:1;background:#eaf2fb;color:#244865}
+.detail-table td{vertical-align:top;line-height:1.45}
+.detail-table .detail-result{font-weight:900;color:#17456b;white-space:nowrap}
+@media(max-width:620px){.detail-scroll{margin-left:-8px;margin-right:-8px}}
