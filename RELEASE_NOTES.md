@@ -1,22 +1,19 @@
-# Crane Vehicle Engineering Tool V53.5.3
+# Crane Vehicle Engineering Tool V53.5.4
 
-## Tailscale Funnel First-Run Fix
+## Permanent Link Name Fix
 
-แก้ปัญหาที่เห็นใน V53.5.2:
-`tailscale funnel ... timed out after 45 seconds`
+แก้ปัญหา Tailscale Funnel เปิดได้แล้ว แต่ชื่อด้านหน้าของ URL ยังไม่เปลี่ยนตามที่ต้องการ
 
-### สาเหตุ
-ครั้งแรกที่ใช้ Tailscale Funnel ระบบต้องให้เจ้าของ Tailnet กด **Enable Funnel** ใน Browser ก่อน แต่ V53.5.2 ใช้คำสั่งแบบรอผล 45 วินาทีและเก็บ output ไว้ ทำให้ลิงก์อนุญาตของ Tailscale ไม่ถูกเปิดให้ผู้ใช้เห็น จึงหมดเวลา
+### สิ่งที่เพิ่ม
+- ก่อนเปิด FREE PERMANENT LINK โปรแกรมจะถามชื่อ Web Link
+- ค่าเริ่มต้นคือ `cvet`
+- ตัวอย่าง:
+  `https://cvet.<tailnet>.ts.net`
+- โปรแกรมเรียก `tailscale set --hostname=<name>`
+- ตรวจสอบผลจริงจาก MagicDNS หลังเปลี่ยนชื่อ
+- ถ้าเปลี่ยนอัตโนมัติไม่สำเร็จ โปรแกรมจะเปิดหน้า Tailscale Machines ให้อัตโนมัติ เพื่อให้แก้ชื่อเครื่องเองครั้งเดียว
+- หน้า CVET แสดงสถานะว่าการเปลี่ยนชื่อสำเร็จหรือมีคำเตือน
 
-### สิ่งที่แก้
-- อ่าน output ของ Tailscale แบบสด (stream)
-- ตรวจจับลิงก์อนุญาต Funnel ทันที
-- เปิด Browser ไปหน้า **Enable Funnel** อัตโนมัติ
-- แสดงสถานะในหน้า CVET ว่า “ต้องอนุญาต Funnel ครั้งแรก”
-- รอผู้ใช้กดอนุญาตได้นานถึง 5 นาที แทน 45 วินาที
-- หลังอนุญาตแล้ว โปรแกรมลองเปิด Funnel ต่อให้อัตโนมัติ
-- ตรวจสถานะ Funnel ระหว่างรอ
-- เมื่อสำเร็จ แสดงลิงก์ `https://cvet.<tailnet>.ts.net` ในหน้าโปรแกรม พร้อมปุ่มเปิด/คัดลอกลิงก์
-
-### หมายเหตุ
-การกด Enable Funnel เป็นการยืนยันบัญชี Tailscale ครั้งแรกเท่านั้น หลังจากนั้นการเปิด Permanent Link ครั้งต่อไปไม่ควรถามซ้ำ
+### ข้อจำกัดของ Tailscale Free Link
+แก้ได้เฉพาะชื่อเครื่องด้านหน้า เช่น `cvet`
+ส่วน `<tailnet>.ts.net` เป็นโดเมนของ Tailscale และจะยังคงอยู่
