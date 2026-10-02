@@ -107,6 +107,22 @@ def main() -> int:
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
 
+    # One-click EXE experience: when launched by double-click with no arguments,
+    # show a small console menu instead of silently starting local-only mode.
+    if len(sys.argv) == 1:
+        print("เลือกโหมด Web Server")
+        print("  1) PUBLIC INTERNET — ส่งลิงก์ HTTPS ให้คนอื่นเข้าได้")
+        print("  2) LAN / Wi-Fi — ใช้เฉพาะเครือข่ายเดียวกัน")
+        print("  3) LOCAL — ใช้เฉพาะเครื่องนี้")
+        choice = input("เลือก [1/2/3] (ค่าเริ่มต้น 1): ").strip() or "1"
+        if choice == "1":
+            args.public = True
+            pin = input("ตั้ง Web PIN (เว้นว่างได้): ").strip()
+            if pin:
+                args.pin = pin
+        elif choice == "2":
+            args.lan = True
+
     if args.pin:
         os.environ["CVET_WEB_PIN"] = args.pin.strip()
 
