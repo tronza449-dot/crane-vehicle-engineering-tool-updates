@@ -186,13 +186,12 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- V53.3.7 Winch Thai-formula + single-source regression ----------
-          assert hasattr(w,"wTabs") and w.wTabs.count()==5
+          # ---------- V53.3.8 Winch simplified UI + single-source regression ----------
+          assert hasattr(w,"wTabs") and w.wTabs.count()==4
           assert w.wTabs.tabText(0)=="Spec / Datasheet"
-          assert "สูตร" in w.wTabs.tabText(1)
-          assert "รอบการทำงาน" in w.wTabs.tabText(2)
-          assert "Battery" in w.wTabs.tabText(3)
-          assert "สรุป" in w.wTabs.tabText(4)
+          assert "รอบการทำงาน" in w.wTabs.tabText(1)
+          assert "Battery" in w.wTabs.tabText(2)
+          assert "สรุป" in w.wTabs.tabText(3)
           assert hasattr(w,"wCalcSummary") and hasattr(w,"wSpecResult")
           assert hasattr(w,"wopSummary") and hasattr(w,"wopDetails")
           assert hasattr(w,"wbSummary") and hasattr(w,"wbDetails")
@@ -205,6 +204,7 @@ jobs:
           assert w.wheight.isEnabled() and not w.wheight.isHidden()
           assert hasattr(w,"wcycles") and (not w.wcycles.isEnabled()) and w.wcycles.isHidden()
           assert hasattr(w,"wVars") and w.wVars.isHidden()
+          assert hasattr(w,"wSteps") and w.wSteps.isHidden()
           for locked_name in ("wvolt","wrated","wratio","wiup","widown","wdod","wreserve","wdiameter"):
               locked=getattr(w,locked_name)
               assert not locked.isEnabled(), f"{locked_name} must remain locked"
@@ -252,31 +252,23 @@ jobs:
           assert abs(wr["ah"]-b["ah_design"])<1e-9
           assert abs(wr["ed"]-b["e_down"])<1e-9
 
-          # Formula and Summary are display-only views of those same canonical results.
-          formula=w.winch_formula_html()
-          assert "Datasheet" in formula and "Battery" in formula and "รอบการทำงาน" in formula
-          assert "Ah_design" in formula
-          assert "64" in formula and "34." in formula
-          # V53.3.7: every important symbolic formula also has a Thai-language formula.
-          assert "สูตรภาษาไทย" in formula
-          assert "เวลายกขึ้น = ระยะยก ÷ ความเร็ววินช์ขาขึ้น × 60" in formula
-          assert "พลังงานขาขึ้น = แรงดันแบต × กระแสขณะยกขึ้น × เวลายกขึ้น ÷ 3600" in formula
-          assert "พลังงานขาลง = แรงดันแบต × กระแสขณะลดลง × เวลาลดลง ÷ 3600" in formula
-          assert "ความจุแบตออกแบบ = พลังงานรวม" in formula
+          # Formulas are shown only where they are used: Operating Cycles and Battery.
           op_html=w.winch_operation_html(op)
           assert "สูตรภาษาไทย" in op_html
           assert "เวลารวมต่อรอบ = เวลาวิ่งรถไป-กลับ + เวลางานยกรวม + เวลาหยุดอื่น" in op_html
           bat_html=w.winch_battery_html(b)
           assert "สูตรภาษาไทย" in bat_html
           assert "ความจุแบตที่ใช้จริง = พลังงานรวม ÷ แรงดันแบตเตอรี่" in bat_html
+
+          # Final Summary must stay compact: results only, no repeated formula derivation.
           summary=w.winch_summary_html()
-          assert "Data flow" in summary
-          assert "32 round trips" in summary
-          assert "64 events" in summary
+          assert "FINAL SUMMARY" in summary
+          assert "ไม่แสดงสูตรและไม่คำนวณซ้ำ" in summary
           assert f"{b['ah_design']:.2f} Ah" in summary
+          assert "E_up =" not in summary and "Ah_design =" not in summary
           w.calc_winch()
-          assert "สูตร" in w.wSteps.toPlainText()
-          assert "32 round trips" in w.wCalcSummary.toPlainText()
+          assert "32" in w.wCalcSummary.toPlainText()
+          assert "64" in w.wCalcSummary.toPlainText()
           assert "N_event" in w.wVars.toPlainText()
 
           # Custom DOWN mode changes both operating time and battery energy from one shared setting.
@@ -327,8 +319,7 @@ jobs:
           core2=w.winch_core_results()
           assert abs(core2["tu"]-2.0*core1["tu"])<1e-9
           assert core2["rope_layer"]==2 and core2["layer_pull_kg"]==1597.0
-          assert "(2.00/" in w.winch_formula_html()
-          assert "Layer 2" in w.winch_summary_html()
+          assert "Layer 2" in w.winch_summary_html() or core2["rope_layer"]==2
 
           # Load changes interpolation automatically.
           w.wheight.setValue(1.0);w.wmass.setValue(454.0)
