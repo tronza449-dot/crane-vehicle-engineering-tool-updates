@@ -1,36 +1,42 @@
-# Crane Vehicle Engineering Tool V53.3.8
+# Crane Vehicle Engineering Tool V53.3.9
 
-## Winch UI Cleanup — ตัดหน้าคำนวณที่ดูซ้ำ
+## Winch Battery — Auto / Manual Lift Events
 
-ปรับหน้า Winch ให้เหลือเฉพาะหน้าที่มีหน้าที่ชัดเจน และไม่แสดงสูตร/ผลเดิมซ้ำหลายแท็บ
+เพิ่มการเลือกจำนวนงานยกในหน้า Battery ให้ชัดเจนขึ้น
 
-### Visible Winch tabs
-1. Spec / Datasheet
-2. รอบการทำงาน / 3h
-3. Battery / แบตวินช์
-4. สรุป / Summary
+### Lift Event Mode
+มี 2 โหมด:
 
-### สิ่งที่เปลี่ยน
-- เอาแท็บ "สูตร + วิธีคำนวณ" ออกจากหน้าที่ผู้ใช้เห็น
-- สูตรรอบรถอยู่ในหน้า "รอบการทำงาน" เท่านั้น
-- สูตรพลังงาน Wh / Ah อยู่ในหน้า "Battery" เท่านั้น
-- หน้า Summary แสดงเฉพาะผลสุดท้าย ไม่แสดงสูตรซ้ำ
-- หน้า Spec ไม่คำนวณแบตเตอรี่
-- จำนวนงานยกจาก Operating Cycles ส่งเข้า Battery อัตโนมัติ
-- Battery ยังคงเป็นแหล่งคำนวณ E_up, E_down, E_event, E_total, Ah_used และ Ah_design เพียงชุดเดียว
-- PDF ไม่ใส่ Formula section แยกอีกต่อไป เพราะสูตรมีอยู่แล้วใน Operating Cycles และ Battery
+1. Auto — ใช้จำนวนงานยกจากรอบการทำงาน / 3h
+- โปรแกรมดึงจำนวนงานยกจากหน้า Operating Cycles อัตโนมัติ
+- ช่องกรอก Manual ถูกล็อก
+- ตัวอย่างโปรเจกต์ 3 ชั่วโมง: 64 งานยก
 
-### Data flow
-Spec / Datasheet → Operating Cycles → Battery → Summary
+2. Manual — กำหนดจำนวนงานยกเอง
+- ผู้ใช้กรอกจำนวนงานยกเองได้
+- โปรแกรมใช้จำนวนที่กรอกคำนวณ E_total, Ah_used และ Ah_design โดยตรง
 
-### Summary แสดงเฉพาะ
-- Load / Lift Distance
-- รอบไป-กลับ
-- จำนวนเที่ยว
-- จำนวนงานยกสัตว์
-- Winch UP / DOWN
-- พลังงานวินช์รวม
-- Ah used
-- Ah design
-- Standard battery size
-- Candidate battery PASS / FAIL
+### Definition
+1 งานยก = วินช์ขึ้น 1 ครั้ง + วินช์ลง 1 ครั้ง
+
+ตัวอย่าง:
+- Manual = 50 งาน
+- Winch UP = 50 ครั้ง
+- Winch DOWN = 50 ครั้ง
+- การเคลื่อนที่วินช์รวม = 100 ครั้ง
+
+### UI Improvements
+- เปลี่ยนจาก checkbox เดิมเป็น dropdown ที่เห็นชัด:
+  - Auto — ใช้จำนวนงานยกจากรอบการทำงาน / 3h
+  - Manual — กำหนดจำนวนงานยกเอง
+- เปลี่ยนชื่อช่องเป็น “จำนวนงานยกที่กำหนดเอง / Manual events”
+- แสดงข้อความอธิบาย 1 งาน = ขึ้น 1 + ลง 1
+- Summary ระบุชัดว่ากำลังใช้ AUTO หรือ MANUAL และแสดงจำนวน UP / DOWN
+
+### Calculation
+ยังคงใช้ Battery calculator ชุดเดียว:
+E_total = N_event × E_event
+
+Ah_used = E_total / V
+
+Ah_design = E_total × (1 + Reserve) / (V × DoD)
