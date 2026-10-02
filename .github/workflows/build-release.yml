@@ -608,9 +608,12 @@ jobs:
           # ---------- V53.1 ESP32 WiFi / Serial Telemetry regression ----------
           assert cvet.SERIAL_AVAILABLE is True
           assert hasattr(w,"telemetryPage") and hasattr(w,"telemetryChart")
-          assert w.telemetrySource.currentText()=="Simulation / Demo"
+          # Real WiFi telemetry is the safe default; Demo must be selected explicitly.
+          assert w.telemetrySource.currentText()=="ESP32 WiFi UDP JSON"
 
-          # Simulation path remains deterministic.
+          # Simulation path remains deterministic and is clearly marked NO ESP32.
+          w.telemetrySource.setCurrentIndex(0)
+          assert w.telemetrySource.currentText()=="Simulation / Demo (NO ESP32)"
           w.connect_telemetry()
           w.telemetryTimer.stop()
           for _ in range(12):
