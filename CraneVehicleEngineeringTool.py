@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.7"
+APP_VERSION = "53.3.8"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -5774,10 +5774,10 @@ void loop() {{
         self.wusecalc=QCheckBox(w);self.wusecalc.setChecked(True);self.wusecalc.setEnabled(False);self.wusecalc.hide()
         self.wSteps=QTextEdit(w);self.wSteps.setReadOnly(True)
         self.wSteps.setStyleSheet("font-size:11pt;padding:8px;")
+        self.wSteps.hide()  # V53.3.8: formulas live inside Operation and Battery only
         self.wVars=QTextEdit(w);self.wVars.setReadOnly(True)
         self.wVars.setStyleSheet("font-size:10.5pt;padding:8px;")
-        self.wTabs.addTab(self.wSteps,"สูตร + วิธีคำนวณ")
-        self.wVars.setReadOnly(True);self.wVars.hide()  # compatibility/PDF only; no duplicate visible tab
+        self.wVars.setReadOnly(True);self.wVars.hide()  # compatibility/PDF only
         self.wCalcSummary=QTextEdit(w);self.wCalcSummary.setReadOnly(True)
         self.wCalcSummary.setStyleSheet("font-size:11pt;padding:8px;")
 
@@ -5789,7 +5789,7 @@ void loop() {{
         of=QFont();of.setPointSize(15);of.setBold(True);opTitle.setFont(of);opTitle.setStyleSheet("color:#17324d;")
         opSub=QLabel(
             "1 รอบ = วิ่งไป + งานยกสัตว์ขาไป (วินช์ขึ้น+ลง) + วิ่งกลับ + "
-            "งานยกสัตว์ขากลับ (วินช์ขึ้น+ลง) • Load และ Lift Distance ใช้ค่าจากหน้า Spec + Battery"
+            "งานยกสัตว์ขากลับ (วินช์ขึ้น+ลง) • Load และ Lift Distance ใช้ค่าจากหน้า Spec / Datasheet"
         )
         opSub.setWordWrap(True);opSub.setStyleSheet("color:#60758b;font-size:10.3pt;font-weight:650;")
         opRoot.addWidget(opTitle);opRoot.addWidget(opSub)
@@ -6479,30 +6479,25 @@ void loop() {{
 
     def winch_summary_html(self,q=None):
         core=self.winch_core_results();r=self.winch_operation_results();b=self.winch_battery_results()
-        layer_status="PASS" if core["layer_pull_ok"] else "CHECK"
         energy_status="PASS" if b["energy_ok"] else "FAIL"
         return f"""
         <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt;line-height:1.5">
-        <h1 style="color:#17324d">WINCH — สรุปการคำนวณ</h1>
-        <p><b>Data flow:</b> Datasheet → Operating Cycles → Battery</p>
-        <table border="1" cellspacing="0" cellpadding="7" width="100%">
-        <tr><th>หัวข้อ</th><th>ผลลัพธ์</th><th>ที่มา</th></tr>
-        <tr><td>Load / Lift</td><td><b>{core['m']:.1f} kg / {core['h']:.2f} m</b></td><td>Spec Input</td></tr>
-        <tr><td>First-layer speed / current</td><td><b>{core['up_speed']:.3f} m/min / {core['iup']:.2f} A</b></td><td>Datasheet interpolation</td></tr>
-        <tr><td>Rope layer check</td><td>Layer {core['rope_layer']} • {core['layer_pull_kg']:.0f} kg • <b>{layer_status}</b></td><td>Datasheet</td></tr>
-        <tr><td>Winch UP / DOWN time</td><td><b>{core['tu']:.2f} / {b['down_time']:.2f} s</b></td><td>Battery Down mode: {b['down_mode']}</td></tr>
-        <tr><td>1 operation round</td><td><b>{r['t_round']:.2f} s</b></td><td>Drive + {r['events_per_round']} lift events</td></tr>
-        <tr><td>3h completed rounds</td><td><b>{r['rounds']} round trips</b></td><td>{r['hours']:.2f} h</td></tr>
-        <tr><td>One-way trips</td><td><b>{r['trips']} trips</b></td><td>{r['rounds']} × 2</td></tr>
-        <tr><td>Lift events</td><td><b>{r['lift_events']} events</b></td><td>{r['rounds']} × {r['events_per_round']}</td></tr>
-        <tr><td>Winch movements</td><td><b>UP {r['up_count']} + DOWN {r['down_count']} = {r['winch_moves']}</b></td><td>1 UP + 1 DOWN / event</td></tr>
-        <tr><td>Winch energy</td><td><b>{b['total']:.2f} Wh</b></td><td>{b['events']} events</td></tr>
-        <tr><td>Battery used</td><td><b>{b['ah_used']:.2f} Ah</b></td><td>E_total / V</td></tr>
-        <tr><td>Battery design</td><td><b>{b['ah_design']:.2f} Ah @ {b['voltage']:.2f} V</b></td><td>DoD {b['dod']*100:.0f}% + Reserve {b['reserve']*100:.0f}%</td></tr>
-        <tr><td>Standard size</td><td><b>{b['standard_ah']:.0f} Ah</b></td><td>ขั้นต่ำเชิงพลังงาน</td></tr>
-        <tr><td>Candidate battery</td><td><b>{b['candidate_ah']:.1f} Ah → {energy_status}</b></td><td>เทียบ Ah_design</td></tr>
+        <h1 style="color:#17324d">WINCH — FINAL SUMMARY</h1>
+        <p><b>สรุปผลเท่านั้น:</b> หน้านี้ไม่แสดงสูตรและไม่คำนวณซ้ำ</p>
+        <table border="1" cellspacing="0" cellpadding="8" width="100%">
+        <tr><th>รายการ</th><th>ผลลัพธ์สุดท้าย</th></tr>
+        <tr><td>Load / Lift Distance</td><td><b>{core['m']:.1f} kg / {core['h']:.2f} m</b></td></tr>
+        <tr><td>รอบไป-กลับที่ทำได้</td><td><b>{r['rounds']} รอบ</b></td></tr>
+        <tr><td>เที่ยวเดินรถทั้งหมด</td><td><b>{r['trips']} เที่ยว</b></td></tr>
+        <tr><td>งานยกสัตว์</td><td><b>{r['lift_events']} งาน</b></td></tr>
+        <tr><td>Winch UP / DOWN</td><td><b>{r['up_count']} / {r['down_count']} ครั้ง</b></td></tr>
+        <tr><td>พลังงานวินช์รวม</td><td><b>{b['total']:.2f} Wh</b></td></tr>
+        <tr><td>Battery used</td><td><b>{b['ah_used']:.2f} Ah</b></td></tr>
+        <tr><td>Battery design</td><td><b>{b['ah_design']:.2f} Ah @ {b['voltage']:.2f} V</b></td></tr>
+        <tr><td>Standard size ขั้นต่ำ</td><td><b>{b['standard_ah']:.0f} Ah</b></td></tr>
+        <tr><td>Candidate battery</td><td><b>{b['candidate_ah']:.1f} Ah — {energy_status}</b></td></tr>
         </table>
-        <p><b>ข้อจำกัด:</b> Starting/Stall surge ไม่ระบุในใบสเปก จึงต้องยืนยัน BMS Peak/ฟิวส์/สายด้วยข้อมูลผู้ผลิตหรือการวัดจริง.</p>
+        <p>สูตรและการแทนค่าดูได้ตรงหน้าที่เกี่ยวข้อง: <b>รอบการทำงาน</b> และ <b>Battery</b> เท่านั้น</p>
         </body></html>
         """
 
@@ -6542,7 +6537,7 @@ void loop() {{
         sp=self.winch_speed_results()
         if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
         if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.7</h2><p>Datasheet → Operating Cycles → Battery เป็น data flow หลักชุดเดียว.</p>")
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.8</h2><p>Datasheet → Operating Cycles → Battery → Summary; สูตรอยู่เฉพาะหน้าที่ใช้งานจริง.</p>")
         if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html())
         if hasattr(self,"wDutyView"):self.update_winch_duty()
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
@@ -6555,7 +6550,7 @@ void loop() {{
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10))
             op_html=self.winch_operation_html(self.winch_operation_results()) if hasattr(self,"wopSpeed") else ""
             battery_html=self.winch_battery_html(self.winch_battery_results()) if hasattr(self,"wbVoltage") else ""
-            doc.setHtml(self.winch_summary_html()+"<hr>"+self.winch_html()+"<hr>"+op_html+"<hr>"+battery_html+"<hr>"+self.winch_formula_html()+"<hr>"+self.winch_variables_html())
+            doc.setHtml(self.winch_summary_html()+"<hr>"+self.winch_html()+"<hr>"+op_html+"<hr>"+battery_html+"<hr>"+self.winch_variables_html())
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
             QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\\n"+filename)
