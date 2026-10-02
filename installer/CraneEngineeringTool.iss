@@ -2,6 +2,7 @@
 #define MyAppVersion "53.3.9"
 #define MyAppPublisher "Mechatronics Engineering Project"
 #define MyAppExeName "CraneEngineeringTool.exe"
+#define MyWebExeName "CraneVehicleWebServer.exe"
 
 #define MyDistDir GetEnv("CVET_DIST_DIR")
 #define MyOutputDir GetEnv("CVET_OUTPUT_DIR")
@@ -42,9 +43,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "{#MyDistDir}\CraneEngineeringTool\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyDistDir}\{#MyWebExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
+Name: "{autoprograms}\Crane Vehicle Web Server"; Filename: "{app}\{#MyWebExeName}"; WorkingDir: "{app}"; Comment: "Open CVET Web Calculator"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 
 [Run]
