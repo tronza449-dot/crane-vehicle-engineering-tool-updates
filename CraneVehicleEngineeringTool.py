@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.5"
+APP_VERSION = "53.3.6"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -4418,7 +4418,7 @@ void loop() {{
         return self._variable_table_html("ELECTRICAL / BATTERY — ตารางตัวแปร","ตัวแปรเส้นทาง พลังงาน ความจุ และกระแสของแบตเตอรี่หลัก",rows)
 
     def winch_variables_html(self):
-        q=self.winch_results();sp=self.winch_speed_results()
+        q=self.winch_results();b=self.winch_battery_results() if hasattr(self,"wbVoltage") else None;sp=self.winch_speed_results()
         rows=[
             ("m_load","มวลสิ่งที่ต้องการยก","kg",f"{self.wmass.value():.2f}","Payload หลัก"),
             ("m_basket","มวลตะกร้า/อุปกรณ์ยก","kg",f"{self.wbasket.value():.2f}","รวมกับ Payload ก่อนหาแรงยก"),
@@ -4428,11 +4428,11 @@ void loop() {{
             ("i","อัตราทดเกียร์วินช์","-",f"{self.wratio.value():.0f}:1","ใช้แปลงรอบ/แรงบิดระหว่างมอเตอร์กับดรัม"),
             ("v_up","ความเร็วโหลดขาขึ้น","m/min",f"{q['up_speed']:.3f}","ใช้หาเวลายก"),
             ("v_down","ความเร็วโหลดขาลง","m/min",f"{q['down_speed']:.3f}","ใช้หาเวลาลด"),
-            ("I_up","กระแสขณะยก","A",f"{self.wiup.value():.1f}","interpolate จากตาราง First Layer ของใบสเปก"),
-            ("I_down","กระแสขณะลด","A",f"{self.widown.value():.1f}","ใบสเปกไม่ระบุ; ใช้เท่าขาขึ้นแบบ conservative"),
-            ("N_cycle","จำนวนรอบยกขึ้น+ลง","รอบ",str(self.wcycles.value()),"ใช้หาพลังงานรวม"),
-            ("DoD","สัดส่วนแบตเตอรี่ที่อนุญาตให้ใช้","%",f"{self.wdod.value():.1f}","ใช้เผื่อความลึกการคายประจุ"),
-            ("Reserve","พลังงานสำรอง","%",f"{self.wreserve.value():.1f}","เผื่อความคลาดเคลื่อน"),
+            ("I_up","กระแสขณะยก","A",f"{q['iup']:.2f}","interpolate จากตาราง First Layer ของใบสเปก"),
+            ("I_down","กระแสขณะลด","A",f"{q['idown']:.2f}","มาจาก Down mode ในแท็บ Battery"),
+            ("N_event","จำนวนงานยกสัตว์","งาน",str(q["n"]),"ดึงจาก Operating Cycles หรือ Manual ใน Battery"),
+            ("DoD","สัดส่วนแบตเตอรี่ที่อนุญาตให้ใช้","%",f"{q['dod']*100:.1f}","ตั้งในแท็บ Battery"),
+            ("Reserve","พลังงานสำรอง","%",f"{q['reserve']*100:.1f}","ตั้งในแท็บ Battery"),
             ("D_drum","เส้นผ่านศูนย์กลางดรัม","mm",f"{self.wdiameter.value():.1f}","Ø37 mm จากใบสเปก"),
             ("SF_force","ตัวคูณแรงวิเคราะห์เบื้องต้น","-",f"{self.wsf.value():.2f}","ไม่ใช่ WLL ของอุปกรณ์ยก"),
             ("t_up","เวลายกขึ้น","s",f"{q['tu']:.1f}","h ÷ v_up"),
@@ -5731,22 +5731,22 @@ void loop() {{
         outer.addWidget(self.wTabs)
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame)
         content=QWidget();root=QVBoxLayout(content);root.setContentsMargins(18,16,18,20);root.setSpacing(12)
-        scroll.setWidget(content);self.wTabs.addTab(scroll,"Spec + Battery")
+        scroll.setWidget(content);self.wTabs.addTab(scroll,"Spec / Datasheet")
 
         header=QFrame();header.setObjectName("topHeader");header.setMinimumHeight(96);add_soft_shadow(header,20,4,25)
         nav=QHBoxLayout(header);nav.setContentsMargins(18,14,18,14);nav.setSpacing(14)
         back=QPushButton("←  เมนูหลัก");back.setObjectName("secondaryButton");back.setMinimumWidth(120);back.clicked.connect(self.show_home_mode);nav.addWidget(back)
         textcol=QVBoxLayout();textcol.setSpacing(2)
-        head=QLabel("4500LB. WINCH SPECIFICATION + BATTERY")
+        head=QLabel("4500LB. WINCH SPECIFICATION / DATASHEET")
         hf=QFont();hf.setPointSize(15);hf.setBold(True);head.setFont(hf);head.setStyleSheet("color:white;background:transparent;")
-        subhead=QLabel("ยึดใบสเปกที่ผู้ใช้ส่งมา • ปรับ Load / Lift Distance / Cycles ได้ • คำนวณจาก First-layer performance")
+        subhead=QLabel("ยึดใบสเปกที่ผู้ใช้ส่งมา • ปรับเฉพาะ Load / Lift Distance • Battery คำนวณในแท็บ Battery เพียงจุดเดียว")
         subhead.setWordWrap(True);subhead.setStyleSheet("color:#dbeafe;font-size:10pt;font-weight:600;background:transparent;")
         textcol.addWidget(head);textcol.addWidget(subhead);nav.addLayout(textcol,1)
-        nav.addWidget(make_chip("SPEC + 3 INPUTS","#fff1dd","#9a5800"))
+        nav.addWidget(make_chip("SPEC + 2 INPUTS","#fff1dd","#9a5800"))
         export=QPushButton("Export PDF");export.setObjectName("primaryButton");export.setMinimumWidth(140);export.clicked.connect(self.export_winch_pdf);nav.addWidget(export)
         root.addWidget(header)
 
-        # Three editable design inputs: load, lift distance and cycle count.
+        # Two editable design inputs on Datasheet: load and lift distance. Cycle count comes from Operating Cycles.
         self.wmass=QDoubleSpinBox(w);self.wmass.setRange(1.0,2041.0);self.wmass.setDecimals(1);self.wmass.setValue(100.0);self.wmass.setSuffix(" kg");self.wmass.setMinimumWidth(180)
         self.wheight=QDoubleSpinBox(w);self.wheight.setRange(0.05,10.0);self.wheight.setDecimals(2);self.wheight.setValue(1.0);self.wheight.setSuffix(" m");self.wheight.setMinimumWidth(180)
         # Remaining compatibility/report values stay hidden and locked.
@@ -5777,11 +5777,9 @@ void loop() {{
         self.wVars=QTextEdit(w);self.wVars.setReadOnly(True)
         self.wVars.setStyleSheet("font-size:10.5pt;padding:8px;")
         self.wTabs.addTab(self.wSteps,"สูตร + วิธีคำนวณ")
-        self.wVars.setReadOnly(True)
-        self.wTabs.addTab(self.wVars,"ตัวแปร / Variables")
+        self.wVars.setReadOnly(True);self.wVars.hide()  # compatibility/PDF only; no duplicate visible tab
         self.wCalcSummary=QTextEdit(w);self.wCalcSummary.setReadOnly(True)
         self.wCalcSummary.setStyleSheet("font-size:11pt;padding:8px;")
-        self.wTabs.addTab(self.wCalcSummary,"สรุปการคำนวณ")
 
         # V53.3.4 — Operating-cycle calculator: driving + winch UP/DOWN on outbound and return trips.
         opScroll=QScrollArea(w);opScroll.setWidgetResizable(True);opScroll.setFrameShape(QFrame.NoFrame)
@@ -5813,9 +5811,11 @@ void loop() {{
 
         opButtons=QHBoxLayout()
         opCalc=QPushButton("คำนวณรอบการทำงาน");opCalc.setObjectName("primaryButton");opCalc.clicked.connect(self.calc_winch_operation)
-        self.wopApply=QPushButton("ใช้จำนวนงานยกนี้เป็น Battery Cycles")
-        self.wopApply.setObjectName("secondaryButton");self.wopApply.clicked.connect(self.apply_winch_operation_cycles)
-        opButtons.addWidget(opCalc);opButtons.addWidget(self.wopApply);opButtons.addStretch(1);opRoot.addLayout(opButtons)
+        self.wopApply=QPushButton("ส่งจำนวนงานยกไป Battery");self.wopApply.hide()  # compatibility only
+        self.wopApply.clicked.connect(self.apply_winch_operation_cycles)
+        opAuto=QLabel("จำนวนงานยกจากหน้านี้ถูกส่งไป Battery อัตโนมัติเมื่อเลือก “ใช้จำนวนงานยกจากหน้า รอบการทำงาน / 3h”")
+        opAuto.setWordWrap(True);opAuto.setStyleSheet("color:#60758b;font-weight:650;")
+        opButtons.addWidget(opCalc);opButtons.addWidget(opAuto,1);opRoot.addLayout(opButtons)
 
         self.wopSummary=QLabel();self.wopSummary.setWordWrap(True)
         self.wopSummary.setStyleSheet("font-size:12pt;font-weight:800;background:#eefaf4;color:#155b2a;padding:14px;border:1px solid #a9d7ba;border-radius:10px")
@@ -5903,6 +5903,7 @@ void loop() {{
         self.wbDetails.setStyleSheet("font-size:10.8pt;padding:8px;")
         batRoot.addWidget(self.wbDetails);batRoot.addStretch(1)
         self.wTabs.addTab(batScroll,"Battery / แบตวินช์")
+        self.wTabs.addTab(self.wCalcSummary,"สรุป / Summary")
 
         self.wbDownMode.currentIndexChanged.connect(self.refresh_winch_battery_and_operation)
         self.wbDownBasis.currentIndexChanged.connect(self.refresh_winch_battery_and_operation)
@@ -5978,33 +5979,26 @@ void loop() {{
         ll.addWidget(self.wLayerTable);tables.addWidget(layerBox,1)
         root.addLayout(tables)
 
-        calcBox=QGroupBox("Battery Calculation — Design Inputs")
+        calcBox=QGroupBox("Design Inputs + Datasheet Result")
         cg=QGridLayout(calcBox);cg.setContentsMargins(14,14,14,14);cg.setHorizontalSpacing(16);cg.setVerticalSpacing(10)
         locked=QLabel(
-            "<b>ค่าจากใบสเปกยังล็อกเหมือนเดิม</b><br>"
-            "แก้ได้เฉพาะ Load, Lift Distance และ Cycles • Battery = 12 V separate • DoD = 80% • Reserve = 20%<br>"
-            "Speed/Current interpolate จากตาราง First Layer ตาม Load ที่กรอก<br>"
-            "ใบสเปกไม่ให้ข้อมูลขาลง จึงใช้กระแส/ความเร็วเท่าขาขึ้นแบบ conservative จนกว่าจะวัดจริง"
+            "<b>หน้านี้ไม่คำนวณแบตเตอรี่แล้ว</b><br>"
+            "แก้ได้เฉพาะ Load และ Lift Distance • Speed/Current ขาขึ้น interpolate จากตาราง First Layer • "
+            "จำนวนงานและ Battery Ah อยู่ในแท็บ รอบการทำงาน และ Battery"
         )
         locked.setWordWrap(True);locked.setStyleSheet("background:#fff8e9;color:#68420b;padding:12px;border:1px solid #ead39a;border-radius:10px;")
         cg.addWidget(locked,0,0,1,3)
-
         loadLab=QLabel("โหลดที่ยก / Load");loadLab.setStyleSheet("font-size:11pt;font-weight:900;color:#17324d;")
         heightLab=QLabel("ระยะยก / Lift Distance");heightLab.setStyleSheet("font-size:11pt;font-weight:900;color:#17324d;")
-        cycleLab=QLabel("จำนวนรอบขึ้น + ลง / Cycles");cycleLab.setStyleSheet("font-size:11pt;font-weight:900;color:#17324d;")
-        self.wcycles=QSpinBox();self.wcycles.setRange(1,100000);self.wcycles.setValue(50);self.wcycles.setSuffix(" รอบ");self.wcycles.setMinimumWidth(180)
         cg.addWidget(loadLab,1,0);cg.addWidget(self.wmass,1,1)
         cg.addWidget(heightLab,2,0);cg.addWidget(self.wheight,2,1)
-        cg.addWidget(cycleLab,3,0);cg.addWidget(self.wcycles,3,1)
-        recalc=QPushButton("คำนวณแบตเตอรี่");recalc.setObjectName("primaryButton");recalc.clicked.connect(self.calc_winch)
-        cg.addWidget(recalc,1,2,3,1)
-
-        self.wSummary=QLabel();self.wSummary.setWordWrap(True)
-        self.wSummary.setStyleSheet("font-size:11pt;font-weight:700;background:#eefaf4;color:#155b2a;padding:14px;border:1px solid #a9d7ba;border-radius:10px")
-        cg.addWidget(self.wSummary,4,0,1,3)
-        self.wBatteryResult=QLabel();self.wBatteryResult.setWordWrap(True)
-        self.wBatteryResult.setStyleSheet("font-size:12pt;background:#eef6ff;color:#174a74;padding:14px;border:1px solid #bfd6ee;border-radius:10px")
-        cg.addWidget(self.wBatteryResult,5,0,1,3)
+        self.wSpecResult=QLabel();self.wSpecResult.setWordWrap(True)
+        self.wSpecResult.setStyleSheet("font-size:11pt;font-weight:700;background:#eefaf4;color:#155b2a;padding:14px;border:1px solid #a9d7ba;border-radius:10px")
+        cg.addWidget(self.wSpecResult,3,0,1,3)
+        # Old widgets remain hidden only for backward compatibility with reports/tools.
+        self.wcycles=QSpinBox(w);self.wcycles.setRange(1,100000);self.wcycles.setValue(1);self.wcycles.setEnabled(False);self.wcycles.hide()
+        self.wSummary=QLabel(w);self.wSummary.hide()
+        self.wBatteryResult=QLabel(w);self.wBatteryResult.hide()
         root.addWidget(calcBox)
 
         safety=QLabel(
@@ -6016,7 +6010,6 @@ void loop() {{
 
         self.wmass.valueChanged.connect(self.calc_winch)
         self.wheight.valueChanged.connect(self.calc_winch)
-        self.wcycles.valueChanged.connect(self.calc_winch)
         self.tabs.addTab(w,"Winch")
         self._sync_locked_winch_widgets();self.calc_winch()
 
@@ -6058,25 +6051,45 @@ void loop() {{
                 return size
         return math.ceil(required_ah/50.0)*50.0
 
-    def winch_results(self):
+    def winch_core_results(self):
+        """Single source for datasheet/performance geometry. No total battery-cycle calculation here."""
         self._sync_locked_winch_widgets()
         spec=self._winch_locked_spec()
-        m=self.wmass.value();h=self.wheight.value();v=spec["project_voltage_v"]
+        m=self.wmass.value();h=self.wheight.value()
         speed,current=self._winch_interp_first_layer(m)
         layer,layer_capacity_m,layer_pull_kg=self._winch_layer_for_distance(h)
-        tu=h/speed*60.0;td=tu
-        eu=v*current*tu/3600.0;ed=v*current*td/3600.0
-        n=int(self.wcycles.value());total=n*(eu+ed)
-        dod=spec["project_dod"];reserve=spec["project_reserve"]
-        ah=total*(1.0+reserve)/(v*dod)
-        std=self._next_standard_capacity(ah,False);extra=self._next_standard_capacity(ah,True)
-        return dict(m=m,h=h,v=v,tu=tu,td=td,eu=eu,ed=ed,n=n,total=total,ah=ah,
-                    f=m*G,fd=m*G*spec["force_sf"],mechanical=m*G*h/3600.0,
-                    iup=current,idown=current,up_speed=speed,down_speed=speed,
-                    dod=dod,reserve=reserve,standard_ah=std,extra_margin_ah=extra,
-                    max_spec_current=140.0,spec_source="4500LB WINCH SPECIFICATION — user supplied",
-                    rope_layer=layer,layer_capacity_m=layer_capacity_m,layer_pull_kg=layer_pull_kg,
-                    layer_pull_ok=(m<=layer_pull_kg))
+        tu=h/speed*60.0 if speed>0 else 0.0
+        return dict(
+            m=m,h=h,v=spec["project_voltage_v"],tu=tu,
+            f=m*G,fd=m*G*spec["force_sf"],mechanical=m*G*h/3600.0,
+            iup=current,up_speed=speed,
+            max_spec_current=140.0,spec_source="4500LB WINCH SPECIFICATION — user supplied",
+            rope_layer=layer,layer_capacity_m=layer_capacity_m,layer_pull_kg=layer_pull_kg,
+            layer_pull_ok=(m<=layer_pull_kg)
+        )
+
+    def winch_results(self):
+        """Compatibility view. Battery totals come from the canonical Battery calculator."""
+        q=dict(self.winch_core_results())
+        if hasattr(self,"wbVoltage"):
+            b=self.winch_battery_results()
+            q.update(
+                v=b["voltage"],td=b["down_time"],eu=b["e_up"],ed=b["e_down"],
+                n=b["events"],total=b["total"],ah=b["ah_design"],
+                idown=b["down_current"],down_speed=b["down_speed"],
+                dod=b["dod"],reserve=b["reserve"],
+                standard_ah=b["standard_ah"],extra_margin_ah=b["extra_margin_ah"]
+            )
+        else:
+            spec=self._winch_locked_spec()
+            td=q["tu"];eu=q["v"]*q["iup"]*q["tu"]/3600.0;ed=eu
+            n=1;total=eu+ed;dod=spec["project_dod"];reserve=spec["project_reserve"]
+            ah=total*(1.0+reserve)/(q["v"]*dod)
+            q.update(td=td,eu=eu,ed=ed,n=n,total=total,ah=ah,idown=q["iup"],
+                     down_speed=q["up_speed"],dod=dod,reserve=reserve,
+                     standard_ah=self._next_standard_capacity(ah,False),
+                     extra_margin_ah=self._next_standard_capacity(ah,True))
+        return q
 
     def _update_winch_battery_mode_ui(self):
         if not hasattr(self,"wbDownMode"):return
@@ -6090,7 +6103,7 @@ void loop() {{
             self.wbEvents.setEnabled(not self.wbUseOp.isChecked())
 
     def winch_down_profile(self,q=None):
-        if q is None:q=self.winch_results()
+        if q is None:q=self.winch_core_results()
         conservative=not hasattr(self,"wbDownMode") or self.wbDownMode.currentIndex()==0
         if conservative:
             return dict(mode="Conservative",current=q["iup"],speed=q["up_speed"],time=q["tu"],basis="Down = Up")
@@ -6106,7 +6119,7 @@ void loop() {{
         return dict(mode="Measured / Custom",current=current,speed=speed,time=time,basis=basis)
 
     def winch_battery_results(self):
-        q=self.winch_results()
+        q=self.winch_core_results()
         down=self.winch_down_profile(q)
         voltage=float(self.wbVoltage.value()) if hasattr(self,"wbVoltage") else q["v"]
         dod=(float(self.wbDoD.value())/100.0) if hasattr(self,"wbDoD") else q["dod"]
@@ -6235,7 +6248,7 @@ void loop() {{
         elif hasattr(self,"wbSummary"):self.calc_winch_battery()
 
     def winch_operation_results(self):
-        q=self.winch_results()
+        q=self.winch_core_results()
         speed_kmh=float(self.wopSpeed.value()) if hasattr(self,"wopSpeed") else 1.0
         one_way=float(self.wopDistance.value()) if hasattr(self,"wopDistance") else 30.0
         hours=float(self.wopHours.value()) if hasattr(self,"wopHours") else 3.0
@@ -6365,236 +6378,130 @@ void loop() {{
         if hasattr(self,"wopSummary"):
             self.wopSummary.setText(self.wopSummary.text()+f"\nตั้ง Battery Cycles = {r['lift_events']} รอบขึ้น+ลงแล้ว")
 
-    def winch_formula_html(self,q):
-        spec=self._winch_locked_spec()
-        pts=spec["perf"]
-        m=q["m"]
+    def winch_formula_html(self,q=None):
+        core=self.winch_core_results()
+        b=self.winch_battery_results()
+        r=self.winch_operation_results()
+        spec=self._winch_locked_spec();pts=spec["perf"];m=core["m"]
         x0,v0,i0,_=pts[0];x1,v1,i1,_=pts[1]
-        for a,b in zip(pts[:-1],pts[1:]):
-            if m<=b[0]:
-                x0,v0,i0,_=a;x1,v1,i1,_=b
-                break
+        for a,z in zip(pts[:-1],pts[1:]):
+            if m<=z[0]:
+                x0,v0,i0,_=a;x1,v1,i1,_=z;break
         alpha=(m-x0)/(x1-x0) if x1>x0 else 0.0
         alpha=max(0.0,min(1.0,alpha))
-        p_up=q["v"]*q["iup"]
-        e_cycle=q["eu"]+q["ed"]
-        ah_raw=q["total"]/q["v"] if q["v"]>0 else 0.0
-        layer_status="PASS / อยู่ในค่าพิกัดจากตาราง" if q["layer_pull_ok"] else "CHECK / โหลดเกินค่าพิกัดของชั้นสลิงนี้"
         return f"""
-        <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt;line-height:1.45">
+        <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt;line-height:1.5">
         <h1 style="color:#17324d">WINCH — สูตร + วิธีคำนวณ</h1>
-        <p><b>Input ปัจจุบัน:</b> Load = {q['m']:.1f} kg, Lift Distance = {q['h']:.2f} m, Cycles = {q['n']} รอบ</p>
-        <p><b>ค่าคงที่ที่ใช้:</b> V = {q['v']:.1f} V, DoD = {q['dod']*100:.0f}%, Reserve = {q['reserve']*100:.0f}%</p>
+        <p><b>หลักการ:</b> หน้านี้เป็นหน้าคำอธิบายเท่านั้น ผลตัวเลขดึงจาก Datasheet → รอบการทำงาน → Battery ชุดเดียวกัน ไม่คำนวณแบตอีกชุดแยกต่างหาก</p>
 
-        <h2>1) เลือกช่วงข้อมูลจากตาราง First Layer</h2>
-        <p>โหลด {q['m']:.1f} kg อยู่ระหว่าง <b>{x0:.0f} kg</b> และ <b>{x1:.0f} kg</b></p>
-        <p>จุดล่าง: v₀ = {v0:.3f} m/min, I₀ = {i0:.2f} A<br>
-        จุดบน: v₁ = {v1:.3f} m/min, I₁ = {i1:.2f} A</p>
+        <h2>1) Interpolation ความเร็วและกระแสขาขึ้น</h2>
+        <p><b>α = (m-m₀)/(m₁-m₀)</b></p>
+        <p><b>ความหมาย:</b> หาตำแหน่งของ Load ปัจจุบันระหว่างจุดข้อมูลสองจุดใน First Layer table</p>
+        <p><b>แทนค่า:</b> ({core['m']:.1f}-{x0:.1f})/({x1:.1f}-{x0:.1f}) = <b>{alpha:.4f}</b></p>
+        <p><b>v_up = v₀ + α(v₁-v₀)</b> = {v0:.3f}+{alpha:.4f}({v1:.3f}-{v0:.3f}) = <b>{core['up_speed']:.3f} m/min</b></p>
+        <p><b>I_up = I₀ + α(I₁-I₀)</b> = {i0:.2f}+{alpha:.4f}({i1:.2f}-{i0:.2f}) = <b>{core['iup']:.2f} A</b></p>
 
-        <h2>2) หาอัตราส่วน Interpolation</h2>
-        <p><b>สูตร:</b> α = (m - m₀) / (m₁ - m₀)</p>
-        <p><b>ความหมาย:</b> อัตราส่วน interpolation = (โหลดที่ต้องการ - โหลดจุดล่าง) ÷ (โหลดจุดบน - โหลดจุดล่าง)</p>
-        <p><b>แทนค่า:</b> α = ({q['m']:.1f} - {x0:.1f}) / ({x1:.1f} - {x0:.1f}) = <b>{alpha:.4f}</b></p>
+        <h2>2) เวลาวินช์ขึ้น</h2>
+        <p><b>t_up = (h/v_up) × 60</b></p>
+        <p><b>ความหมาย:</b> เวลายกขึ้น = ระยะยก ÷ ความเร็วสลิง × 60</p>
+        <p><b>แทนค่า:</b> ({core['h']:.2f}/{core['up_speed']:.3f})×60 = <b>{core['tu']:.2f} s</b></p>
 
-        <h2>3) คำนวณความเร็วสลิงตามโหลด</h2>
-        <p><b>สูตร:</b> v = v₀ + α(v₁ - v₀)</p>
-        <p><b>ความหมาย:</b> ความเร็วสลิงที่โหลดปัจจุบัน = ความเร็วจุดล่าง + อัตราส่วน interpolation × ส่วนต่างความเร็วระหว่างสองจุด</p>
-        <p><b>แทนค่า:</b> v = {v0:.3f} + {alpha:.4f}({v1:.3f} - {v0:.3f}) = <b>{q['up_speed']:.3f} m/min</b></p>
+        <h2>3) เวลาขาลง</h2>
+        <p><b>Mode:</b> {b['down_mode']} — {b['down_basis']}</p>
+        <p>I_down = <b>{b['down_current']:.2f} A</b>, v_down = <b>{b['down_speed']:.3f} m/min</b>,
+        t_down = <b>{b['down_time']:.2f} s</b></p>
 
-        <h2>4) คำนวณกระแสมอเตอร์ตามโหลด</h2>
-        <p><b>สูตร:</b> I = I₀ + α(I₁ - I₀)</p>
-        <p><b>ความหมาย:</b> กระแสมอเตอร์ที่โหลดปัจจุบัน = กระแสจุดล่าง + อัตราส่วน interpolation × ส่วนต่างกระแสระหว่างสองจุด</p>
-        <p><b>แทนค่า:</b> I = {i0:.2f} + {alpha:.4f}({i1:.2f} - {i0:.2f}) = <b>{q['iup']:.2f} A</b></p>
+        <h2>4) รอบการทำงาน</h2>
+        <p><b>t_event = t_up + t_down</b> = {core['tu']:.2f}+{b['down_time']:.2f} = <b>{r['t_event']:.2f} s/งาน</b></p>
+        <p><b>t_round = t_drive,round + t_lift,round + t_other</b> =
+        {r['t_drive_round']:.2f}+{r['t_lift_round']:.2f}+{r['other']:.2f} = <b>{r['t_round']:.2f} s/รอบ</b></p>
+        <p><b>N_round = floor(t_available/t_round)</b> = floor({r['total_s']:.0f}/{r['t_round']:.2f}) = <b>{r['rounds']} รอบ</b></p>
+        <p><b>N_event = N_round × events/round</b> = {r['rounds']}×{r['events_per_round']} = <b>{r['lift_events']} งาน</b></p>
 
-        <h2>5) คำนวณเวลายก</h2>
-        <p><b>สูตร:</b> t<sub>up</sub> = (h / v) × 60</p>
-        <p><b>ความหมาย:</b> เวลายกขึ้น = ระยะยก ÷ ความเร็วสลิง × 60 เพราะ h/v ได้หน่วยเป็นนาที แล้วคูณ 60 เพื่อแปลงเป็นวินาที</p>
-        <p><b>แทนค่า:</b> t<sub>up</sub> = ({q['h']:.2f} / {q['up_speed']:.3f}) × 60 = <b>{q['tu']:.2f} s</b></p>
-        <p>ใบสเปกไม่ระบุค่าขาลงแยกต่างหาก จึงใช้แบบ conservative:
-        t<sub>down</sub> = t<sub>up</sub> = <b>{q['td']:.2f} s</b></p>
+        <h2>5) พลังงานแบตวินช์ — ชุดคำนวณหลัก</h2>
+        <p><b>E_up = V I_up t_up / 3600</b> =
+        {b['voltage']:.2f}×{b['up_current']:.2f}×{b['up_time']:.2f}/3600 = <b>{b['e_up']:.3f} Wh</b></p>
+        <p><b>E_down = V I_down t_down / 3600</b> =
+        {b['voltage']:.2f}×{b['down_current']:.2f}×{b['down_time']:.2f}/3600 = <b>{b['e_down']:.3f} Wh</b></p>
+        <p><b>E_event = E_up + E_down</b> = {b['e_up']:.3f}+{b['e_down']:.3f} = <b>{b['e_event']:.3f} Wh/งาน</b></p>
+        <p><b>E_total = N_event × E_event</b> = {b['events']}×{b['e_event']:.3f} = <b>{b['total']:.2f} Wh</b></p>
+        <p><b>Ah_used = E_total/V</b> = {b['total']:.2f}/{b['voltage']:.2f} = <b>{b['ah_used']:.2f} Ah</b></p>
+        <p><b>Ah_design = E_total(1+Reserve)/(V×DoD)</b> =
+        {b['total']:.2f}×(1+{b['reserve']:.2f})/({b['voltage']:.2f}×{b['dod']:.2f})
+        = <b>{b['ah_design']:.2f} Ah</b></p>
 
-        <h2>6) คำนวณกำลังไฟฟ้าขณะทำงาน</h2>
-        <p><b>สูตร:</b> P = V × I</p>
-        <p><b>ความหมาย:</b> กำลังไฟฟ้าที่วินช์ใช้ = แรงดันแบตเตอรี่ × กระแสมอเตอร์</p>
-        <p><b>แทนค่า:</b> P = {q['v']:.1f} × {q['iup']:.2f} = <b>{p_up:.2f} W</b></p>
-
-        <h2>7) คำนวณพลังงานขาขึ้น</h2>
-        <p><b>สูตร:</b> E<sub>up</sub> = V × I × t / 3600</p>
-        <p><b>ความหมาย:</b> พลังงานขาขึ้น = กำลังไฟฟ้า × เวลาทำงาน และหาร 3600 เพื่อแปลงวินาทีเป็นชั่วโมง จึงได้หน่วย Wh</p>
-        <p><b>แทนค่า:</b> E<sub>up</sub> = {q['v']:.1f} × {q['iup']:.2f} × {q['tu']:.2f} / 3600
-        = <b>{q['eu']:.3f} Wh</b></p>
-
-        <h2>8) คำนวณพลังงานขาลง</h2>
-        <p>ใช้ I<sub>down</sub> = I<sub>up</sub> และ t<sub>down</sub> = t<sub>up</sub> เป็นสมมติฐาน conservative</p>
-        <p><b>สูตร:</b> E<sub>down</sub> = V × I<sub>down</sub> × t<sub>down</sub> / 3600</p>
-        <p><b>ความหมาย:</b> พลังงานขาลง = แรงดัน × กระแสขาลง × เวลาขาลง ÷ 3600</p>
-        <p><b>คำตอบ:</b> E<sub>down</sub> = <b>{q['ed']:.3f} Wh</b></p>
-
-        <h2>9) พลังงานต่อ 1 รอบขึ้น+ลง</h2>
-        <p><b>สูตร:</b> E<sub>cycle</sub> = E<sub>up</sub> + E<sub>down</sub></p>
-        <p><b>ความหมาย:</b> พลังงาน 1 รอบ = พลังงานตอนยกขึ้น + พลังงานตอนปล่อยลง</p>
-        <p><b>แทนค่า:</b> {q['eu']:.3f} + {q['ed']:.3f} = <b>{e_cycle:.3f} Wh/รอบ</b></p>
-
-        <h2>10) พลังงานรวมตามจำนวนรอบ</h2>
-        <p><b>สูตร:</b> E<sub>total</sub> = N × E<sub>cycle</sub></p>
-        <p><b>ความหมาย:</b> พลังงานรวม = จำนวนรอบ × พลังงานที่ใช้ต่อหนึ่งรอบขึ้น+ลง</p>
-        <p><b>แทนค่า:</b> {q['n']} × {e_cycle:.3f} = <b>{q['total']:.2f} Wh</b></p>
-
-        <h2>11) แปลงเป็น Ah ก่อนเผื่อ</h2>
-        <p><b>สูตร:</b> Ah<sub>used</sub> = E<sub>total</sub> / V</p>
-        <p><b>ความหมาย:</b> ความจุที่ถูกใช้จริง = พลังงานรวม Wh ÷ แรงดันแบตเตอรี่ V</p>
-        <p><b>แทนค่า:</b> {q['total']:.2f} / {q['v']:.1f} = <b>{ah_raw:.2f} Ah</b></p>
-
-        <h2>12) ความจุแบตออกแบบหลัง DoD + Reserve</h2>
-        <p><b>สูตร:</b> Ah<sub>design</sub> = E<sub>total</sub>(1 + Reserve) / (V × DoD)</p>
-        <p><b>ความหมาย:</b> ความจุแบตที่ควรออกแบบ = พลังงานรวมที่เผื่อ Reserve แล้ว ÷ (แรงดันแบต × สัดส่วน DoD ที่อนุญาตให้ใช้)</p>
-        <p><b>แทนค่า:</b> {q['total']:.2f} × (1 + {q['reserve']:.2f}) / ({q['v']:.1f} × {q['dod']:.2f})
-        = <b>{q['ah']:.2f} Ah</b></p>
-        <p>ขนาดมาตรฐานที่ไม่น้อยกว่าค่าคำนวณ = <b>{q['standard_ah']:.0f} Ah</b><br>
-        ถ้าต้องการเผื่อเพิ่มอีกหนึ่งขนาด = <b>{q['extra_margin_ah']:.0f} Ah</b></p>
-
-        <h2>13) ตรวจ Rope Layer ตามระยะยก</h2>
-        <p>ระยะยก {q['h']:.2f} m → ประมาณ Layer <b>{q['rope_layer']}</b>
-        (สมมติเริ่มพันจากชั้นแรก) และในใบสเปกระบุ Line Pull ของชั้นนี้ = <b>{q['layer_pull_kg']:.0f} kg</b></p>
-        <p>Load = {q['m']:.1f} kg → <b>{layer_status}</b></p>
-
-        <hr>
-        <p><b>ข้อจำกัดของวิธีนี้:</b> ตาราง Speed/Current ในใบที่ส่งมาเป็นข้อมูล <b>First Layer</b>.
-        เมื่อสลิงขึ้นชั้นสูงกว่า ความเร็ว/แรงดึงจริงอาจเปลี่ยน และใบสเปกไม่ได้ให้กระแสขาลงหรือ Starting/Stall surge.
-        ดังนั้นหน้าคำนวณนี้เหมาะสำหรับประมาณแบตเตอรี่เชิงออกแบบ และควรยืนยันด้วยการวัดจริงก่อนเลือก BMS/ฟิวส์/สายขั้นสุดท้าย.</p>
+        <p><b>ขนาดมาตรฐาน ≥ ค่าคำนวณ:</b> {b['standard_ah']:.0f} Ah •
+        Extra margin: {b['extra_margin_ah']:.0f} Ah</p>
         </body></html>
         """
 
-    def winch_summary_html(self,q):
-        ah_used=q["total"]/q["v"] if q["v"]>0 else 0.0
-        e_cycle=q["eu"]+q["ed"]
-        layer_status="PASS" if q["layer_pull_ok"] else "CHECK"
+    def winch_summary_html(self,q=None):
+        core=self.winch_core_results();r=self.winch_operation_results();b=self.winch_battery_results()
+        layer_status="PASS" if core["layer_pull_ok"] else "CHECK"
+        energy_status="PASS" if b["energy_ok"] else "FAIL"
         return f"""
         <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt;line-height:1.5">
         <h1 style="color:#17324d">WINCH — สรุปการคำนวณ</h1>
-        <p>สรุปค่าหลักตั้งแต่ Input → Datasheet → เวลา → พลังงาน → Battery Capacity</p>
-
-        <h2>1. ข้อมูลที่ผู้ใช้กำหนด</h2>
+        <p><b>Data flow:</b> Datasheet → Operating Cycles → Battery</p>
         <table border="1" cellspacing="0" cellpadding="7" width="100%">
-        <tr><td><b>Load</b></td><td>{q['m']:.1f} kg</td><td>น้ำหนักที่ต้องการยก</td></tr>
-        <tr><td><b>Lift Distance</b></td><td>{q['h']:.2f} m</td><td>ระยะยกแนวดิ่งต่อเที่ยว</td></tr>
-        <tr><td><b>Cycles</b></td><td>{q['n']} รอบ</td><td>1 รอบ = ขึ้น + ลง</td></tr>
+        <tr><th>หัวข้อ</th><th>ผลลัพธ์</th><th>ที่มา</th></tr>
+        <tr><td>Load / Lift</td><td><b>{core['m']:.1f} kg / {core['h']:.2f} m</b></td><td>Spec Input</td></tr>
+        <tr><td>First-layer speed / current</td><td><b>{core['up_speed']:.3f} m/min / {core['iup']:.2f} A</b></td><td>Datasheet interpolation</td></tr>
+        <tr><td>Rope layer check</td><td>Layer {core['rope_layer']} • {core['layer_pull_kg']:.0f} kg • <b>{layer_status}</b></td><td>Datasheet</td></tr>
+        <tr><td>Winch UP / DOWN time</td><td><b>{core['tu']:.2f} / {b['down_time']:.2f} s</b></td><td>Battery Down mode: {b['down_mode']}</td></tr>
+        <tr><td>1 operation round</td><td><b>{r['t_round']:.2f} s</b></td><td>Drive + {r['events_per_round']} lift events</td></tr>
+        <tr><td>3h completed rounds</td><td><b>{r['rounds']} round trips</b></td><td>{r['hours']:.2f} h</td></tr>
+        <tr><td>One-way trips</td><td><b>{r['trips']} trips</b></td><td>{r['rounds']} × 2</td></tr>
+        <tr><td>Lift events</td><td><b>{r['lift_events']} events</b></td><td>{r['rounds']} × {r['events_per_round']}</td></tr>
+        <tr><td>Winch movements</td><td><b>UP {r['up_count']} + DOWN {r['down_count']} = {r['winch_moves']}</b></td><td>1 UP + 1 DOWN / event</td></tr>
+        <tr><td>Winch energy</td><td><b>{b['total']:.2f} Wh</b></td><td>{b['events']} events</td></tr>
+        <tr><td>Battery used</td><td><b>{b['ah_used']:.2f} Ah</b></td><td>E_total / V</td></tr>
+        <tr><td>Battery design</td><td><b>{b['ah_design']:.2f} Ah @ {b['voltage']:.2f} V</b></td><td>DoD {b['dod']*100:.0f}% + Reserve {b['reserve']*100:.0f}%</td></tr>
+        <tr><td>Standard size</td><td><b>{b['standard_ah']:.0f} Ah</b></td><td>ขั้นต่ำเชิงพลังงาน</td></tr>
+        <tr><td>Candidate battery</td><td><b>{b['candidate_ah']:.1f} Ah → {energy_status}</b></td><td>เทียบ Ah_design</td></tr>
         </table>
-
-        <h2>2. ค่าที่ใช้จากใบสเปก / การ Interpolate</h2>
-        <table border="1" cellspacing="0" cellpadding="7" width="100%">
-        <tr><td>Battery voltage</td><td>{q['v']:.1f} V</td><td>แบตวินช์แยก</td></tr>
-        <tr><td>Line speed @ {q['m']:.1f} kg</td><td><b>{q['up_speed']:.3f} m/min</b></td><td>Interpolate จาก First Layer table</td></tr>
-        <tr><td>Motor current @ {q['m']:.1f} kg</td><td><b>{q['iup']:.2f} A</b></td><td>Interpolate จาก First Layer table</td></tr>
-        <tr><td>Manufacturer table maximum</td><td>140 A</td><td>ที่ 4500 lb / 2041 kg First Layer</td></tr>
-        </table>
-
-        <h2>3. เวลาในการทำงาน</h2>
-        <table border="1" cellspacing="0" cellpadding="7" width="100%">
-        <tr><td>t_up</td><td><b>{q['tu']:.2f} s</b></td><td>ระยะยก ÷ ความเร็ว × 60</td></tr>
-        <tr><td>t_down</td><td><b>{q['td']:.2f} s</b></td><td>ใช้เท่าขาขึ้นแบบ conservative</td></tr>
-        <tr><td>เวลามอเตอร์ต่อรอบ</td><td><b>{q['tu']+q['td']:.2f} s</b></td><td>t_up + t_down</td></tr>
-        </table>
-
-        <h2>4. พลังงาน</h2>
-        <table border="1" cellspacing="0" cellpadding="7" width="100%">
-        <tr><td>E_up</td><td>{q['eu']:.3f} Wh</td><td>พลังงานยกขึ้น 1 ครั้ง</td></tr>
-        <tr><td>E_down</td><td>{q['ed']:.3f} Wh</td><td>พลังงานลง 1 ครั้ง (สมมติฐาน)</td></tr>
-        <tr><td>E_cycle</td><td><b>{e_cycle:.3f} Wh/รอบ</b></td><td>ขึ้น + ลง</td></tr>
-        <tr><td>E_total</td><td><b>{q['total']:.2f} Wh</b></td><td>{q['n']} รอบ</td></tr>
-        </table>
-
-        <h2>5. ขนาดแบตเตอรี่</h2>
-        <table border="1" cellspacing="0" cellpadding="7" width="100%">
-        <tr><td>Ah ที่ใช้ก่อนเผื่อ</td><td>{ah_used:.2f} Ah</td><td>E_total ÷ V</td></tr>
-        <tr><td>DoD</td><td>{q['dod']*100:.0f}%</td><td>สัดส่วนความจุที่ยอมให้ใช้งาน</td></tr>
-        <tr><td>Reserve</td><td>{q['reserve']*100:.0f}%</td><td>เผื่อพลังงานเพิ่ม</td></tr>
-        <tr><td>Ah_design</td><td><b>{q['ah']:.2f} Ah</b></td><td>ค่าความจุออกแบบ</td></tr>
-        <tr><td>Standard size ≥ calculation</td><td><b>{q['standard_ah']:.0f} Ah</b></td><td>ขั้นต่ำเชิงพลังงาน</td></tr>
-        <tr><td>Extra-margin size</td><td><b>{q['extra_margin_ah']:.0f} Ah</b></td><td>เผื่อเพิ่มอีกหนึ่งขนาด</td></tr>
-        </table>
-
-        <h2>6. Rope Layer Check</h2>
-        <table border="1" cellspacing="0" cellpadding="7" width="100%">
-        <tr><td>Estimated ending layer</td><td>Layer {q['rope_layer']}</td></tr>
-        <tr><td>Sheet line-pull at layer</td><td>{q['layer_pull_kg']:.0f} kg</td></tr>
-        <tr><td>Project load</td><td>{q['m']:.1f} kg</td></tr>
-        <tr><td>Status</td><td><b>{layer_status}</b></td></tr>
-        </table>
-
-        <h2>สรุปสุดท้าย</h2>
-        <p>สำหรับ Load <b>{q['m']:.1f} kg</b>, ระยะยก <b>{q['h']:.2f} m</b>, จำนวน <b>{q['n']} รอบ</b>:
-        ต้องการความจุเชิงพลังงานประมาณ <b>{q['ah']:.2f} Ah @ {q['v']:.1f} V</b>.
-        โปรแกรมจึงเลือกขนาดมาตรฐานขั้นต่ำที่ไม่น้อยกว่าค่าคำนวณเป็น <b>{q['standard_ah']:.0f} Ah</b>.</p>
-        <p><b>สำคัญ:</b> Ah อย่างเดียวไม่พอในการเลือกแบตจริง ต้องตรวจความสามารถจ่ายกระแสของเซลล์/BMS ด้วย.
-        ใบสเปกระบุกระแสสูงสุดในตาราง 140 A แต่ไม่ได้ระบุ Starting/Stall surge.</p>
+        <p><b>ข้อจำกัด:</b> Starting/Stall surge ไม่ระบุในใบสเปก จึงต้องยืนยัน BMS Peak/ฟิวส์/สายด้วยข้อมูลผู้ผลิตหรือการวัดจริง.</p>
         </body></html>
         """
 
-    def winch_html(self,q):
+    def winch_html(self,q=None):
+        core=self.winch_core_results()
         return f"""
         <html><body style="font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial;font-size:11pt">
-        <h1>4500LB. WINCH SPECIFICATION + BATTERY CALCULATION</h1>
+        <h1>4500LB. WINCH — DATASHEET / PERFORMANCE</h1>
         <p><b>Source:</b> ใบ 4500LB. WINCH SPECIFICATION ที่ผู้ใช้ส่งมา</p>
-        <h2>Manufacturer specification</h2>
-        <table border="1" cellspacing="0" cellpadding="6">
-        <tr><td>Rated line pull</td><td>4500 lb (2041 kg), single line</td></tr>
-        <tr><td>Motor</td><td>Permanent magnet, 1.4 kW / 1.9 hp</td></tr>
-        <tr><td>Gear ratio</td><td>136:1</td></tr>
-        <tr><td>Cable</td><td>Ø5 mm × 10 m</td></tr>
-        <tr><td>Drum</td><td>Ø37 mm × 72 mm</td></tr>
-        <tr><td>Braking</td><td>Automatic In-The-Drum</td></tr>
-        </table>
-        <h2>First-layer performance</h2>
-        <table border="1" cellspacing="0" cellpadding="6">
-        <tr><th>Line pull</th><th>Line speed</th><th>Motor current</th></tr>
-        <tr><td>0</td><td>3.3 m/min</td><td>12 A</td></tr>
-        <tr><td>454 kg</td><td>2.5 m/min</td><td>60 A</td></tr>
-        <tr><td>907 kg</td><td>1.1 m/min</td><td>100 A</td></tr>
-        <tr><td>2041 kg</td><td>0.8 m/min</td><td>140 A</td></tr>
-        </table>
-        <h2>Design inputs</h2>
-        <p>Load = <b>{q['m']:.1f} kg</b>; lift distance = <b>{q['h']:.2f} m</b>; cycles = <b>{q['n']}</b>.</p>
-        <p>Locked settings: separate battery = <b>{q['v']:.1f} V</b>; DoD = {q['dod']*100:.0f}%; Reserve = {q['reserve']*100:.0f}%.</p>
-        <p>At {q['m']:.1f} kg: interpolated first-layer speed = <b>{q['up_speed']:.3f} m/min</b>; current = <b>{q['iup']:.2f} A</b>.</p>
-        <p>Lift distance {q['h']:.2f} m ends approximately on rope layer <b>{q['rope_layer']}</b>. Sheet line-pull at that layer = <b>{q['layer_pull_kg']:.0f} kg</b> → <b>{'WITHIN SHEET LINE-PULL' if q['layer_pull_ok'] else 'OVER SHEET LINE-PULL'}</b>.</p>
-        <p><b>Lowering:</b> sheet does not list separate current/speed; calculation uses the same values conservatively.</p>
-        <h2>Battery result — {q['n']} cycles</h2>
-        <p>t_up = {q['h']:.2f} / {q['up_speed']:.3f} × 60 = <b>{q['tu']:.2f} s</b></p>
-        <p>E_up = 12 × {q['iup']:.2f} × {q['tu']:.2f} / 3600 = <b>{q['eu']:.3f} Wh</b></p>
-        <p>E_cycle = <b>{q['eu']+q['ed']:.3f} Wh/cycle</b></p>
-        <p>E_total = <b>{q['total']:.2f} Wh</b></p>
-        <p>Ah_design = E_total × 1.20 / (12 × 0.80) = <b>{q['ah']:.2f} Ah</b></p>
-        <p>Standard size ≥ calculation: <b>{q['standard_ah']:.0f} Ah</b>; next extra-margin size: <b>{q['extra_margin_ah']:.0f} Ah</b>.</p>
-        <h2>BMS/current note</h2>
-        <p>Interpolated current at {q['m']:.1f} kg ≈ {q['iup']:.1f} A. Manufacturer table reaches <b>140 A</b>.
-        Starting/stall surge is not stated, so final BMS/fuse/contactor/cable sizing needs verification.</p>
+        <p>Rated line pull 4500 lb (2041 kg), single line • Motor 1.4 kW / 1.9 hp • Gear ratio 136:1 • Cable Ø5 mm × 10 m • Drum Ø37 × 72 mm</p>
+        <h2>Current design input</h2>
+        <p>Load = <b>{core['m']:.1f} kg</b> • Lift Distance = <b>{core['h']:.2f} m</b></p>
+        <p>First-layer interpolation → speed = <b>{core['up_speed']:.3f} m/min</b>,
+        current = <b>{core['iup']:.2f} A</b>, t_up = <b>{core['tu']:.2f} s</b></p>
+        <p>Estimated rope layer = <b>{core['rope_layer']}</b> • sheet line-pull = <b>{core['layer_pull_kg']:.0f} kg</b> →
+        <b>{'PASS' if core['layer_pull_ok'] else 'CHECK'}</b></p>
+        <p><b>Battery totals are intentionally not calculated in this Datasheet section.</b> ใช้แท็บ Battery เป็นตัวคำนวณหลักเพียงจุดเดียว.</p>
         </body></html>
         """
 
     def calc_winch(self):
-        if not hasattr(self,"wcycles"):return
-        self._sync_locked_winch_widgets();q=self.winch_results()
-        self.wSummary.setText(
-            f"Load {q['m']:.1f} kg • Lift {q['h']:.2f} m • {q['n']} cycles\\n"
-            f"First Layer interpolation: {q['up_speed']:.3f} m/min, {q['iup']:.2f} A • เวลาขึ้น ≈ {q['tu']:.1f} s\\n"
-            f"Estimated rope layer {q['rope_layer']} • sheet line-pull {q['layer_pull_kg']:.0f} kg • {'OK' if q['layer_pull_ok'] else 'CHECK LOAD'}\\n"
-            f"พลังงานต่อรอบขึ้น+ลง ≈ {q['eu']+q['ed']:.2f} Wh • รวม = {q['total']:.2f} Wh"
-        )
-        self.wBatteryResult.setText(
-            f"ความจุออกแบบ = {q['ah']:.2f} Ah @ 12 V\\n"
-            f"ขนาดมาตรฐานอย่างน้อย ≈ {q['standard_ah']:.0f} Ah | เผื่อเพิ่มอีกขั้น ≈ {q['extra_margin_ah']:.0f} Ah\\n"
-            f"กระแสใช้งาน ≈ {q['iup']:.1f} A • ตารางผู้ผลิตสูงสุด 140 A • Start/Stall surge: ไม่ระบุ"
-        )
-        if hasattr(self,"wSteps"):self.wSteps.setHtml(self.winch_formula_html(q))
+        if not hasattr(self,"wmass"):return
+        self._sync_locked_winch_widgets()
+        core=self.winch_core_results()
+        if hasattr(self,"wSpecResult"):
+            self.wSpecResult.setText(
+                f"Load {core['m']:.1f} kg • Lift {core['h']:.2f} m\n"
+                f"First Layer: speed {core['up_speed']:.3f} m/min • current {core['iup']:.2f} A • t_up {core['tu']:.2f} s\n"
+                f"Rope Layer {core['rope_layer']} • sheet line-pull {core['layer_pull_kg']:.0f} kg • {'PASS' if core['layer_pull_ok'] else 'CHECK LOAD'}"
+            )
+        if hasattr(self,"wopSummary"):self.calc_winch_operation()
+        if hasattr(self,"wbSummary"):self.calc_winch_battery()
+        if hasattr(self,"wSteps"):self.wSteps.setHtml(self.winch_formula_html())
+        if hasattr(self,"wCalcSummary"):self.wCalcSummary.setHtml(self.winch_summary_html())
         if hasattr(self,"wVars"):self.wVars.setHtml(self.winch_variables_html())
-        if hasattr(self,"wCalcSummary"):self.wCalcSummary.setHtml(self.winch_summary_html(q))
         if hasattr(self,"allWVars"):self.allWVars.setHtml(self.winch_variables_html())
         sp=self.winch_speed_results()
         if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
         if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.5</h2><p>ใช้ใบสเปกจริงเป็นฐาน และให้แก้ Load, Lift Distance และจำนวนรอบขึ้น+ลง.</p>")
-        if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html(q))
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.6</h2><p>Datasheet → Operating Cycles → Battery เป็น data flow หลักชุดเดียว.</p>")
+        if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html())
         if hasattr(self,"wDutyView"):self.update_winch_duty()
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
 
@@ -6603,11 +6510,10 @@ void loop() {{
         if not filename:return
         if not filename.lower().endswith(".pdf"):filename+=".pdf"
         try:
-            q=self.winch_results()
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10))
             op_html=self.winch_operation_html(self.winch_operation_results()) if hasattr(self,"wopSpeed") else ""
             battery_html=self.winch_battery_html(self.winch_battery_results()) if hasattr(self,"wbVoltage") else ""
-            doc.setHtml(self.winch_summary_html(q)+"<hr>"+self.winch_formula_html(q)+"<hr>"+op_html+"<hr>"+battery_html+"<hr>"+self.winch_html(q)+"<hr>"+self.winch_variables_html())
+            doc.setHtml(self.winch_summary_html()+"<hr>"+self.winch_html()+"<hr>"+op_html+"<hr>"+battery_html+"<hr>"+self.winch_formula_html()+"<hr>"+self.winch_variables_html())
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
             QMessageBox.information(self,"Export PDF","บันทึกรายงานเรียบร้อย:\\n"+filename)
