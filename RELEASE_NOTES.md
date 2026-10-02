@@ -63,3 +63,9 @@
 ### V53.5.9
 - ปรับ Demo mode ไม่ให้เปิดกล่องข้อความค้างระหว่างการทดสอบ
 - คงหลักการสำคัญ: UDP/COM เปิดสำเร็จ = WAITING เท่านั้น, ต้องมี packet จริงจาก ESP32 จึงเป็น CONNECTED
+
+
+### V53.5.9 Verification Build
+- ปรับ regression test ให้ทดสอบสถานะ WAITING / CONNECTED แบบ deterministic
+- ยืนยันว่า Connect เปิดช่องรับข้อมูลอย่างเดียวและยังไม่ถือว่า ESP32 Connected
+- ยืนยันว่า CVET1 packet + Device ID ตรงกันเท่านั้นจึงขึ้น CONNECTED
