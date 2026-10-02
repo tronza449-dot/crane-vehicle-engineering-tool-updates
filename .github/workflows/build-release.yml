@@ -145,6 +145,10 @@ jobs:
           assert "syncVehicleParameters()" in web_js
           assert "restoreWebInputs()" in web_js
           assert "saveWebInputs()" in web_js
+          assert "SHARED_PARAMETER_GROUPS" in web_js
+          assert "syncSharedProjectParameter" in web_js
+          assert "setupSharedProjectParameterSync()" in web_js
+          assert 'slope_deg:[["driveForm","slope_deg"],["batteryForm","slope_deg"]]' in web_js
           assert 'paramVehicleSize' in Path("web/index.html").read_text(encoding="utf-8")
           assert 'paramMainBattery' in Path("web/index.html").read_text(encoding="utf-8")
           assert 'paramDriveMotors' in Path("web/index.html").read_text(encoding="utf-8")
