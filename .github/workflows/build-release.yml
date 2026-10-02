@@ -110,12 +110,22 @@ jobs:
               "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,
               "one_way_m":30.0,"slope_length_m":30.0,"slope_deg":19.0,"runtime_h":3.0,
               "lift_time_per_event_s":57.622338175151604,"lift_events_per_round":2,
-              "other_stop_time_per_round_s":0.0
+              "other_stop_time_per_round_s":0.0,
+              "candidate_ah":40.0,"candidate_bms_cont_a":100.0,"candidate_bms_peak_a":150.0,
+              "target_cont_c":3.0,"target_peak_c":5.0
           })
           assert web_battery["design_ah"]>0 and web_battery["design_energy_wh"]>0
           assert web_battery["completed_round_trips"]==32
           assert 331.2 < web_battery["round_time_s"] < 331.3
           assert web_battery["winch_energy_included"] is False
+          assert web_battery["continuous_current_required_a"]>=0
+          assert web_battery["peak_current_required_a"]>=web_battery["continuous_current_required_a"]
+          assert web_battery["suggested_ah"]>=web_battery["design_ah_with_current"]
+          assert len(web_battery["comparison"])>=10
+          assert web_battery["candidate"]["runtime_h"]>0
+          assert web_battery["candidate"]["full_rounds"]>=0
+          assert web_battery["candidate"]["bms_cont_ok"] is True
+          assert web_battery["candidate"]["bms_peak_ok"] is True
 
           web_stability=webcalc.calculate_stability({
               "total_mass_kg":300.0,"payload_mass_kg":100.0,"boom_mass_kg":80.0,
@@ -233,14 +243,25 @@ jobs:
 
           # ---------- V52.2 Battery Selection regression ----------
           br=w.battery_selection_results()
-          finite(br["energy_min"],br["cont_req"],br["peak_calc"],br["design_ah"],br["suggested"])
+          finite(br["energy_min"],br["cont_req"],br["peak_calc"],br["design_ah"],br["suggested"],br["design_runtime"])
           assert br["suggested"]+1e-9 >= br["design_ah"]
           assert br["design_ah"]+1e-9 >= br["energy_min"]
+          assert br["suggested_runtime"]["runtime_h"]>0
+          assert br["suggested_runtime"]["full_rounds"]>=0
+          assert br["bms_cont"]+1e-9>=br["cont_req"]
+          assert br["bms_peak"]+1e-9>=br["peak_calc"]
           assert w.bselCompareTable.rowCount() >= 10
+          assert w.bselCompareTable.columnCount()==8
 
           w.apply_suggested_battery_capacity()
           assert abs(w.eCandidateAh.value()-br["suggested"]) < 1e-9
           assert abs(w.mainSelectedAh.value()-w.eCandidateAh.value()) < 1e-9
+          reverse=w.battery_runtime_from_capacity(w.eCandidateAh.value())
+          finite(reverse["runtime_h"],reverse["load_budget_wh"],reverse["load_per_cycle_wh"])
+          assert reverse["runtime_h"]>0 and reverse["full_rounds"]>=0
+          # Larger capacity must never reduce estimated runtime.
+          reverse_big=w.battery_runtime_from_capacity(w.eCandidateAh.value()+20.0)
+          assert reverse_big["runtime_h"]+1e-9>=reverse["runtime_h"]
 
           # Candidate current ratings at or above calculated requirements must pass.
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
