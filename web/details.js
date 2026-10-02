@@ -82,8 +82,13 @@
         ["Cdesign","Edesign / V",f(r.design_energy_wh,3)+" ÷ "+f(p.voltage_v,1),f(r.design_ah,3),"Ah","ความจุขั้นต่ำ","Wh ÷ V"],
         ["Cstandard","ปัดขึ้นขนาดมาตรฐาน","จาก "+f(r.design_ah,3)+" Ah",f(r.standard_ah,0),"Ah","ขนาดแบตที่เลือก","เลือกค่ามาตรฐาน ≥ ค่าคำนวณ"],
         ["Iup calc","Pup/η/V",f(pup,3)+" ÷ "+f(p.drive_eff_pct/100,3)+" ÷ "+f(p.voltage_v,1),f(r.uphill_current_calc_a,3),"A","กระแสขึ้นลาด","กำลัง ÷ η ÷ V"],
-        ["Iacc calc","Pacc/η/V",f(pacc,3)+" ÷ "+f(p.drive_eff_pct/100,3)+" ÷ "+f(p.voltage_v,1),f(r.accel_current_calc_a,3),"A","กระแส peak เชิงคำนวณ","ช่วงเร่งขึ้นลาด"]
-      ],"เวลายกถูกใช้เพื่อหาจำนวนรอบที่รถวิ่งได้จริง แต่พลังงานวินช์ไม่ถูกรวมใน Main Battery 72 V เพราะใช้แบต 12 V แยก • No regen");
+        ["Iacc calc","Pacc/η/V",f(pacc,3)+" ÷ "+f(p.drive_eff_pct/100,3)+" ÷ "+f(p.voltage_v,1),f(r.accel_current_calc_a,3),"A","กระแส peak เชิงคำนวณ","ช่วงเร่งขึ้นลาด"],
+        ["BMS continuous","I required",f(r.continuous_current_required_a,3),f(r.continuous_current_required_a,3),"A","กระแสต่อเนื่องขั้นต่ำ","Candidate BMS ต้องไม่ต่ำกว่านี้"],
+        ["BMS peak","I peak required",f(r.peak_current_required_a,3),f(r.peak_current_required_a,3),"A","กระแส peak ขั้นต่ำ","Candidate BMS ต้องรองรับ"],
+        ["Candidate runtime","Eusable / Pavg",f(r.candidate.load_budget_wh,2)+" ÷ average operating power",f(r.candidate.runtime_h,3),"h","คำนวณย้อนกลับจาก Ah","ใช้ DoD + Reserve policy เดิม"],
+        ["Candidate full rounds","floor(runtime / t_round)",f(r.candidate.runtime_h,3)+" h ÷ "+f(r.round_time_s/3600,6)+" h/รอบ",f(r.candidate.full_rounds,0),"รอบ","จำนวนรอบเต็มจากแบต Candidate","ไม่รวมพลังงานวินช์ 12 V"],
+        ["Suggested Ah","max(Energy, C-rate) → standard",f(r.design_ah_with_current,3),f(r.suggested_ah,0),"Ah","ขนาดมาตรฐานที่ควรตรวจสเปก","ยังต้องยืนยัน datasheet จริง"]
+      ],"เวลายกถูกใช้เพื่อหาจำนวนรอบที่รถวิ่งได้จริง แต่พลังงานวินช์ไม่ถูกรวมใน Main Battery 72 V เพราะใช้แบต 12 V แยก • Reverse runtime เป็นค่าประมาณจาก Operating Cycle ปัจจุบัน • No regen");
     }catch(e){}
   }
 
