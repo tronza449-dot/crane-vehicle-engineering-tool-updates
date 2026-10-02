@@ -305,7 +305,23 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     slope_deg = _f(data, "slope_deg", 19.0)
     theta = math.radians(slope_deg)
     runtime_h = max(0.001, _f(data, "runtime_h", 3.0))
-    stop_s = max(0.0, _f(data, "stop_time_per_round_s", 0.0))
+
+    # Operating-time model for the MAIN 72 V battery:
+    # driving time + lifting time + other stops determine how many complete
+    # vehicle rounds fit in the requested runtime. Winch ENERGY is excluded
+    # because this project uses a separate 12 V winch battery.
+    lift_event_s = max(0.0, _f(data, "lift_time_per_event_s", 0.0))
+    lift_events_per_round = max(0, _i(data, "lift_events_per_round", 0))
+    lift_round_s = lift_event_s * lift_events_per_round
+    other_stop_s = max(
+        0.0,
+        _f(
+            data,
+            "other_stop_time_per_round_s",
+            _f(data, "stop_time_per_round_s", 0.0),
+        ),
+    )
+
     crr = max(0.0, _f(data, "rolling_coeff", 0.02))
     eff = _clamp(_f(data, "drive_eff_pct", 85.0) / 100.0, 0.01, 1.0)
     up_eff = _clamp(_f(data, "uphill_eff_pct", 85.0) / 100.0, 0.01, 1.0)
@@ -321,8 +337,16 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     runtime_s = runtime_h * 3600.0
     cycle_distance = 2.0 * one
     drive_cycle_s = cycle_distance / v
-    cycle_total_s = drive_cycle_s + stop_s
-    cycles = runtime_s / cycle_total_s if cycle_total_s > 0 else 0.0
+    cycle_total_s = drive_cycle_s + lift_round_s + other_stop_s
+    cycles_theoretical = runtime_s / cycle_total_s if cycle_total_s > 0 else 0.0
+    completed_rounds = int(math.floor(cycles_theoretical + 1e-12))
+
+    drive_time_total_s = completed_rounds * drive_cycle_s
+    lift_time_total_s = completed_rounds * lift_round_s
+    other_stop_total_s = completed_rounds * other_stop_s
+    operation_time_used_s = completed_rounds * cycle_total_s
+    remaining_time_s = max(0.0, runtime_s - operation_time_used_s)
+
     flat_cycle = max(0.0, cycle_distance - 2.0 * slope_len)
     flat_time_h = (flat_cycle / v) / 3600.0
     up_time_h = (slope_len / v) / 3600.0
@@ -346,8 +370,10 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     pacc_peak_mech = (fup + facc_peak) * v
     eacc_mech_cycle = (0.5 * m * v * v / 3600.0) * starts
 
-    emech_total = (eflat_mech_cycle + eup_mech_cycle + edown_mech_cycle + eacc_mech_cycle) * cycles
-    ecalc_drive = emech_total / eff
+    emech_cycle = eflat_mech_cycle + eup_mech_cycle + edown_mech_cycle + eacc_mech_cycle
+    emech_total = emech_cycle * completed_rounds
+    ecalc_drive_cycle = emech_cycle / eff
+    ecalc_drive = ecalc_drive_cycle * completed_rounds
 
     rated_total = motor_rated_w * motors
     pworst_batt = rated_total / up_eff
@@ -355,10 +381,14 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     eflat_batt_cycle = eflat_mech_cycle / eff
     edown_batt_cycle = edown_mech_cycle / eff
     eacc_batt_cycle = eacc_mech_cycle / eff
-    eworst_drive = (eflat_batt_cycle + edown_batt_cycle + eacc_batt_cycle + eworst_up_cycle) * cycles
+    eworst_drive_cycle = eflat_batt_cycle + edown_batt_cycle + eacc_batt_cycle + eworst_up_cycle
+    eworst_drive = eworst_drive_cycle * completed_rounds
 
     use_worst = model == "worst"
-    edrive = eworst_drive if use_worst else ecalc_drive
+    edrive_cycle = eworst_drive_cycle if use_worst else ecalc_drive_cycle
+    edrive = edrive_cycle * completed_rounds
+
+    # Aux power remains active across the whole requested runtime.
     eaux = aux_w * runtime_h
     eload = edrive + eaux
     enom = eload / dod
@@ -372,15 +402,30 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "energy_model": "worst" if use_worst else "calculated",
         "mass_kg": m, "voltage_v": voltage, "speed_kmh": speed_kmh, "speed_m_s": v,
         "one_way_m": one, "slope_length_m": slope_len, "slope_deg": slope_deg,
-        "runtime_h": runtime_h, "cycles_theoretical": cycles,
+        "runtime_h": runtime_h,
+        "cycles_theoretical": cycles_theoretical,
+        "completed_round_trips": completed_rounds,
+        "cycle_distance_m": cycle_distance,
+        "drive_time_per_round_s": drive_cycle_s,
+        "lift_time_per_event_s": lift_event_s,
+        "lift_events_per_round": lift_events_per_round,
+        "lift_time_per_round_s": lift_round_s,
+        "other_stop_time_per_round_s": other_stop_s,
+        "round_time_s": cycle_total_s,
+        "drive_time_total_s": drive_time_total_s,
+        "lift_time_total_s": lift_time_total_s,
+        "other_stop_total_s": other_stop_total_s,
+        "operation_time_used_s": operation_time_used_s,
+        "remaining_time_s": remaining_time_s,
         "drive_energy_wh": edrive, "aux_energy_wh": eaux, "load_energy_wh": eload,
         "nominal_energy_wh": enom, "design_energy_wh": edesign, "design_ah": ah,
         "standard_ah": next_standard_capacity(ah),
         "uphill_current_calc_a": icalc_up, "accel_current_calc_a": icalc_accel,
         "calculated_peak_current_a": max(icalc_up, icalc_accel),
         "worst_current_reference_a": iworst,
-        "trip_drive_energy_wh": (edrive / cycles if cycles > 0 else 0.0),
+        "trip_drive_energy_wh": edrive_cycle,
         "no_regen": True,
+        "winch_energy_included": False,
     }
 
 
