@@ -108,9 +108,14 @@ jobs:
 
           web_battery=webcalc.calculate_drive_battery({
               "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,
-              "one_way_m":30.0,"slope_length_m":30.0,"slope_deg":19.0,"runtime_h":3.0
+              "one_way_m":30.0,"slope_length_m":30.0,"slope_deg":19.0,"runtime_h":3.0,
+              "lift_time_per_event_s":57.622338175151604,"lift_events_per_round":2,
+              "other_stop_time_per_round_s":0.0
           })
           assert web_battery["design_ah"]>0 and web_battery["design_energy_wh"]>0
+          assert web_battery["completed_round_trips"]==32
+          assert 331.2 < web_battery["round_time_s"] < 331.3
+          assert web_battery["winch_energy_included"] is False
 
           web_stability=webcalc.calculate_stability({
               "total_mass_kg":300.0,"payload_mass_kg":100.0,"boom_mass_kg":80.0,
@@ -197,6 +202,22 @@ jobs:
           assert "Ah @" in w.tripBatteryLabel.text()
           assert "พลังงานขับ / 1 รอบ" in w.findChild(QTabWidget).parent().window().windowTitle() or hasattr(w,"tripEnergyExplain")
           assert "พลังงานขับต่อรอบ" in w.tripEnergyExplain.toPlainText()
+
+          # Main 72 V battery must use the real operating cycle:
+          # drive time + lift time + other stops. Winch energy stays separate.
+          w.wmass.setValue(100.0);w.wheight.setValue(1.5)
+          w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
+          w.wopEvents.setValue(2);w.wopOther.setValue(0.0)
+          w.wbDownMode.setCurrentIndex(0)
+          w.espeed.setValue(1.0);w.eoneway.setValue(30.0);w.eruntime.setValue(3.0)
+          w.estopTime.setValue(0.0);w.euseOperationCycle.setChecked(True)
+          op_for_main=w.winch_operation_results()
+          main_cycle=w.electrical_results()
+          assert abs(main_cycle["lift_round_s"]-op_for_main["t_lift_round"])<1e-9
+          assert main_cycle["cycles"]==32
+          assert abs(main_cycle["cycle_total_s"]-op_for_main["t_round"])<1e-6
+          assert main_cycle["Edrive"]>0 and main_cycle["Eaux"]>=0
+          assert "32 รอบเต็ม" in w.tripCountLabel.text()
 
           # ---------- Electrical regression ----------
           for slope in (0,1,12,19):
