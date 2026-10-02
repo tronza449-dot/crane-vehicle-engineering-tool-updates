@@ -1,78 +1,59 @@
-# Crane Vehicle Engineering Tool V53.3.6
+# Crane Vehicle Engineering Tool V53.3.7
 
-## Winch Calculation Cleanup — Single Source of Truth
+## Winch — เพิ่มสูตรภาษาไทยทุกขั้น
 
-ปรับโครงสร้างหน้า Winch เพื่อตัดการคำนวณซ้ำซ้อนระหว่าง Spec, Formula, Summary และ Battery
+ปรับหน้า Winch ให้สูตรสำคัญแสดงครบในรูปแบบ:
 
-### New data flow
-Datasheet → Operating Cycles → Battery → Summary
+สูตรตัวแปร → สูตรภาษาไทย → แทนค่า → ผลลัพธ์
 
-### Visible Winch tabs
-1. Spec / Datasheet
-2. สูตร + วิธีคำนวณ
-3. รอบการทำงาน / 3h
-4. Battery / แบตวินช์
-5. สรุป / Summary
+### Formula tab
+เพิ่มคำอธิบายภาษาไทยสำหรับ:
+- Interpolation ratio
+- ความเร็ววินช์ขาขึ้น
+- กระแสขณะยกขึ้น
+- เวลาวินช์ขึ้น
+- เวลาวินช์ลง
+- เวลา 1 งานยกสัตว์
+- เวลารวมต่อรอบ
+- จำนวนรอบที่ทำได้
+- จำนวนงานยกสัตว์
+- พลังงานขาขึ้น
+- พลังงานขาลง
+- พลังงานต่อ 1 งานยก
+- พลังงานรวม
+- Ah ที่ใช้จริง
+- Ah ออกแบบ
 
-### Spec / Datasheet
-- แก้ได้เฉพาะ Load และ Lift Distance
-- แสดง First Layer interpolation
-- แสดง Up speed / Up current / Up time
-- แสดง Rope Layer / Line Pull check
-- ยกเลิกการคำนวณ Wh / Ah / Battery Cycles ในหน้านี้
+ตัวอย่าง:
+- t_up = (h / v_up) × 60
+- สูตรภาษาไทย: เวลายกขึ้น = ระยะยก ÷ ความเร็ววินช์ขาขึ้น × 60
+
+- E_up = V × I_up × t_up / 3600
+- สูตรภาษาไทย: พลังงานขาขึ้น = แรงดันแบต × กระแสขณะยกขึ้น × เวลายกขึ้น ÷ 3600
+
+- Ah_design = E_total(1+Reserve)/(V×DoD)
+- สูตรภาษาไทย: ความจุแบตออกแบบ = พลังงานรวม × (1 + พลังงานสำรอง) ÷ (แรงดันแบต × สัดส่วน DoD ที่อนุญาตให้ใช้)
 
 ### Operating Cycles
-เป็นแหล่งข้อมูลหลักสำหรับจำนวนงานยก:
-- Vehicle speed
-- One-way distance
-- Operating time
-- Lift events per round
-- Other stop time
-- Completed round trips
-- One-way trips
-- Lift events
-- Winch UP / DOWN counts
-- Total distance / remaining time
-
-จำนวนงานยกถูกส่งไปหน้า Battery อัตโนมัติเมื่อเปิด Use Operating Cycles
+เพิ่มสูตรภาษาไทยในขั้น:
+- แปลง km/h → m/s
+- เวลาวิ่งเที่ยวเดียว
+- เวลาวินช์ขึ้น/ลง
+- เวลา 1 งานยก
+- เวลารถไป-กลับ
+- เวลางานยกรวม
+- เวลารวมต่อรอบ
+- จำนวนรอบในเวลาที่กำหนด
 
 ### Battery
-เป็นตัวคำนวณพลังงานและ Ah หลักเพียงชุดเดียว:
+เพิ่มสูตรภาษาไทยใน:
+- t_up
 - E_up
 - E_down
 - E_event
 - E_total
 - Ah_used
 - Ah_design
-- Standard Ah
-- Candidate Battery / BMS check
 
-รองรับ Conservative และ Measured / Custom DOWN เหมือน V53.3.5
-
-### Formula
-หน้า Formula ไม่สร้าง Battery calculation แยกอีกชุด
-แต่แสดงสูตรและแทนค่าจากผล Datasheet + Operating Cycles + Battery ชุดเดียวกัน
-
-### Summary
-หน้า Summary ไม่คำนวณใหม่
-แสดงผลรวมจากแหล่งข้อมูลเดียว:
-- Load / Lift
-- First-layer speed/current
-- Rope layer
-- UP/DOWN time
-- Completed round trips
-- Lift events
-- Winch movements
-- Total Wh
-- Ah used / Ah design
-- Standard battery size
-- Candidate battery status
-
-### Compatibility
-ตัวแปรและ compatibility widgets เก่ายังคงอยู่ภายในเพื่อไม่ทำให้โมดูลอื่นเสีย
-แต่ไม่แสดงเป็นหน้าคำนวณซ้ำใน Winch UI
-
-### PDF
-จัดรายงานเป็น:
-Summary → Datasheet → Operating Cycles → Battery → Formula → Variables
-โดย Battery totals มาจาก calculator หลักชุดเดียว
+ยังคงใช้โครงสร้าง Single Source of Truth จาก V53.3.6:
+Datasheet → Operating Cycles → Battery → Summary
