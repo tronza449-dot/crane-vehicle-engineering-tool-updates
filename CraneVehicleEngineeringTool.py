@@ -6965,7 +6965,7 @@ void loop() {{
         form.setVerticalSpacing(7);form.setHorizontalSpacing(12);form.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
         self.emass=ds(290,1,5000,1); self.evolt=ds(72,1,200,1)
         self.espeed=ds(1,.05,50,2); self.eoneway=ds(30,.1,10000,2)
-        self.eslopeLen=ds(2.9,0,1000,2); self.eslopeDeg=ds(12,0,45,2)
+        self.eslopeLen=ds(2.9,0,1000,3); self.eslopeDeg=ds(12,0,45,2)
         self.eruntime=ds(3,.01,48,2); self.err=ds(.02,0,1,3)
         self.eaccel=ds(5,.1,120,2); self.estops=QSpinBox();self.estops.setRange(0,20);self.estops.setValue(2);self.estops.setMinimumWidth(150);self.estops.setMaximumWidth(250)
         self.estopTime=ds(0,0,3600,1)
