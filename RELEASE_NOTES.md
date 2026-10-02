@@ -1,66 +1,43 @@
-# Crane Vehicle Engineering Tool V53.5.5
+# Crane Vehicle Engineering Tool V53.5.6
 
-## CAR ANIMAL Web Dashboard
+## Real ESP32 Telemetry Verification
 
-อัปเดตรอบนี้เน้น 2 อย่างตามที่เลือก:
-1. ทำหน้าเว็บให้มีชื่อโปรเจกต์และภาพลักษณ์จริง
-2. เพิ่ม Dashboard หน้าแรกสำหรับเข้าแต่ละโมดูลได้ง่าย
+แก้พฤติกรรม Live Telemetry ที่กด Connect แล้วขึ้นเหมือนเชื่อมต่อสำเร็จทั้งที่ยังไม่มี ESP32 จริง
 
-### 1) Project Branding
-หน้าเว็บด้านบนแสดง:
-- CAR ANIMAL • SENIOR PROJECT
-- Crane Vehicle Engineering Tool
-- ระบบคำนวณวิศวกรรมสำหรับรถขนซากสัตว์พร้อมเครน
-- Mechatronics Engineering
-- Mahanakorn University of Technology
-- Server Online / Offline
-- CVET Version
-- Project name
+### หลักการใหม่
+คำว่า **CONNECTED** หมายถึง:
+- โปรแกรมได้รับ Telemetry packet จริงจาก ESP32 แล้ว
+- Packet มีโครงสร้าง CVET telemetry ที่ถูกต้อง
+- WiFi mode ต้องมี Device ID ตรงกับค่าที่ตั้งไว้
+- ข้อมูลล่าสุดต้องไม่เก่าเกิน 2.5 วินาที
 
-### 2) Engineering Dashboard
-หน้าแรกเปลี่ยนเป็น Dashboard และมีการ์ด:
-- Drive Torque
-- Main Battery 72 V
-- Winch Battery
-- Stability
-- Vehicle Parameters
-- Live Telemetry
-- Project Summary
+แค่เปิด COM Port หรือเปิด UDP Port สำเร็จ **ไม่ถือว่าเชื่อมต่อ ESP32**
 
-การ์ดสามารถกดเพื่อเปิดหน้าที่เกี่ยวข้องได้ทันที
+### สถานะใหม่
+- OFFLINE — ยังไม่ได้เปิดช่องทางรับข้อมูล
+- WAITING ESP32 — เปิด Serial/UDP listener แล้ว แต่ยังไม่ได้รับข้อมูลจาก ESP32 จริง
+- CONNECTED ESP32 — ได้รับและตรวจสอบ packet จาก ESP32 จริง
+- DEMO / NO ESP32 — ข้อมูลจำลอง ไม่ใช่ฮาร์ดแวร์จริง
 
-### Vehicle Parameters
-เพิ่มหน้าแสดง Project Baseline เช่น:
-- Vehicle 1000 × 1500 mm
-- Mass ≤ 300 kg
-- Payload 100 kg
-- Main Battery 72 V
-- 2 × 1500 W Hub Motor
-- Main Slope 19°
-- Runtime 3 h
-- Crane ±90°
-- Crane arm 1.2 m
-- Winch supply 12 V separate
+### WiFi UDP
+- ค่าเริ่มต้นของหน้า Telemetry เปลี่ยนเป็น ESP32 WiFi UDP
+- โปรแกรมขึ้น WAITING จนกว่า ESP32 จะส่ง packet จริง
+- ตรวจ Device ID เช่น `CVET-ESP32`
+- เพิ่ม protocol marker `CVET1`
+- ถ้า ESP32 หยุดส่งเกิน 2.5 s จะไม่ค้าง CONNECTED
+- ค่าจากรถจะถูกซ่อนเมื่อ link ไม่สด
 
-### Live Telemetry
-เพิ่มหน้า UI สำหรับ:
-- Speed
-- Battery %
-- Tilt Angle
-- Drive State
-- E-stop
-- IMU Alarm
+### Serial
+- เปิด COM Port ได้ = WAITING เท่านั้น
+- ต้องได้รับ CVET telemetry JSON จริงจึงขึ้น CONNECTED
+- Template ใหม่เพิ่ม `protocol: CVET1` และ `device: CVET-ESP32`
 
-หมายเหตุ: V53.5.5 เพิ่มหน้า Telemetry Dashboard ก่อน แต่ยังไม่ได้ผูก Public Web Server เข้ากับ ESP32 telemetry stream โดยตรง จึงจะแสดง -- จนกว่าจะเพิ่ม Telemetry API/WebSocket ในอัปเดตถัดไป
+### Test WiFi Packet
+ปุ่ม Test WiFi Packet ทดสอบเฉพาะ UDP listener ในคอม
+และ **จะไม่ทำให้โปรแกรมขึ้นว่า ESP32 CONNECTED**
 
-### Project Summary
-เพิ่มหน้าสรุป:
-- Vehicle Platform
-- Crane & Winch
-- Electrical Architecture
-- Safety Logic
-- Engineering Calculations
-- Web Architecture
+### Simulation
+เปลี่ยนชื่อเป็น:
+`Simulation / Demo (NO ESP32)`
 
-### Responsive
-Dashboard ใหม่รองรับ Desktop / Tablet / Mobile
+และมีข้อความเตือนชัดเจนว่าข้อมูลเป็นข้อมูลจำลอง
