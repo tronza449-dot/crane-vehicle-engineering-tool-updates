@@ -1,35 +1,31 @@
-# Crane Vehicle Engineering Tool V53.6.4
+# Crane Vehicle Engineering Tool V53.6.5
 
-## Dynamic Vehicle Parameters
+## Shared Project Parameters Sync
 
-แก้หน้า Vehicle Parameters ให้ไม่เป็นค่าคงที่อีกต่อไป
+แก้ปัญหา Vehicle Parameters ไม่เปลี่ยนตามค่าที่แก้ในบางหน้าคำนวณ โดยเฉพาะมุมทางลาด
 
-### ตอนนี้ค่าจะเปลี่ยนตาม Input ที่ตั้งจริง
-- Mass → จาก Main Battery / Drive Input
-- Payload → จาก Stability Input
-- Main Battery Voltage → จาก Main Battery Input
-- Drive Motors → จากจำนวนมอเตอร์ + กำลังมอเตอร์ใน Main Battery
-- Main Slope → จาก Main Battery Input
-- Run Time Target → จาก Main Battery Input
-- Crane Arm → จาก Stability Input
-- Support / Track → จาก Stability Input
-- Winch Supply → จาก Winch Battery Input
+### สาเหตุ
+ก่อนหน้านี้ Vehicle Parameters อ่าน Main Slope จาก Main Battery เท่านั้น
+ดังนั้นถ้าไปแก้มุมทางลาดใน Drive Torque ค่า Vehicle Parameters จะยังแสดงค่าจาก Main Battery เดิม
 
-### Project Settings
-เพิ่มช่องสำหรับค่าที่ไม่มี Input ในหน้าคำนวณอื่น:
-- Vehicle width
-- Vehicle length
-- Crane rotation limit / side
-- Drive control
+### พฤติกรรมใหม่
+ค่าที่เป็น Project Parameter ร่วมจะ Sync กันอัตโนมัติระหว่างหน้า:
+- Mass: Drive Torque ↔ Main Battery
+- Slope angle: Drive Torque ↔ Main Battery
+- Vehicle speed: Drive Torque ↔ Main Battery ↔ Winch
+- Main battery voltage: Drive Torque ↔ Main Battery
+- Number of motors: Drive Torque ↔ Main Battery
+- One-way distance: Main Battery ↔ Winch
+- Operating runtime: Main Battery ↔ Winch
 
-### Live Sync
-เมื่อแก้ค่าจาก Drive Torque / Main Battery / Winch / Stability
-หน้า Vehicle Parameters จะเปลี่ยนตามทันทีโดยไม่ต้องกรอกซ้ำ
+เมื่อแก้ค่าจากหน้าใดหน้าหนึ่ง:
+1. ค่าในหน้าที่เกี่ยวข้องจะเปลี่ยนตาม
+2. Vehicle Parameters จะเปลี่ยนทันที
+3. ค่าจะถูกจำไว้หลัง Refresh
 
-### Remember Settings
-ค่าที่กรอกในหน้าเว็บจะถูกเก็บใน Browser Local Storage
-ดังนั้น Refresh หน้าเว็บแล้วค่าที่ตั้งไว้จะไม่กลับเป็นค่า Default
+### ตัวอย่าง
+เปลี่ยน Slope จาก 19° เป็น 12° ใน Drive Torque:
+- Main Battery Slope จะเปลี่ยนเป็น 12°
+- Vehicle Parameters / Main Slope จะเปลี่ยนเป็น 12° ทันที
 
-### หมายเหตุ
-แต่ละโมดูลยังสามารถใช้ทดสอบ Scenario แยกกันได้
-หน้า Vehicle Parameters จะแสดงค่าจากแหล่งที่ระบุใต้การ์ดแต่ละใบ
+ค่าที่ยังเป็น Project Settings เช่น Vehicle width/length, Crane rotation และ Drive control ยังคงตั้งจากหน้า Vehicle Parameters
