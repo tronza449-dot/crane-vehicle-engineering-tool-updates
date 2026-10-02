@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.5.8
+# Crane Vehicle Engineering Tool V53.5.9
 
 ## Real ESP32 Telemetry Verification
 
@@ -58,3 +58,8 @@
 ### V53.5.8 CI Fix
 - Demo mode no longer opens a blocking popup during automated verification.
 - Demo is still clearly marked NO ESP32 in the telemetry status.
+
+
+### V53.5.9
+- ปรับ Demo mode ไม่ให้เปิดกล่องข้อความค้างระหว่างการทดสอบ
+- คงหลักการสำคัญ: UDP/COM เปิดสำเร็จ = WAITING เท่านั้น, ต้องมี packet จริงจาก ESP32 จึงเป็น CONNECTED
