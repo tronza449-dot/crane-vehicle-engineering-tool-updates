@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.6.2
+# Crane Vehicle Engineering Tool V53.6.3
 
 ## Web Dashboard Click Fix
 
@@ -23,3 +23,7 @@ JavaScript ของหน้า Dashboard ใช้ single-element selector ก
 - Dashboard tabs กดเปลี่ยนหน้าได้
 - การ์ด Drive Torque / Main Battery / Winch / Stability / Vehicle Parameters / Live Telemetry / Project Summary กดได้
 - ปุ่มคำนวณกลับมาทำงานตามปกติ
+
+
+### Build verification
+- เพิ่ม regression guard สำหรับ Dashboard tabs/cards เพื่อกันปัญหาปุ่มกดไม่ได้กลับมาอีก
