@@ -1,40 +1,71 @@
-# Crane Vehicle Engineering Tool V53.4.1
+# Crane Vehicle Engineering Tool V53.5.0
 
-## Web Server Launcher — เห็นและเปิดจากโปรแกรมหลักได้โดยตรง
+## Full Calculation Web + Updater Release
 
-แก้ปัญหาที่ V53.4.0 มี Web Server แต่ผู้ใช้หาเมนูเปิดเว็บไม่เจอ
+อัปเดตรอบนี้นำเว็บคำนวณแบบละเอียดเข้า Update Channel อย่างเป็นทางการ เพื่อให้ปุ่ม Check Update ในโปรแกรมสามารถดาวน์โหลดเวอร์ชันนี้ได้โดยตรง
 
-### หน้า Home
-เพิ่มแผงใหม่:
-WEB SERVER • PUBLIC INTERNET
+### Web Calculation
+เพิ่มตารางคำนวณแบบละเอียดในทุกโมดูลหลัก:
+- ตัวแปร / รายการ
+- สูตรสัญลักษณ์
+- แทนค่าตัวเลขอัตโนมัติ
+- ผลลัพธ์
+- หน่วย
+- คำนวณหาอะไร
+- อธิบายสูตรแบบง่าย
 
-มีปุ่ม:
-- เปิด Web Server
-- วิธีใช้
+### Drive Torque
+- ความเร็ว SI
+- รัศมีล้อ
+- ความเร่ง
+- แรงจากความชัน
+- แรงต้านการกลิ้ง
+- แรงเร่ง
+- แรงรวมและแรงออกแบบ
+- แรง/มอเตอร์
+- Torque/มอเตอร์
+- Wheel RPM
+- Mechanical/Electrical Power
+- Battery Current
+- Traction Margin
 
-### เมื่อกด “เปิด Web Server”
-โปรแกรมให้เลือก 3 โหมด:
-1. PUBLIC INTERNET — คนนอก Wi-Fi เข้าได้
-2. LAN / Wi-Fi — เครือข่ายเดียวกัน
-3. LOCAL — ใช้เฉพาะเครื่องนี้
+### Main Battery 72V
+- ระยะและเวลาต่อรอบ
+- จำนวนรอบเชิงทฤษฎี
+- ทางราบ / ทางลาด
+- กำลังทางราบ / ขึ้นลาด / ช่วงเร่ง
+- Drive Energy
+- Auxiliary Energy
+- DoD
+- Reserve
+- Design Wh
+- Design Ah
+- Standard Ah
+- Uphill / Acceleration Current
+- No Regen
 
-### PUBLIC INTERNET
-- ถาม Web PIN ก่อนเปิด (เว้นว่างได้)
-- เปิด CraneVehicleWebServer.exe ในหน้าต่างใหม่
-- เปิด FastAPI Server บนเครื่องผู้ใช้
-- สร้าง Cloudflare Quick Tunnel
-- เมื่อได้ลิงก์ https://xxxxx.trycloudflare.com โปรแกรม Web Server จะเปิด Browser อัตโนมัติ
-- ส่งลิงก์ให้คนอื่นเข้าได้จากอินเทอร์เน็ตภายนอก
+### Winch 12V
+- Datasheet interpolation
+- Rope layer / line pull check
+- เวลา UP / DOWN
+- Auto / Manual จำนวนงานยก
+- จำนวนรอบในเวลาทำงาน
+- พลังงานต่อ 1 งานยก
+- พลังงานรวม
+- Ah used / Ah design
+- Standard battery capacity
+- BMS continuous / peak check
 
-### Installer
-เพิ่ม Shortcut “Crane Vehicle Web Server” ทั้ง:
-- Start Menu
-- Desktop
+### Stability / Tipping
+- Side / Front / Rear SF
+- Pivot
+- Load / Boom position
+- Overturning Moment
+- Resisting Moment
+- Crane / Load longitudinal position
+- คำเตือนให้ยืนยัน CG จริงและ Dynamic Load
 
-### Safety / Usability
-- ถ้าไฟล์ Web Server ไม่พบ โปรแกรมแจ้งให้อัปเดต/ติดตั้งใหม่
-- หน้าต่าง Web Server ต้องเปิดค้างไว้ขณะให้คนอื่นใช้งาน
-- Public URL แบบ Quick Tunnel จะเปลี่ยนเมื่อปิดแล้วเปิด Server ใหม่
-
-### Regression
-เพิ่มการตรวจว่าหน้า Home มีปุ่ม “เปิด Web Server” จริง และ Source mode หา web_launcher.py ได้
+### Updater
+- V53.5.0 ถูกปล่อยผ่าน GitHub Update Channel
+- Check Update จะอ่าน latest.json แล้วพบ V53.5.0
+- Installer และ CraneVehicleWebServer.exe ถูกสร้างและเผยแพร่ผ่าน GitHub Actions
