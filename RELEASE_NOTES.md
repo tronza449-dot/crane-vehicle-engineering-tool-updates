@@ -1,39 +1,25 @@
-# Crane Vehicle Engineering Tool V53.5.1
+# Crane Vehicle Engineering Tool V53.5.2
 
-## Free Permanent Web Link — Tailscale Funnel
+## Web Link Display Fix
 
-อัปเดตรอบนี้เพิ่มโหมดลิงก์เว็บถาวรฟรี โดยไม่ต้องซื้อ Domain และไม่ต้องใช้ลิงก์สุ่มของ Cloudflare ทุกครั้ง
+แก้ปัญหา V53.5.1 เปิด Web Server แล้วผู้ใช้ไม่เห็นลิงก์ในหน้าหลักของโปรแกรม
 
-### โหมดใหม่
-เพิ่มตัวเลือกในโปรแกรมหลัก:
-1. FREE PERMANENT LINK — Tailscale Funnel (*.ts.net) [แนะนำ]
-2. QUICK PUBLIC LINK — Cloudflare (ลิงก์สุ่ม)
-3. LAN / Wi-Fi
-4. LOCAL
+### สิ่งที่แก้
+- Web Server ส่งสถานะกลับมาที่โปรแกรมหลัก
+- แสดง URL จริงในแผง WEB SERVER ทันทีเมื่อพร้อม
+- เพิ่มปุ่ม **เปิดลิงก์**
+- เพิ่มปุ่ม **คัดลอกลิงก์**
+- แสดงสถานะระหว่างติดตั้ง/Login Tailscale/เปิด Funnel
+- ถ้า Funnel เปิดไม่สำเร็จ โปรแกรมหลักจะแสดงสาเหตุแทนที่จะปล่อยให้ผู้ใช้รอ
+- รองรับการแสดง URL ทั้ง:
+  - FREE PERMANENT LINK — Tailscale Funnel
+  - QUICK PUBLIC LINK — Cloudflare
+  - LAN / Wi-Fi
+  - LOCAL
 
-### FREE PERMANENT LINK
-- ใช้ Tailscale Funnel
-- ได้ HTTPS อัตโนมัติ
-- ไม่ต้อง Port Forward Router
-- ไม่ต้องซื้อ Domain
-- ตั้งชื่อเครื่อง Tailscale เป็น `cvet`
-- ลิงก์จะมีรูปแบบประมาณ `https://cvet.<tailnet>.ts.net`
-- ลิงก์เดิมสามารถใช้ซ้ำได้ตราบใดที่ยังใช้ Tailnet และชื่อเครื่องเดิม
+### Permanent Link
+เมื่อ Tailscale Funnel พร้อม โปรแกรมจะแสดงลิงก์รูปแบบประมาณ:
 
-### First-time Setup
-ครั้งแรกเท่านั้น:
-- โปรแกรมตรวจหา Tailscale
-- ถ้ายังไม่มี จะลองติดตั้งผ่าน winget
-- ถ้าติดตั้งอัตโนมัติไม่ได้ จะเปิดหน้าดาวน์โหลด Tailscale ทางการ
-- Login Tailscale ฟรี
-- อนุญาต Funnel หนึ่งครั้ง
-- หลังจากนั้นเปิด Permanent Link ได้จากโปรแกรมโดยตรง
+`https://cvet.<tailnet>.ts.net`
 
-### Security
-- Web PIN ยังใช้ได้เหมือนเดิม
-- แนะนำให้ตั้ง PIN เมื่อนำลิงก์ออกอินเทอร์เน็ต
-
-### Compatibility
-- Cloudflare Quick Tunnel เดิมยังใช้งานได้
-- LAN และ Local mode ยังใช้งานได้
-- Web Calculators แบบละเอียดจาก V53.5.0 ยังอยู่ครบ
+ไม่ต้องไปหาลิงก์ในหน้าต่าง Console อีกต่อไป
