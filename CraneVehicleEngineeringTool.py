@@ -3917,7 +3917,15 @@ void loop() {{
         args=list(cmd)
         mode="PERMANENT"
         if choice.startswith("FREE PERMANENT"):
-            args.extend(["--tailscale","--tailscale-hostname","cvet"])
+            host_name,okhost=QInputDialog.getText(
+                self,"ชื่อ Web Link",
+                "ตั้งชื่อส่วนหน้าของลิงก์ *.ts.net\nตัวอย่าง: cvet → https://cvet.<tailnet>.ts.net",
+                QLineEdit.Normal,
+                "cvet"
+            )
+            if not okhost:return
+            host_name=re.sub(r"[^a-zA-Z0-9-]+","-",host_name.strip().lower()).strip("-") or "cvet"
+            args.extend(["--tailscale","--tailscale-hostname",host_name])
             pin,okpin=QInputDialog.getText(
                 self,"Web PIN (แนะนำ)",
                 "ตั้ง PIN สำหรับลิงก์ถาวร\nเว้นว่างได้ แต่แนะนำให้ตั้ง:",
