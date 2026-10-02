@@ -3,7 +3,7 @@
 Repository นี้ใช้เป็นช่องทางตรวจสอบและแจกจ่ายเวอร์ชันใหม่ของ **Crane Vehicle Engineering Tool**
 
 ## Current version
-- **V53.4.0**
+- **V53.5.0**
 
 ## Main additions
 - ESP32 DevKit V1 / ESP-WROOM-32 as current project controller target
@@ -23,7 +23,7 @@ V53.4.0 เพิ่ม **CraneVehicleWebServer.exe** สำหรับเป�
 - LAN: เครื่องอื่นใน Wi-Fi/LAN เดียวกันเข้าได้
 - Public Internet: สร้างลิงก์ HTTPS ผ่าน Cloudflare Quick Tunnel โดยไม่ต้อง Port Forward Router
 
-Web Calculator รองรับ Drive Torque, Main Battery 72 V, Winch + Auto/Manual Lift Events และ Stability / Tipping
+Web Calculator รองรับ Drive Torque, Main Battery 72 V, Winch + Auto/Manual Lift Events และ Stability / Tipping พร้อมตารางสูตร-แทนค่า-ผลลัพธ์แบบละเอียด
 
 ดูวิธีใช้งานเพิ่มเติมที่ `README_WEB.md`
 
