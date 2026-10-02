@@ -254,7 +254,7 @@ jobs:
 
           # Formula and Summary are display-only views of those same canonical results.
           formula=w.winch_formula_html()
-          assert "Datasheet" in formula and "Operating Cycles" in formula
+          assert "Datasheet" in formula and "Battery" in formula and "รอบการทำงาน" in formula
           assert "Ah_design" in formula
           assert "64" in formula and "34." in formula
           summary=w.winch_summary_html()
