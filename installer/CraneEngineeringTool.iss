@@ -49,6 +49,7 @@ Source: "{#MyDistDir}\{#MyWebExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 Name: "{autoprograms}\Crane Vehicle Web Server"; Filename: "{app}\{#MyWebExeName}"; WorkingDir: "{app}"; Comment: "Open CVET Web Calculator"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
+Name: "{autodesktop}\Crane Vehicle Web Server"; Filename: "{app}\{#MyWebExeName}"; WorkingDir: "{app}"; Comment: "Open CVET Web Calculator"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Flags: nowait runasoriginaluser
