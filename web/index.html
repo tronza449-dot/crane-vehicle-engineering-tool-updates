@@ -167,8 +167,11 @@
           <label>ระยะเที่ยวเดียว (m)<input name="one_way_m" type="number" value="30" step="1"></label>
           <label>ระยะทางลาดต่อเที่ยว (m)<input name="slope_length_m" type="number" value="30" step="1"></label>
           <label>มุมทางลาด (deg)<input name="slope_deg" type="number" value="19" step="0.1"></label>
-          <label>เวลาทำงาน (h)<input name="runtime_h" type="number" value="3" step="0.1"></label>
-          <label>หยุดต่อรอบ (s)<input name="stop_time_per_round_s" type="number" value="0" step="1"></label>
+          <label>เวลาทำงานรวม (h)<input name="runtime_h" type="number" value="3" step="0.1"></label>
+          <label>เวลา 1 งานยก (s)<input id="batteryLiftEventTime" name="lift_time_per_event_s" type="number" value="57.62" step="0.01"></label>
+          <label>งานยกต่อรอบ<input id="batteryLiftEvents" name="lift_events_per_round" type="number" value="2" step="1"></label>
+          <label>เวลาหยุดอื่นต่อรอบ (s)<input id="batteryOtherStop" name="other_stop_time_per_round_s" type="number" value="0" step="1"></label>
+          <div class="full notice compact-note">Main Battery ใช้ <b>เวลายก</b> เพื่อหาจำนวนรอบที่รถวิ่งได้จริง แต่ <b>ไม่รวมพลังงานวินช์</b> เพราะวินช์ใช้แบต 12 V แยก • ค่านี้จะ Sync จากหน้า Winch หลังคำนวณ</div>
           <label>Crr<input name="rolling_coeff" type="number" value="0.02" step="0.001"></label>
           <label>Drive efficiency (%)<input name="drive_eff_pct" type="number" value="85" step="1"></label>
           <label>Uphill efficiency (%)<input name="uphill_eff_pct" type="number" value="85" step="1"></label>
