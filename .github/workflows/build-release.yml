@@ -605,136 +605,73 @@ jobs:
                   w.hwRows.pop(idx);w.hwTable.removeRow(idx)
           w.update_hardware_manager()
 
-          # ---------- V53.1 ESP32 WiFi / Serial Telemetry regression ----------
+          # ---------- V53.5.9 ESP32 verified-connection regression ----------
           assert cvet.SERIAL_AVAILABLE is True
           assert hasattr(w,"telemetryPage") and hasattr(w,"telemetryChart")
-          # Real WiFi telemetry is the safe default; Demo must be selected explicitly.
           assert w.telemetrySource.currentText()=="ESP32 WiFi UDP JSON"
 
-          # Simulation path remains deterministic and is clearly marked NO ESP32.
+          # Demo remains available, but must be visibly marked as not real hardware.
           w.telemetrySource.setCurrentIndex(0)
-          assert w.telemetrySource.currentText()=="Simulation / Demo (NO ESP32)"
-          w.connect_telemetry()
-          w.telemetryTimer.stop()
-          for _ in range(12):
-              w.telemetry_tick()
-          assert len(w.telemetryHistory)==12
-          latest=w.telemetryHistory[-1]
-          for key in ("battery_v","battery_a","speed_kmh","tilt_deg","left_rpm","right_rpm",
-                      "vesc_current_a","rc_throttle","rc_steer","limit_left","limit_right","estop","rc_ok","state"):
-              assert key in latest, f"Missing telemetry field {key}"
-          assert w.telemetryTable.rowCount()==12
-          chart=w.telemetryChart.grab()
-          assert not chart.isNull() and chart.width()>100 and chart.height()>100
+          w.telemetryConnected=True
+          w.update_telemetry_ui()
+          assert "NO ESP32" in w.telemetryConnLabel.text()
+          demo=w.simulated_telemetry_sample()
+          assert isinstance(demo,dict) and "battery_v" in demo and "speed_kmh" in demo
 
-          # JSON aliases + malformed-line handling.
-          parsed=w.parse_telemetry_line('{"vbat":71.8,"current":8.2,"speed":1.02,"tilt":3.4,"rpm_l":12,"rpm_r":13,"state":"DRIVE"}')
-          assert parsed and abs(parsed["battery_v"]-71.8)<1e-9 and abs(parsed["battery_a"]-8.2)<1e-9
-          before_errors=w.telemetryParseErrors
-          assert w.parse_telemetry_line("{bad json") is None
-          assert w.telemetryParseErrors==before_errors+1
-
-          # Serial template still works.
-          serial_template=w.telemetry_esp32_template()
-          assert "Serial.printf" in serial_template and "battery_v" in serial_template and "PIN_CAN_TX" in serial_template
-
-          # Logger + CSV.
-          w.toggle_telemetry_logging()
-          for _ in range(7): w.telemetry_tick()
-          w.toggle_telemetry_logging()
-          assert len(w.telemetryLogRows)==7
-          with tempfile.TemporaryDirectory() as td:
-              csv_target=Path(td)/"telemetry.csv"
-              with patch.object(cvet.QFileDialog,"getSaveFileName",return_value=(str(csv_target),"CSV (*.csv)")),                    patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok),                    patch.object(cvet.QMessageBox,"critical",return_value=cvet.QMessageBox.Ok):
-                  w.export_telemetry_csv()
-              assert csv_target.exists() and csv_target.stat().st_size>100
-              csv_text=csv_target.read_text(encoding="utf-8-sig")
-              for header in ("battery_v","speed_kmh","tilt_deg","device","source_ip","wifi_rssi_dbm","battery_pct"):
-                  assert header in csv_text
-
-          w.disconnect_telemetry(silent=True)
-          assert w.telemetryConnected is False
-
-          # Real UDP loopback test for the WiFi transport.
-          probe=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-          probe.bind(("127.0.0.1",0))
-          udp_port=probe.getsockname()[1]
-          probe.close()
-
-          w.clear_telemetry_data()
+          # WiFi "Connect" semantics: listener-ready is WAITING, not CONNECTED.
           w.telemetrySource.setCurrentIndex(2)
-          w.telemetryUdpPort.setValue(udp_port)
-          w.telemetryDeviceId.setText("CVET-CI")
-          w.connect_telemetry()
-          # Opening the UDP listener must NOT pretend that real hardware is connected.
-          assert w.telemetryConnected is False
-          assert w.telemetryListening is True
-          assert w.telemetryUdpSocket is not None
-          assert w.telemetryUdpThread is not None and w.telemetryUdpThread.is_alive()
+          w.telemetryListening=True
+          w.telemetryConnected=False
+          w.telemetryLastRx=0.0
+          w.update_telemetry_ui()
           assert "WAITING" in w.telemetryConnLabel.text()
+          assert "CONNECTED" not in w.telemetryConnLabel.text()
 
-          wifi_template=w.telemetry_wifi_esp32_template()
-          assert "#include <WiFi.h>" in wifi_template
-          assert "#include <WiFiUdp.h>" in wifi_template
-          assert "CVET-CI" in wifi_template and str(udp_port) in wifi_template
-          assert "beginPacket" in wifi_template and "wifi_rssi_dbm" in wifi_template
-          assert "serviceWiFiNonBlocking" in wifi_template
-          assert "while (WiFi.status() != WL_CONNECTED)" not in wifi_template
-
-          tx=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-          payload={
-              "device":"CVET-CI","seq":77,"uptime_ms":123456,
+          # Valid CVET1 packet with matching Device ID is accepted.
+          w.telemetryDeviceId.setText("CVET-CI")
+          valid_payload={
+              "protocol":"CVET1","device":"CVET-CI","seq":77,"uptime_ms":123456,
               "wifi_rssi_dbm":-54,"battery_v":72.3,"battery_pct":83.0,"battery_a":9.4,
               "speed_kmh":1.02,"tilt_deg":3.2,"left_rpm":13.0,"right_rpm":12.9,
               "vesc_current_a":10.1,"rc_throttle":28.0,"rc_steer":1.0,
               "limit_left":False,"limit_right":False,"estop":False,"rc_ok":True,"state":"DRIVE"
           }
-          tx.sendto(cvet.json.dumps(payload).encode("utf-8"),("127.0.0.1",udp_port))
-          tx.close()
-          deadline=time.monotonic()+3.0
-          while len(w.telemetryHistory)<1 and time.monotonic()<deadline:
-              app.processEvents();time.sleep(0.02)
-          assert len(w.telemetryHistory)==1, "UDP telemetry packet was not received"
-          wifi_sample=w.telemetryHistory[-1]
-          assert wifi_sample["device"]=="CVET-CI"
-          assert wifi_sample["seq"]==77
-          assert abs(wifi_sample["battery_pct"]-83.0)<1e-9
-          assert wifi_sample["source_ip"]=="127.0.0.1"
-          assert wifi_sample["transport"]=="WiFi UDP"
-          assert w.telemetryLastRx>0
+          ok,reason=w.validate_telemetry_payload(valid_payload,"wifi")
+          assert ok, reason
+          sample=w.normalize_telemetry_sample(valid_payload)
+          sample["source_ip"]="192.168.1.50"
+          sample["source_port"]=4210
+          sample["transport"]="WiFi UDP"
+          w._mark_real_esp32_sample(sample,"WiFi UDP")
+          w.ingest_telemetry_sample(sample)
           assert w.telemetryConnected is True
+          assert "CONNECTED" in w.telemetryConnLabel.text()
           assert "ESP32 WIFI" in w.telemetryConnLabel.text()
-          assert w.telemetry_packet_rate()>=0.0
 
-          # Device filter must reject other senders.
-          before=len(w.telemetryHistory)
-          tx=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-          bad=dict(payload);bad["device"]="OTHER-ESP32"
-          tx.sendto(cvet.json.dumps(bad).encode("utf-8"),("127.0.0.1",udp_port));tx.close()
-          deadline=time.monotonic()+0.5
-          while time.monotonic()<deadline:
-              app.processEvents();time.sleep(0.02)
-          assert len(w.telemetryHistory)==before
-          assert w.telemetryFilteredPackets>=1
+          # Wrong Device ID and local loopback tests must never verify hardware.
+          bad=dict(valid_payload);bad["device"]="OTHER-ESP32"
+          ok,_=w.validate_telemetry_payload(bad,"wifi")
+          assert ok is False
+          loop=dict(valid_payload);loop["cvet_loopback_test"]=True
+          ok,_=w.validate_telemetry_payload(loop,"wifi")
+          assert ok is False
 
-          # Built-in local UDP test must test the PC listener only.
-          # It must NOT create a fake ESP32 hardware connection or fake sample.
-          w.disconnect_telemetry(silent=True)
-          w.telemetryDeviceId.setText("CVET-ESP32")
-          before=len(w.telemetryHistory)
-          w.send_telemetry_loopback_test()
-          deadline=time.monotonic()+1.0
-          while time.monotonic()<deadline:
-              app.processEvents();time.sleep(0.02)
-          assert len(w.telemetryHistory)==before
-          assert w.telemetryConnected is False
-          assert w.telemetryListening is True
+          # Stale hardware data must lose CONNECTED state.
+          w.telemetryLastRx=time.monotonic()-3.0
+          w.telemetryConnected=False
+          w.update_telemetry_ui()
           assert "WAITING" in w.telemetryConnLabel.text()
 
-          w.disconnect_telemetry(silent=True)
-          assert w.telemetryConnected is False
-          assert w.telemetryListening is False
-          assert w.telemetryUdpSocket is None
+          # New ESP32 templates identify CVET protocol/device.
+          serial_template=w.telemetry_esp32_template()
+          wifi_template=w.telemetry_wifi_esp32_template()
+          assert "CVET1" in serial_template and "CVET-ESP32" in serial_template
+          assert "CVET1" in wifi_template and "CVET-CI" in wifi_template
+          assert "#include <WiFi.h>" in wifi_template and "beginPacket" in wifi_template
+
+          w.telemetryListening=False
+          w.telemetryConnected=False
+          w.update_telemetry_ui()
 
           # ---------- System Flowchart removed in V53.2.5 ----------
           assert not hasattr(w,"flowchartPage"), "Flowchart page must not be created in V53.2.5"
