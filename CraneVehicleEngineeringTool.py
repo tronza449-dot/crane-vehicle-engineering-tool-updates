@@ -1459,7 +1459,8 @@ class App(QMainWindow):
 
         bl.addWidget(QLabel("Source"),0,0)
         self.telemetrySource=QComboBox()
-        self.telemetrySource.addItems(["Simulation / Demo","ESP32 Serial JSON","ESP32 WiFi UDP JSON"])
+        self.telemetrySource.addItems(["Simulation / Demo (NO ESP32)","ESP32 Serial JSON","ESP32 WiFi UDP JSON"])
+        self.telemetrySource.setCurrentIndex(2)
         self.telemetrySource.currentIndexChanged.connect(self.telemetry_source_changed);bl.addWidget(self.telemetrySource,0,1,1,2)
         bl.addWidget(QLabel("Sender rate"),0,3)
         self.telemetryRateHz=QSpinBox();self.telemetryRateHz.setRange(1,20);self.telemetryRateHz.setValue(10);self.telemetryRateHz.setSuffix(" Hz")
@@ -1557,10 +1558,11 @@ class App(QMainWindow):
 1) PC และ ESP32 ต้องอยู่เครือข่าย LAN/WiFi เดียวกัน
 2) เลือก Source = ESP32 WiFi UDP JSON
 3) เลือก PC IP ที่ ESP32 เข้าถึงได้ และกำหนด UDP Port (ค่าเริ่มต้น 4210)
-4) กด Connect / Start ให้โปรแกรมเริ่ม LISTENING
+4) กด Connect / Start = เปิด UDP LISTENER เท่านั้น ยังไม่ถือว่าเชื่อม ESP32
 5) ใส่ PC IP + Port เดียวกันใน ESP32 template แล้ว Upload
-6) เมื่อ packet มาถึง โปรแกรมจะขึ้น LIVE พร้อม Remote IP และ packet rate
-7) Windows Firewall อาจถามสิทธิ์ครั้งแรก — อนุญาต Private networks หากเป็นเครือข่ายที่ไว้ใจได้
+6) โปรแกรมจะขึ้น CONNECTED เฉพาะเมื่อได้รับ CVET telemetry packet จริงจาก Device ID ที่ตรงกัน
+7) ถ้า ESP32 หยุดส่งเกิน 2.5 s สถานะจะไม่ค้างเป็น CONNECTED และค่าจริงจะถูกซ่อน
+8) Windows Firewall อาจถามสิทธิ์ครั้งแรก — อนุญาต Private networks หากเป็นเครือข่ายที่ไว้ใจได้
 
 ความปลอดภัย:
 • ช่องทางนี้เป็น TELEMETRY RECEIVE-ONLY — โปรแกรมไม่ส่งคำสั่ง Drive/Crane/Winch กลับผ่าน WiFi
@@ -1570,10 +1572,11 @@ class App(QMainWindow):
 """)
         self.telemetryTabs.addTab(wifiInfo,"WiFi Setup / Safety")
 
-        self.telemetryHistory=[];self.telemetryLogRows=[];self.telemetryConnected=False;self.telemetryLogging=False
+        self.telemetryHistory=[];self.telemetryLogRows=[];self.telemetryConnected=False;self.telemetryListening=False;self.telemetryLogging=False
         self.telemetrySerial=None;self.telemetrySampleCounter=0;self.telemetryParseErrors=0
         self.telemetryUdpSocket=None;self.telemetryUdpThread=None;self.telemetryUdpStop=None
         self.telemetryLastRx=0.0;self.telemetryRemoteAddr="";self.telemetryRxTimes=[];self.telemetryFilteredPackets=0
+        self.telemetryLastValidDevice=""
         self.telemetryTimer=QTimer(self);self.telemetryTimer.timeout.connect(self.telemetry_tick)
         self.telemetryNetworkPacket.connect(self.handle_wifi_telemetry_event)
 
@@ -1629,7 +1632,7 @@ class App(QMainWindow):
         self.telemetryUdpGeneration=getattr(self,"telemetryUdpGeneration",0)+1
         generation=self.telemetryUdpGeneration
         stop=threading.Event();self.telemetryUdpStop=stop
-        self.telemetryConnected=True;self.telemetryLastRx=0.0;self.telemetryRemoteAddr="";self.telemetryRxTimes=[]
+        self.telemetryListening=True;self.telemetryConnected=False;self.telemetryLastRx=0.0;self.telemetryRemoteAddr="";self.telemetryRxTimes=[];self.telemetryLastValidDevice=""
         def worker():
             while not stop.is_set():
                 try:
@@ -1669,6 +1672,56 @@ class App(QMainWindow):
             except Exception:pass
         self.telemetryUdpThread=None
 
+    def validate_telemetry_payload(self,payload,transport="wifi"):
+        """Verify that a packet is actual CVET ESP32 telemetry, not merely an open socket."""
+        if not isinstance(payload,dict):
+            return False,"JSON root is not an object"
+        if self._telemetry_bool(payload.get("cvet_loopback_test",False)):
+            return False,"loopback-test"
+
+        known={
+            "battery_v","voltage","vbat","battery_a","battery_current","ibat",
+            "speed_kmh","speed","tilt_deg","tilt","left_rpm","rpm_l",
+            "right_rpm","rpm_r","vesc_current_a","rc_throttle","throttle",
+            "rc_steer","steer","limit_left","limit_right","estop","rc_ok"
+        }
+        present=sum(1 for k in known if k in payload)
+        protocol=str(payload.get("protocol","")).strip()
+        device=str(payload.get("device","")).strip()
+        expected=self.telemetryDeviceId.text().strip() if hasattr(self,"telemetryDeviceId") else "CVET-ESP32"
+
+        if protocol and protocol!="CVET1":
+            return False,f"protocol {protocol!r} ไม่ใช่ CVET1"
+
+        if transport=="wifi":
+            if not device:
+                return False,"WiFi packet ไม่มี Device ID"
+            if expected and device!=expected:
+                return False,f"Device ID {device!r} ไม่ตรงกับ {expected!r}"
+            if present<4:
+                return False,"packet มี telemetry fields ไม่พอ"
+            return True,"verified"
+
+        if device and expected and device!=expected:
+            return False,f"Device ID {device!r} ไม่ตรงกับ {expected!r}"
+        if device==expected and present>=3:
+            return True,"verified"
+        if present>=7:
+            return True,"legacy-cvet"
+        return False,"Serial JSON ยังไม่ใช่ CVET telemetry packet"
+
+    def _mark_real_esp32_sample(self,sample,transport):
+        first=not getattr(self,"telemetryConnected",False)
+        self.telemetryConnected=True
+        self.telemetryLastRx=time.monotonic()
+        self.telemetryLastValidDevice=str(sample.get("device","") or "CVET-ESP32")
+        if transport=="Serial":
+            self.telemetryRemoteAddr=self.telemetryPort.currentText().strip()
+        if first:
+            self.statusBar().showMessage(
+                f"ESP32 VERIFIED • {transport} • {self.telemetryLastValidDevice}",4000
+            )
+
     def handle_wifi_telemetry_event(self,event):
         if not isinstance(event,dict):return
         if event.get("generation")!=getattr(self,"telemetryUdpGeneration",None):return
@@ -1681,10 +1734,20 @@ class App(QMainWindow):
             return
         if typ!="packet":return
         payload=event.get("payload",{})
-        expected=self.telemetryDeviceId.text().strip() if hasattr(self,"telemetryDeviceId") else ""
-        device=str(payload.get("device","")).strip()
-        if expected and device!=expected:
-            self.telemetryFilteredPackets+=1;self.update_telemetry_ui();return
+        if self._telemetry_bool(payload.get("cvet_loopback_test",False)):
+            if hasattr(self,"telemetryProtocolStatus"):
+                self.telemetryProtocolStatus.setPlainText(
+                    "LOCAL UDP LOOPBACK TEST = PASS\n"
+                    "ทดสอบเฉพาะ UDP listener ในคอม • ไม่ถือว่าเชื่อมต่อ ESP32"
+                )
+            self.statusBar().showMessage("Local UDP test PASS • ESP32 ยังไม่ถูกยืนยัน",3000)
+            self.update_telemetry_ui();return
+        ok,reason=self.validate_telemetry_payload(payload,"wifi")
+        if not ok:
+            self.telemetryFilteredPackets+=1
+            if hasattr(self,"telemetryProtocolStatus"):
+                self.telemetryProtocolStatus.setPlainText("Ignored UDP packet:\n"+str(reason))
+            self.update_telemetry_ui();return
         try:
             sample=self.normalize_telemetry_sample(payload)
         except Exception:
@@ -1692,17 +1755,18 @@ class App(QMainWindow):
         addr=event.get("addr",("",0))
         sample["source_ip"]=str(addr[0]);sample["source_port"]=int(addr[1])
         sample["transport"]="WiFi UDP"
-        self.telemetryLastRx=time.monotonic()
         self.telemetryRemoteAddr=f"{addr[0]}:{addr[1]}"
+        self._mark_real_esp32_sample(sample,"WiFi UDP")
         self.telemetryRxTimes.append(self.telemetryLastRx)
         self.telemetryRxTimes=[x for x in self.telemetryRxTimes if self.telemetryLastRx-x<=2.0]
         self.ingest_telemetry_sample(sample)
 
     def send_telemetry_loopback_test(self,*_):
         if self.telemetrySource.currentIndex()!=2:self.telemetrySource.setCurrentIndex(2)
-        if not getattr(self,"telemetryConnected",False):self.connect_telemetry()
-        if not getattr(self,"telemetryConnected",False):return
+        if not getattr(self,"telemetryListening",False):self.connect_telemetry()
+        if not getattr(self,"telemetryListening",False):return
         payload={
+            "cvet_loopback_test":True,"protocol":"CVET1",
             "device":self.telemetryDeviceId.text().strip() or "CVET-ESP32",
             "seq":1,"uptime_ms":12345,"battery_v":72.4,"battery_pct":84.0,"battery_a":8.2,
             "speed_kmh":1.0,"tilt_deg":2.1,"left_rpm":13.2,"right_rpm":13.0,
@@ -1766,11 +1830,20 @@ class App(QMainWindow):
     def connect_telemetry(self,*_):
         self.disconnect_telemetry(silent=True)
         self.telemetryParseErrors=0
+        self.telemetryLastRx=0.0
+        self.telemetryLastValidDevice=""
         idx=self.telemetrySource.currentIndex()
+
         if idx==0:
+            self.telemetryListening=False
             self.telemetryConnected=True
             self.telemetryTimer.start(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
-            self.statusBar().showMessage("Telemetry Simulation started",3000)
+            self.statusBar().showMessage("DEMO MODE • NO ESP32",3000)
+            QMessageBox.information(
+                self,"Telemetry Demo",
+                "โหมดนี้เป็นข้อมูลจำลองเท่านั้น\n\n"
+                "ไม่ได้เชื่อมต่อ ESP32 และค่าที่เห็นไม่ใช่ค่าจากรถจริง"
+            )
         elif idx==1:
             if not SERIAL_AVAILABLE or serial is None:
                 QMessageBox.warning(self,"ESP32 Telemetry","pyserial ไม่พร้อมใช้งานในโปรแกรมรุ่นนี้")
@@ -1781,19 +1854,25 @@ class App(QMainWindow):
                 return
             try:
                 self.telemetrySerial=serial.Serial(port,int(self.telemetryBaud.currentText()),timeout=0)
-                self.telemetryConnected=True
+                self.telemetryListening=True
+                self.telemetryConnected=False
                 self.telemetryTimer.start(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
-                self.statusBar().showMessage(f"Connected to ESP32 Serial: {port}",3000)
+                self.statusBar().showMessage(
+                    f"เปิด {port} แล้ว • WAITING FOR REAL ESP32 TELEMETRY",4500
+                )
             except Exception as exc:
-                self.telemetrySerial=None;self.telemetryConnected=False
+                self.telemetrySerial=None;self.telemetryListening=False;self.telemetryConnected=False
                 QMessageBox.warning(self,"ESP32 Telemetry",f"เปิด {port} ไม่สำเร็จ\n{exc}")
         else:
             try:
                 self.start_wifi_telemetry_listener()
                 self.telemetryTimer.start(250)
-                self.statusBar().showMessage(f"WiFi UDP listening on port {self.telemetryUdpPort.value()}",3000)
+                self.statusBar().showMessage(
+                    f"UDP :{self.telemetryUdpPort.value()} พร้อมรับ • WAITING FOR ESP32 {self.telemetryDeviceId.text().strip() or 'CVET-ESP32'}",
+                    5000
+                )
             except Exception as exc:
-                self.telemetryConnected=False
+                self.telemetryListening=False;self.telemetryConnected=False
                 QMessageBox.warning(self,"ESP32 WiFi Telemetry",f"เปิด UDP listener ไม่สำเร็จ\n{exc}")
         self.update_telemetry_ui()
 
@@ -1805,6 +1884,7 @@ class App(QMainWindow):
             except Exception:pass
         self.telemetrySerial=None
         self.stop_wifi_telemetry_listener()
+        self.telemetryListening=False
         self.telemetryConnected=False
         self.telemetryLastRx=0.0;self.telemetryRemoteAddr="";self.telemetryRxTimes=[]
         if not silent and hasattr(self,"statusBar"):self.statusBar().showMessage("Telemetry disconnected",2500)
@@ -1877,25 +1957,52 @@ class App(QMainWindow):
         })
 
     def telemetry_tick(self):
-        if not getattr(self,"telemetryConnected",False):return
         idx=self.telemetrySource.currentIndex()
+
         if idx==0:
+            if not getattr(self,"telemetryConnected",False):return
             self.telemetrySampleCounter+=1
             self.ingest_telemetry_sample(self.simulated_telemetry_sample())
             return
+
         if idx==2:
-            # UDP is received in a background thread. This timer only refreshes
-            # LIVE/LISTENING status when packets stop arriving.
+            if getattr(self,"telemetryConnected",False) and getattr(self,"telemetryLastRx",0)>0:
+                if time.monotonic()-self.telemetryLastRx>2.5:
+                    self.telemetryConnected=False
             self.update_telemetry_ui()
             return
+
         ser=getattr(self,"telemetrySerial",None)
         if ser is None:return
         try:
             count=0
             while getattr(ser,"in_waiting",0)>0 and count<50:
                 line=ser.readline();count+=1
-                sample=self.parse_telemetry_line(line)
-                if sample:self.ingest_telemetry_sample(sample)
+                raw_text=line.decode("utf-8","replace").strip() if isinstance(line,bytes) else str(line).strip()
+                if not raw_text:continue
+                try:
+                    payload=json.loads(raw_text)
+                except Exception as exc:
+                    self.telemetryParseErrors+=1
+                    self.telemetryProtocolStatus.setPlainText(
+                        f"Serial JSON parse error #{self.telemetryParseErrors}\n{raw_text[:220]}\n{exc}"
+                    )
+                    continue
+                ok,reason=self.validate_telemetry_payload(payload,"serial")
+                if not ok:
+                    self.telemetryFilteredPackets+=1
+                    self.telemetryProtocolStatus.setPlainText("Ignored Serial packet:\n"+str(reason))
+                    continue
+                sample=self.normalize_telemetry_sample(payload)
+                sample["transport"]="USB Serial"
+                sample["source_ip"]=""
+                self._mark_real_esp32_sample(sample,"Serial")
+                self.ingest_telemetry_sample(sample)
+
+            if getattr(self,"telemetryConnected",False) and getattr(self,"telemetryLastRx",0)>0:
+                if time.monotonic()-self.telemetryLastRx>2.5:
+                    self.telemetryConnected=False
+            self.update_telemetry_ui()
         except Exception as exc:
             self.telemetryProtocolStatus.setPlainText("Serial read error:\n"+str(exc))
             self.disconnect_telemetry(silent=True)
@@ -1931,24 +2038,32 @@ class App(QMainWindow):
     def update_telemetry_ui(self,*_):
         if not hasattr(self,"telemetryConnLabel"):return
         connected=getattr(self,"telemetryConnected",False)
+        listening=getattr(self,"telemetryListening",False)
         idx=self.telemetrySource.currentIndex()
         now=time.monotonic()
-        wifi_live=(idx==2 and connected and getattr(self,"telemetryLastRx",0)>0 and now-self.telemetryLastRx<=2.5)
+        fresh=(connected and getattr(self,"telemetryLastRx",0)>0 and now-self.telemetryLastRx<=2.5)
         if idx==0:
-            conn_text=("CONNECTED\nSIM" if connected else "OFFLINE\nSIM");conn_ok=connected
-            remote_text="Local demo"
+            conn_text=("DEMO\nNO ESP32" if connected else "OFFLINE\nDEMO");conn_ok=None if connected else False
+            remote_text="SIMULATED DATA"
         elif idx==1:
-            conn_text=("CONNECTED\nSERIAL" if connected else "OFFLINE\nSERIAL");conn_ok=connected
-            remote_text=(self.telemetryPort.currentText() if connected else "—")
-        else:
-            if not connected:
-                conn_text="OFFLINE\nWIFI UDP";conn_ok=False
-            elif wifi_live:
-                conn_text="LIVE\nWIFI UDP";conn_ok=True
+            if fresh:
+                conn_text="CONNECTED\nESP32 SERIAL";conn_ok=True
+            elif listening:
+                conn_text="WAITING\nESP32 SERIAL";conn_ok=None
             else:
-                conn_text="LISTENING\nWIFI UDP";conn_ok=None
+                conn_text="OFFLINE\nSERIAL";conn_ok=False
+            remote_text=(self.telemetryPort.currentText() if listening else "—")
+            if listening and not fresh:remote_text+="\nwaiting valid CVET JSON"
+        else:
+            if fresh:
+                conn_text="CONNECTED\nESP32 WIFI";conn_ok=True
+            elif listening:
+                conn_text="WAITING\nESP32 WIFI";conn_ok=None
+            else:
+                conn_text="OFFLINE\nWIFI UDP";conn_ok=False
             hz=self.telemetry_packet_rate()
-            remote_text=(getattr(self,"telemetryRemoteAddr","") or "waiting packet")
+            remote_text=(getattr(self,"telemetryRemoteAddr","") if fresh else "")
+            remote_text=remote_text or ("waiting real ESP32 packet" if listening else "—")
             remote_text+=f"\n{hz:.1f} Hz"
         color="#176337" if conn_ok is True else ("#b54708" if conn_ok is None else "#b42318")
         self.telemetryConnLabel.setText(conn_text)
@@ -1956,6 +2071,8 @@ class App(QMainWindow):
         self.telemetryRemoteLabel.setText(remote_text)
 
         sample=self.telemetryHistory[-1] if self.telemetryHistory else None
+        if idx in (1,2) and not fresh:
+            sample=None
         if sample:
             pct=sample.get("battery_pct",-1)
             self.telemetryBatteryLabel.setText(f"{sample['battery_v']:.2f} V"+(f"\n{pct:.0f}%" if pct>=0 else ""))
@@ -1991,7 +2108,12 @@ class App(QMainWindow):
             """)
         else:
             for lab in (self.telemetryBatteryLabel,self.telemetryCurrentLabel,self.telemetrySpeedLabel,self.telemetryTiltLabel,self.telemetryRpmLabel):lab.setText("—")
-            self.telemetryStateView.setHtml("<h3>ยังไม่มีข้อมูล</h3><p>เลือก Simulation, Serial หรือ WiFi UDP แล้วกด Connect / Start</p>")
+            if idx==0:
+                self.telemetryStateView.setHtml("<h3>DEMO MODE</h3><p>ข้อมูลจำลองเท่านั้น • ไม่ได้เชื่อม ESP32</p>")
+            elif listening:
+                self.telemetryStateView.setHtml("<h3 style='color:#b54708'>WAITING FOR ESP32</h3><p>สถานะนี้หมายถึงโปรแกรมเปิด Port/Listener แล้ว แต่ยังไม่ได้รับข้อมูลจาก ESP32 จริง จึงยังไม่แสดงค่ารถ</p>")
+            else:
+                self.telemetryStateView.setHtml("<h3>ESP32 OFFLINE</h3><p>ยังไม่มีการเชื่อมต่อฮาร์ดแวร์จริง</p>")
 
         count=len(self.telemetryLogRows)
         self.telemetryLogLabel.setText(("RECORDING" if self.telemetryLogging else "STOPPED")+f"\n{count} rows")
@@ -2001,10 +2123,18 @@ class App(QMainWindow):
         extra=""
         if idx==2:
             local=self.telemetryLocalIp.currentText() if hasattr(self,"telemetryLocalIp") else ""
-            extra=(f"WiFi listener: 0.0.0.0:{self.telemetryUdpPort.value()}\n"
+            verify=("VERIFIED ESP32" if fresh else ("WAITING FOR REAL ESP32" if listening else "OFFLINE"))
+            extra=(f"Hardware verification: {verify}\n"
+                   f"Expected Device ID: {self.telemetryDeviceId.text().strip() or 'CVET-ESP32'}\n"
+                   f"WiFi listener: 0.0.0.0:{self.telemetryUdpPort.value()}\n"
                    f"PC IP for ESP32: {local}\n"
                    f"Remote: {getattr(self,'telemetryRemoteAddr','') or 'waiting'}\n"
                    f"Packet rate: {self.telemetry_packet_rate():.2f} Hz\n"
+                   f"Filtered packets: {getattr(self,'telemetryFilteredPackets',0)}\n")
+        elif idx==1:
+            verify=("VERIFIED ESP32" if fresh else ("WAITING FOR REAL ESP32" if listening else "OFFLINE"))
+            extra=(f"Hardware verification: {verify}\n"
+                   f"Serial Port: {self.telemetryPort.currentText()}\n"
                    f"Filtered packets: {getattr(self,'telemetryFilteredPackets',0)}\n")
         self.telemetryProtocolStatus.setPlainText(
             f"Transport: {self.telemetrySource.currentText()}\n"
@@ -2080,7 +2210,7 @@ void loop() {{
   bool rc_ok = true;
 
   Serial.printf(
-    "{{\\\"battery_v\\\":%.2f,\\\"battery_a\\\":%.2f,\\\"speed_kmh\\\":%.3f,"
+    "{{\\\"protocol\\\":\\\"CVET1\\\",\\\"device\\\":\\\"CVET-ESP32\\\",\\\"battery_v\\\":%.2f,\\\"battery_a\\\":%.2f,\\\"speed_kmh\\\":%.3f,"
     "\\\"tilt_deg\\\":%.2f,\\\"left_rpm\\\":%.1f,\\\"right_rpm\\\":%.1f,"
     "\\\"vesc_current_a\\\":%.2f,\\\"rc_throttle\\\":%.1f,\\\"rc_steer\\\":%.1f,"
     "\\\"limit_left\\\":%d,\\\"limit_right\\\":%d,\\\"estop\\\":%d,"
@@ -2170,7 +2300,7 @@ void sendTelemetry() {{
   char payload[768];
   int n = snprintf(
     payload, sizeof(payload),
-    "{{\\\"device\\\":\\\"%s\\\",\\\"seq\\\":%lu,\\\"uptime_ms\\\":%lu,"
+    "{{\\\"protocol\\\":\\\"CVET1\\\",\\\"device\\\":\\\"%s\\\",\\\"seq\\\":%lu,\\\"uptime_ms\\\":%lu,"
     "\\\"wifi_rssi_dbm\\\":%ld,\\\"battery_v\\\":%.2f,\\\"battery_pct\\\":%.1f,"
     "\\\"battery_a\\\":%.2f,\\\"speed_kmh\\\":%.3f,\\\"tilt_deg\\\":%.2f,"
     "\\\"left_rpm\\\":%.1f,\\\"right_rpm\\\":%.1f,\\\"vesc_current_a\\\":%.2f,"
