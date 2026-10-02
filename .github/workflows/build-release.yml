@@ -141,7 +141,7 @@ jobs:
           assert '$$(".tab").forEach' in web_js, "Dashboard tabs must bind with querySelectorAll"
           assert '$$(".page").forEach' in web_js, "Dashboard page switching must use querySelectorAll"
           assert '$$("[data-open-tab]").forEach' in web_js, "Dashboard cards must bind with querySelectorAll"
-          assert '$(".tab").forEach(btn=>' not in web_js, "Single-element selector cannot be used with forEach for tab binding"
+          assert '\n$(".tab").forEach(btn=>' not in web_js, "Single-element selector cannot be used with forEach for tab binding"
           assert webapp.app.title.startswith("Crane Vehicle Engineering Tool")
           assert webapp.health()["ok"] is True
 
