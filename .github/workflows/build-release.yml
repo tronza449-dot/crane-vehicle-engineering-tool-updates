@@ -906,7 +906,16 @@ jobs:
           $dist = Join-Path $env:RUNNER_TEMP "cvet-dist"
           $work = Join-Path $env:RUNNER_TEMP "cvet-work"
           python -m PyInstaller --noconfirm --clean --distpath "$dist" --workpath "$work" CraneEngineeringTool.spec
+
+          $webwork = Join-Path $env:RUNNER_TEMP "cvet-web-work"
+          $webspec = Join-Path $env:RUNNER_TEMP "cvet-web-spec"
+          New-Item -ItemType Directory -Force -Path $webspec | Out-Null
+          python -m PyInstaller --noconfirm --clean --onefile --console --name "CraneVehicleWebServer" --icon "assets/CraneEngineeringTool.ico" --distpath "$dist" --workpath "$webwork" --specpath "$webspec" --add-data "web;web" --add-data "VERSION;." --hidden-import "uvicorn.logging" --hidden-import "uvicorn.loops" --hidden-import "uvicorn.loops.auto" --hidden-import "uvicorn.protocols" --hidden-import "uvicorn.protocols.http" --hidden-import "uvicorn.protocols.http.auto" --hidden-import "uvicorn.protocols.websockets" --hidden-import "uvicorn.protocols.websockets.auto" --hidden-import "uvicorn.lifespan" --hidden-import "uvicorn.lifespan.on" web_launcher.py
+
+          $webexe=Join-Path $dist "CraneVehicleWebServer.exe"
+          if (-not (Test-Path $webexe)) { throw "CraneVehicleWebServer.exe was not generated" }
           "CVET_DIST_DIR=$dist" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CVET_WEB_EXE=$webexe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install Inno Setup
         shell: pwsh
@@ -955,8 +964,11 @@ jobs:
         shell: pwsh
         run: |
           $sha=(Get-FileHash "$env:CVET_SETUP" -Algorithm SHA256).Hash.ToLower()
+          $websha=(Get-FileHash "$env:CVET_WEB_EXE" -Algorithm SHA256).Hash.ToLower()
           "CVET_SHA256=$sha" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "SHA256=$sha"
+          "CVET_WEB_SHA256=$websha" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Setup SHA256=$sha"
+          Write-Host "Web Server SHA256=$websha"
 
       - name: Publish GitHub Release
         shell: pwsh
@@ -970,7 +982,7 @@ jobs:
             gh release delete $tag -y --cleanup-tag
           }
 
-          gh release create $tag "$env:CVET_SETUP" `
+          gh release create $tag "$env:CVET_SETUP" "$env:CVET_WEB_EXE" `
             --title "Crane Vehicle Engineering Tool V$env:CVET_VERSION" `
             --notes-file RELEASE_NOTES.md `
             --latest
@@ -979,11 +991,14 @@ jobs:
         shell: pwsh
         run: |
           $download="https://github.com/${{ github.repository }}/releases/download/v$env:CVET_VERSION/CraneVehicleEngineeringTool_Setup.exe"
+          $webdownload="https://github.com/${{ github.repository }}/releases/download/v$env:CVET_VERSION/CraneVehicleWebServer.exe"
           $notes=(Get-Content RELEASE_NOTES.md -Raw).Trim()
           $manifest=[ordered]@{
             latest_version=$env:CVET_VERSION
             download_url=$download
             sha256=$env:CVET_SHA256
+            web_download_url=$webdownload
+            web_sha256=$env:CVET_WEB_SHA256
             notes=$notes
           }
           $manifest | ConvertTo-Json -Depth 4 | Set-Content latest.json -Encoding UTF8
@@ -993,7 +1008,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add latest.json CraneVehicleEngineeringTool.py CraneEngineeringTool.spec requirements-build.txt installer/CraneEngineeringTool.iss
+          git add latest.json CraneVehicleEngineeringTool.py CraneEngineeringTool.spec requirements-build.txt requirements-web.txt installer/CraneEngineeringTool.iss web_engine.py web_server.py web_launcher.py README_WEB.md Start_Web_Public.bat Start_Web_LAN.bat web
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) {
             git commit -m "Publish source and manifest for v$env:CVET_VERSION [skip ci]"
@@ -1006,4 +1021,11 @@ jobs:
         with:
           name: CraneVehicleEngineeringTool-Setup-V${{ env.CVET_VERSION }}
           path: ${{ env.CVET_SETUP }}
+          if-no-files-found: error
+
+      - name: Upload web server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CraneVehicleWebServer-V${{ env.CVET_VERSION }}
+          path: ${{ env.CVET_WEB_EXE }}
           if-no-files-found: error
