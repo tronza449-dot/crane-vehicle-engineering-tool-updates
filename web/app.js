@@ -49,7 +49,7 @@ function openTab(tabName){
   page.classList.add("active");
   window.scrollTo({top:0,behavior:"smooth"});
 }
-$(".tab").forEach(btn=>btn.addEventListener("click",()=>openTab(btn.dataset.tab)));
+$$(".tab").forEach(btn=>btn.addEventListener("click",()=>openTab(btn.dataset.tab)));
 $$("[data-open-tab]").forEach(card=>card.addEventListener("click",()=>openTab(card.dataset.openTab)));
 $("#savePin").addEventListener("click",()=>{localStorage.setItem("cvet_web_pin",$("#webPin").value.trim());$("#pinStatus").textContent="บันทึกแล้ว";});
 $("#eventMode").addEventListener("change",()=>{$("#manualEventsWrap").classList.toggle("hidden",$("#eventMode").value!=="manual");});
