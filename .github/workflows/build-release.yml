@@ -131,6 +131,13 @@ jobs:
           w.show()
           QApplication.processEvents()
 
+          # ---------- Web launcher visibility regression ----------
+          assert hasattr(w,"openWebServerButton")
+          assert w.openWebServerButton.text()=="เปิด Web Server"
+          assert hasattr(w,"webServerStatusLabel")
+          web_cmd=w._web_server_command()
+          assert web_cmd and any("web_launcher.py" in str(x) for x in web_cmd), web_cmd
+
           def finite(*vals):
               for value in vals:
                   assert math.isfinite(float(value)), f"Non-finite calculation: {value}"
