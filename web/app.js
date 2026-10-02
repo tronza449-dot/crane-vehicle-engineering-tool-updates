@@ -21,7 +21,7 @@ function storedInputElements(){
   const els=[];
   ["driveForm","batteryForm","winchForm","stabilityForm"].forEach(id=>{
     const form=$("#"+id);
-    if(form) els.push(...$("input,select",form));
+    if(form) els.push(...$$("input,select",form));
   });
   ["projectVehicleWidth","projectVehicleLength","projectCraneRotation","projectDriveControl"].forEach(id=>{
     const el=$("#"+id); if(el) els.push(el);
@@ -81,7 +81,7 @@ function smart(n,d=1){
 }
 
 function syncVehicleParameters(){
-  const width=formValue("__none__","",Number(projectValue("projectVehicleWidth",1000))) || Number(projectValue("projectVehicleWidth",1000));
+  const width=Number(projectValue("projectVehicleWidth",1000))||1000;
   const length=Number(projectValue("projectVehicleLength",1500))||1500;
   const rotation=Number(projectValue("projectCraneRotation",90));
   const driveControl=projectValue("projectDriveControl","Differential");
@@ -123,7 +123,7 @@ function setupDynamicProjectParameters(){
   const eventMode=$("#eventMode");
   if(eventMode) $("#manualEventsWrap").classList.toggle("hidden",eventMode.value!=="manual");
   const downMode=$("#downMode");
-  if(downMode) $(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
+  if(downMode) $$(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
   syncVehicleParameters();
 }
 
