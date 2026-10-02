@@ -1,5 +1,5 @@
 #define MyAppName "Crane Vehicle Engineering Tool"
-#define MyAppVersion "53.3.9"
+#define MyAppVersion "53.4.0"
 #define MyAppPublisher "Mechatronics Engineering Project"
 #define MyAppExeName "CraneEngineeringTool.exe"
 #define MyWebExeName "CraneVehicleWebServer.exe"
@@ -34,7 +34,7 @@ DisableReadyPage=yes
 DisableFinishedPage=yes
 AllowNoIcons=no
 
-VersionInfoVersion=53.3.9.0
+VersionInfoVersion=53.4.0.0
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 
@@ -52,6 +52,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Flags: nowait runasoriginaluser
+
 
 
 
