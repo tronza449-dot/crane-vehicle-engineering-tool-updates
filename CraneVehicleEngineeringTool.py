@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.8"
+APP_VERSION = "53.3.9"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -5846,14 +5846,28 @@ void loop() {{
         batInputs=QGroupBox("Battery Design Inputs / ข้อมูลออกแบบแบต")
         bif=QFormLayout(batInputs);bif.setVerticalSpacing(10);bif.setHorizontalSpacing(14)
         self.wbVoltage=QDoubleSpinBox(w);self.wbVoltage.setRange(6.0,60.0);self.wbVoltage.setDecimals(2);self.wbVoltage.setValue(12.0);self.wbVoltage.setSuffix(" V")
-        self.wbUseOp=QCheckBox("ใช้จำนวนงานยกจากหน้า รอบการทำงาน / 3h");self.wbUseOp.setChecked(True)
+        self.wbEventMode=QComboBox(w)
+        self.wbEventMode.addItems([
+            "Auto — ใช้จำนวนงานยกจากรอบการทำงาน / 3h",
+            "Manual — กำหนดจำนวนงานยกเอง"
+        ])
+        self.wbEventMode.setCurrentIndex(0);self.wbEventMode.setMinimumWidth(330)
+        # Compatibility flag for saved state / older internal tools. The visible source selector is wbEventMode.
+        self.wbUseOp=QCheckBox(w);self.wbUseOp.setChecked(True);self.wbUseOp.hide()
         self.wbEvents=QSpinBox(w);self.wbEvents.setRange(1,100000);self.wbEvents.setValue(64);self.wbEvents.setSuffix(" งาน")
+        self.wbEventNote=QLabel(
+            "Auto: โปรแกรมใช้จำนวนงานยกจากหน้า รอบการทำงาน / 3h โดยอัตโนมัติ\n"
+            "Manual: กรอกจำนวนงานยกเองได้ • 1 งานยก = ขึ้น 1 ครั้ง + ลง 1 ครั้ง"
+        )
+        self.wbEventNote.setWordWrap(True)
+        self.wbEventNote.setStyleSheet("background:#f2f7fd;color:#36566f;padding:10px;border:1px solid #c9d9e8;border-radius:9px")
         self.wbDoD=QDoubleSpinBox(w);self.wbDoD.setRange(1.0,100.0);self.wbDoD.setDecimals(1);self.wbDoD.setValue(80.0);self.wbDoD.setSuffix(" %")
         self.wbReserve=QDoubleSpinBox(w);self.wbReserve.setRange(0.0,200.0);self.wbReserve.setDecimals(1);self.wbReserve.setValue(20.0);self.wbReserve.setSuffix(" %")
         for qx in (self.wbVoltage,self.wbEvents,self.wbDoD,self.wbReserve):qx.setMinimumWidth(190)
         bif.addRow("System voltage / แรงดันระบบ",self.wbVoltage)
-        bif.addRow(self.wbUseOp)
-        bif.addRow("Manual lift events / งานยกแบบกำหนดเอง",self.wbEvents)
+        bif.addRow("โหมดจำนวนงานยก / Lift event mode",self.wbEventMode)
+        bif.addRow("จำนวนงานยกที่กำหนดเอง / Manual events",self.wbEvents)
+        bif.addRow(self.wbEventNote)
         bif.addRow("Usable DoD",self.wbDoD)
         bif.addRow("Reserve",self.wbReserve)
         batRoot.addWidget(batInputs)
@@ -5910,6 +5924,7 @@ void loop() {{
         self.wbDownCurrent.valueChanged.connect(self.refresh_winch_battery_and_operation)
         self.wbDownSpeed.valueChanged.connect(self.refresh_winch_battery_and_operation)
         self.wbDownTime.valueChanged.connect(self.refresh_winch_battery_and_operation)
+        self.wbEventMode.currentIndexChanged.connect(self.set_winch_event_mode)
         self.wbUseOp.toggled.connect(self.calc_winch_battery)
         for qx in (self.wbVoltage,self.wbEvents,self.wbDoD,self.wbReserve,self.wbCandidateAh,self.wbBmsCont,self.wbBmsPeak):
             qx.valueChanged.connect(self.calc_winch_battery)
@@ -6091,6 +6106,16 @@ void loop() {{
                      extra_margin_ah=self._next_standard_capacity(ah,True))
         return q
 
+    def set_winch_event_mode(self,*_):
+        if not hasattr(self,"wbEventMode"):return
+        auto=self.wbEventMode.currentIndex()==0
+        if hasattr(self,"wbUseOp"):
+            old=self.wbUseOp.blockSignals(True)
+            self.wbUseOp.setChecked(auto)
+            self.wbUseOp.blockSignals(old)
+        self._update_winch_battery_mode_ui()
+        if hasattr(self,"wbSummary"):self.calc_winch_battery()
+
     def _update_winch_battery_mode_ui(self):
         if not hasattr(self,"wbDownMode"):return
         custom=self.wbDownMode.currentIndex()==1
@@ -6099,8 +6124,24 @@ void loop() {{
         self.wbDownCurrent.setEnabled(custom)
         self.wbDownSpeed.setEnabled(custom and use_speed)
         self.wbDownTime.setEnabled(custom and not use_speed)
+        auto=(self.wbEventMode.currentIndex()==0) if hasattr(self,"wbEventMode") else self.wbUseOp.isChecked()
+        if hasattr(self,"wbUseOp"):
+            old=self.wbUseOp.blockSignals(True)
+            self.wbUseOp.setChecked(auto)
+            self.wbUseOp.blockSignals(old)
         if hasattr(self,"wbEvents"):
-            self.wbEvents.setEnabled(not self.wbUseOp.isChecked())
+            self.wbEvents.setEnabled(not auto)
+        if hasattr(self,"wbEventNote"):
+            if auto:
+                self.wbEventNote.setText(
+                    "AUTO — ใช้จำนวนงานยกจากหน้า รอบการทำงาน / 3h โดยอัตโนมัติ\n"
+                    "1 งานยก = วินช์ขึ้น 1 ครั้ง + วินช์ลง 1 ครั้ง"
+                )
+            else:
+                self.wbEventNote.setText(
+                    "MANUAL — กรอกจำนวนงานยกเองในช่องด้านบน\n"
+                    "1 งานยก = วินช์ขึ้น 1 ครั้ง + วินช์ลง 1 ครั้ง"
+                )
 
     def winch_down_profile(self,q=None):
         if q is None:q=self.winch_core_results()
@@ -6124,7 +6165,10 @@ void loop() {{
         voltage=float(self.wbVoltage.value()) if hasattr(self,"wbVoltage") else q["v"]
         dod=(float(self.wbDoD.value())/100.0) if hasattr(self,"wbDoD") else q["dod"]
         reserve=(float(self.wbReserve.value())/100.0) if hasattr(self,"wbReserve") else q["reserve"]
-        use_operation=bool(self.wbUseOp.isChecked()) if hasattr(self,"wbUseOp") else False
+        if hasattr(self,"wbEventMode"):
+            use_operation=self.wbEventMode.currentIndex()==0
+        else:
+            use_operation=bool(self.wbUseOp.isChecked()) if hasattr(self,"wbUseOp") else False
         if use_operation and hasattr(self,"wopSpeed"):
             op=self.winch_operation_results()
             events=int(op["lift_events"])
@@ -6242,11 +6286,19 @@ void loop() {{
         b=self.winch_battery_results()
         energy=("PASS" if b["energy_ok"] else "FAIL")
         cont=("ยังไม่กรอก BMS" if b["bms_cont"]<=0 else ("PASS" if b["cont_ok"] else "FAIL"))
+        source_text=("AUTO จากรอบการทำงาน / 3h" if b["use_operation"] else "MANUAL กำหนดเอง")
         self.wbSummary.setText(
-            f"{b['events']} งานยก • UP {b['e_up']:.3f} Wh + DOWN {b['e_down']:.3f} Wh = {b['e_event']:.3f} Wh/งาน\n"
+            f"{source_text} • {b['events']} งานยก = UP {b['events']} ครั้ง + DOWN {b['events']} ครั้ง\n"
+            f"UP {b['e_up']:.3f} Wh + DOWN {b['e_down']:.3f} Wh = {b['e_event']:.3f} Wh/งาน\n"
             f"รวม {b['total']:.2f} Wh • ใช้จริง {b['ah_used']:.2f} Ah • Design {b['ah_design']:.2f} Ah @ {b['voltage']:.2f} V\n"
             f"Standard ≥ {b['standard_ah']:.0f} Ah • Candidate {b['candidate_ah']:.1f} Ah: {energy} • Continuous current: {cont}"
         )
+        if hasattr(self,"wbEventNote"):
+            self.wbEventNote.setText(
+                (f"AUTO — ใช้ {b['events']} งานยกจากหน้า รอบการทำงาน / 3h" if b["use_operation"]
+                 else f"MANUAL — ใช้ {b['events']} งานยกที่กำหนดเอง")
+                + "\n1 งานยก = วินช์ขึ้น 1 ครั้ง + วินช์ลง 1 ครั้ง"
+            )
         self.wbDetails.setHtml(self.winch_battery_html(b))
 
     def refresh_winch_battery_and_operation(self):
@@ -6537,7 +6589,7 @@ void loop() {{
         sp=self.winch_speed_results()
         if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
         if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.8</h2><p>Datasheet → Operating Cycles → Battery → Summary; สูตรอยู่เฉพาะหน้าที่ใช้งานจริง.</p>")
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.9</h2><p>Datasheet → Operating Cycles → Battery → Summary; สูตรอยู่เฉพาะหน้าที่ใช้งานจริง.</p>")
         if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html())
         if hasattr(self,"wDutyView"):self.update_winch_duty()
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
