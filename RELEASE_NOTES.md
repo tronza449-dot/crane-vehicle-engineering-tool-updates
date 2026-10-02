@@ -1,71 +1,54 @@
-# Crane Vehicle Engineering Tool V53.5.9
+# Crane Vehicle Engineering Tool V53.6.0
 
-## Real ESP32 Telemetry Verification
+## Main 72 V Battery — Operating Time Correction
 
-แก้พฤติกรรม Live Telemetry ที่กด Connect แล้วขึ้นเหมือนเชื่อมต่อสำเร็จทั้งที่ยังไม่มี ESP32 จริง
+แก้การคำนวณ **แบตรถ 72 V** ให้ใช้เวลาการทำงานจริงของรถ ไม่ใช่สมมติว่ารถวิ่งตลอด 3 ชั่วโมง
 
 ### หลักการใหม่
-คำว่า **CONNECTED** หมายถึง:
-- โปรแกรมได้รับ Telemetry packet จริงจาก ESP32 แล้ว
-- Packet มีโครงสร้าง CVET telemetry ที่ถูกต้อง
-- WiFi mode ต้องมี Device ID ตรงกับค่าที่ตั้งไว้
-- ข้อมูลล่าสุดต้องไม่เก่าเกิน 2.5 วินาที
+1 รอบการทำงาน =
+- เวลารถวิ่งไป-กลับ
+- เวลางานยกทั้งหมดในรอบ
+- เวลาหยุดอื่น
 
-แค่เปิด COM Port หรือเปิด UDP Port สำเร็จ **ไม่ถือว่าเชื่อมต่อ ESP32**
+จำนวนรอบที่ใช้คำนวณพลังงานขับ:
+`N = floor(T_operating / T_round)`
 
-### สถานะใหม่
-- OFFLINE — ยังไม่ได้เปิดช่องทางรับข้อมูล
-- WAITING ESP32 — เปิด Serial/UDP listener แล้ว แต่ยังไม่ได้รับข้อมูลจาก ESP32 จริง
-- CONNECTED ESP32 — ได้รับและตรวจสอบ packet จาก ESP32 จริง
-- DEMO / NO ESP32 — ข้อมูลจำลอง ไม่ใช่ฮาร์ดแวร์จริง
+### แยก Main Battery กับ Winch Battery ชัดเจน
+- เวลายกมีผลต่อ **จำนวนรอบที่รถสามารถวิ่งได้**
+- แต่พลังงานของวินช์ **ไม่ถูกนำมารวมใน Main Battery 72 V**
+- เพราะโปรเจกต์ใช้แบตวินช์ 12 V แยก
 
-### WiFi UDP
-- ค่าเริ่มต้นของหน้า Telemetry เปลี่ยนเป็น ESP32 WiFi UDP
-- โปรแกรมขึ้น WAITING จนกว่า ESP32 จะส่ง packet จริง
-- ตรวจ Device ID เช่น `CVET-ESP32`
-- เพิ่ม protocol marker `CVET1`
-- ถ้า ESP32 หยุดส่งเกิน 2.5 s จะไม่ค้าง CONNECTED
-- ค่าจากรถจะถูกซ่อนเมื่อ link ไม่สด
+ดังนั้น:
+`E_main = E_drive_per_round × N_completed + E_aux`
 
-### Serial
-- เปิด COM Port ได้ = WAITING เท่านั้น
-- ต้องได้รับ CVET telemetry JSON จริงจึงขึ้น CONNECTED
-- Template ใหม่เพิ่ม `protocol: CVET1` และ `device: CVET-ESP32`
+แล้ว:
+`E_design = (E_main / DoD) × (1 + Reserve)`
 
-### Test WiFi Packet
-ปุ่ม Test WiFi Packet ทดสอบเฉพาะ UDP listener ในคอม
-และ **จะไม่ทำให้โปรแกรมขึ้นว่า ESP32 CONNECTED**
+`Ah_required = E_design / V_battery`
 
-### Simulation
-เปลี่ยนชื่อเป็น:
-`Simulation / Demo (NO ESP32)`
+### Desktop CVET
+- เพิ่มตัวเลือก **รวมเวลายกจาก Winch Operating Cycles อัตโนมัติ**
+- ค่าเริ่มต้นเปิดใช้งาน
+- Main Battery จะอ่านเวลา 1 งานยกและจำนวนงานยก/รอบจากหน้า Winch
+- เมื่อค่า Winch Operating Cycles เปลี่ยน Main Battery จะคำนวณตามใหม่
+- แสดง Drive time / Lift time / Other stop / Total round time
+- แสดงทั้งจำนวนรอบเชิงทฤษฎีและจำนวนรอบเต็มที่ทำได้จริง
 
-และมีข้อความเตือนชัดเจนว่าข้อมูลเป็นข้อมูลจำลอง
+### Web
+- Main Battery เพิ่ม:
+  - เวลา 1 งานยก
+  - งานยกต่อรอบ
+  - เวลาหยุดอื่นต่อรอบ
+- หลังคำนวณหน้า Winch ค่าเวลางานยกจะ Sync ไปหน้า Main Battery อัตโนมัติ
+- แสดงจำนวนรอบเต็มและ Time Breakdown
+- ระบุชัดว่า Winch energy ไม่รวมใน Main Battery
 
+### Regression
+กรณีทดสอบ:
+- Vehicle speed 1 km/h
+- One-way 30 m
+- Operating time 3 h
+- 2 lift events / round
+- Lift event ≈ 57.62 s
 
-### Build / Regression
-- ปรับชุดทดสอบอัตโนมัติให้ตรวจหลักการใหม่อย่างถูกต้อง
-- ยืนยันว่าเปิด UDP listener อย่างเดียวต้องยังเป็น WAITING
-- ยืนยันว่า packet จริงจาก ESP32 จึงเปลี่ยนเป็น CONNECTED
-- ยืนยันว่า Local Test Packet ไม่สร้าง fake hardware connection
-
-
-### Safe Default
-- หน้า Live Telemetry เปิดมาที่ ESP32 WiFi UDP JSON เป็นค่าเริ่มต้น
-- Simulation ต้องเลือกเอง และมีคำว่า NO ESP32 ชัดเจน
-
-
-### V53.5.8 CI Fix
-- Demo mode no longer opens a blocking popup during automated verification.
-- Demo is still clearly marked NO ESP32 in the telemetry status.
-
-
-### V53.5.9
-- ปรับ Demo mode ไม่ให้เปิดกล่องข้อความค้างระหว่างการทดสอบ
-- คงหลักการสำคัญ: UDP/COM เปิดสำเร็จ = WAITING เท่านั้น, ต้องมี packet จริงจาก ESP32 จึงเป็น CONNECTED
-
-
-### V53.5.9 Verification Build
-- ปรับ regression test ให้ทดสอบสถานะ WAITING / CONNECTED แบบ deterministic
-- ยืนยันว่า Connect เปิดช่องรับข้อมูลอย่างเดียวและยังไม่ถือว่า ESP32 Connected
-- ยืนยันว่า CVET1 packet + Device ID ตรงกันเท่านั้นจึงขึ้น CONNECTED
+ได้เวลาต่อรอบ ≈ 331.24 s และทำได้ **32 รอบเต็ม**
