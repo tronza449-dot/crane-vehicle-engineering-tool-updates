@@ -1,5 +1,5 @@
 from pathlib import Path
-import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time
+import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser
 from datetime import datetime
 from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal
 from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon
@@ -3818,6 +3818,81 @@ void loop() {{
         launcher=Path(__file__).resolve().parent/"web_launcher.py"
         return [sys.executable,str(launcher)] if launcher.exists() else None
 
+    def _web_status_path(self):
+        base=os.environ.get("LOCALAPPDATA") or str(Path.home())
+        folder=Path(base)/"CraneVehicleEngineeringTool"/"web"
+        folder.mkdir(parents=True,exist_ok=True)
+        return folder/"web_status.json"
+
+    def _reset_web_link_ui(self):
+        self.currentWebUrl=""
+        if hasattr(self,"openWebLinkButton"):
+            self.openWebLinkButton.setEnabled(False)
+        if hasattr(self,"copyWebLinkButton"):
+            self.copyWebLinkButton.setEnabled(False)
+
+    def _start_web_status_monitor(self):
+        if not hasattr(self,"webStatusTimer"):
+            self.webStatusTimer=QTimer(self)
+            self.webStatusTimer.setInterval(700)
+            self.webStatusTimer.timeout.connect(self._poll_web_server_status)
+        self.webStatusTimer.start()
+        QTimer.singleShot(120000, lambda: self.webStatusTimer.stop() if self.webStatusTimer.isActive() and not getattr(self,"currentWebUrl","") else None)
+
+    def _poll_web_server_status(self):
+        path=self._web_status_path()
+        if not path.exists():
+            return
+        try:
+            data=json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+        state=str(data.get("state","")).strip().lower()
+        url=str(data.get("url","")).strip()
+        message=str(data.get("message","")).strip()
+        mode=str(data.get("mode","")).strip()
+
+        if url and state=="ready":
+            self.currentWebUrl=url
+            if hasattr(self,"webServerStatusLabel"):
+                self.webServerStatusLabel.setText(f"{mode}: {url}")
+                self.webServerStatusLabel.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            if hasattr(self,"openWebLinkButton"):
+                self.openWebLinkButton.setEnabled(True)
+            if hasattr(self,"copyWebLinkButton"):
+                self.copyWebLinkButton.setEnabled(True)
+            if hasattr(self,"webStatusTimer"):
+                self.webStatusTimer.stop()
+            return
+
+        if message and hasattr(self,"webServerStatusLabel"):
+            self.webServerStatusLabel.setText(message)
+
+        if state=="error":
+            if hasattr(self,"webStatusTimer"):
+                self.webStatusTimer.stop()
+            if message:
+                QMessageBox.warning(self,"Web Server",message)
+
+    def open_current_web_link(self):
+        url=getattr(self,"currentWebUrl","").strip()
+        if not url:
+            QMessageBox.information(self,"Web Link","ยังไม่มีลิงก์ครับ\nรอให้ Web Server แสดงสถานะพร้อมใช้งานก่อน")
+            return
+        try:
+            webbrowser.open(url)
+        except Exception as ex:
+            QMessageBox.warning(self,"Web Link",f"เปิด Browser ไม่สำเร็จ:\n{ex}")
+
+    def copy_current_web_link(self):
+        url=getattr(self,"currentWebUrl","").strip()
+        if not url:
+            QMessageBox.information(self,"Web Link","ยังไม่มีลิงก์ให้คัดลอก")
+            return
+        QApplication.clipboard().setText(url)
+        if hasattr(self,"webServerStatusLabel"):
+            self.webServerStatusLabel.setText(f"คัดลอกแล้ว: {url}")
+
     def launch_web_server_dialog(self):
         cmd=self._web_server_command()
         if not cmd:
@@ -3867,10 +3942,16 @@ void loop() {{
             mode="LOCAL"
 
         try:
+            self._reset_web_link_ui()
+            try:
+                self._web_status_path().unlink(missing_ok=True)
+            except Exception:
+                pass
             kwargs={}
             if os.name=="nt":
                 kwargs["creationflags"]=getattr(subprocess,"CREATE_NEW_CONSOLE",0)
             subprocess.Popen(args,**kwargs)
+            self._start_web_status_monitor()
             if hasattr(self,"webServerStatusLabel"):
                 self.webServerStatusLabel.setText(
                     f"{mode} Server กำลังเปิด • Browser จะเปิดอัตโนมัติเมื่อ Server พร้อม"
@@ -4080,8 +4161,16 @@ void loop() {{
         self.openWebServerButton.setObjectName("primaryButton")
         self.openWebServerButton.setToolTip("แนะนำ Free Permanent Link (*.ts.net) • รองรับ Quick Public / LAN / Local")
         self.openWebServerButton.clicked.connect(self.launch_web_server_dialog)
+        self.openWebLinkButton=QPushButton("เปิดลิงก์")
+        self.openWebLinkButton.setObjectName("secondaryButton")
+        self.openWebLinkButton.setEnabled(False)
+        self.openWebLinkButton.clicked.connect(self.open_current_web_link)
+        self.copyWebLinkButton=QPushButton("คัดลอกลิงก์")
+        self.copyWebLinkButton.setObjectName("secondaryButton")
+        self.copyWebLinkButton.setEnabled(False)
+        self.copyWebLinkButton.clicked.connect(self.copy_current_web_link)
         webHelp=QPushButton("วิธีใช้");webHelp.setObjectName("secondaryButton");webHelp.clicked.connect(self.show_web_server_help)
-        wr.addWidget(self.openWebServerButton);wr.addWidget(webHelp);wr.addStretch(1);wpl.addLayout(wr)
+        wr.addWidget(self.openWebServerButton);wr.addWidget(self.openWebLinkButton);wr.addWidget(self.copyWebLinkButton);wr.addWidget(webHelp);wr.addStretch(1);wpl.addLayout(wr)
         system.addWidget(webPanel,1)
         root.addLayout(system)
 
