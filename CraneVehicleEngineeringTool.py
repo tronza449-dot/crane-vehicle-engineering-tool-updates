@@ -7487,18 +7487,19 @@ void loop() {{
         mode="WORST-CASE FULL RATED POWER" if q["use_worst"] else "CALCULATED LOAD MODEL"
         self.eSummary.setText(
             f"{mode}\\n"
-            f"Cycles in {q['runtime_h']:.2f} h = {q['cycles']:.2f} | Total travel ≈ {q['cycles']*q['cycle_distance']/1000:.3f} km\\n"
+            f"Completed rounds in {q['runtime_h']:.2f} h = {q['cycles']} (theory {q['cycles_theoretical']:.2f}) | Total travel ≈ {q['cycles']*q['cycle_distance']/1000:.3f} km\\n"
+            f"Time/round: Drive {q['drive_cycle_s']:.1f} s + Lift {q['lift_round_s']:.1f} s + Other {q['other_stop_s']:.1f} s = {q['cycle_total_s']:.1f} s\\n"
             f"Mechanical energy = {q['Emech_total']:.1f} Wh | Estimated drive energy = {q['Edrive']:.1f} Wh\\n"
             f"Auxiliary = {q['Eaux']:.1f} Wh | Load total = {q['Eload']:.1f} Wh\\n"
             f"Battery design = {q['Edesign']:.1f} Wh → {q['Ah']:.2f} Ah @ {q['V']:.1f} V"
         )
 
-        cycles=max(q["cycles"],1e-12)
-        drive_per_trip=q["Edrive"]/cycles
-        load_per_trip=q["Eload"]/cycles
+        cycles=max(q["cycles"],1)
+        drive_per_trip=q["Edrive_cycle"]
+        load_per_trip=q["Eload"]/cycles if q["cycles"]>0 else 0.0
         self.tripDistanceLabel.setText(f"{q['cycle_distance']:.1f} m")
         self.tripTimeLabel.setText(f"{q['cycle_total_s']/60.0:.2f} min")
-        self.tripCountLabel.setText(f"{q['cycles']:.1f} รอบ")
+        self.tripCountLabel.setText(f"{q['cycles']} รอบเต็ม\\n(theory {q['cycles_theoretical']:.2f})")
         self.tripEnergyLabel.setText(f"{drive_per_trip:.2f} Wh / รอบ")
         self.tripDriveTotalLabel.setText(f"{q['Edrive']:.1f} Wh")
         self.tripAuxLabel.setText(f"{q['Eaux']:.1f} Wh")
@@ -7506,9 +7507,13 @@ void loop() {{
         self.tripBatteryLabel.setText(f"{q['Edesign']:.0f} Wh\\n= {q['Ah']:.2f} Ah @ {q['V']:.0f} V")
         self.tripEnergyExplain.setHtml(f"""
         <h3 style='color:#17324d'>อ่านหน้านี้แบบง่าย</h3>
-        <p><b>1 รอบไป-กลับ</b> = {q['cycle_distance']:.1f} m และใช้เวลาประมาณ {q['cycle_total_s']/60.0:.2f} นาที/รอบ</p>
+        <p><b>1 รอบไป-กลับ</b> = {q['cycle_distance']:.1f} m</p>
+        <p>เวลารถวิ่ง <b>{q['drive_cycle_s']:.2f} s</b> + เวลางานยก <b>{q['lift_round_s']:.2f} s</b> + เวลาหยุดอื่น <b>{q['other_stop_s']:.2f} s</b>
+        = <b>{q['cycle_total_s']/60.0:.2f} นาที/รอบ</b></p>
+        <p>จำนวนรอบเชิงทฤษฎี = {q['cycles_theoretical']:.2f} รอบ → นับเฉพาะรอบที่ทำครบ = <b>{q['cycles']} รอบเต็ม</b></p>
         <p><b>พลังงานขับต่อรอบ</b> = {drive_per_trip:.2f} Wh จากโมเดล <b>{'Worst-case' if q['use_worst'] else 'Calculated'}</b></p>
-        <p><b>{q['cycles']:.1f} รอบ</b> ใช้พลังงานขับรวม = {q['Edrive']:.1f} Wh</p>
+        <p><b>{q['cycles']} รอบเต็ม</b> ใช้พลังงานขับรถ 72 V รวม = {q['Edrive']:.1f} Wh</p>
+        <p><b>หมายเหตุ:</b> เวลายกถูกนำมาคิดเพื่อหาจำนวนรอบ แต่พลังงานวินช์ไม่รวมใน Main Battery เพราะวินช์ใช้แบต 12 V แยก</p>
         <p>บวก Auxiliary {q['Eaux']:.1f} Wh → <b>พลังงานรวมก่อนเผื่อแบต = {q['Eload']:.1f} Wh</b></p>
         <p>หลังเผื่อ DoD {q['dod']*100:.0f}% และ Reserve {q['reserve']*100:.0f}% →
         <b style='color:#b42318'>ต้องการประมาณ {q['Edesign']:.0f} Wh = {q['Ah']:.2f} Ah @ {q['V']:.0f} V</b></p>
@@ -7531,13 +7536,15 @@ void loop() {{
         ระยะไป-กลับ {q['cycle_distance']:.2f} m ต่อรอบ โดยมีทางลาดขาขึ้นและขาลงด้านละ {q['Ls']:.2f} m
         และทางราบรวม {q['flat_cycle']:.2f} m ต่อรอบ</p>
         <p><b>สูตร:</b> เวลาวิ่งต่อรอบ = ระยะไป-กลับ ÷ ความเร็ว;
-        เวลาต่อรอบ = เวลาวิ่ง + เวลาหยุด;
-        จำนวนรอบ = เวลาทำงานทั้งหมด ÷ เวลาต่อรอบ</p>
-        <p><b>แทนค่า:</b> {q['cycle_distance']:.2f} ÷ {q['v']:.5f}
-        = {q['drive_cycle_s']:.2f} วินาทีที่รถวิ่ง
-        และเมื่อบวกเวลาหยุด {q['stop_s']:.2f} วินาที จะได้ {q['cycle_total_s']:.2f} วินาที/รอบ
-        ดังนั้นจำนวนรอบเชิงทฤษฎี = {q['cycles']:.2f} รอบ
-        (จำนวนรอบจริงอาจลดลงจากเวลายกของหรือเลี้ยว)</p>
+        เวลารวมต่อรอบ = เวลาวิ่ง + เวลางานยก + เวลาหยุดอื่น;
+        จำนวนรอบเต็ม = floor(เวลาทำงานทั้งหมด ÷ เวลารวมต่อรอบ)</p>
+        <p><b>แทนค่า:</b> รถวิ่ง {q['drive_cycle_s']:.2f} s
+        + งานยก {q['lift_round_s']:.2f} s
+        + หยุดอื่น {q['other_stop_s']:.2f} s
+        = <b>{q['cycle_total_s']:.2f} s/รอบ</b>.
+        จำนวนรอบเชิงทฤษฎี = {q['cycles_theoretical']:.2f} รอบ
+        และนับเฉพาะงานที่ทำครบ = <b>{q['cycles']} รอบ</b></p>
+        <p>เวลายกมีผลต่อจำนวนรอบของรถ แต่พลังงานวินช์ 12 V คำนวณแยก ไม่ถูกนำมาบวกกับ Main Battery 72 V</p>
         <h3>2. แรงต้านบนทางราบ</h3>
         <p>รถต้องออกแรงเอาชนะแรงต้านการกลิ้ง แม้ทางราบไม่มีแรงโน้มถ่วงตามแนวการเคลื่อนที่</p>
         <p><b>สูตร:</b> Frr = Crr × m × g</p>
@@ -7626,7 +7633,9 @@ void loop() {{
         <h2>Battery Sizing Result</h2>
         <table cellpadding='7'>
         <tr><td>Selected model</td><td><b>{mode}</b></td></tr>
-        <tr><td>Cycles in runtime</td><td>{q['cycles']:.2f}</td></tr>
+        <tr><td>Completed rounds</td><td><b>{q['cycles']}</b> (theory {q['cycles_theoretical']:.2f})</td></tr>
+        <tr><td>Drive / Lift / Other per round</td><td>{q['drive_cycle_s']:.1f} / {q['lift_round_s']:.1f} / {q['other_stop_s']:.1f} s</td></tr>
+        <tr><td>Total round time</td><td>{q['cycle_total_s']:.1f} s = {q['cycle_total_s']/60.0:.2f} min</td></tr>
         <tr><td>Theoretical mechanical energy</td><td>{q['Emech_total']:.1f} Wh</td></tr>
         <tr><td>Calculated drive estimate</td><td>{q['Ecalc_drive']:.1f} Wh</td></tr>
         <tr><td>Worst-case drive estimate</td><td>{q['Eworst_drive']:.1f} Wh</td></tr>
