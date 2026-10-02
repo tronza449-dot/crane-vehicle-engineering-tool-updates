@@ -247,6 +247,59 @@ def calculate_winch(data: Dict[str, Any]) -> Dict[str, Any]:
     return {"core": core, "operation": op, "battery": battery}
 
 
+def calculate_ramp_geometry(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Calculate ramp geometry from measured rise/run and compare with measured slant."""
+    rise_cm = max(0.0, _f(data, "rise_cm", 55.0))
+    run_cm = max(0.001, _f(data, "run_cm", 280.0))
+    measured_slant_cm = max(0.0, _f(data, "measured_slant_cm", 290.0))
+    mass_kg = max(0.0, _f(data, "mass_kg", 300.0))
+
+    theoretical_slant_cm = math.hypot(run_cm, rise_cm)
+    angle_deg = math.degrees(math.atan2(rise_cm, run_cm))
+    slope_percent = (rise_cm / run_cm) * 100.0
+    ratio_h_over_l = rise_cm / theoretical_slant_cm if theoretical_slant_cm > 0 else 0.0
+
+    measured_difference_cm = (
+        measured_slant_cm - theoretical_slant_cm if measured_slant_cm > 0 else 0.0
+    )
+    measured_difference_abs_cm = abs(measured_difference_cm)
+    measured_difference_pct = (
+        measured_difference_abs_cm / theoretical_slant_cm * 100.0
+        if theoretical_slant_cm > 0 and measured_slant_cm > 0
+        else 0.0
+    )
+
+    measured_angle_deg = None
+    if measured_slant_cm >= rise_cm and measured_slant_cm > 0:
+        measured_angle_deg = math.degrees(
+            math.asin(_clamp(rise_cm / measured_slant_cm, -1.0, 1.0))
+        )
+
+    f_slope_n = mass_kg * G * math.sin(math.radians(angle_deg))
+    f_slope_ratio_n = mass_kg * G * ratio_h_over_l
+
+    return {
+        "rise_cm": rise_cm,
+        "run_cm": run_cm,
+        "measured_slant_cm": measured_slant_cm,
+        "theoretical_slant_cm": theoretical_slant_cm,
+        "theoretical_slant_m": theoretical_slant_cm / 100.0,
+        "angle_deg": angle_deg,
+        "slope_percent": slope_percent,
+        "ratio_h_over_l": ratio_h_over_l,
+        "measured_difference_cm": measured_difference_cm,
+        "measured_difference_abs_cm": measured_difference_abs_cm,
+        "measured_difference_pct": measured_difference_pct,
+        "measured_angle_deg": measured_angle_deg,
+        "mass_kg": mass_kg,
+        "f_slope_n": f_slope_n,
+        "f_slope_ratio_n": f_slope_ratio_n,
+        "grade_ratio_run_per_rise": (run_cm / rise_cm if rise_cm > 0 else 999.0),
+        "motor_angle_deg": angle_deg,
+        "warning": "Slope (%) is not degrees. Use angle_deg in sin/cos motor-force equations.",
+    }
+
+
 def calculate_drive_torque(data: Dict[str, Any]) -> Dict[str, Any]:
     m = max(0.0, _f(data, "mass_kg", 300.0))
     wheel_in = max(0.1, _f(data, "wheel_diameter_in", 16.0))
