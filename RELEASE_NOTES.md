@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.5.7
+# Crane Vehicle Engineering Tool V53.5.8
 
 ## Real ESP32 Telemetry Verification
 
@@ -48,3 +48,8 @@
 - ยืนยันว่าเปิด UDP listener อย่างเดียวต้องยังเป็น WAITING
 - ยืนยันว่า packet จริงจาก ESP32 จึงเปลี่ยนเป็น CONNECTED
 - ยืนยันว่า Local Test Packet ไม่สร้าง fake hardware connection
+
+
+### Safe Default
+- หน้า Live Telemetry เปิดมาที่ ESP32 WiFi UDP JSON เป็นค่าเริ่มต้น
+- Simulation ต้องเลือกเอง และมีคำว่า NO ESP32 ชัดเจน
