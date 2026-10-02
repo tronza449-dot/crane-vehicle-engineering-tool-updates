@@ -80,13 +80,22 @@ $("#calcBattery").addEventListener("click",async()=>{
   try{
     const r=await api("/api/calc/drive-battery",formObject($("#batteryForm")));
     out.innerHTML=
-      '<h3>Main Battery Result</h3><div class="metric-grid">'+
+      '<h3>Main Battery 72 V Result</h3><div class="metric-grid">'+
+      '<div class="metric"><div class="k">รอบเต็มในเวลาที่กำหนด</div><div class="v">'+r.completed_round_trips+' รอบ</div></div>'+
+      '<div class="metric"><div class="k">เวลารวม / รอบ</div><div class="v">'+f(r.round_time_s/60,2)+' min</div></div>'+
       '<div class="metric"><div class="k">Drive energy</div><div class="v">'+f(r.drive_energy_wh,1)+' Wh</div></div>'+
       '<div class="metric"><div class="k">Aux energy</div><div class="v">'+f(r.aux_energy_wh,1)+' Wh</div></div>'+
       '<div class="metric"><div class="k">Design energy</div><div class="v">'+f(r.design_energy_wh,1)+' Wh</div></div>'+
       '<div class="metric"><div class="k">Design capacity</div><div class="v">'+f(r.design_ah,2)+' Ah</div></div>'+
       '<div class="metric"><div class="k">Standard ≥</div><div class="v">'+f(r.standard_ah,0)+' Ah</div></div>'+
-      '<div class="metric"><div class="k">Trip drive energy</div><div class="v">'+f(r.trip_drive_energy_wh,2)+' Wh/รอบ</div></div></div>'+
+      '<div class="metric"><div class="k">Drive energy / รอบ</div><div class="v">'+f(r.trip_drive_energy_wh,2)+' Wh</div></div></div>'+
+      '<h3>Operating Time</h3>'+
+      '<div class="formula"><b>t_round = t_drive + t_lift + t_other</b><br>'+
+      '<b>แทนค่า:</b> '+f(r.drive_time_per_round_s,2)+' + '+f(r.lift_time_per_round_s,2)+' + '+f(r.other_stop_time_per_round_s,2)+
+      ' = <b>'+f(r.round_time_s,2)+' s/รอบ</b><br>'+
+      '<b>จำนวนรอบเชิงทฤษฎี:</b> '+f(r.cycles_theoretical,2)+' รอบ → นับรอบที่ทำครบ = <b>'+r.completed_round_trips+' รอบ</b></div>'+
+      '<div class="formula"><b>เวลางานยกมีผลกับจำนวนรอบ แต่ไม่รวมพลังงานวินช์ในแบต 72 V</b><br>'+
+      'Winch ใช้แบต 12 V แยก ดังนั้น Main Battery คิดเฉพาะพลังงานขับรถ + Auxiliary</div>'+
       '<h3>สูตรแบต</h3>'+
       '<div class="formula"><b>Eload = Edrive + Eaux</b><br><b>สูตรภาษาไทย:</b> พลังงานโหลดรวม = พลังงานขับรถ + พลังงานอุปกรณ์เสริม<br><b>ผล:</b> '+f(r.load_energy_wh,2)+' Wh</div>'+
       '<div class="formula"><b>Edesign = (Eload ÷ DoD) × (1 + Reserve)</b><br><b>สูตรภาษาไทย:</b> พลังงานออกแบบ = พลังงานโหลดรวม ÷ DoD × (1 + พลังงานสำรอง)<br><b>ผล:</b> '+f(r.design_energy_wh,2)+' Wh</div>'+
@@ -99,6 +108,10 @@ $("#calcWinch").addEventListener("click",async()=>{
   const out=$("#winchResult");setLoading(out);
   try{
     const r=await api("/api/calc/winch",formObject($("#winchForm"))),c=r.core,o=r.operation,b=r.battery;
+    const liftTime=$("#batteryLiftEventTime"), liftEvents=$("#batteryLiftEvents"), otherStop=$("#batteryOtherStop");
+    if(liftTime) liftTime.value=Number(o.event_time_s).toFixed(2);
+    if(liftEvents) liftEvents.value=o.events_per_round;
+    if(otherStop) otherStop.value=Number(o.other_stop_s).toFixed(1);
     out.innerHTML=
       '<h3>Winch Datasheet</h3><div class="metric-grid">'+
       '<div class="metric"><div class="k">First-layer speed</div><div class="v">'+f(c.up_speed_m_min,3)+' m/min</div></div>'+
