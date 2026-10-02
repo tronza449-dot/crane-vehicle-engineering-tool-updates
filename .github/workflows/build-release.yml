@@ -663,9 +663,12 @@ jobs:
           w.telemetryUdpPort.setValue(udp_port)
           w.telemetryDeviceId.setText("CVET-CI")
           w.connect_telemetry()
-          assert w.telemetryConnected is True
+          # Opening the UDP listener must NOT pretend that real hardware is connected.
+          assert w.telemetryConnected is False
+          assert w.telemetryListening is True
           assert w.telemetryUdpSocket is not None
           assert w.telemetryUdpThread is not None and w.telemetryUdpThread.is_alive()
+          assert "WAITING" in w.telemetryConnLabel.text()
 
           wifi_template=w.telemetry_wifi_esp32_template()
           assert "#include <WiFi.h>" in wifi_template
@@ -696,7 +699,8 @@ jobs:
           assert wifi_sample["source_ip"]=="127.0.0.1"
           assert wifi_sample["transport"]=="WiFi UDP"
           assert w.telemetryLastRx>0
-          assert "WIFI UDP" in w.telemetryConnLabel.text()
+          assert w.telemetryConnected is True
+          assert "ESP32 WIFI" in w.telemetryConnLabel.text()
           assert w.telemetry_packet_rate()>=0.0
 
           # Device filter must reject other senders.
@@ -710,17 +714,23 @@ jobs:
           assert len(w.telemetryHistory)==before
           assert w.telemetryFilteredPackets>=1
 
-          # Built-in local test packet helper also reaches the receiver.
+          # Built-in local UDP test must test the PC listener only.
+          # It must NOT create a fake ESP32 hardware connection or fake sample.
+          w.disconnect_telemetry(silent=True)
           w.telemetryDeviceId.setText("CVET-ESP32")
           before=len(w.telemetryHistory)
           w.send_telemetry_loopback_test()
-          deadline=time.monotonic()+2.0
-          while len(w.telemetryHistory)==before and time.monotonic()<deadline:
+          deadline=time.monotonic()+1.0
+          while time.monotonic()<deadline:
               app.processEvents();time.sleep(0.02)
-          assert len(w.telemetryHistory)>before
+          assert len(w.telemetryHistory)==before
+          assert w.telemetryConnected is False
+          assert w.telemetryListening is True
+          assert "WAITING" in w.telemetryConnLabel.text()
 
           w.disconnect_telemetry(silent=True)
           assert w.telemetryConnected is False
+          assert w.telemetryListening is False
           assert w.telemetryUdpSocket is None
 
           # ---------- System Flowchart removed in V53.2.5 ----------
