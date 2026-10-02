@@ -1,8 +1,8 @@
 {
-  "latest_version": "53.5.2",
-  "download_url": "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/download/v53.5.2/CraneVehicleEngineeringTool_Setup.exe",
-  "sha256": "550ffcecaba165fa0cf4ca951d9f77d8ec0e453bb030ae32e38ae4a5e7dca708",
-  "web_download_url": "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/download/v53.5.2/CraneVehicleWebServer.exe",
-  "web_sha256": "a6160bb8081841fad4342158fd87ad92c8016f1bb1b8755b16da4117e413346d",
-  "notes": "# Crane Vehicle Engineering Tool V53.5.2\r\n\r\n## Web Link Display Fix\r\n\r\nแก้ปัญหา V53.5.1 เปิด Web Server แล้วผู้ใช้ไม่เห็นลิงก์ในหน้าหลักของโปรแกรม\r\n\r\n### สิ่งที่แก้\r\n- Web Server ส่งสถานะกลับมาที่โปรแกรมหลัก\r\n- แสดง URL จริงในแผง WEB SERVER ทันทีเมื่อพร้อม\r\n- เพิ่มปุ่ม **เปิดลิงก์**\r\n- เพิ่มปุ่ม **คัดลอกลิงก์**\r\n- แสดงสถานะระหว่างติดตั้ง/Login Tailscale/เปิด Funnel\r\n- ถ้า Funnel เปิดไม่สำเร็จ โปรแกรมหลักจะแสดงสาเหตุแทนที่จะปล่อยให้ผู้ใช้รอ\r\n- รองรับการแสดง URL ทั้ง:\r\n  - FREE PERMANENT LINK — Tailscale Funnel\r\n  - QUICK PUBLIC LINK — Cloudflare\r\n  - LAN / Wi-Fi\r\n  - LOCAL\r\n\r\n### Permanent Link\r\nเมื่อ Tailscale Funnel พร้อม โปรแกรมจะแสดงลิงก์รูปแบบประมาณ:\r\n\r\n`https://cvet.<tailnet>.ts.net`\r\n\r\nไม่ต้องไปหาลิงก์ในหน้าต่าง Console อีกต่อไป"
+  "latest_version": "53.5.3",
+  "download_url": "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/download/v53.5.3/CraneVehicleEngineeringTool_Setup.exe",
+  "sha256": "55a9d9bc4672a5092d3dd265a612f73dfdc3149471f7d268ee154d9da1f96033",
+  "web_download_url": "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/releases/download/v53.5.3/CraneVehicleWebServer.exe",
+  "web_sha256": "3d7293a55fb223b3dc72766fd831973868fdaffaeb84083f78ca0ece8d27aafc",
+  "notes": "# Crane Vehicle Engineering Tool V53.5.3\r\n\r\n## Tailscale Funnel First-Run Fix\r\n\r\nแก้ปัญหาที่เห็นใน V53.5.2:\r\n`tailscale funnel ... timed out after 45 seconds`\r\n\r\n### สาเหตุ\r\nครั้งแรกที่ใช้ Tailscale Funnel ระบบต้องให้เจ้าของ Tailnet กด **Enable Funnel** ใน Browser ก่อน แต่ V53.5.2 ใช้คำสั่งแบบรอผล 45 วินาทีและเก็บ output ไว้ ทำให้ลิงก์อนุญาตของ Tailscale ไม่ถูกเปิดให้ผู้ใช้เห็น จึงหมดเวลา\r\n\r\n### สิ่งที่แก้\r\n- อ่าน output ของ Tailscale แบบสด (stream)\r\n- ตรวจจับลิงก์อนุญาต Funnel ทันที\r\n- เปิด Browser ไปหน้า **Enable Funnel** อัตโนมัติ\r\n- แสดงสถานะในหน้า CVET ว่า “ต้องอนุญาต Funnel ครั้งแรก”\r\n- รอผู้ใช้กดอนุญาตได้นานถึง 5 นาที แทน 45 วินาที\r\n- หลังอนุญาตแล้ว โปรแกรมลองเปิด Funnel ต่อให้อัตโนมัติ\r\n- ตรวจสถานะ Funnel ระหว่างรอ\r\n- เมื่อสำเร็จ แสดงลิงก์ `https://cvet.<tailnet>.ts.net` ในหน้าโปรแกรม พร้อมปุ่มเปิด/คัดลอกลิงก์\r\n\r\n### หมายเหตุ\r\nการกด Enable Funnel เป็นการยืนยันบัญชี Tailscale ครั้งแรกเท่านั้น หลังจากนั้นการเปิด Permanent Link ครั้งต่อไปไม่ควรถามซ้ำ"
 }
