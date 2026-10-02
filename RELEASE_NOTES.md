@@ -1,29 +1,35 @@
-# Crane Vehicle Engineering Tool V53.6.3
+# Crane Vehicle Engineering Tool V53.6.4
 
-## Web Dashboard Click Fix
+## Dynamic Vehicle Parameters
 
-แก้ปัญหาหน้าเว็บเปิดได้ แต่ปุ่ม/แท็บ/การ์ด Dashboard กดไม่ได้ทั้งหมด
+แก้หน้า Vehicle Parameters ให้ไม่เป็นค่าคงที่อีกต่อไป
 
-### สาเหตุ
-JavaScript ของหน้า Dashboard ใช้ single-element selector กับ `.forEach()`
-ทำให้ script หยุดทำงานตั้งแต่ตอน bind ปุ่ม:
-- Server status ค้างที่ "กำลังเชื่อมต่อ Server..."
-- Version ค้างเป็น "-"
-- Dashboard tabs กดไม่ได้
-- Dashboard cards กดไม่ได้
-- ปุ่มคำนวณทั้งหมดไม่ทำงาน
+### ตอนนี้ค่าจะเปลี่ยนตาม Input ที่ตั้งจริง
+- Mass → จาก Main Battery / Drive Input
+- Payload → จาก Stability Input
+- Main Battery Voltage → จาก Main Battery Input
+- Drive Motors → จากจำนวนมอเตอร์ + กำลังมอเตอร์ใน Main Battery
+- Main Slope → จาก Main Battery Input
+- Run Time Target → จาก Main Battery Input
+- Crane Arm → จาก Stability Input
+- Support / Track → จาก Stability Input
+- Winch Supply → จาก Winch Battery Input
 
-### แก้ไข
-- เปลี่ยนการ bind tabs/pages/cards ให้ใช้ querySelectorAll helper (`$$`) ถูกต้อง
-- เพิ่ม regression check ใน workflow เพื่อกัน bug แบบนี้กลับมาอีก
+### Project Settings
+เพิ่มช่องสำหรับค่าที่ไม่มี Input ในหน้าคำนวณอื่น:
+- Vehicle width
+- Vehicle length
+- Crane rotation limit / side
+- Drive control
 
-### ผลที่ควรเห็นหลังอัปเดต
-- CVET WEB STATUS เปลี่ยนเป็น Server Online
-- Version แสดงเลขเวอร์ชัน
-- Dashboard tabs กดเปลี่ยนหน้าได้
-- การ์ด Drive Torque / Main Battery / Winch / Stability / Vehicle Parameters / Live Telemetry / Project Summary กดได้
-- ปุ่มคำนวณกลับมาทำงานตามปกติ
+### Live Sync
+เมื่อแก้ค่าจาก Drive Torque / Main Battery / Winch / Stability
+หน้า Vehicle Parameters จะเปลี่ยนตามทันทีโดยไม่ต้องกรอกซ้ำ
 
+### Remember Settings
+ค่าที่กรอกในหน้าเว็บจะถูกเก็บใน Browser Local Storage
+ดังนั้น Refresh หน้าเว็บแล้วค่าที่ตั้งไว้จะไม่กลับเป็นค่า Default
 
-### Build verification
-- เพิ่ม regression guard สำหรับ Dashboard tabs/cards เพื่อกันปัญหาปุ่มกดไม่ได้กลับมาอีก
+### หมายเหตุ
+แต่ละโมดูลยังสามารถใช้ทดสอบ Scenario แยกกันได้
+หน้า Vehicle Parameters จะแสดงค่าจากแหล่งที่ระบุใต้การ์ดแต่ละใบ
