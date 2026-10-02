@@ -186,7 +186,7 @@ jobs:
           w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
           w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
 
-          # ---------- V53.3.8 Winch simplified UI + single-source regression ----------
+          # ---------- V53.3.9 Winch Auto/Manual lift-event regression ----------
           assert hasattr(w,"wTabs") and w.wTabs.count()==4
           assert w.wTabs.tabText(0)=="Spec / Datasheet"
           assert "รอบการทำงาน" in w.wTabs.tabText(1)
@@ -195,6 +195,12 @@ jobs:
           assert hasattr(w,"wCalcSummary") and hasattr(w,"wSpecResult")
           assert hasattr(w,"wopSummary") and hasattr(w,"wopDetails")
           assert hasattr(w,"wbSummary") and hasattr(w,"wbDetails")
+          assert hasattr(w,"wbEventMode") and w.wbEventMode.count()==2
+          assert w.wbEventMode.currentIndex()==0
+          assert "Auto" in w.wbEventMode.itemText(0)
+          assert "Manual" in w.wbEventMode.itemText(1)
+          assert hasattr(w,"wbEventNote") and "1 งานยก" in w.wbEventNote.text()
+          assert w.wbEvents.isEnabled() is False
           assert hasattr(w,"wSpecTable") and w.wSpecTable.rowCount()==13
           assert hasattr(w,"wPerfTable") and w.wPerfTable.rowCount()==4
           assert hasattr(w,"wLayerTable") and w.wLayerTable.rowCount()==5
@@ -225,7 +231,7 @@ jobs:
           # Operating cycle is the only source for automatic event count.
           w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
           w.wopEvents.setValue(2);w.wopOther.setValue(0.0)
-          w.wbUseOp.setChecked(True)
+          w.wbEventMode.setCurrentIndex(0)
           w.wbDownMode.setCurrentIndex(0)
           op=w.winch_operation_results()
           finite(op["t_up"],op["t_down"],op["t_event"],op["t_round"],op["remaining"])
@@ -284,18 +290,32 @@ jobs:
           assert custom["ah_design"] < b["ah_design"]
           assert abs(op_custom["t_down"]-30.0)<1e-9
 
-          # Manual event count is available only when automatic Operating Cycles link is off.
-          w.wbUseOp.setChecked(False)
+          # Manual mode lets the user enter the lift-event count directly.
+          w.wbEventMode.setCurrentIndex(1)
+          assert w.wbUseOp.isChecked() is False
+          assert w.wbEvents.isEnabled()
+          assert "MANUAL" in w.wbEventNote.text()
           w.wbEvents.setValue(100)
           manual=w.winch_battery_results()
-          assert manual["events"]==100
+          assert manual["use_operation"] is False and manual["events"]==100
+          assert "MANUAL" in w.wbSummary.text()
+          assert "UP 100 ครั้ง + DOWN 100 ครั้ง" in w.wbSummary.text()
           w.wbEvents.setValue(200)
           manual2=w.winch_battery_results()
           assert abs(manual2["total"]-2.0*manual["total"])<1e-9
 
+          # Auto mode restores Operating Cycles as the event source and locks manual entry.
+          w.wbEventMode.setCurrentIndex(0)
+          assert w.wbUseOp.isChecked() is True
+          assert not w.wbEvents.isEnabled()
+          auto_again=w.winch_battery_results()
+          assert auto_again["use_operation"] is True and auto_again["events"]==64
+          assert "AUTO" in w.wbSummary.text()
+          assert "UP 64 ครั้ง + DOWN 64 ครั้ง" in w.wbSummary.text()
+
           # Candidate battery/BMS checks stay in the Battery tab.
           # Reset to the normal automatic 3h / 64-event case before checking a 40 Ah candidate.
-          w.wbUseOp.setChecked(True)
+          w.wbEventMode.setCurrentIndex(0)
           w.wbDownMode.setCurrentIndex(0)
           w.wbDownBasis.setCurrentIndex(0)
           w.wbCandidateAh.setValue(40.0)
