@@ -6965,7 +6965,7 @@ void loop() {{
         form.setVerticalSpacing(7);form.setHorizontalSpacing(12);form.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
         self.emass=ds(290,1,5000,1); self.evolt=ds(72,1,200,1)
         self.espeed=ds(1,.05,50,2); self.eoneway=ds(30,.1,10000,2)
-        self.eslopeLen=ds(2.9,0,1000,2); self.eslopeDeg=ds(12,0,45,1)
+        self.eslopeLen=ds(2.9,0,1000,2); self.eslopeDeg=ds(12,0,45,2)
         self.eruntime=ds(3,.01,48,2); self.err=ds(.02,0,1,3)
         self.eaccel=ds(5,.1,120,2); self.estops=QSpinBox();self.estops.setRange(0,20);self.estops.setValue(2);self.estops.setMinimumWidth(150);self.estops.setMaximumWidth(250)
         self.estopTime=ds(0,0,3600,1)
@@ -7718,7 +7718,7 @@ void loop() {{
         def ds(v,lo,hi,dec=3):
             q=QDoubleSpinBox();q.setRange(lo,hi);q.setDecimals(dec);q.setValue(v)
             q.setMinimumWidth(145);q.setMaximumWidth(240);return q
-        self.tm=ds(300,1,5000,1); self.tgrade=ds(19,0,45,1)
+        self.tm=ds(300,1,5000,1); self.tgrade=ds(19,0,45,2)
         self.tspeed=ds(5,.1,50,2); self.tmu=ds(.02,0,1,3)
         self.tmotors=QSpinBox();self.tmotors.setRange(1,8);self.tmotors.setValue(2)
         self.twheelInch=ds(10.0,1.0,60.0,2)
@@ -8202,10 +8202,154 @@ void loop() {{
         self.th.setValue(v)
 
     def make_slope(self):
-        w=QWidget();self.slopePage=w;l=QVBoxLayout(w);g=QGroupBox("DRIVING / SLOPE INPUT / ข้อมูลการวิ่งบนทางลาด");f=QFormLayout(g)
-        self.slope=spin(19,0,45,1,1);self.hcg=spin(.55,.05,3,.05);self.acc=spin(.278,0,5,.05,3)
-        for a,b in [("Slope angle α / มุมทางลาด (deg)",self.slope),("Combined CG height hCG / ความสูง CG รวม (m)",self.hcg),("Acceleration a / ความเร่งรถ (m/s²)",self.acc)]:f.addRow(a,b);b.valueChanged.connect(self.calc_all)
-        l.addWidget(g);self.slopeout=QPlainTextEdit();self.slopeout.setReadOnly(True);self.slopeout.setStyleSheet("font-size:13px");l.addWidget(self.slopeout);self.tabs.addTab(w,"2. Driving / Slope / ทางลาด")
+        w=QWidget();self.slopePage=w
+        l=QVBoxLayout(w);l.setContentsMargins(14,14,14,14);l.setSpacing(10)
+
+        geom=QGroupBox("RAMP GEOMETRY / คำนวณองศาและเปอร์เซ็นต์ความชันจากค่าที่วัดจริง")
+        gl=QHBoxLayout(geom)
+        gf=QFormLayout()
+        self.rampRiseCm=spin(55,0,10000,.1,1)
+        self.rampRunCm=spin(280,.1,100000,.1,1)
+        self.rampMeasuredCm=spin(290,0,100000,.1,1)
+        self.rampMass=spin(300,0,5000,1,1)
+        self.rampUseMainMass=QCheckBox("ใช้มวลจาก Main Battery 72 V")
+        self.rampUseMainMass.setChecked(True)
+        for lab,q in [
+            ("ความสูง h (cm)",self.rampRiseCm),
+            ("ระยะราบ x (cm)",self.rampRunCm),
+            ("ความยาวทางลาดที่วัดได้ (cm)",self.rampMeasuredCm),
+            ("มวลสำหรับคำนวณ F_slope (kg)",self.rampMass),
+        ]:
+            q.setMinimumWidth(150);gf.addRow(lab,q)
+        gf.addRow(self.rampUseMainMass)
+        gl.addLayout(gf,1)
+
+        self.rampGeomOut=QTextEdit();self.rampGeomOut.setReadOnly(True)
+        self.rampGeomOut.setMinimumHeight(270)
+        self.rampGeomOut.setStyleSheet("font-size:11pt;background:white")
+        gl.addWidget(self.rampGeomOut,2)
+        l.addWidget(geom)
+
+        btnrow=QHBoxLayout()
+        calcRamp=QPushButton("คำนวณ Ramp Geometry")
+        calcRamp.setObjectName("primaryButton")
+        calcRamp.clicked.connect(self.update_ramp_geometry)
+        applyAngle=QPushButton("ใช้มุมนี้กับ Torque + Main Battery + Stability")
+        applyAngle.clicked.connect(self.apply_ramp_angle_to_project)
+        applyLength=QPushButton("ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery")
+        applyLength.clicked.connect(self.apply_ramp_length_to_battery)
+        btnrow.addWidget(calcRamp);btnrow.addWidget(applyAngle);btnrow.addWidget(applyLength)
+        l.addLayout(btnrow)
+
+        g=QGroupBox("UPHILL DRIVING STABILITY / เสถียรภาพขณะรถวิ่งขึ้นทางลาด")
+        f=QFormLayout(g)
+        self.slope=spin(19,0,45,.01,2);self.hcg=spin(.55,.05,3,.05);self.acc=spin(.278,0,5,.05,3)
+        for a,b in [
+            ("Slope angle α / มุมทางลาด (deg)",self.slope),
+            ("Combined CG height hCG / ความสูง CG รวม (m)",self.hcg),
+            ("Acceleration a / ความเร่งรถ (m/s²)",self.acc)
+        ]:
+            f.addRow(a,b);b.valueChanged.connect(self.calc_all)
+        l.addWidget(g)
+
+        self.slopeout=QPlainTextEdit();self.slopeout.setReadOnly(True)
+        self.slopeout.setStyleSheet("font-size:12px")
+        l.addWidget(self.slopeout,1)
+
+        for q in (self.rampRiseCm,self.rampRunCm,self.rampMeasuredCm,self.rampMass):
+            q.valueChanged.connect(self.update_ramp_geometry)
+        self.rampUseMainMass.toggled.connect(self.update_ramp_geometry)
+        if hasattr(self,"emass"):
+            self.emass.valueChanged.connect(self.update_ramp_geometry)
+
+        self.tabs.addTab(w,"2. Driving / Slope / ทางลาด")
+        self.update_ramp_geometry()
+
+    def ramp_geometry_results(self):
+        h=max(0.0,self.rampRiseCm.value())
+        x=max(1e-9,self.rampRunCm.value())
+        lm=max(0.0,self.rampMeasuredCm.value())
+        mass=(self.emass.value() if self.rampUseMainMass.isChecked() and hasattr(self,"emass")
+              else self.rampMass.value())
+        L=math.hypot(x,h)
+        angle=math.degrees(math.atan2(h,x))
+        slope_pct=(h/x)*100.0
+        ratio=(h/L) if L>0 else 0.0
+        diff=(lm-L) if lm>0 else 0.0
+        diff_abs=abs(diff)
+        diff_pct=(diff_abs/L*100.0) if (lm>0 and L>0) else 0.0
+        measured_angle=(math.degrees(math.asin(max(-1.0,min(1.0,h/lm))))
+                        if lm>=h and lm>0 else None)
+        f_slope=mass*G*math.sin(math.radians(angle))
+        f_ratio=mass*G*ratio
+        return dict(h=h,x=x,lm=lm,L=L,angle=angle,slope_pct=slope_pct,ratio=ratio,
+                    diff=diff,diff_abs=diff_abs,diff_pct=diff_pct,
+                    measured_angle=measured_angle,mass=mass,
+                    f_slope=f_slope,f_ratio=f_ratio)
+
+    def update_ramp_geometry(self,*_):
+        if not hasattr(self,"rampGeomOut"):return
+        r=self.ramp_geometry_results()
+        measured_angle=("—" if r["measured_angle"] is None else f'{r["measured_angle"]:.2f}°')
+        self.rampGeomOut.setHtml(f"""
+        <h2 style='color:#17456b'>การคำนวณองศาและความชันของทางลาด</h2>
+        <p><b>ค่าที่วัด:</b> h = {r['h']:.1f} cm • x = {r['x']:.1f} cm • L_measured = {r['lm']:.1f} cm</p>
+
+        <h3>1) ความยาวทางลาดจากทฤษฎีพีทาโกรัส</h3>
+        <p><b>L = √(x² + h²)</b><br>
+        = √({r['x']:.1f}² + {r['h']:.1f}²)
+        = <b>{r['L']:.2f} cm = {r['L']/100.0:.3f} m</b></p>
+        <p>ค่าที่วัดได้ {r['lm']:.2f} cm → ต่างจากทฤษฎี <b>{r['diff_abs']:.2f} cm</b> ({r['diff_pct']:.2f}%)</p>
+
+        <h3>2) มุมทางลาด</h3>
+        <p><b>θ = tan⁻¹(h/x)</b><br>
+        = tan⁻¹({r['h']:.1f}/{r['x']:.1f})
+        = <b style='color:#176337'>{r['angle']:.2f}°</b></p>
+
+        <h3>3) เปอร์เซ็นต์ความชัน</h3>
+        <p><b>Slope (%) = (h/x) × 100</b><br>
+        = ({r['h']:.1f}/{r['x']:.1f}) × 100
+        = <b style='color:#176337'>{r['slope_pct']:.2f}%</b></p>
+
+        <h3>4) ตรวจจากความยาวที่วัด</h3>
+        <p>มุมจาก L_measured = <b>{measured_angle}</b></p>
+
+        <h3>5) ค่าที่ใช้คำนวณแรงมอเตอร์</h3>
+        <p><b>F_slope = m g sin(θ)</b><br>
+        = {r['mass']:.1f} × 9.81 × sin({r['angle']:.2f}°)
+        = <b>{r['f_slope']:.2f} N</b></p>
+        <p>ตรวจซ้ำ: <b>F_slope = m g (h/L)</b> = {r['f_ratio']:.2f} N</p>
+
+        <p style='background:#fff3e8;border:1px solid #efc19b;padding:9px'>
+        <b>สำคัญ:</b> {r['slope_pct']:.2f}% คือเปอร์เซ็นต์ Slope ไม่ใช่ {r['slope_pct']:.2f}°.
+        ในสูตร sin/cos ของมอเตอร์ให้ใช้ <b>{r['angle']:.2f}°</b>.
+        </p>
+        """)
+
+    def apply_ramp_angle_to_project(self):
+        r=self.ramp_geometry_results()
+        angle=r["angle"]
+        targets=[getattr(self,"slope",None),getattr(self,"tgrade",None),getattr(self,"eslopeDeg",None)]
+        for q in targets:
+            if q is None:continue
+            old=q.blockSignals(True);q.setValue(angle);q.blockSignals(old)
+        self.update_ramp_geometry()
+        self.calc_all()
+        if hasattr(self,"calc_torque"):self.calc_torque()
+        if hasattr(self,"calc_electrical"):self.calc_electrical()
+        self.statusBar().showMessage(
+            f"ใช้มุมทางลาด {angle:.2f}° กับ Torque + Main Battery + Stability แล้ว",4000
+        )
+
+    def apply_ramp_length_to_battery(self):
+        r=self.ramp_geometry_results()
+        length_m=r["L"]/100.0
+        if hasattr(self,"eslopeLen"):
+            self.eslopeLen.setValue(length_m)
+        if hasattr(self,"calc_electrical"):self.calc_electrical()
+        self.statusBar().showMessage(
+            f"ใช้ความยาวทางลาดทฤษฎี {length_m:.3f} m ใน Main Battery แล้ว",4000
+        )
 
 
     def make_fbd(self):
