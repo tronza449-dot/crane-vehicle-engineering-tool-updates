@@ -3,7 +3,7 @@
 Repository นี้ใช้เป็นช่องทางตรวจสอบและแจกจ่ายเวอร์ชันใหม่ของ **Crane Vehicle Engineering Tool**
 
 ## Current version
-- **V52.6.0**
+- **V53.4.0**
 
 ## Main additions
 - ESP32 DevKit V1 / ESP-WROOM-32 as current project controller target
@@ -13,6 +13,19 @@ Repository นี้ใช้เป็นช่องทางตรวจสอ
 - Live Current / Speed / Tilt graphs
 - CSV Data Logger
 - ESP32 telemetry sender template
+
+
+## Web Server
+V53.4.0 เพิ่ม **CraneVehicleWebServer.exe** สำหรับเปิดโปรแกรมเป็น Web App โดยใช้เครื่อง Windows ของผู้ใช้เป็น Server
+
+โหมดหลัก:
+- Local: ใช้เฉพาะเครื่อง Server
+- LAN: เครื่องอื่นใน Wi-Fi/LAN เดียวกันเข้าได้
+- Public Internet: สร้างลิงก์ HTTPS ผ่าน Cloudflare Quick Tunnel โดยไม่ต้อง Port Forward Router
+
+Web Calculator รองรับ Drive Torque, Main Battery 72 V, Winch + Auto/Manual Lift Events และ Stability / Tipping
+
+ดูวิธีใช้งานเพิ่มเติมที่ `README_WEB.md`
 
 ## Manifest URL ที่โปรแกรมใช้
 `https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json`
