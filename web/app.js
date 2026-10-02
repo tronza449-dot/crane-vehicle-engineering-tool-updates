@@ -43,14 +43,14 @@ function openTab(tabName){
   const btn=$('.tab[data-tab="'+tabName+'"]');
   const page=$("#"+tabName);
   if(!btn||!page) return;
-  $(".tab").forEach(x=>x.classList.remove("active"));
-  $(".page").forEach(x=>x.classList.remove("active"));
+  $$(".tab").forEach(x=>x.classList.remove("active"));
+  $$(".page").forEach(x=>x.classList.remove("active"));
   btn.classList.add("active");
   page.classList.add("active");
   window.scrollTo({top:0,behavior:"smooth"});
 }
 $(".tab").forEach(btn=>btn.addEventListener("click",()=>openTab(btn.dataset.tab)));
-$("[data-open-tab]").forEach(card=>card.addEventListener("click",()=>openTab(card.dataset.openTab)));
+$$("[data-open-tab]").forEach(card=>card.addEventListener("click",()=>openTab(card.dataset.openTab)));
 $("#savePin").addEventListener("click",()=>{localStorage.setItem("cvet_web_pin",$("#webPin").value.trim());$("#pinStatus").textContent="บันทึกแล้ว";});
 $("#eventMode").addEventListener("change",()=>{$("#manualEventsWrap").classList.toggle("hidden",$("#eventMode").value!=="manual");});
 $("#downMode").addEventListener("change",()=>{$$(".customDown").forEach(x=>x.classList.toggle("hidden",$("#downMode").value!=="custom"));});
