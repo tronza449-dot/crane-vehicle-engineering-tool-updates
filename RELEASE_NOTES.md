@@ -1,71 +1,39 @@
-# Crane Vehicle Engineering Tool V53.5.0
+# Crane Vehicle Engineering Tool V53.5.1
 
-## Full Calculation Web + Updater Release
+## Free Permanent Web Link — Tailscale Funnel
 
-อัปเดตรอบนี้นำเว็บคำนวณแบบละเอียดเข้า Update Channel อย่างเป็นทางการ เพื่อให้ปุ่ม Check Update ในโปรแกรมสามารถดาวน์โหลดเวอร์ชันนี้ได้โดยตรง
+อัปเดตรอบนี้เพิ่มโหมดลิงก์เว็บถาวรฟรี โดยไม่ต้องซื้อ Domain และไม่ต้องใช้ลิงก์สุ่มของ Cloudflare ทุกครั้ง
 
-### Web Calculation
-เพิ่มตารางคำนวณแบบละเอียดในทุกโมดูลหลัก:
-- ตัวแปร / รายการ
-- สูตรสัญลักษณ์
-- แทนค่าตัวเลขอัตโนมัติ
-- ผลลัพธ์
-- หน่วย
-- คำนวณหาอะไร
-- อธิบายสูตรแบบง่าย
+### โหมดใหม่
+เพิ่มตัวเลือกในโปรแกรมหลัก:
+1. FREE PERMANENT LINK — Tailscale Funnel (*.ts.net) [แนะนำ]
+2. QUICK PUBLIC LINK — Cloudflare (ลิงก์สุ่ม)
+3. LAN / Wi-Fi
+4. LOCAL
 
-### Drive Torque
-- ความเร็ว SI
-- รัศมีล้อ
-- ความเร่ง
-- แรงจากความชัน
-- แรงต้านการกลิ้ง
-- แรงเร่ง
-- แรงรวมและแรงออกแบบ
-- แรง/มอเตอร์
-- Torque/มอเตอร์
-- Wheel RPM
-- Mechanical/Electrical Power
-- Battery Current
-- Traction Margin
+### FREE PERMANENT LINK
+- ใช้ Tailscale Funnel
+- ได้ HTTPS อัตโนมัติ
+- ไม่ต้อง Port Forward Router
+- ไม่ต้องซื้อ Domain
+- ตั้งชื่อเครื่อง Tailscale เป็น `cvet`
+- ลิงก์จะมีรูปแบบประมาณ `https://cvet.<tailnet>.ts.net`
+- ลิงก์เดิมสามารถใช้ซ้ำได้ตราบใดที่ยังใช้ Tailnet และชื่อเครื่องเดิม
 
-### Main Battery 72V
-- ระยะและเวลาต่อรอบ
-- จำนวนรอบเชิงทฤษฎี
-- ทางราบ / ทางลาด
-- กำลังทางราบ / ขึ้นลาด / ช่วงเร่ง
-- Drive Energy
-- Auxiliary Energy
-- DoD
-- Reserve
-- Design Wh
-- Design Ah
-- Standard Ah
-- Uphill / Acceleration Current
-- No Regen
+### First-time Setup
+ครั้งแรกเท่านั้น:
+- โปรแกรมตรวจหา Tailscale
+- ถ้ายังไม่มี จะลองติดตั้งผ่าน winget
+- ถ้าติดตั้งอัตโนมัติไม่ได้ จะเปิดหน้าดาวน์โหลด Tailscale ทางการ
+- Login Tailscale ฟรี
+- อนุญาต Funnel หนึ่งครั้ง
+- หลังจากนั้นเปิด Permanent Link ได้จากโปรแกรมโดยตรง
 
-### Winch 12V
-- Datasheet interpolation
-- Rope layer / line pull check
-- เวลา UP / DOWN
-- Auto / Manual จำนวนงานยก
-- จำนวนรอบในเวลาทำงาน
-- พลังงานต่อ 1 งานยก
-- พลังงานรวม
-- Ah used / Ah design
-- Standard battery capacity
-- BMS continuous / peak check
+### Security
+- Web PIN ยังใช้ได้เหมือนเดิม
+- แนะนำให้ตั้ง PIN เมื่อนำลิงก์ออกอินเทอร์เน็ต
 
-### Stability / Tipping
-- Side / Front / Rear SF
-- Pivot
-- Load / Boom position
-- Overturning Moment
-- Resisting Moment
-- Crane / Load longitudinal position
-- คำเตือนให้ยืนยัน CG จริงและ Dynamic Load
-
-### Updater
-- V53.5.0 ถูกปล่อยผ่าน GitHub Update Channel
-- Check Update จะอ่าน latest.json แล้วพบ V53.5.0
-- Installer และ CraneVehicleWebServer.exe ถูกสร้างและเผยแพร่ผ่าน GitHub Actions
+### Compatibility
+- Cloudflare Quick Tunnel เดิมยังใช้งานได้
+- LAN และ Local mode ยังใช้งานได้
+- Web Calculators แบบละเอียดจาก V53.5.0 ยังอยู่ครบ
