@@ -111,19 +111,110 @@ function syncVehicleParameters(){
   setParam("paramWinchSupply",smart(winchV,1)+" V Separate");
 }
 
+const CVET_SHARED_STORE="cvet_web_shared_project_v1";
+
+const SHARED_PARAMETER_GROUPS={
+  mass_kg:[["driveForm","mass_kg"],["batteryForm","mass_kg"]],
+  slope_deg:[["driveForm","slope_deg"],["batteryForm","slope_deg"]],
+  speed_kmh:[["driveForm","speed_kmh"],["batteryForm","speed_kmh"],["winchForm","vehicle_speed_kmh"]],
+  voltage_v:[["driveForm","voltage_v"],["batteryForm","voltage_v"]],
+  motors:[["driveForm","motors"],["batteryForm","motors"]],
+  one_way_m:[["batteryForm","one_way_m"],["winchForm","one_way_m"]],
+  runtime_h:[["batteryForm","runtime_h"],["winchForm","operating_hours"]]
+};
+
+function getField(formId,name){
+  const form=$("#"+formId);
+  return form && form.elements[name] ? form.elements[name] : null;
+}
+
+function loadSharedProjectValues(){
+  try{return JSON.parse(localStorage.getItem(CVET_SHARED_STORE)||"{}");}
+  catch(e){return {};}
+}
+
+function saveSharedProjectValues(data){
+  try{localStorage.setItem(CVET_SHARED_STORE,JSON.stringify(data));}catch(e){}
+}
+
+function sharedGroupForElement(el){
+  const form=el.closest("form");
+  if(!form) return null;
+  for(const [group,pairs] of Object.entries(SHARED_PARAMETER_GROUPS)){
+    if(pairs.some(([fid,name])=>fid===form.id && name===el.name)) return group;
+  }
+  return null;
+}
+
+function syncSharedProjectParameter(group,value,sourceEl=null){
+  const pairs=SHARED_PARAMETER_GROUPS[group]||[];
+  pairs.forEach(([formId,name])=>{
+    const el=getField(formId,name);
+    if(el && el!==sourceEl) el.value=value;
+  });
+  const data=loadSharedProjectValues();
+  data[group]=value;
+  saveSharedProjectValues(data);
+}
+
+function restoreSharedProjectParameters(){
+  const data=loadSharedProjectValues();
+
+  // First install: use the primary project forms as the canonical baseline.
+  if(Object.keys(data).length===0){
+    const defaults={
+      mass_kg:getField("batteryForm","mass_kg")?.value,
+      slope_deg:getField("batteryForm","slope_deg")?.value,
+      speed_kmh:getField("batteryForm","speed_kmh")?.value,
+      voltage_v:getField("batteryForm","voltage_v")?.value,
+      motors:getField("batteryForm","motors")?.value,
+      one_way_m:getField("batteryForm","one_way_m")?.value,
+      runtime_h:getField("batteryForm","runtime_h")?.value
+    };
+    Object.entries(defaults).forEach(([group,value])=>{
+      if(value!==undefined) syncSharedProjectParameter(group,value);
+    });
+    return;
+  }
+
+  Object.entries(data).forEach(([group,value])=>{
+    if(group in SHARED_PARAMETER_GROUPS) syncSharedProjectParameter(group,value);
+  });
+}
+
+function setupSharedProjectParameterSync(){
+  Object.entries(SHARED_PARAMETER_GROUPS).forEach(([group,pairs])=>{
+    pairs.forEach(([formId,name])=>{
+      const el=getField(formId,name);
+      if(!el) return;
+      ["input","change"].forEach(evt=>el.addEventListener(evt,()=>{
+        syncSharedProjectParameter(group,el.value,el);
+        saveWebInputs();
+        syncVehicleParameters();
+      }));
+    });
+  });
+}
+
 function setupDynamicProjectParameters(){
   restoreWebInputs();
+  restoreSharedProjectParameters();
+
   storedInputElements().forEach(el=>{
     ["input","change"].forEach(evt=>el.addEventListener(evt,()=>{
       saveWebInputs();
       syncVehicleParameters();
     }));
   });
+  setupSharedProjectParameterSync();
+
   // Restore dependent visibility after persisted select values.
   const eventMode=$("#eventMode");
   if(eventMode) $("#manualEventsWrap").classList.toggle("hidden",eventMode.value!=="manual");
   const downMode=$("#downMode");
-  if(downMode) $$(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
+  if(downMode) $(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
+
+  saveWebInputs();
   syncVehicleParameters();
 }
 
