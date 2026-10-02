@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.3.6"
+APP_VERSION = "53.3.7"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -6181,9 +6181,11 @@ void loop() {{
         <h2>1) ขาขึ้น / UP</h2>
         <p>จาก First Layer interpolation: v<sub>up</sub> = <b>{b['up_speed']:.3f} m/min</b>,
         I<sub>up</sub> = <b>{b['up_current']:.2f} A</b></p>
-        <p><b>สูตรเวลา:</b> t<sub>up</sub> = (h / v<sub>up</sub>) × 60</p>
+        <p><b>สูตรตัวแปร:</b> t<sub>up</sub> = (h / v<sub>up</sub>) × 60</p>
+        <p><b>สูตรภาษาไทย:</b> เวลายกขึ้น = ระยะยก ÷ ความเร็ววินช์ขาขึ้น × 60</p>
         <p><b>แทนค่า:</b> ({b['lift']:.2f} / {b['up_speed']:.3f}) × 60 = <b>{b['up_time']:.2f} s</b></p>
-        <p><b>สูตรพลังงาน:</b> E<sub>up</sub> = V × I<sub>up</sub> × t<sub>up</sub> / 3600</p>
+        <p><b>สูตรตัวแปร:</b> E<sub>up</sub> = V × I<sub>up</sub> × t<sub>up</sub> / 3600</p>
+        <p><b>สูตรภาษาไทย:</b> พลังงานขาขึ้น = แรงดันแบต × กระแสขณะยกขึ้น × เวลายกขึ้น ÷ 3600</p>
         <p><b>แทนค่า:</b> {b['voltage']:.2f} × {b['up_current']:.2f} × {b['up_time']:.2f} / 3600
         = <b>{b['e_up']:.3f} Wh</b></p>
 
@@ -6192,24 +6194,29 @@ void loop() {{
         <p>v<sub>down</sub> = <b>{b['down_speed']:.3f} m/min</b>,
         I<sub>down</sub> = <b>{b['down_current']:.2f} A</b>,
         t<sub>down</sub> = <b>{b['down_time']:.2f} s</b></p>
-        <p><b>สูตรพลังงาน:</b> E<sub>down</sub> = V × I<sub>down</sub> × t<sub>down</sub> / 3600</p>
+        <p><b>สูตรตัวแปร:</b> E<sub>down</sub> = V × I<sub>down</sub> × t<sub>down</sub> / 3600</p>
+        <p><b>สูตรภาษาไทย:</b> พลังงานขาลง = แรงดันแบต × กระแสขณะลดลง × เวลาลดลง ÷ 3600</p>
         <p><b>แทนค่า:</b> {b['voltage']:.2f} × {b['down_current']:.2f} × {b['down_time']:.2f} / 3600
         = <b>{b['e_down']:.3f} Wh</b></p>
 
         <h2>3) พลังงานต่อ 1 งานยกสัตว์</h2>
-        <p><b>สูตร:</b> E<sub>event</sub> = E<sub>up</sub> + E<sub>down</sub></p>
+        <p><b>สูตรตัวแปร:</b> E<sub>event</sub> = E<sub>up</sub> + E<sub>down</sub></p>
+        <p><b>สูตรภาษาไทย:</b> พลังงานต่อ 1 งานยกสัตว์ = พลังงานขาขึ้น + พลังงานขาลง</p>
         <p><b>แทนค่า:</b> {b['e_up']:.3f} + {b['e_down']:.3f} = <b>{b['e_event']:.3f} Wh/งาน</b></p>
 
         <h2>4) พลังงานรวม</h2>
-        <p><b>สูตร:</b> E<sub>total</sub> = N<sub>event</sub> × E<sub>event</sub></p>
+        <p><b>สูตรตัวแปร:</b> E<sub>total</sub> = N<sub>event</sub> × E<sub>event</sub></p>
+        <p><b>สูตรภาษาไทย:</b> พลังงานรวม = จำนวนงานยกสัตว์ × พลังงานต่อ 1 งานยกสัตว์</p>
         <p><b>แทนค่า:</b> {b['events']} × {b['e_event']:.3f} = <b>{b['total']:.2f} Wh</b></p>
 
         <h2>5) Ah ที่ใช้จริง</h2>
-        <p><b>สูตร:</b> Ah<sub>used</sub> = E<sub>total</sub> / V</p>
+        <p><b>สูตรตัวแปร:</b> Ah<sub>used</sub> = E<sub>total</sub> / V</p>
+        <p><b>สูตรภาษาไทย:</b> ความจุแบตที่ใช้จริง = พลังงานรวม ÷ แรงดันแบตเตอรี่</p>
         <p><b>แทนค่า:</b> {b['total']:.2f} / {b['voltage']:.2f} = <b>{b['ah_used']:.2f} Ah</b></p>
 
         <h2>6) Ah ออกแบบหลัง DoD + Reserve</h2>
-        <p><b>สูตร:</b> Ah<sub>design</sub> = E<sub>total</sub>(1+Reserve) / (V × DoD)</p>
+        <p><b>สูตรตัวแปร:</b> Ah<sub>design</sub> = E<sub>total</sub>(1+Reserve) / (V × DoD)</p>
+        <p><b>สูตรภาษาไทย:</b> ความจุแบตออกแบบ = พลังงานรวม × (1 + พลังงานสำรอง) ÷ (แรงดันแบต × สัดส่วน DoD ที่อนุญาตให้ใช้)</p>
         <p><b>แทนค่า:</b> {b['total']:.2f} × (1+{b['reserve']:.2f}) /
         ({b['voltage']:.2f} × {b['dod']:.2f}) = <b>{b['ah_design']:.2f} Ah</b></p>
         <p>ขนาดมาตรฐาน ≥ ค่าคำนวณ = <b>{b['standard_ah']:.0f} Ah</b> •
@@ -6296,45 +6303,55 @@ void loop() {{
         Load = {r['load_kg']:.1f} kg, Lift distance = {r['lift_m']:.2f} m</p>
 
         <h2>1) แปลงความเร็วรถ</h2>
-        <p><b>สูตร:</b> v<sub>car</sub> = V<sub>km/h</sub> × 1000 / 3600</p>
+        <p><b>สูตรตัวแปร:</b> v<sub>car</sub> = V<sub>km/h</sub> × 1000 / 3600</p>
+        <p><b>สูตรภาษาไทย:</b> ความเร็วรถ (m/s) = ความเร็วรถ (km/h) × 1000 ÷ 3600</p>
         <p><b>ความหมาย:</b> แปลงความเร็วรถจาก km/h เป็น m/s</p>
         <p><b>แทนค่า:</b> {r['speed_kmh']:.2f} × 1000 / 3600 = <b>{r['car_mps']:.5f} m/s</b></p>
 
         <h2>2) เวลาวิ่งเที่ยวเดียว</h2>
-        <p><b>สูตร:</b> t<sub>oneway</sub> = d / v<sub>car</sub></p>
-        <p><b>ความหมาย:</b> เวลาวิ่งขาไปหรือขากลับ = ระยะทางเที่ยวเดียว ÷ ความเร็วรถ</p>
+        <p><b>สูตรตัวแปร:</b> t<sub>oneway</sub> = d / v<sub>car</sub></p>
+        <p><b>สูตรภาษาไทย:</b> เวลาวิ่งเที่ยวเดียว = ระยะทางเที่ยวเดียว ÷ ความเร็วรถ</p>
+        <p><b>ความหมาย:</b> ใช้หาเวลาที่รถใช้สำหรับขาไปหรือขากลับหนึ่งเที่ยว</p>
         <p><b>แทนค่า:</b> {r['one_way']:.2f} / {r['car_mps']:.5f} = <b>{r['t_one']:.2f} s</b></p>
 
         <h2>3) เวลาวินช์ขึ้น</h2>
-        <p><b>สูตร:</b> t<sub>up</sub> = (h / v<sub>winch</sub>) × 60</p>
-        <p><b>ความหมาย:</b> เวลาขึ้น = ระยะยก ÷ ความเร็วสลิง × 60</p>
+        <p><b>สูตรตัวแปร:</b> t<sub>up</sub> = (h / v<sub>winch</sub>) × 60</p>
+        <p><b>สูตรภาษาไทย:</b> เวลายกขึ้น = ระยะยก ÷ ความเร็ววินช์ขาขึ้น × 60</p>
+        <p><b>ความหมาย:</b> คูณ 60 เพื่อแปลงเวลาจากนาทีเป็นวินาที</p>
         <p><b>แทนค่า:</b> ({r['lift_m']:.2f} / {r['winch_speed']:.3f}) × 60 = <b>{r['t_up']:.2f} s</b></p>
 
         <h2>4) เวลาวินช์ลง</h2>
         <p><b>Mode ขาลง:</b> {r['down_mode']} — {r['down_basis']}</p>
+        <p><b>สูตรตัวแปร:</b> t<sub>down</sub> = (h / v<sub>down</sub>) × 60 เมื่อใช้ Down Speed</p>
+        <p><b>สูตรภาษาไทย:</b> เวลาลดลง = ระยะยก ÷ ความเร็ววินช์ขาลง × 60</p>
         <p><b>เวลา:</b> t<sub>down</sub> = <b>{r['t_down']:.2f} s</b></p>
 
         <h2>5) เวลา 1 งานยกสัตว์</h2>
-        <p><b>สูตร:</b> t<sub>event</sub> = t<sub>up</sub> + t<sub>down</sub></p>
+        <p><b>สูตรตัวแปร:</b> t<sub>event</sub> = t<sub>up</sub> + t<sub>down</sub></p>
+        <p><b>สูตรภาษาไทย:</b> เวลา 1 งานยกสัตว์ = เวลาวินช์ขึ้น + เวลาวินช์ลง</p>
         <p><b>ความหมาย:</b> งานยกสัตว์ 1 งาน = วินช์ขึ้นหนึ่งครั้ง + วินช์ลงหนึ่งครั้ง</p>
         <p><b>แทนค่า:</b> {r['t_up']:.2f} + {r['t_down']:.2f} = <b>{r['t_event']:.2f} s</b></p>
 
         <h2>6) เวลาวิ่งไป-กลับ</h2>
-        <p><b>สูตร:</b> t<sub>drive,round</sub> = 2 × t<sub>oneway</sub></p>
+        <p><b>สูตรตัวแปร:</b> t<sub>drive,round</sub> = 2 × t<sub>oneway</sub></p>
+        <p><b>สูตรภาษาไทย:</b> เวลาวิ่งรถต่อรอบไป-กลับ = 2 × เวลาวิ่งเที่ยวเดียว</p>
         <p><b>แทนค่า:</b> 2 × {r['t_one']:.2f} = <b>{r['t_drive_round']:.2f} s</b></p>
 
         <h2>7) เวลางานยกรวมต่อรอบ</h2>
-        <p><b>สูตร:</b> t<sub>lift,round</sub> = t<sub>event</sub> × N<sub>event/round</sub></p>
-        <p><b>ความหมาย:</b> เวลา 1 งานยก × จำนวนงานยกสัตว์ในหนึ่งรอบไป-กลับ</p>
+        <p><b>สูตรตัวแปร:</b> t<sub>lift,round</sub> = t<sub>event</sub> × N<sub>event/round</sub></p>
+        <p><b>สูตรภาษาไทย:</b> เวลางานยกรวมต่อรอบ = เวลา 1 งานยกสัตว์ × จำนวนงานยกต่อรอบ</p>
+        <p><b>ความหมาย:</b> รวมเวลาวินช์ของทุกงานยกในหนึ่งรอบไป-กลับ</p>
         <p><b>แทนค่า:</b> {r['t_event']:.2f} × {r['events_per_round']} = <b>{r['t_lift_round']:.2f} s</b></p>
 
         <h2>8) เวลารวมต่อ 1 รอบไป-กลับ</h2>
-        <p><b>สูตร:</b> t<sub>round</sub> = t<sub>drive,round</sub> + t<sub>lift,round</sub> + t<sub>other</sub></p>
+        <p><b>สูตรตัวแปร:</b> t<sub>round</sub> = t<sub>drive,round</sub> + t<sub>lift,round</sub> + t<sub>other</sub></p>
+        <p><b>สูตรภาษาไทย:</b> เวลารวมต่อรอบ = เวลาวิ่งรถไป-กลับ + เวลางานยกรวม + เวลาหยุดอื่น</p>
         <p><b>แทนค่า:</b> {r['t_drive_round']:.2f} + {r['t_lift_round']:.2f} + {r['other']:.2f}
         = <b>{r['t_round']:.2f} s/รอบ</b></p>
 
         <h2>9) จำนวนรอบในเวลาที่กำหนด</h2>
-        <p><b>สูตร:</b> N<sub>theory</sub> = t<sub>available</sub> / t<sub>round</sub></p>
+        <p><b>สูตรตัวแปร:</b> N<sub>theory</sub> = t<sub>available</sub> / t<sub>round</sub></p>
+        <p><b>สูตรภาษาไทย:</b> จำนวนรอบทางทฤษฎี = เวลาทำงานที่มีทั้งหมด ÷ เวลาที่ใช้ต่อ 1 รอบ</p>
         <p><b>แทนค่า:</b> ({r['hours']:.2f} × 3600) / {r['t_round']:.2f}
         = <b>{r['n_theory']:.2f} รอบ</b></p>
         <p>นับเฉพาะรอบที่ทำครบ → <b>{r['rounds']} รอบไป-กลับ</b></p>
@@ -6395,39 +6412,64 @@ void loop() {{
         <p><b>หลักการ:</b> หน้านี้เป็นหน้าคำอธิบายเท่านั้น ผลตัวเลขดึงจาก Datasheet → รอบการทำงาน → Battery ชุดเดียวกัน ไม่คำนวณแบตอีกชุดแยกต่างหาก</p>
 
         <h2>1) Interpolation ความเร็วและกระแสขาขึ้น</h2>
-        <p><b>α = (m-m₀)/(m₁-m₀)</b></p>
+        <p><b>สูตรตัวแปร:</b> α = (m-m₀)/(m₁-m₀)</p>
+        <p><b>สูตรภาษาไทย:</b> สัดส่วนการอินเตอร์โพเลต = (โหลดที่ต้องการ - โหลดจุดล่าง) ÷ (โหลดจุดบน - โหลดจุดล่าง)</p>
         <p><b>ความหมาย:</b> หาตำแหน่งของ Load ปัจจุบันระหว่างจุดข้อมูลสองจุดใน First Layer table</p>
         <p><b>แทนค่า:</b> ({core['m']:.1f}-{x0:.1f})/({x1:.1f}-{x0:.1f}) = <b>{alpha:.4f}</b></p>
-        <p><b>v_up = v₀ + α(v₁-v₀)</b> = {v0:.3f}+{alpha:.4f}({v1:.3f}-{v0:.3f}) = <b>{core['up_speed']:.3f} m/min</b></p>
-        <p><b>I_up = I₀ + α(I₁-I₀)</b> = {i0:.2f}+{alpha:.4f}({i1:.2f}-{i0:.2f}) = <b>{core['iup']:.2f} A</b></p>
+        <p><b>สูตรตัวแปร:</b> v_up = v₀ + α(v₁-v₀)</p>
+        <p><b>สูตรภาษาไทย:</b> ความเร็ววินช์ขาขึ้น = ความเร็วจุดล่าง + สัดส่วนการอินเตอร์โพเลต × (ความเร็วจุดบน - ความเร็วจุดล่าง)</p>
+        <p><b>แทนค่า:</b> {v0:.3f}+{alpha:.4f}({v1:.3f}-{v0:.3f}) = <b>{core['up_speed']:.3f} m/min</b></p>
+        <p><b>สูตรตัวแปร:</b> I_up = I₀ + α(I₁-I₀)</p>
+        <p><b>สูตรภาษาไทย:</b> กระแสขณะยกขึ้น = กระแสจุดล่าง + สัดส่วนการอินเตอร์โพเลต × (กระแสจุดบน - กระแสจุดล่าง)</p>
+        <p><b>แทนค่า:</b> {i0:.2f}+{alpha:.4f}({i1:.2f}-{i0:.2f}) = <b>{core['iup']:.2f} A</b></p>
 
         <h2>2) เวลาวินช์ขึ้น</h2>
-        <p><b>t_up = (h/v_up) × 60</b></p>
-        <p><b>ความหมาย:</b> เวลายกขึ้น = ระยะยก ÷ ความเร็วสลิง × 60</p>
+        <p><b>สูตรตัวแปร:</b> t_up = (h/v_up) × 60</p>
+        <p><b>สูตรภาษาไทย:</b> เวลายกขึ้น = ระยะยก ÷ ความเร็ววินช์ขาขึ้น × 60</p>
+        <p><b>ความหมาย:</b> คูณ 60 เพื่อแปลงเวลาจากนาทีเป็นวินาที</p>
         <p><b>แทนค่า:</b> ({core['h']:.2f}/{core['up_speed']:.3f})×60 = <b>{core['tu']:.2f} s</b></p>
 
         <h2>3) เวลาขาลง</h2>
         <p><b>Mode:</b> {b['down_mode']} — {b['down_basis']}</p>
+        <p><b>สูตรตัวแปรเมื่อใช้ Down Speed:</b> t_down = (h/v_down) × 60</p>
+        <p><b>สูตรภาษาไทย:</b> เวลาลดลง = ระยะยก ÷ ความเร็ววินช์ขาลง × 60</p>
         <p>I_down = <b>{b['down_current']:.2f} A</b>, v_down = <b>{b['down_speed']:.3f} m/min</b>,
         t_down = <b>{b['down_time']:.2f} s</b></p>
 
         <h2>4) รอบการทำงาน</h2>
-        <p><b>t_event = t_up + t_down</b> = {core['tu']:.2f}+{b['down_time']:.2f} = <b>{r['t_event']:.2f} s/งาน</b></p>
-        <p><b>t_round = t_drive,round + t_lift,round + t_other</b> =
+        <p><b>สูตรตัวแปร:</b> t_event = t_up + t_down</p>
+        <p><b>สูตรภาษาไทย:</b> เวลา 1 งานยกสัตว์ = เวลาวินช์ขึ้น + เวลาวินช์ลง</p>
+        <p><b>แทนค่า:</b> {core['tu']:.2f}+{b['down_time']:.2f} = <b>{r['t_event']:.2f} s/งาน</b></p>
+        <p><b>สูตรตัวแปร:</b> t_round = t_drive,round + t_lift,round + t_other</p>
+        <p><b>สูตรภาษาไทย:</b> เวลารวมต่อรอบ = เวลาวิ่งรถไป-กลับ + เวลางานยกรวม + เวลาหยุดอื่น</p>
+        <p><b>แทนค่า:</b>
         {r['t_drive_round']:.2f}+{r['t_lift_round']:.2f}+{r['other']:.2f} = <b>{r['t_round']:.2f} s/รอบ</b></p>
-        <p><b>N_round = floor(t_available/t_round)</b> = floor({r['total_s']:.0f}/{r['t_round']:.2f}) = <b>{r['rounds']} รอบ</b></p>
-        <p><b>N_event = N_round × events/round</b> = {r['rounds']}×{r['events_per_round']} = <b>{r['lift_events']} งาน</b></p>
+        <p><b>สูตรตัวแปร:</b> N_round = floor(t_available/t_round)</p>
+        <p><b>สูตรภาษาไทย:</b> จำนวนรอบที่ทำได้ครบ = ปัดลง(เวลาทำงานทั้งหมด ÷ เวลาต่อ 1 รอบ)</p>
+        <p><b>แทนค่า:</b> floor({r['total_s']:.0f}/{r['t_round']:.2f}) = <b>{r['rounds']} รอบ</b></p>
+        <p><b>สูตรตัวแปร:</b> N_event = N_round × events/round</p>
+        <p><b>สูตรภาษาไทย:</b> จำนวนงานยกสัตว์ = จำนวนรอบที่ทำได้ครบ × จำนวนงานยกต่อรอบ</p>
+        <p><b>แทนค่า:</b> {r['rounds']}×{r['events_per_round']} = <b>{r['lift_events']} งาน</b></p>
 
         <h2>5) พลังงานแบตวินช์ — ชุดคำนวณหลัก</h2>
-        <p><b>E_up = V I_up t_up / 3600</b> =
-        {b['voltage']:.2f}×{b['up_current']:.2f}×{b['up_time']:.2f}/3600 = <b>{b['e_up']:.3f} Wh</b></p>
-        <p><b>E_down = V I_down t_down / 3600</b> =
-        {b['voltage']:.2f}×{b['down_current']:.2f}×{b['down_time']:.2f}/3600 = <b>{b['e_down']:.3f} Wh</b></p>
-        <p><b>E_event = E_up + E_down</b> = {b['e_up']:.3f}+{b['e_down']:.3f} = <b>{b['e_event']:.3f} Wh/งาน</b></p>
-        <p><b>E_total = N_event × E_event</b> = {b['events']}×{b['e_event']:.3f} = <b>{b['total']:.2f} Wh</b></p>
-        <p><b>Ah_used = E_total/V</b> = {b['total']:.2f}/{b['voltage']:.2f} = <b>{b['ah_used']:.2f} Ah</b></p>
-        <p><b>Ah_design = E_total(1+Reserve)/(V×DoD)</b> =
-        {b['total']:.2f}×(1+{b['reserve']:.2f})/({b['voltage']:.2f}×{b['dod']:.2f})
+        <p><b>สูตรตัวแปร:</b> E_up = V × I_up × t_up / 3600</p>
+        <p><b>สูตรภาษาไทย:</b> พลังงานขาขึ้น = แรงดันแบต × กระแสขณะยกขึ้น × เวลายกขึ้น ÷ 3600</p>
+        <p><b>แทนค่า:</b> {b['voltage']:.2f}×{b['up_current']:.2f}×{b['up_time']:.2f}/3600 = <b>{b['e_up']:.3f} Wh</b></p>
+        <p><b>สูตรตัวแปร:</b> E_down = V × I_down × t_down / 3600</p>
+        <p><b>สูตรภาษาไทย:</b> พลังงานขาลง = แรงดันแบต × กระแสขณะลดลง × เวลาลดลง ÷ 3600</p>
+        <p><b>แทนค่า:</b> {b['voltage']:.2f}×{b['down_current']:.2f}×{b['down_time']:.2f}/3600 = <b>{b['e_down']:.3f} Wh</b></p>
+        <p><b>สูตรตัวแปร:</b> E_event = E_up + E_down</p>
+        <p><b>สูตรภาษาไทย:</b> พลังงานต่อ 1 งานยกสัตว์ = พลังงานขาขึ้น + พลังงานขาลง</p>
+        <p><b>แทนค่า:</b> {b['e_up']:.3f}+{b['e_down']:.3f} = <b>{b['e_event']:.3f} Wh/งาน</b></p>
+        <p><b>สูตรตัวแปร:</b> E_total = N_event × E_event</p>
+        <p><b>สูตรภาษาไทย:</b> พลังงานรวม = จำนวนงานยกสัตว์ × พลังงานต่อ 1 งานยกสัตว์</p>
+        <p><b>แทนค่า:</b> {b['events']}×{b['e_event']:.3f} = <b>{b['total']:.2f} Wh</b></p>
+        <p><b>สูตรตัวแปร:</b> Ah_used = E_total/V</p>
+        <p><b>สูตรภาษาไทย:</b> ความจุแบตที่ใช้จริง = พลังงานรวม ÷ แรงดันแบตเตอรี่</p>
+        <p><b>แทนค่า:</b> {b['total']:.2f}/{b['voltage']:.2f} = <b>{b['ah_used']:.2f} Ah</b></p>
+        <p><b>สูตรตัวแปร:</b> Ah_design = E_total(1+Reserve)/(V×DoD)</p>
+        <p><b>สูตรภาษาไทย:</b> ความจุแบตออกแบบ = พลังงานรวม × (1 + พลังงานสำรอง) ÷ (แรงดันแบต × สัดส่วน DoD ที่อนุญาตให้ใช้)</p>
+        <p><b>แทนค่า:</b> {b['total']:.2f}×(1+{b['reserve']:.2f})/({b['voltage']:.2f}×{b['dod']:.2f})
         = <b>{b['ah_design']:.2f} Ah</b></p>
 
         <p><b>ขนาดมาตรฐาน ≥ ค่าคำนวณ:</b> {b['standard_ah']:.0f} Ah •
@@ -6500,7 +6542,7 @@ void loop() {{
         sp=self.winch_speed_results()
         if hasattr(self,"wSpeedSummary"):self.wSpeedSummary.setText(f"{sp['load_up']:.3f} m/min • {sp['current_a']:.2f} A")
         if hasattr(self,"wSpeedSteps"):self.wSpeedSteps.setHtml(self.winch_speed_html(sp))
-        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.6</h2><p>Datasheet → Operating Cycles → Battery เป็น data flow หลักชุดเดียว.</p>")
+        if hasattr(self,"wGuide"):self.wGuide.setHtml("<h2>Winch V53.3.7</h2><p>Datasheet → Operating Cycles → Battery เป็น data flow หลักชุดเดียว.</p>")
         if hasattr(self,"wResult"):self.wResult.setHtml(self.winch_html())
         if hasattr(self,"wDutyView"):self.update_winch_duty()
         if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
