@@ -36,6 +36,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="home">Dashboard</button>
     <button class="tab" data-tab="drive">Drive Torque</button>
+    <button class="tab" data-tab="ramp">Ramp Geometry</button>
     <button class="tab" data-tab="battery">Main Battery 72V</button>
     <button class="tab" data-tab="winch">Winch</button>
     <button class="tab" data-tab="stability">Stability</button>
@@ -67,6 +68,13 @@
           <span class="card-title">Drive Torque</span>
           <span class="card-text">แรงทางลาด • Rolling resistance • Torque / Motor • Current</span>
           <span class="card-link">เปิดโมดูล →</span>
+        </button>
+        <button class="dash-card ramp-card" data-open-tab="ramp">
+          <span class="card-index">08</span>
+          <span class="card-icon">∠</span>
+          <span class="card-title">Ramp Geometry</span>
+          <span class="card-text">Rise / Run • Ramp length • Angle • Slope % • F_slope</span>
+          <span class="card-link">คำนวณทางลาด →</span>
         </button>
         <button class="dash-card battery-card" data-open-tab="battery">
           <span class="card-index">02</span>
@@ -154,6 +162,33 @@
           <button id="calcDrive" class="primary full">คำนวณ Drive Torque</button>
         </form>
         <div id="driveResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
+      </div>
+    </section>
+
+    <section id="ramp" class="page">
+      <div class="page-title">
+        <h2>Ramp Geometry / การคำนวณองศาและความชันทางลาด</h2>
+        <p>คำนวณจากค่าที่วัดจริง: ความสูง h + ระยะราบ x + ความยาวทางลาดที่วัดได้</p>
+      </div>
+
+      <div class="layout">
+        <form id="rampForm" class="panel form-grid" onsubmit="return false;">
+          <label>ความสูง h (cm)<input name="rise_cm" type="number" value="55" step="0.1"></label>
+          <label>ระยะราบ x (cm)<input name="run_cm" type="number" value="280" step="0.1"></label>
+          <label>ความยาวทางลาดที่วัดได้ (cm)<input name="measured_slant_cm" type="number" value="290" step="0.1"></label>
+          <label>มวลรถสำหรับ F_slope (kg)<input name="mass_kg" type="number" value="300" step="1"></label>
+
+          <div class="full notice compact-note">
+            โปรแกรมจะใช้ <b>θ = tan⁻¹(h/x)</b> เป็นมุมทางลาดสำหรับสูตรมอเตอร์
+            และคำนวณ <b>Slope (%) = (h/x) × 100</b> แยกต่างหาก
+          </div>
+
+          <button id="calcRamp" class="primary full">คำนวณ Ramp Geometry</button>
+          <button id="applyRampAngle" type="button" class="secondary full">ใช้มุมที่คำนวณได้กับ Drive Torque + Main Battery</button>
+          <button id="applyRampLength" type="button" class="secondary full">ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery</button>
+        </form>
+
+        <div id="rampResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
       </div>
     </section>
 
