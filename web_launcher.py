@@ -225,8 +225,10 @@ def ensure_tailscale_login(ts: Path) -> bool:
     return False
 
 
-def set_tailscale_hostname(ts: Path, hostname: str) -> None:
+def set_tailscale_hostname(ts: Path, hostname: str) -> tuple[bool, str]:
+    """Rename the Tailscale machine and verify the MagicDNS name really changed."""
     hostname = re.sub(r"[^a-z0-9-]+", "-", hostname.strip().lower()).strip("-") or "cvet"
+    before = tailscale_dns_name(ts)
     try:
         cp = subprocess.run(
             [str(ts), "set", f"--hostname={hostname}"],
@@ -236,12 +238,28 @@ def set_tailscale_hostname(ts: Path, hostname: str) -> None:
             errors="replace",
             timeout=20,
         )
-        if cp.returncode == 0:
-            print(f"[CVET] ตั้งชื่อเครื่อง Tailscale = {hostname}")
-        else:
-            print("[CVET] ใช้ชื่อเครื่อง Tailscale เดิม เนื่องจากเปลี่ยนชื่อไม่ได้")
-    except Exception:
-        pass
+        output = ((cp.stdout or "") + "\n" + (cp.stderr or "")).strip()
+        if cp.returncode != 0:
+            msg = output or f"tailscale set exited with code {cp.returncode}"
+            print(f"[CVET] เปลี่ยนชื่อ Tailscale ไม่สำเร็จ: {msg}")
+            return False, msg
+
+        # The control plane can take a few seconds to return the new MagicDNS name.
+        expected_prefix = hostname + "."
+        for _ in range(20):
+            dns = tailscale_dns_name(ts)
+            if dns and (dns == hostname or dns.startswith(expected_prefix)):
+                print(f"[CVET] Tailscale machine name = {dns}")
+                return True, dns
+            time.sleep(0.5)
+
+        after = tailscale_dns_name(ts)
+        if after and after != before:
+            print(f"[CVET] Tailscale machine name = {after}")
+            return True, after
+        return False, after or output or "Tailscale ยังรายงานชื่อเครื่องเดิม"
+    except Exception as exc:
+        return False, str(exc)
 
 
 def tailscale_dns_name(ts: Path) -> str:
@@ -474,7 +492,27 @@ def run_tailscale_mode(port: int, hostname: str, no_browser: bool) -> int:
         print("เปิด Tailscale จาก System Tray → Log in แล้วลองใหม่")
         return 4
 
-    set_tailscale_hostname(ts, hostname)
+    rename_ok, rename_info = set_tailscale_hostname(ts, hostname)
+    if rename_ok:
+        write_web_status(
+            "PERMANENT",
+            "renamed",
+            message=f"ตั้งชื่อ Web Link เป็น {hostname} แล้ว • กำลังเปิด CVET Web Server...",
+        )
+    else:
+        write_web_status(
+            "PERMANENT",
+            "rename_warning",
+            message=("เปิดเว็บได้ แต่เปลี่ยนชื่อ Tailscale อัตโนมัติไม่สำเร็จ • "
+                     "Browser จะเปิดหน้า Machines ให้แก้ชื่อเป็น '"+hostname+"' เองครั้งเดียว"),
+        )
+        print("\n[CVET] หมายเหตุ: เปลี่ยน machine name อัตโนมัติไม่สำเร็จ")
+        if rename_info:
+            print("[CVET]", rename_info)
+        try:
+            webbrowser.open("https://login.tailscale.com/admin/machines")
+        except Exception:
+            pass
 
     write_web_status("PERMANENT", "server_starting", message="Login สำเร็จ • กำลังเปิด CVET Web Server...")
     server, thread = run_server_thread("127.0.0.1", port)
