@@ -290,18 +290,21 @@ jobs:
           assert abs(manual2["total"]-2.0*manual["total"])<1e-9
 
           # Candidate battery/BMS checks stay in the Battery tab.
+          # Reset to the normal automatic 3h / 64-event case before checking a 40 Ah candidate.
+          w.wbUseOp.setChecked(True)
+          w.wbDownMode.setCurrentIndex(0)
+          w.wbDownBasis.setCurrentIndex(0)
           w.wbCandidateAh.setValue(40.0)
           w.wbBmsCont.setValue(30.0)
           w.wbBmsPeak.setValue(150.0)
           bcheck=w.winch_battery_results()
+          assert bcheck["events"]==64
           assert bcheck["energy_ok"]
           assert bcheck["cont_ok"]
           assert not bcheck["table140_ok"]
           assert "Starting/Stall surge" in w.winch_battery_html(bcheck)
 
           # Reset normal project defaults for remaining regressions.
-          w.wbUseOp.setChecked(True)
-          w.wbDownMode.setCurrentIndex(0)
           w.wbDownBasis.setCurrentIndex(0)
           w.wbBmsCont.setValue(0.0);w.wbBmsPeak.setValue(0.0)
           w.wmass.setValue(100.0);w.wheight.setValue(1.0)
