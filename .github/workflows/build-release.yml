@@ -315,7 +315,7 @@ jobs:
           core2=w.winch_core_results()
           assert abs(core2["tu"]-2.0*core1["tu"])<1e-9
           assert core2["rope_layer"]==2 and core2["layer_pull_kg"]==1597.0
-          assert "2.00 m" in w.winch_formula_html()
+          assert "(2.00/" in w.winch_formula_html()
           assert "Layer 2" in w.winch_summary_html()
 
           # Load changes interpolation automatically.
