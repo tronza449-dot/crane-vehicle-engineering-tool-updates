@@ -332,6 +332,11 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     aux_w = max(0.0, _f(data, "aux_power_w", 100.0))
     dod = _clamp(_f(data, "dod_pct", 80.0) / 100.0, 0.01, 1.0)
     reserve = max(0.0, _f(data, "reserve_pct", 20.0) / 100.0)
+    target_cont_c = max(0.1, _f(data, "target_cont_c", 3.0))
+    target_peak_c = max(0.1, _f(data, "target_peak_c", 5.0))
+    candidate_ah = max(0.0, _f(data, "candidate_ah", 40.0))
+    candidate_bms_cont_a = max(0.0, _f(data, "candidate_bms_cont_a", 0.0))
+    candidate_bms_peak_a = max(0.0, _f(data, "candidate_bms_peak_a", 0.0))
     model = str(data.get("energy_model", "calculated")).strip().lower()
 
     runtime_s = runtime_h * 3600.0
@@ -398,6 +403,64 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     icalc_up = (pup_mech / eff) / voltage
     icalc_accel = (pacc_peak_mech / eff) / voltage
     iworst = pworst_batt / voltage
+
+    cont_req = max(0.0, icalc_up)
+    peak_req = max(0.0, icalc_accel, iworst)
+    ah_by_cont = cont_req / target_cont_c
+    ah_by_peak = peak_req / target_peak_c
+    design_ah_with_current = max(ah, ah_by_cont, ah_by_peak)
+    suggested_ah = next_standard_capacity(design_ah_with_current)
+
+    cycle_h = cycle_total_s / 3600.0 if cycle_total_s > 0 else 0.0
+    aux_per_cycle_wh = aux_w * cycle_h
+    load_per_cycle_wh = edrive_cycle + aux_per_cycle_wh
+
+    def reverse_for(capacity_ah: float) -> Dict[str, Any]:
+        cap = max(0.0, float(capacity_ah))
+        rated_wh = voltage * cap
+        load_budget_wh = rated_wh * dod / (1.0 + reserve) if (1.0 + reserve) > 0 else 0.0
+        avg_load_w = load_per_cycle_wh / cycle_h if cycle_h > 0 else 0.0
+        runtime_est_h = load_budget_wh / avg_load_w if avg_load_w > 0 else 0.0
+        full_rounds = int(math.floor(runtime_est_h / cycle_h + 1e-12)) if cycle_h > 0 else 0
+        margin_wh = rated_wh - edesign
+        margin_pct = (100.0 * margin_wh / rated_wh) if rated_wh > 0 else -100.0
+        return {
+            "capacity_ah": cap,
+            "rated_wh": rated_wh,
+            "runtime_h": runtime_est_h,
+            "full_rounds": full_rounds,
+            "target_margin_wh": margin_wh,
+            "target_margin_pct": margin_pct,
+            "required_cont_c": cont_req / cap if cap > 0 else 999.0,
+            "required_peak_c": peak_req / cap if cap > 0 else 999.0,
+            "energy_ok": cap + 1e-9 >= ah,
+            "c_rate_ok": (
+                cap > 0
+                and cont_req / cap <= target_cont_c + 1e-9
+                and peak_req / cap <= target_peak_c + 1e-9
+            ),
+            "load_budget_wh": load_budget_wh,
+            "load_per_cycle_wh": load_per_cycle_wh,
+        }
+
+    comparison = []
+    for cap in STANDARD_AH:
+        rv = reverse_for(cap)
+        rv["check"] = (
+            "PASS"
+            if rv["energy_ok"] and rv["c_rate_ok"]
+            else ("ENERGY LOW" if not rv["energy_ok"] else "C-RATE CHECK")
+        )
+        comparison.append(rv)
+
+    candidate = reverse_for(candidate_ah)
+    candidate.update({
+        "bms_cont_a": candidate_bms_cont_a,
+        "bms_peak_a": candidate_bms_peak_a,
+        "bms_cont_ok": candidate_bms_cont_a > 0 and candidate_bms_cont_a + 1e-9 >= cont_req,
+        "bms_peak_ok": candidate_bms_peak_a > 0 and candidate_bms_peak_a + 1e-9 >= peak_req,
+    })
+
     return {
         "energy_model": "worst" if use_worst else "calculated",
         "mass_kg": m, "voltage_v": voltage, "speed_kmh": speed_kmh, "speed_m_s": v,
@@ -424,6 +487,17 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "calculated_peak_current_a": max(icalc_up, icalc_accel),
         "worst_current_reference_a": iworst,
         "trip_drive_energy_wh": edrive_cycle,
+        "continuous_current_required_a": cont_req,
+        "peak_current_required_a": peak_req,
+        "target_cont_c": target_cont_c,
+        "target_peak_c": target_peak_c,
+        "ah_by_continuous_c": ah_by_cont,
+        "ah_by_peak_c": ah_by_peak,
+        "design_ah_with_current": design_ah_with_current,
+        "suggested_ah": suggested_ah,
+        "suggested_reverse": reverse_for(suggested_ah),
+        "candidate": candidate,
+        "comparison": comparison,
         "no_regen": True,
         "winch_energy_included": False,
     }
