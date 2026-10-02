@@ -1838,12 +1838,7 @@ class App(QMainWindow):
             self.telemetryListening=False
             self.telemetryConnected=True
             self.telemetryTimer.start(max(50,int(1000/max(1,self.telemetryRateHz.value()))))
-            self.statusBar().showMessage("DEMO MODE • NO ESP32",3000)
-            QMessageBox.information(
-                self,"Telemetry Demo",
-                "โหมดนี้เป็นข้อมูลจำลองเท่านั้น\n\n"
-                "ไม่ได้เชื่อมต่อ ESP32 และค่าที่เห็นไม่ใช่ค่าจากรถจริง"
-            )
+            self.statusBar().showMessage("DEMO MODE • NO ESP32 • ข้อมูลจำลองเท่านั้น",5000)
         elif idx==1:
             if not SERIAL_AVAILABLE or serial is None:
                 QMessageBox.warning(self,"ESP32 Telemetry","pyserial ไม่พร้อมใช้งานในโปรแกรมรุ่นนี้")
