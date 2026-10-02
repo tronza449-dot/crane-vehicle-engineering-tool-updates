@@ -1,19 +1,66 @@
-# Crane Vehicle Engineering Tool V53.5.4
+# Crane Vehicle Engineering Tool V53.5.5
 
-## Permanent Link Name Fix
+## CAR ANIMAL Web Dashboard
 
-แก้ปัญหา Tailscale Funnel เปิดได้แล้ว แต่ชื่อด้านหน้าของ URL ยังไม่เปลี่ยนตามที่ต้องการ
+อัปเดตรอบนี้เน้น 2 อย่างตามที่เลือก:
+1. ทำหน้าเว็บให้มีชื่อโปรเจกต์และภาพลักษณ์จริง
+2. เพิ่ม Dashboard หน้าแรกสำหรับเข้าแต่ละโมดูลได้ง่าย
 
-### สิ่งที่เพิ่ม
-- ก่อนเปิด FREE PERMANENT LINK โปรแกรมจะถามชื่อ Web Link
-- ค่าเริ่มต้นคือ `cvet`
-- ตัวอย่าง:
-  `https://cvet.<tailnet>.ts.net`
-- โปรแกรมเรียก `tailscale set --hostname=<name>`
-- ตรวจสอบผลจริงจาก MagicDNS หลังเปลี่ยนชื่อ
-- ถ้าเปลี่ยนอัตโนมัติไม่สำเร็จ โปรแกรมจะเปิดหน้า Tailscale Machines ให้อัตโนมัติ เพื่อให้แก้ชื่อเครื่องเองครั้งเดียว
-- หน้า CVET แสดงสถานะว่าการเปลี่ยนชื่อสำเร็จหรือมีคำเตือน
+### 1) Project Branding
+หน้าเว็บด้านบนแสดง:
+- CAR ANIMAL • SENIOR PROJECT
+- Crane Vehicle Engineering Tool
+- ระบบคำนวณวิศวกรรมสำหรับรถขนซากสัตว์พร้อมเครน
+- Mechatronics Engineering
+- Mahanakorn University of Technology
+- Server Online / Offline
+- CVET Version
+- Project name
 
-### ข้อจำกัดของ Tailscale Free Link
-แก้ได้เฉพาะชื่อเครื่องด้านหน้า เช่น `cvet`
-ส่วน `<tailnet>.ts.net` เป็นโดเมนของ Tailscale และจะยังคงอยู่
+### 2) Engineering Dashboard
+หน้าแรกเปลี่ยนเป็น Dashboard และมีการ์ด:
+- Drive Torque
+- Main Battery 72 V
+- Winch Battery
+- Stability
+- Vehicle Parameters
+- Live Telemetry
+- Project Summary
+
+การ์ดสามารถกดเพื่อเปิดหน้าที่เกี่ยวข้องได้ทันที
+
+### Vehicle Parameters
+เพิ่มหน้าแสดง Project Baseline เช่น:
+- Vehicle 1000 × 1500 mm
+- Mass ≤ 300 kg
+- Payload 100 kg
+- Main Battery 72 V
+- 2 × 1500 W Hub Motor
+- Main Slope 19°
+- Runtime 3 h
+- Crane ±90°
+- Crane arm 1.2 m
+- Winch supply 12 V separate
+
+### Live Telemetry
+เพิ่มหน้า UI สำหรับ:
+- Speed
+- Battery %
+- Tilt Angle
+- Drive State
+- E-stop
+- IMU Alarm
+
+หมายเหตุ: V53.5.5 เพิ่มหน้า Telemetry Dashboard ก่อน แต่ยังไม่ได้ผูก Public Web Server เข้ากับ ESP32 telemetry stream โดยตรง จึงจะแสดง -- จนกว่าจะเพิ่ม Telemetry API/WebSocket ในอัปเดตถัดไป
+
+### Project Summary
+เพิ่มหน้าสรุป:
+- Vehicle Platform
+- Crane & Winch
+- Electrical Architecture
+- Safety Logic
+- Engineering Calculations
+- Web Architecture
+
+### Responsive
+Dashboard ใหม่รองรับ Desktop / Tablet / Mobile
