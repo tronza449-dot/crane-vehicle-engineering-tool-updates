@@ -59,6 +59,7 @@ jobs:
           from PySide6.QtWidgets import QApplication, QTabWidget, QPushButton, QTableWidgetItem
           import CraneVehicleEngineeringTool as cvet
           import web_engine as webcalc
+          import web_server as webapp
 
           # ---------- Static source audit ----------
           source = Path("CraneVehicleEngineeringTool.py").read_text(encoding="utf-8-sig")
@@ -121,6 +122,8 @@ jobs:
 
           for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
               assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
+          assert webapp.app.title.startswith("Crane Vehicle Engineering Tool")
+          assert webapp.health()["ok"] is True
 
           app = QApplication.instance() or QApplication([])
           app.setApplicationName(cvet.APP_NAME)
