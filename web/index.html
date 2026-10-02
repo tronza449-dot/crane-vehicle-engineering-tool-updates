@@ -272,24 +272,99 @@
       </div>
     </section>
     <section id="parameters" class="page">
-      <div class="page-title"><h2>Vehicle Parameters</h2><p>ค่าพื้นฐานของโปรเจกต์ CAR ANIMAL ที่ใช้เป็น Design Baseline</p></div>
-      <div class="parameter-grid">
-        <article class="parameter-panel"><div class="parameter-k">Vehicle Size</div><div class="parameter-v">1000 × 1500 mm</div><div class="parameter-note">เป้าหมายโครงรถหลัก</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Mass Target</div><div class="parameter-v">≤ 300 kg</div><div class="parameter-note">รวมรถ เครน แบตเตอรี่ และ Payload</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Payload</div><div class="parameter-v">100 kg</div><div class="parameter-note">น้ำหนักสัตว์/โหลดสูงสุดที่ใช้ในการออกแบบ</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Main Battery</div><div class="parameter-v">72 V</div><div class="parameter-note">ระบบขับเคลื่อนหลัก</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Drive Motors</div><div class="parameter-v">2 × 1500 W</div><div class="parameter-note">QS 10-inch Single Shaft Hub Motor</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Drive Control</div><div class="parameter-v">Differential</div><div class="parameter-note">มอเตอร์ซ้าย/ขวาควบคุมอิสระ</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Main Slope</div><div class="parameter-v">19°</div><div class="parameter-note">เงื่อนไขหลักสำหรับ Energy / Torque design</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Run Time Target</div><div class="parameter-v">3 h</div><div class="parameter-note">ช่วงเวลาทำงานต่อเนื่องที่ใช้คำนวณแบตเตอรี่</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Crane Rotation</div><div class="parameter-v">±90°</div><div class="parameter-note">จำกัดด้วย Limit Switch 2 จุด</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Crane Arm</div><div class="parameter-v">1.2 m</div><div class="parameter-note">Baseline reach สำหรับ Stability model</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Support / Track</div><div class="parameter-v">700 mm</div><div class="parameter-note">ระยะศูนย์กลางล้อซ้าย-ขวาที่ใช้ในบางกรณีศึกษา</div></article>
-        <article class="parameter-panel"><div class="parameter-k">Winch Supply</div><div class="parameter-v">12 V Separate</div><div class="parameter-note">แยกแบตเตอรี่จาก Main 72 V</div></article>
+      <div class="page-title">
+        <h2>Vehicle Parameters</h2>
+        <p>ค่าหน้านี้อ่านจาก Input ที่คุณตั้งในแต่ละโมดูลแบบอัตโนมัติ และจำค่าหลัง Refresh</p>
       </div>
+
+      <div class="panel parameter-settings">
+        <h3>Project Settings</h3>
+        <p class="hint">ค่าที่ไม่มีช่องอยู่ในหน้าคำนวณอื่น สามารถตั้งจากตรงนี้ได้</p>
+        <div class="form-grid parameter-settings-grid">
+          <label>Vehicle width (mm)<input id="projectVehicleWidth" type="number" value="1000" step="10"></label>
+          <label>Vehicle length (mm)<input id="projectVehicleLength" type="number" value="1500" step="10"></label>
+          <label>Crane rotation limit / side (deg)<input id="projectCraneRotation" type="number" value="90" step="1"></label>
+          <label>Drive control
+            <select id="projectDriveControl">
+              <option value="Differential">Differential</option>
+              <option value="Independent">Independent</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="parameter-grid">
+        <article class="parameter-panel">
+          <div class="parameter-k">Vehicle Size</div>
+          <div id="paramVehicleSize" class="parameter-v">1000 × 1500 mm</div>
+          <div class="parameter-note">จาก Project Settings</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Mass</div>
+          <div id="paramMass" class="parameter-v">300 kg</div>
+          <div class="parameter-note">จาก Main Battery / Drive Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Payload</div>
+          <div id="paramPayload" class="parameter-v">100 kg</div>
+          <div class="parameter-note">จาก Stability Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Main Battery</div>
+          <div id="paramMainBattery" class="parameter-v">72 V</div>
+          <div class="parameter-note">จาก Main Battery Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Drive Motors</div>
+          <div id="paramDriveMotors" class="parameter-v">2 × 1500 W</div>
+          <div class="parameter-note">จาก Main Battery Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Drive Control</div>
+          <div id="paramDriveControl" class="parameter-v">Differential</div>
+          <div class="parameter-note">จาก Project Settings</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Main Slope</div>
+          <div id="paramSlope" class="parameter-v">19°</div>
+          <div class="parameter-note">จาก Main Battery Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Run Time Target</div>
+          <div id="paramRuntime" class="parameter-v">3 h</div>
+          <div class="parameter-note">จาก Main Battery Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Crane Rotation</div>
+          <div id="paramCraneRotation" class="parameter-v">±90°</div>
+          <div class="parameter-note">จาก Project Settings</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Crane Arm</div>
+          <div id="paramCraneArm" class="parameter-v">1.2 m</div>
+          <div class="parameter-note">จาก Stability Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Support / Track</div>
+          <div id="paramTrack" class="parameter-v">700 mm</div>
+          <div class="parameter-note">จาก Stability Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Winch Supply</div>
+          <div id="paramWinchSupply" class="parameter-v">12 V Separate</div>
+          <div class="parameter-note">จาก Winch Battery Input</div>
+        </article>
+      </div>
+
       <div class="panel parameter-note-panel">
-        <h3>Design Note</h3>
-        <p>ค่าหน้านี้เป็น Project Baseline เพื่อช่วยให้ผู้ใช้เว็บเข้าใจรถที่กำลังออกแบบ ไม่ได้บังคับค่าฟอร์มคำนวณ ทุกโมดูลยังสามารถแก้ Input เพื่อทดสอบ Scenario อื่นได้</p>
+        <h3>Dynamic Parameter Sync</h3>
+        <p>
+          ตัวอย่าง: ถ้าเปลี่ยนมวลรถ, แรงดันแบต, จำนวน/กำลังมอเตอร์, มุมทางลาด,
+          Runtime, Payload, ความยาวแขนเครน, Track width หรือแรงดันวินช์
+          ในหน้าคำนวณ ค่าหน้านี้จะเปลี่ยนตามทันทีโดยไม่ต้องแก้ซ้ำ.
+        </p>
+        <p><b>หมายเหตุ:</b> ค่าของแต่ละโมดูลยังเป็น Input อิสระสำหรับทดสอบ Scenario ได้
+        หน้านี้จะแสดงค่าจากแหล่งที่ระบุใต้การ์ดแต่ละใบ.</p>
       </div>
     </section>
 
