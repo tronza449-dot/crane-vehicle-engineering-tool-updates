@@ -8355,67 +8355,177 @@ void loop() {{
 
 
     def make_fbd(self):
-        w=QWidget();self.fbdPage=w; l=QVBoxLayout(w)
+        w=QWidget();self.fbdPage=w
+        l=QVBoxLayout(w);l.setContentsMargins(14,14,14,14);l.setSpacing(10)
+
+        guide=QLabel(
+            "วิธีอ่าน FBD แบบง่าย:  1) หาจุดแดง Pivot  →  "
+            "2) ดูแรงที่ทำให้คว่ำ  →  3) ดูแรงที่ช่วยต้าน  →  "
+            "4) เปรียบเทียบ SF กับค่าที่ต้องการ"
+        )
+        guide.setWordWrap(True)
+        guide.setStyleSheet(
+            "background:#eef7ff;border:1px solid #b9d8f3;border-radius:10px;"
+            "padding:10px;font-size:11pt;font-weight:700;color:#17456b"
+        )
+        l.addWidget(guide)
+
         top=QHBoxLayout()
         self.fbdModeCombo=QComboBox(); self.fbdModeCombo.addItems([
-            "Side Left / คว่ำซ้าย",
-            "Side Right / คว่ำขวา",
-            "Front / คว่ำหน้า",
-            "Rear / คว่ำหลัง",
-            "Slope / ทางลาด"
+            "คว่ำซ้าย / Side Left",
+            "คว่ำขวา / Side Right",
+            "คว่ำหน้า / Front",
+            "คว่ำหลัง / Rear",
+            "รถบนทางลาด / Slope"
         ])
-        self.fbdAuto=QCheckBox("Auto FBD: แสดงทิศทางวิกฤตตามมุมเครนปัจจุบัน")
-        self.fbdAuto.setChecked(True)
-        self.fbdCriticalLabel=QLabel("Critical direction: -")
-        self.fbdCriticalLabel.setStyleSheet("font-weight:700;color:#6542a5")
-        top.addWidget(self.fbdModeCombo);top.addWidget(self.fbdAuto);top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
-        self.forceDiagram=ForceDiagram(self); l.addWidget(self.forceDiagram)
-        t=QPlainTextEdit(); t.setReadOnly(True); t.setMaximumHeight(200)
-        t.setPlainText("""สมการพื้นฐาน / BASIC FORCE EQUATIONS
+        self.fbdModeCombo.setMinimumWidth(190)
 
-แรง = มวล × ความเร่ง
-F = m × a
+        self.fbdSimple=QCheckBox("โหมดเข้าใจง่าย (แนะนำ)")
+        self.fbdSimple.setChecked(True)
+        self.fbdSimple.setToolTip("เปิด = ลดข้อมูลบนรูป เหลือเฉพาะแรงหลัก Pivot และผล M_O / M_R / SF")
 
-น้ำหนัก = มวล × ความเร่งโน้มถ่วง
-W = m × g
+        self.fbdAuto=QCheckBox("Auto: เลือกทิศวิกฤตให้")
+        self.fbdAuto.setChecked(False)
+        self.fbdAuto.setToolTip("ถ้าเปิด โปรแกรมจะเลือก Side/Front/Rear ที่ SF ต่ำที่สุดตามมุมเครนปัจจุบัน")
 
-แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g
-F_L = Kdyn × m_L × g
+        self.fbdCriticalLabel=QLabel("เลือกกรณีที่ต้องการดู")
+        self.fbdCriticalLabel.setStyleSheet(
+            "font-weight:700;color:#6542a5;background:#f5f1ff;padding:6px 10px;border-radius:8px"
+        )
 
-โมเมนต์ = แรง × ระยะตั้งฉากจากจุดหมุน
-M = F × d
+        top.addWidget(QLabel("กรณี:"))
+        top.addWidget(self.fbdModeCombo)
+        top.addWidget(self.fbdSimple)
+        top.addWidget(self.fbdAuto)
+        top.addStretch(1)
+        top.addWidget(self.fbdCriticalLabel)
+        l.addLayout(top)
 
-ทางลาด:
-แรงตามทางลาด = mg sin(alpha)
-แรงตั้งฉากทางลาด = mg cos(alpha)
+        self.forceDiagram=ForceDiagram(self)
+        self.forceDiagram.setSimpleMode(True)
+        l.addWidget(self.forceDiagram,1)
 
-Safety Factor = โมเมนต์ต้านการคว่ำ ÷ โมเมนต์ทำให้คว่ำ
-SF = M_R / M_O
+        self.fbdExplain=QTextEdit()
+        self.fbdExplain.setReadOnly(True)
+        self.fbdExplain.setMaximumHeight(220)
+        self.fbdExplain.setStyleSheet(
+            "font-size:11pt;background:white;border:1px solid #d7e1eb;border-radius:10px;padding:6px"
+        )
+        l.addWidget(self.fbdExplain)
 
-Auto FBD จะเลือก Side Left / Side Right / Front / Rear ตามค่า SF ต่ำสุด ณ มุมเครนปัจจุบัน
-ภาพแสดงแรงน้ำหนัก W, Ground Reaction R/N, Pivot, Moment Arm, M_O และ M_R
-หากต้องการดู Slope FBD ให้ปิด Auto แล้วเลือก Slope เอง
-""")
-        l.addWidget(t)
-        self.fbdModeCombo.currentIndexChanged.connect(lambda i: self.forceDiagram.setMode(i) if not self.fbdAuto.isChecked() else None)
+        self.fbdModeCombo.currentIndexChanged.connect(self._on_fbd_mode_changed)
+        self.fbdSimple.toggled.connect(self._on_fbd_simple_changed)
         self.fbdAuto.toggled.connect(self.update_auto_fbd)
         self.tabs.addTab(w,"3. FBD / แผนภาพแรง")
+        self.update_auto_fbd()
+        self.update_fbd_explanation()
+
+    def _on_fbd_mode_changed(self,i):
+        if not self.fbdAuto.isChecked():
+            self.forceDiagram.setCaseAngle(None)
+            self.forceDiagram.setMode(i)
+            self.fbdCriticalLabel.setText("Manual: "+self.fbdModeCombo.currentText())
+        self.update_fbd_explanation()
+
+    def _on_fbd_simple_changed(self,on):
+        self.forceDiagram.setSimpleMode(on)
+        self.fbdCriticalLabel.setText(
+            ("โหมดเข้าใจง่าย • " if on else "โหมดรายละเอียดวิศวกรรม • ")
+            + self.fbdModeCombo.currentText()
+        )
+        self.update_fbd_explanation()
 
     def update_auto_fbd(self):
         if not hasattr(self,"fbdAuto") or not hasattr(self,"forceDiagram"): return
+        self.forceDiagram.setSimpleMode(
+            self.fbdSimple.isChecked() if hasattr(self,"fbdSimple") else True
+        )
         if not self.fbdAuto.isChecked():
+            self.forceDiagram.setCaseAngle(None)
             self.forceDiagram.setMode(self.fbdModeCombo.currentIndex())
-            self.fbdCriticalLabel.setText("Manual FBD")
+            self.fbdCriticalLabel.setText("Manual: "+self.fbdModeCombo.currentText())
+            if hasattr(self,"fbdExplain"): self.update_fbd_explanation()
             return
         d=self.inputs();side=self.calc_side(d,theta=d["th"])[0];front,rear=self.longitudinal_sf_at(d,d["th"])
         side_mode=1 if d["th"]>=0 else 0
-        side_name="Side Right" if d["th"]>=0 else "Side Left"
-        vals=[(side_name,side,side_mode),("Front",front,2),("Rear",rear,3)]
+        side_name="Side Right / คว่ำขวา" if d["th"]>=0 else "Side Left / คว่ำซ้าย"
+        vals=[(side_name,side,side_mode),("Front / คว่ำหน้า",front,2),("Rear / คว่ำหลัง",rear,3)]
         typ,val,mode=min(vals,key=lambda x:x[1])
         self.fbdModeCombo.blockSignals(True);self.fbdModeCombo.setCurrentIndex(mode);self.fbdModeCombo.blockSignals(False)
         self.forceDiagram.setCaseAngle(d["th"])
         self.forceDiagram.setMode(mode)
-        self.fbdCriticalLabel.setText(f"Critical @ θ={d['th']:.0f}°: {typ} | SF={'∞' if val>=999 else f'{val:.3f}'}")
+        self.fbdCriticalLabel.setText(
+            f"Auto Critical @ θ={d['th']:.0f}°: {typ} | SF={'∞' if val>=999 else f'{val:.3f}'}"
+        )
+        if hasattr(self,"fbdExplain"): self.update_fbd_explanation()
+
+    def update_fbd_explanation(self):
+        if not hasattr(self,"fbdExplain") or not hasattr(self,"fbdModeCombo"): return
+        d=self.inputs()
+        mode=self.fbdModeCombo.currentIndex()
+
+        def result_box(MO,MR,sf):
+            sf_text="∞" if sf>=999 else f"{sf:.3f}"
+            ok=sf>=d["req"]
+            color="#176337" if ok else "#b42318"
+            status="ผ่านเกณฑ์เบื้องต้น" if ok else "ไม่ผ่าน — ต้องปรับแบบ"
+            return (
+                f"<div style='background:#f8fafc;border:1px solid #d7e1eb;padding:10px;border-radius:8px'>"
+                f"<b>ผล:</b> M_O = {MO:.1f} N·m &nbsp; | &nbsp; "
+                f"M_R = {MR:.1f} N·m &nbsp; | &nbsp; "
+                f"<span style='color:{color}'><b>SF = {sf_text} → {status}</b></span><br>"
+                f"เกณฑ์ที่ตั้งไว้: SF ≥ {d['req']:.2f}"
+                f"</div>"
+            )
+
+        if mode in (0,1):
+            left=(mode==0);angle=-90 if left else 90
+            sf,MO,MR=self.calc_side(d,theta=angle)
+            side="ซ้าย" if left else "ขวา"
+            html=f"""
+            <h3 style='color:#17456b;margin:2px'>วิธีอ่าน: รถคว่ำด้าน{side}</h3>
+            <ol>
+              <li><b>Pivot (จุดแดง)</b> = ล้อด้าน{side}ที่รถจะหมุนรอบเมื่อเริ่มคว่ำ</li>
+              <li><b>W โหลด + W แขนเครน</b> ที่ยื่นออกนอก Pivot จะสร้าง <span style='color:#b42318'><b>โมเมนต์ทำให้คว่ำ M_O</b></span></li>
+              <li><b>น้ำหนักตัวรถ</b> ที่ยังอยู่ด้านในฐานล้อจะสร้าง <span style='color:#176337'><b>โมเมนต์ต้าน M_R</b></span></li>
+              <li>เอา <b>M_R ÷ M_O</b> จะได้ Safety Factor</li>
+            </ol>
+            {result_box(MO,MR,sf)}
+            <p><b>จำง่าย:</b> ถ้า M_R มากกว่า M_O มากพอ รถจะต้านการคว่ำได้ดีขึ้น</p>
+            """
+        elif mode in (2,3):
+            front=(mode==2);direction="front" if front else "rear"
+            label="หน้า" if front else "หลัง"
+            angle=d["th"] if self.fbdAuto.isChecked() else d["th"]
+            bal=self.longitudinal_moment_balance(d,angle,direction)
+            html=f"""
+            <h3 style='color:#17456b;margin:2px'>วิธีอ่าน: รถคว่ำด้าน{label}</h3>
+            <ol>
+              <li><b>Pivot (จุดแดง)</b> = แนวล้อ{label}ที่รถจะหมุนรอบ</li>
+              <li>แรงน้ำหนักที่อยู่ <b>เลย Pivot ออกไป</b> จะช่วยทำให้คว่ำ</li>
+              <li>แรงน้ำหนักที่อยู่ <b>ด้านในฐานล้อ</b> จะช่วยต้านการคว่ำ</li>
+              <li>โปรแกรมรวมแรง × ระยะจาก Pivot เป็น M_O และ M_R</li>
+            </ol>
+            {result_box(bal['mo'],bal['mr'],bal['sf'])}
+            <p>มุมเครนที่ใช้ในภาพ = <b>{angle:.0f}°</b> &nbsp; | &nbsp; Wheelbase = {d['WB']:.3f} m</p>
+            """
+        else:
+            sr=self.slope_stability_results(d)
+            alpha=math.radians(self.slope.value())
+            MR=d["mt"]*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
+            MO=d["mt"]*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
+            html=f"""
+            <h3 style='color:#17456b;margin:2px'>วิธีอ่าน: รถบนทางลาด</h3>
+            <ol>
+              <li><b>mg</b> = น้ำหนักรถ ชี้ลงแนวดิ่งเสมอ</li>
+              <li><b>mg sinα</b> = ส่วนของน้ำหนักที่ดึงรถลงตามทางลาด</li>
+              <li><b>N ≈ mg cosα</b> = แรงปฏิกิริยาตั้งฉากกับพื้น</li>
+              <li><b>F_a = ma</b> = ผลจากการเร่งขึ้นลาด ซึ่งเพิ่มแนวโน้มคว่ำด้านหลัง</li>
+            </ol>
+            {result_box(MO,MR,sr['sf'])}
+            <p><b>มุมทางลาด α = {self.slope.value():.2f}°</b> — ใช้องศาใน sin/cos ไม่ใช้ค่า Slope %</p>
+            """
+        self.fbdExplain.setHtml(html)
 
     def make_components(self):
         w=QWidget();self.componentsPage=w; l=QVBoxLayout(w)
