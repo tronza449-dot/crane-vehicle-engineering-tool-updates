@@ -155,8 +155,11 @@ jobs:
           assert "REAR TIPPING" in source
           assert "SLOPE STABILITY" in source
           assert "def setSimpleMode" in source
-          assert "โหมดเข้าใจง่าย (แนะนำ)" in source
-          assert "วิธีอ่าน FBD แบบง่าย" in source
+          assert "โหมดง่ายมาก (แนะนำสำหรับนำเสนอ)" in source
+          assert "ดูรูปนี้แค่ 4 อย่าง" in source
+          assert "ฝั่งพยายามทำให้คว่ำ" in source
+          assert "ฝั่งช่วยต้านการคว่ำ" in source
+          assert "ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX" in source
 
           for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
               assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
