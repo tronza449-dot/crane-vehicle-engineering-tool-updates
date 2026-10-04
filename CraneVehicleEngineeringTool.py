@@ -2,7 +2,7 @@ from pathlib import Path
 import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser
 from datetime import datetime
 from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal
-from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon
+from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon,QPixmap
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter
 
