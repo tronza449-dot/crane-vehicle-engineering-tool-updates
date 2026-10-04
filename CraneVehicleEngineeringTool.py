@@ -8789,9 +8789,7 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
         fd.setCaseAngle(angle)
         pix=QPixmap(fd.size())
         pix.fill(QColor("white"))
-        painter=QPainter(pix)
-        fd.render(painter)
-        painter.end()
+        fd.render(pix)
         ok=pix.save(str(path),"PNG")
         fd.deleteLater()
         if not ok:
