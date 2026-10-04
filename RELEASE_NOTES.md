@@ -1,91 +1,75 @@
-# Crane Vehicle Engineering Tool V53.8.3
+# Crane Vehicle Engineering Tool V53.8.4
 
-## Stability PDF - All-Direction Free Body Diagrams (FBD)
+## FBD Simple Mode — อ่านรูปการคว่ำให้ง่ายขึ้น
 
-อัปเดตนี้ปรับหน้า Stability และ PDF Export ให้มี Free Body Diagram แบบวิศวกรรมครบทุกทิศทางตามที่ต้องการ
+ปรับหน้า Engineering FBD ใหม่จาก feedback ว่าแบบเดิมมีข้อมูลเยอะและดูยาก
 
-### FBD ในโปรแกรม
-หน้า FBD เปลี่ยนจาก 3 โหมดเป็น 5 โหมด:
-1. Side Left / คว่ำด้านซ้าย
-2. Side Right / คว่ำด้านขวา
-3. Front / คว่ำด้านหน้า
-4. Rear / คว่ำด้านหลัง
-5. Slope / ทางลาด
+### โหมดเข้าใจง่าย (ค่าเริ่มต้น)
+เพิ่ม checkbox:
+**โหมดเข้าใจง่าย (แนะนำ)**
 
-Auto FBD ยังเลือกกรณีวิกฤตจาก Side / Front / Rear ตามมุมเครนปัจจุบัน
+เมื่อเปิด โครงสร้างรูปจะเหลือเฉพาะสิ่งที่จำเป็น:
+1. Pivot จุดแดง — จุดที่รถจะเริ่มหมุนรอบ
+2. น้ำหนัก/แรงที่ทำให้คว่ำ
+3. น้ำหนัก/แรงที่ช่วยต้าน
+4. Ground Reaction ที่ Pivot
+5. กล่องสรุป M_O, M_R และ Safety Factor
 
-### แรงที่แสดงบนรูป
-FBD แสดงและระบุ:
-- W_vehicle = น้ำหนักตัวรถส่วนหลัก
-- W_boom = น้ำหนักแขนเครน
-- W_payload = น้ำหนักโหลด
-- R_L / R_R = Ground Reaction ด้านซ้าย/ขวา
-- R_front / R_rear = Ground Reaction หน้า/หลัง
-- N = Normal Reaction บนทางลาด
-- mg sin(alpha) = แรงตามทางลาด
-- mg cos(alpha) = แรงตั้งฉากกับทางลาด
-- F_a = m a = ผลของความเร่งบนทางลาด
-- Pivot / Tipping axis
-- Track width / Wheelbase
-- CG / ตำแหน่งโหลด
-- Overturning Moment M_O
-- Restoring Moment M_R
-- Safety Factor
+ข้อมูลรายละเอียดทางวิศวกรรมเดิมยังดูได้โดยปิดโหมดเข้าใจง่าย
 
-### Stability PDF Export
-เมื่อกด Export PDF ในหน้า Stability รายงานจะสร้าง FBD แยกเป็นหน้า:
-- FBD 1: Side Tipping - Left
-- FBD 2: Side Tipping - Right
-- FBD 3: Front Tipping
-- FBD 4: Rear Tipping
-- FBD 5: Slope Stability
+### สีที่ใช้
+- แดง = ฝั่ง/แรงที่สร้างโมเมนต์ทำให้คว่ำ
+- น้ำเงิน = น้ำหนักที่ช่วยต้านหรืออยู่ด้านใน Pivot
+- เขียว = Ground Reaction
+- จุดแดง = Pivot / Tipping Axis
+- ส้ม = โครงเครน
 
-แต่ละหน้ามี:
-- รูป FBD
-- จุด Pivot
-- ชื่อและทิศทางแรง
-- Moment arm / ระยะที่เกี่ยวข้อง
-- สมการ Moment balance
-- ค่า M_O
-- ค่า M_R
-- ค่า SF
-- Target SF
-- PASS / FAIL
-- คำอธิบายภาษาไทยว่าแรงแต่ละแรงกระทำที่ใดและมีผลอย่างไร
+### Side Left / Side Right
+แสดงให้อ่านง่ายว่า:
+- Pivot อยู่ล้อด้านที่จะคว่ำ
+- Reaction ฝั่งตรงข้ามจะเข้าใกล้ 0 N เมื่อเริ่มคว่ำ
+- W_payload / W_boom ที่ยื่นนอก Pivot ทำให้เกิด M_O
+- น้ำหนักรถด้านในฐานล้อช่วยสร้าง M_R
 
-### Governing Case
-Front และ Rear FBD ใช้มุมเครนที่ทำให้ Safety Factor ของทิศนั้นต่ำที่สุดในช่วง -90 ถึง +90 องศา
-Side Left ใช้ -90 องศา และ Side Right ใช้ +90 องศา
+### Front / Rear
+แสดง:
+- Pivot หน้า/หลัง
+- แรงที่อยู่นอก Pivot = Overturning
+- แรงที่อยู่ในฐาน = Restoring
+- Wheelbase
+- M_O / M_R / SF ในกล่องแยก
 
-### Final Engineering Report
-Final Engineering PDF จะรวม FBD ทั้ง 5 กรณีเหมือน Stability PDF ด้วย ไม่ใช่เพียง screenshot FBD เดียวอีกต่อไป
+### Slope
+ลดความรกของรูปและแสดงเฉพาะแรงหลัก:
+- mg
+- mg sin(alpha)
+- N ≈ mg cos(alpha)
+- F_a = ma เมื่อมีความเร่ง
+- Rear Pivot
+- M_O / M_R / SF_slope
 
-### Engineering note
-เกณฑ์พื้นฐาน:
-SF = M_R / M_O
+### คำอธิบายใต้รูป
+เพิ่ม Step-by-step ภาษาไทยตามกรณีที่เลือก:
+- Pivot คืออะไร
+- แรงไหนทำให้คว่ำ
+- แรงไหนช่วยต้าน
+- Safety Factor คิดอย่างไร
+- ผ่าน / ไม่ผ่าน ตาม Target SF
 
-โปรแกรมเปรียบเทียบกับ Target SF ที่ผู้ใช้ตั้งไว้
+### Auto FBD
+เปลี่ยนค่าเริ่มต้นเป็น Manual เพื่อไม่ให้รูปเปลี่ยนเองจนผู้ใช้สับสน
+ถ้าต้องการให้โปรแกรมเลือกทิศวิกฤตอัตโนมัติ สามารถเปิด Auto ได้
 
-ผลยังเป็น Preliminary rigid-body stability calculation ต้องยืนยันมวลจริง ตำแหน่ง CG จริง โครงสร้าง จุดยึด ยาง/พื้น Dynamic Shock และการทดสอบจริงก่อนผลิตหรือใช้งาน
+### PDF Export
+Stability PDF และ Final Engineering PDF ใช้รูป FBD แบบเข้าใจง่ายเป็นค่าเริ่มต้น
+แต่ยังคงตาราง Moment Balance, M_O, M_R, Moment Arm และสูตรรายละเอียดไว้ใต้รูป
 
+เพิ่มกล่อง "วิธีอ่าน FBD แบบง่าย" ใน PDF ก่อนเริ่ม FBD ทั้ง 5 กรณี
 
-### Build fix
-- แก้การ render FBD แบบ offscreen สำหรับ PDF Export ให้ทำงานถูกต้องบน PySide6/Windows build.
-
-
-### V53.8.2 verification
-- Rebuilt from the cleaned source after the all-direction FBD implementation.
-- Verified the 5 FBD cases render to PNG during automated regression.
-- Verified both Stability PDF and Final Engineering PDF export successfully.
-
-
-## V53.8.3 — Detailed Moment Balance in FBD PDF
-
-ปรับ FBD PDF ให้ใช้เป็นหน้าคำนวณวิศวกรรมได้ชัดขึ้น:
-- ตารางสรุป FBD เพิ่ม M_O และ M_R ของทุกกรณี
-- Front / Rear แสดงแรง, Moment Arm, Moment และหน้าที่ Restoring / Overturning ของแต่ละแรง
-- รูป Front / Rear แสดง M_O, M_R และ Safety Factor บนภาพ
-- รูป Slope แสดง M_O, M_R และ SF_slope บนภาพ
-- Stability PDF และ Final Engineering Report ใช้ชุด FBD เดียวกัน
-- ค่ารูปและสูตรเปลี่ยนตาม Input ปัจจุบันอัตโนมัติ ไม่ใช่รูปค่าคงที่
-- เพิ่ม Regression ตรวจภาพ FBD ครบ 5 รูป, Moment Balance และ PDF Export
+### Regression
+เพิ่ม automated regression ตรวจ:
+- Simple FBD เป็นค่าเริ่มต้น
+- สลับ Simple / Engineering Detail ได้
+- คำอธิบายภาษาไทยแสดงจริง
+- FBD ทั้ง 5 รูป render ได้
+- Stability PDF และ Final PDF ยัง export ผ่าน
