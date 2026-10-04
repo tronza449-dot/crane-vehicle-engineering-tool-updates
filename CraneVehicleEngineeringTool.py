@@ -8757,6 +8757,140 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
         self.tabs.addTab(w,"Report / รายงานสรุป")
 
 
+    def stability_fbd_cases(self,d=None):
+        d=d or self.inputs()
+        front_candidates=[]
+        rear_candidates=[]
+        for a in range(-90,91):
+            sfF,sfR=self.longitudinal_sf_at(d,a)
+            front_candidates.append((sfF,a))
+            rear_candidates.append((sfR,a))
+        front_angle=min(front_candidates,key=lambda x:x[0])[1]
+        rear_angle=min(rear_candidates,key=lambda x:x[0])[1]
+        side_sf_left=self.calc_side(d,theta=-90)[0]
+        side_sf_right=self.calc_side(d,theta=90)[0]
+        front_sf=self.longitudinal_sf_at(d,front_angle)[0]
+        rear_sf=self.longitudinal_sf_at(d,rear_angle)[1]
+        slope=self.slope_stability_results(d)
+        return [
+            {"key":"side_left","title":"SIDE TIPPING - LEFT","thai":"การคว่ำด้านซ้าย","mode":0,"angle":-90.0,"sf":side_sf_left},
+            {"key":"side_right","title":"SIDE TIPPING - RIGHT","thai":"การคว่ำด้านขวา","mode":1,"angle":90.0,"sf":side_sf_right},
+            {"key":"front","title":"FRONT TIPPING","thai":"การคว่ำด้านหน้า","mode":2,"angle":float(front_angle),"sf":front_sf},
+            {"key":"rear","title":"REAR TIPPING","thai":"การคว่ำด้านหลัง","mode":3,"angle":float(rear_angle),"sf":rear_sf},
+            {"key":"slope","title":"SLOPE STABILITY","thai":"เสถียรภาพบนทางลาด","mode":4,"angle":None,"sf":slope["sf"]},
+        ]
+
+    def _render_stability_fbd_png(self,mode,path,angle=None):
+        fd=ForceDiagram(self)
+        fd.resize(1100,680)
+        fd.setMode(mode)
+        fd.setCaseAngle(angle)
+        pix=QPixmap(fd.size())
+        pix.fill(QColor("white"))
+        painter=QPainter(pix)
+        fd.render(painter)
+        painter.end()
+        ok=pix.save(str(path),"PNG")
+        fd.deleteLater()
+        if not ok:
+            raise RuntimeError("Could not render FBD image")
+        return path
+
+    def stability_fbd_report_html(self,tmpdir,d=None):
+        d=d or self.inputs()
+        cases=self.stability_fbd_cases(d)
+        rows=[]
+        pages=[]
+        for idx,case in enumerate(cases,1):
+            sf=float(case["sf"])
+            sf_text="INF" if sf>=999 else f"{sf:.3f}"
+            status="PASS / ผ่านเกณฑ์" if sf>=d["req"] else "FAIL / ต้องปรับแบบ"
+            angle_text="-" if case["angle"] is None else f"{case['angle']:.0f} deg"
+            fp=Path(tmpdir)/("fbd_"+case["key"]+".png")
+            self._render_stability_fbd_png(case["mode"],fp,case["angle"])
+            rows.append(
+                f"<tr><td>{idx}</td><td>{case['title']}</td><td>{angle_text}</td>"
+                f"<td>{sf_text}</td><td>{status}</td></tr>"
+            )
+
+            if case["key"] in ("side_left","side_right"):
+                sf0,MO,MR=self.calc_side(d,theta=case["angle"])
+                explain=(
+                    "W_vehicle คือแรงน้ำหนักของตัวรถส่วนหลัก, W_boom คือแรงน้ำหนักแขนเครน, "
+                    "W_payload คือแรงน้ำหนักของโหลด. R_L และ R_R คือแรงปฏิกิริยาจากพื้นที่ล้อซ้าย/ขวา. "
+                    "Pivot คือแนวสัมผัสล้อฝั่งที่จะคว่ำ; เมื่อเริ่มคว่ำ Reaction ฝั่งตรงข้ามจะเข้าใกล้ 0 N."
+                )
+                formula=(
+                    f"<p><b>M_O</b> = sum(F x d) ฝั่งคว่ำ = <b>{MO:.2f} N.m</b><br>"
+                    f"<b>M_R</b> = sum(W x d) ฝั่งต้าน = <b>{MR:.2f} N.m</b><br>"
+                    f"<b>SF</b> = M_R / M_O = <b>{sf_text}</b></p>"
+                    f"<p>F_L,design = Kdyn x m_L x g = {d['kd']:.2f} x {d['ml']:.2f} x 9.81 "
+                    f"= <b>{d['kd']*d['ml']*G:.2f} N</b> เมื่อ Payload อยู่ฝั่งทำให้คว่ำ.</p>"
+                )
+            elif case["key"] in ("front","rear"):
+                angle=case["angle"]
+                rear=-d["WB"]/2
+                front=d["WB"]/2
+                xc=rear+d["xC"]
+                xload=xc+d["L"]*math.cos(math.radians(angle))
+                xboom=xc+(d["L"]/2)*math.cos(math.radians(angle))
+                explain=(
+                    "W_vehicle, W_boom และ W_payload กระทำลงที่ CG/ตำแหน่งโหลดของแต่ละส่วน. "
+                    "R_front และ R_rear คือแรงปฏิกิริยาจากพื้น. Pivot คือแนวเพลาหน้าหรือหลังที่รถจะหมุนรอบเมื่อเริ่มคว่ำ."
+                )
+                formula=(
+                    f"<p>Rear axle = {rear:.3f} m, Front axle = {front:.3f} m<br>"
+                    f"x_crane = {xc:.3f} m, x_boom = {xboom:.3f} m, x_load = {xload:.3f} m</p>"
+                    f"<p><b>SF_{case['key']}</b> = M_R / M_O = <b>{sf_text}</b><br>"
+                    "แต่ละมวลถูกจัดเป็น Overturning หรือ Restoring ตามตำแหน่งเทียบกับ Pivot. "
+                    "Payload ใช้ Kdyn เฉพาะเมื่อสร้างโมเมนต์คว่ำ.</p>"
+                )
+            else:
+                sr=self.slope_stability_results(d)
+                alpha=math.radians(self.slope.value())
+                mass=d["mt"]
+                MR=mass*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
+                MO=mass*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
+                explain=(
+                    "W=mg กระทำลงแนวดิ่ง. แยกเป็น mg sin(alpha) ตามทางลาดและ mg cos(alpha) ตั้งฉากกับทางลาด. "
+                    "N คือแรงปฏิกิริยาจากพื้น และ F_a=ma คือผลของความเร่งที่ CG สำหรับการตรวจคว่ำขณะขึ้นลาด."
+                )
+                formula=(
+                    f"<p>alpha = {self.slope.value():.2f} deg, h_CG = {sr['h']:.3f} m, "
+                    f"d_rear = {sr['rear_arm']:.3f} m</p>"
+                    f"<p><b>M_R</b> = m g cos(alpha) x d_rear = <b>{MR:.2f} N.m</b><br>"
+                    f"<b>M_O</b> = m h_CG [g sin(alpha) + a] = <b>{MO:.2f} N.m</b><br>"
+                    f"<b>SF_slope</b> = M_R / M_O = <b>{sf_text}</b></p>"
+                )
+
+            pages.append(f"""
+            <div style='page-break-before:always'></div>
+            <h1>FBD {idx}: {case['title']} / {case['thai']}</h1>
+            <p><b>Case angle:</b> {angle_text} &nbsp; | &nbsp; <b>Target SF:</b> {d['req']:.2f}
+            &nbsp; | &nbsp; <b>Result:</b> {status}</p>
+            <p style='text-align:center'><img src='{fp.as_uri()}' width='660'></p>
+            <h3>Forces / แรงที่กระทำ</h3>
+            <p>{explain}</p>
+            <h3>Moment balance / สมดุลโมเมนต์</h3>
+            {formula}
+            <p style='background:#f7fafc;border:1px solid #d7e1eb;padding:8px'>
+            <b>เกณฑ์ออกแบบเบื้องต้น:</b> SF = M_R / M_O และต้องการ SF >= {d['req']:.2f}.
+            รายงานนี้เป็น Preliminary rigid-body stability calculation ต้องยืนยันมวล/CG จริงและการทดสอบจริงก่อนผลิต.
+            </p>
+            """)
+
+        summary=f"""
+        <h2>ALL-DIRECTION FBD SUMMARY / สรุป FBD การคว่ำทุกด้าน</h2>
+        <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
+        <tr><th>#</th><th>Case</th><th>Governing angle</th><th>SF</th><th>Status</th></tr>
+        {''.join(rows)}
+        </table>
+        <p><b>Force legend:</b> W = Weight (mg), R/N = Ground Reaction,
+        F_L = Dynamic design payload force when adverse, M_O = Overturning Moment,
+        M_R = Restoring Moment, Pivot = Tipping Axis.</p>
+        """
+        return summary+"".join(pages)
+
     def export_pdf_report(self):
         docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
         default_path=str(Path(docs)/"Crane_Stability_Engineering_Report.pdf")
