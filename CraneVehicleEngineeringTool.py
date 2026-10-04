@@ -8355,7 +8355,13 @@ void loop() {{
     def make_fbd(self):
         w=QWidget();self.fbdPage=w; l=QVBoxLayout(w)
         top=QHBoxLayout()
-        self.fbdModeCombo=QComboBox(); self.fbdModeCombo.addItems(["Side Tipping / คว่ำด้านข้าง","Front-Rear / คว่ำหน้า-หลัง","Slope / ทางลาด"])
+        self.fbdModeCombo=QComboBox(); self.fbdModeCombo.addItems([
+            "Side Left / คว่ำซ้าย",
+            "Side Right / คว่ำขวา",
+            "Front / คว่ำหน้า",
+            "Rear / คว่ำหลัง",
+            "Slope / ทางลาด"
+        ])
         self.fbdAuto=QCheckBox("Auto FBD: แสดงทิศทางวิกฤตตามมุมเครนปัจจุบัน")
         self.fbdAuto.setChecked(True)
         self.fbdCriticalLabel=QLabel("Critical direction: -")
@@ -8384,7 +8390,8 @@ M = F × d
 Safety Factor = โมเมนต์ต้านการคว่ำ ÷ โมเมนต์ทำให้คว่ำ
 SF = M_R / M_O
 
-Auto FBD จะเลือก Side หรือ Front-Rear ตามค่า SF ต่ำสุด ณ มุมเครนปัจจุบัน
+Auto FBD จะเลือก Side Left / Side Right / Front / Rear ตามค่า SF ต่ำสุด ณ มุมเครนปัจจุบัน
+ภาพแสดงแรงน้ำหนัก W, Ground Reaction R/N, Pivot, Moment Arm, M_O และ M_R
 หากต้องการดู Slope FBD ให้ปิด Auto แล้วเลือก Slope เอง
 """)
         l.addWidget(t)
@@ -8399,9 +8406,12 @@ Auto FBD จะเลือก Side หรือ Front-Rear ตามค่า S
             self.fbdCriticalLabel.setText("Manual FBD")
             return
         d=self.inputs();side=self.calc_side(d,theta=d["th"])[0];front,rear=self.longitudinal_sf_at(d,d["th"])
-        vals=[("Side",side,0),("Front",front,1),("Rear",rear,1)]
+        side_mode=1 if d["th"]>=0 else 0
+        side_name="Side Right" if d["th"]>=0 else "Side Left"
+        vals=[(side_name,side,side_mode),("Front",front,2),("Rear",rear,3)]
         typ,val,mode=min(vals,key=lambda x:x[1])
         self.fbdModeCombo.blockSignals(True);self.fbdModeCombo.setCurrentIndex(mode);self.fbdModeCombo.blockSignals(False)
+        self.forceDiagram.setCaseAngle(d["th"])
         self.forceDiagram.setMode(mode)
         self.fbdCriticalLabel.setText(f"Critical @ θ={d['th']:.0f}°: {typ} | SF={'∞' if val>=999 else f'{val:.3f}'}")
 
@@ -9346,7 +9356,8 @@ class ForceDiagram(QWidget):
         sr=self.app.slope_stability_results(d)
         self.pivot(p,QPointF(x0+run*.18,y0-run*.18*math.tan(alpha)),"Rear tipping pivot")
         p.setPen(QPen(QColor("#176337"),2))
-        p.drawText(18,hh-66,f"alpha = {self.app.slope.value():.2f} deg    h_CG = {sr['h']:.3f} m    SF_slope = {'INF' if sr['sf']>=999 else f'{sr['sf']:.3f}'}")
+        sf_text="INF" if sr["sf"]>=999 else f"{sr['sf']:.3f}"
+        p.drawText(18,hh-66,f"alpha = {self.app.slope.value():.2f} deg    h_CG = {sr['h']:.3f} m    SF_slope = {sf_text}")
         p.setPen(QPen(QColor("#52606d")))
         p.drawText(18,hh-38,"For motor force use mg sin(alpha). For tipping stability, combine slope gravity effect and inertia F_a=ma about the rear pivot.")
 
