@@ -160,6 +160,7 @@ jobs:
           assert "ฝั่งพยายามทำให้คว่ำ" in source
           assert "ฝั่งช่วยต้านการคว่ำ" in source
           assert "ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX" in source
+          assert "FBD แบบเข้าใจง่าย / BEGINNER FBD" in source
 
           for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
               assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
@@ -928,13 +929,14 @@ jobs:
           with tempfile.TemporaryDirectory() as fbd_td:
               fbd_td=Path(fbd_td)
               html=w.stability_fbd_report_html(fbd_td,w.inputs())
-              assert "ALL-DIRECTION FBD SUMMARY" in html
-              assert "วิธีอ่าน FBD แบบง่าย" in html
+              assert "สรุป FBD การคว่ำทุกด้าน" in html
+              assert "อ่านรูปนี้แค่ 4 อย่าง" in html
               assert "FBD 1:" in html and "FBD 5:" in html
-              assert "M_O (N.m)" in html and "M_R (N.m)" in html
-              assert "Moment arm d (m)" in html
+              assert "ฝั่งพยายามทำให้คว่ำ" in html
+              assert "ฝั่งช่วยต้านการคว่ำ" in html
+              assert "Safety Factor" in html
+              assert "ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX" in html
               assert "W_vehicle" in html and "W_boom" in html and "W_payload" in html
-              assert "R_front / R_rear" in html and "R_L / R_R" in html
               for key in ("side_left","side_right","front","rear","slope"):
                   img=fbd_td/f"fbd_{key}.png"
                   assert img.exists() and img.stat().st_size>1000, f"Missing FBD image {key}"
