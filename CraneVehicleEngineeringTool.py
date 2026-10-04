@@ -9474,13 +9474,15 @@ class ForceDiagram(QWidget):
 
         self.D(p,QPointF(rear,gy+76),QPointF(front,gy+76),f"Wheelbase WB = {d['WB']:.3f} m")
 
-        sfF,sfR=self.app.longitudinal_sf_at(d,angle)
-        sf=sfF if front_case else sfR
-        self.moment_mark(p,QPointF(pivot_x,gy-72),"M_O","#b42318")
+        bal=self.app.longitudinal_moment_balance(d,angle,("front" if front_case else "rear"))
+        sf=bal["sf"]
+        self.moment_mark(p,QPointF(pivot_x,gy-72),f"M_O={bal['mo']:.0f} N.m","#b42318")
         p.setPen(QPen(QColor("#176337"),2))
-        p.drawText(18,hh-88,f"Crane angle = {angle:.0f} deg    SF_{case.lower()} = {'INF' if sf>=999 else f'{sf:.3f}'}")
+        p.drawText(18,hh-88,
+                   f"M_R={bal['mr']:.1f} N.m    M_O={bal['mo']:.1f} N.m    "
+                   f"SF_{case.lower()} = {'INF' if sf>=999 else f'{sf:.3f}'}")
         p.setPen(QPen(QColor("#52606d")))
-        p.drawText(18,hh-60,f"x_CG={d['xCG']:.3f} m   x_boom={xboom:.3f} m   x_load={xload:.3f} m   (origin at wheelbase center)")
+        p.drawText(18,hh-60,f"Crane angle={angle:.0f} deg   x_CG={d['xCG']:.3f} m   x_boom={xboom:.3f} m   x_load={xload:.3f} m")
         p.drawText(18,hh-36,"Payload uses Kdyn only when it lies on the overturning side of the selected pivot.")
 
     def _slope_view(self,p,d):
@@ -9527,12 +9529,16 @@ class ForceDiagram(QWidget):
         self.A(p,QPointF(cx,cy)+QPointF(0,16),QPointF(cx,cy)+u*(-105)+QPointF(0,16),"#8a3ffc",f"F_a = ma = {Fa:.0f} N")
 
         sr=self.app.slope_stability_results(d)
+        MR=mass*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
+        MO=mass*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
         self.pivot(p,QPointF(x0+run*.18,y0-run*.18*math.tan(alpha)),"Rear tipping pivot")
         p.setPen(QPen(QColor("#176337"),2))
         sf_text="INF" if sr["sf"]>=999 else f"{sr['sf']:.3f}"
-        p.drawText(18,hh-66,f"alpha = {self.app.slope.value():.2f} deg    h_CG = {sr['h']:.3f} m    SF_slope = {sf_text}")
+        p.drawText(18,hh-66,
+                   f"M_R={MR:.1f} N.m    M_O={MO:.1f} N.m    SF_slope={sf_text}    alpha={self.app.slope.value():.2f} deg")
         p.setPen(QPen(QColor("#52606d")))
-        p.drawText(18,hh-38,"For motor force use mg sin(alpha). For tipping stability, combine slope gravity effect and inertia F_a=ma about the rear pivot.")
+        p.drawText(18,hh-38,
+                   f"h_CG={sr['h']:.3f} m   rear arm={sr['rear_arm']:.3f} m. Use mg sin(alpha) for grade force; F_a=ma adds tipping effect.")
 
     def paintEvent(self,e):
         p=QPainter(self)
