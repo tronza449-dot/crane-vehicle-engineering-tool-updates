@@ -8919,131 +8919,167 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
         return path
 
     def stability_fbd_report_html(self,tmpdir,d=None):
-        """Generate a five-case FBD section for Stability and Final PDF exports."""
+        """Generate beginner-first FBD pages plus a technical appendix."""
         d=d or self.inputs()
         cases=self.stability_fbd_cases(d)
-        rows=[];pages=[]
+        rows=[];simple_pages=[];appendix_pages=[]
+
         for idx,case in enumerate(cases,1):
             key=case["key"];angle=case["angle"]
             sf=float(case["sf"])
-            sf_text="INF" if sf>=999 else f"{sf:.3f}"
-            status="PASS / ผ่านเกณฑ์" if sf>=d["req"] else "FAIL / ต้องปรับแบบ"
-            angle_text="-" if angle is None else f"{angle:.0f} deg"
+            sf_text="∞" if sf>=999 else f"{sf:.3f}"
+            ok=sf>=d["req"]
+            status="ผ่านเกณฑ์" if ok else "ไม่ผ่าน — ต้องปรับแบบ"
+            status_color="#176337" if ok else "#b42318"
+            angle_text="-" if angle is None else f"{angle:.0f}°"
             fp=Path(tmpdir)/("fbd_"+key+".png")
             self._render_stability_fbd_png(case["mode"],fp,angle)
 
             if key in ("side_left","side_right"):
-                sf0,MO,MR=self.calc_side(d,theta=angle)
+                _,MO,MR=self.calc_side(d,theta=angle)
+                side_th="ซ้าย" if key=="side_left" else "ขวา"
                 mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-                explain=(
-                    "<b>W_vehicle</b> = น้ำหนักส่วนรถหลัก กระทำลงที่ CG รถ; "
-                    "<b>W_boom</b> = น้ำหนักแขนเครน กระทำลงที่ CG ของแขน; "
-                    "<b>W_payload</b> = น้ำหนักโหลด กระทำลงที่จุดแขวนโหลด; "
-                    "<b>R_L / R_R</b> = แรงปฏิกิริยาจากพื้นที่ล้อซ้าย/ขวา; "
-                    "<b>Pivot</b> = แนวสัมผัสล้อฝั่งที่รถเริ่มหมุนคว่ำ."
+                read_steps=[
+                    f"<b>1.</b> จุดแดงที่ล้อ{side_th} = จุดที่รถจะเริ่มหมุนคว่ำ",
+                    "<b>2.</b> ลูกศรสีแดง = น้ำหนักที่พยายามดึงรถให้คว่ำ",
+                    "<b>3.</b> ลูกศรสีน้ำเงิน = น้ำหนักรถที่ช่วยต้านการคว่ำ",
+                    "<b>4.</b> ดูกล่อง SF ด้านล่าง: ถ้า SF มากกว่าหรือเท่ากับค่าที่กำหนดถือว่าผ่านเบื้องต้น",
+                ]
+                meaning=(
+                    f"กรณีนี้จำลองเครนยื่นไปด้าน{side_th}. "
+                    f"รถจะเริ่มคว่ำรอบล้อด้าน{side_th}. "
+                    "ล้อฝั่งตรงข้ามจะเริ่มยกจากพื้นและแรงปฏิกิริยาฝั่งนั้นจะลดลง."
                 )
-                formula=(
-                    f"<p><b>Track width W</b> = {d['W']:.3f} m, &nbsp; Pivot arm ของ CG รถ = W/2 = {d['W']/2:.3f} m</p>"
-                    f"<p>W_vehicle = {mveh:.2f} x 9.81 = <b>{mveh*G:.2f} N</b><br>"
-                    f"W_boom = {d['mb']:.2f} x 9.81 = <b>{d['mb']*G:.2f} N</b><br>"
-                    f"W_payload = {d['ml']:.2f} x 9.81 = <b>{d['ml']*G:.2f} N</b></p>"
-                    f"<p>F_L,design = Kdyn x m_L x g = {d['kd']:.2f} x {d['ml']:.2f} x 9.81 "
-                    f"= <b>{d['kd']*d['ml']*G:.2f} N</b> เมื่อ Payload อยู่ฝั่งทำให้คว่ำ.</p>"
-                    f"<p><b>M_O</b> = sum(F x d) ฝั่งคว่ำ = <b>{MO:.2f} N.m</b><br>"
-                    f"<b>M_R</b> = sum(W x d) ฝั่งต้าน = <b>{MR:.2f} N.m</b><br>"
-                    f"<b>SF</b> = M_R / M_O = <b>{sf_text}</b></p>"
+                technical=(
+                    f"<p><b>Track width W</b> = {d['W']:.3f} m → W/2 = {d['W']/2:.3f} m</p>"
+                    f"<p>W_vehicle = {mveh:.2f}×9.81 = {mveh*G:.2f} N<br>"
+                    f"W_boom = {d['mb']:.2f}×9.81 = {d['mb']*G:.2f} N<br>"
+                    f"W_payload = {d['ml']:.2f}×9.81 = {d['ml']*G:.2f} N</p>"
+                    f"<p>F_payload,design = Kdyn×m_L×g = {d['kd']:.2f}×{d['ml']:.2f}×9.81 = "
+                    f"{d['kd']*d['ml']*G:.2f} N เมื่อ Payload อยู่ฝั่งทำให้คว่ำ</p>"
+                    f"<p><b>M_O = {MO:.2f} N·m</b><br><b>M_R = {MR:.2f} N·m</b><br>"
+                    f"<b>SF = M_R/M_O = {sf_text}</b></p>"
                 )
+
             elif key in ("front","rear"):
                 bal=self.longitudinal_moment_balance(d,angle,key)
                 MO=bal["mo"];MR=bal["mr"]
-                explain=(
-                    "<b>W_vehicle</b>, <b>W_boom</b> และ <b>W_payload</b> กระทำลงในแนวดิ่งที่ CG/ตำแหน่งโหลดของแต่ละส่วน; "
-                    "<b>R_front / R_rear</b> คือแรงปฏิกิริยาจากพื้น; "
-                    "<b>Pivot</b> คือแนวเพลาหน้าหรือเพลาหลังที่รถจะหมุนรอบเมื่อเริ่มคว่ำ. "
-                    "Payload ใช้ Dynamic Factor เฉพาะเมื่ออยู่ฝั่งที่สร้างโมเมนต์คว่ำ."
+                dir_th="หน้า" if key=="front" else "หลัง"
+                read_steps=[
+                    f"<b>1.</b> จุดแดงที่แนวล้อ{dir_th} = จุดที่รถจะเริ่มหมุนคว่ำ",
+                    "<b>2.</b> น้ำหนักที่อยู่เลยจุดแดงออกไป = ช่วยทำให้คว่ำ",
+                    "<b>3.</b> น้ำหนักที่อยู่ด้านในช่วงล้อ = ช่วยต้านการคว่ำ",
+                    "<b>4.</b> โปรแกรมรวม แรง × ระยะจากจุดแดง แล้วคำนวณ SF ให้",
+                ]
+                meaning=(
+                    f"กรณีนี้ตรวจการคว่ำด้าน{dir_th}. "
+                    f"Pivot อยู่ที่แนวล้อ{dir_th}. "
+                    "ตำแหน่งของรถ แขนเครน และโหลดเมื่อเทียบกับ Pivot เป็นตัวกำหนดว่าแรงนั้นช่วยคว่ำหรือช่วยต้าน."
                 )
                 component_rows="".join(
                     f"<tr><td>{c['name']}</td><td>{c['force']:.2f}</td><td>{c['arm']:.3f}</td>"
-                    f"<td>{c['moment']:.2f}</td><td>{c['role']}</td></tr>"
+                    f"<td>{c['moment']:.2f}</td><td>{'ทำให้คว่ำ' if c['role']=='overturning' else 'ช่วยต้าน'}</td></tr>"
                     for c in bal["components"]
                 )
-                formula=(
+                technical=(
                     f"<p>Rear axle = {bal['rear']:.3f} m, Front axle = {bal['front']:.3f} m, "
-                    f"Pivot = {bal['pivot']:.3f} m<br>"
-                    f"x_crane = {bal['xc']:.3f} m, x_boom = {bal['xboom']:.3f} m, "
+                    f"Pivot = {bal['pivot']:.3f} m</p>"
+                    f"<p>x_crane = {bal['xc']:.3f} m, x_boom = {bal['xboom']:.3f} m, "
                     f"x_load = {bal['xload']:.3f} m, x_CG = {d['xCG']:.3f} m</p>"
-                    "<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse'>"
-                    "<tr><th>Force</th><th>F (N)</th><th>Moment arm d (m)</th><th>M (N.m)</th><th>Role</th></tr>"
+                    "<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>"
+                    "<tr><th>แรง</th><th>F (N)</th><th>ระยะแขน d (m)</th><th>M (N·m)</th><th>หน้าที่</th></tr>"
                     f"{component_rows}</table>"
-                    f"<p><b>M_O</b> = <b>{MO:.2f} N.m</b><br>"
-                    f"<b>M_R</b> = <b>{MR:.2f} N.m</b><br>"
-                    f"<b>SF_{key}</b> = M_R / M_O = <b>{sf_text}</b></p>"
+                    f"<p><b>M_O = {MO:.2f} N·m</b><br><b>M_R = {MR:.2f} N·m</b><br>"
+                    f"<b>SF = M_R/M_O = {sf_text}</b></p>"
                 )
+
             else:
                 sr=self.slope_stability_results(d)
                 alpha=math.radians(self.slope.value())
                 mass=d["mt"]
                 MR=mass*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
                 MO=mass*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
-                explain=(
-                    "<b>W = mg</b> กระทำลงแนวดิ่งที่ Combined CG; "
-                    "<b>mg sin(alpha)</b> เป็นองค์ประกอบตามทางลาด; "
-                    "<b>mg cos(alpha)</b> เป็นองค์ประกอบตั้งฉากกับทางลาด; "
-                    "<b>N</b> คือแรงปฏิกิริยาตั้งฉากจากพื้น; "
-                    "<b>F_a = ma</b> คือแรงเฉื่อยสมมูลจากความเร่งที่ CG สำหรับตรวจการคว่ำขึ้นลาด."
+                read_steps=[
+                    "<b>1.</b> จุดแดงด้านหลัง = จุดที่รถอาจหมุนคว่ำขณะขึ้นลาด",
+                    "<b>2.</b> แรงสีแดง = ส่วนของน้ำหนักที่ดึงรถลงตามทางลาด",
+                    "<b>3.</b> น้ำหนักรถและตำแหน่ง CG เป็นตัวช่วยต้านการคว่ำ",
+                    "<b>4.</b> แรงจากการเร่งขึ้นลาดเพิ่มแนวโน้มคว่ำด้านหลัง",
+                ]
+                meaning=(
+                    "บนทางลาด น้ำหนักรถยังชี้ลงแนวดิ่ง แต่สามารถแยกเป็นแรงตามทางลาดและแรงกดตั้งฉากกับทางลาด. "
+                    "โปรแกรมใช้ตำแหน่ง CG, มุมลาด และความเร่งเพื่อคำนวณ SF_slope."
                 )
-                formula=(
-                    f"<p>alpha = {self.slope.value():.2f} deg, h_CG = {sr['h']:.3f} m, "
-                    f"d_rear = {sr['rear_arm']:.3f} m, a = {sr['acc']:.3f} m/s2</p>"
-                    f"<p>W_parallel = mg sin(alpha) = <b>{mass*G*math.sin(alpha):.2f} N</b><br>"
-                    f"W_normal = mg cos(alpha) = <b>{mass*G*math.cos(alpha):.2f} N</b><br>"
-                    f"F_a = ma = <b>{mass*sr['acc']:.2f} N</b></p>"
-                    f"<p><b>M_R</b> = m g cos(alpha) x d_rear = <b>{MR:.2f} N.m</b><br>"
-                    f"<b>M_O</b> = m h_CG [g sin(alpha) + a] = <b>{MO:.2f} N.m</b><br>"
-                    f"<b>SF_slope</b> = M_R / M_O = <b>{sf_text}</b></p>"
+                technical=(
+                    f"<p>α = {self.slope.value():.2f}°, h_CG = {sr['h']:.3f} m, "
+                    f"d_rear = {sr['rear_arm']:.3f} m, a = {sr['acc']:.3f} m/s²</p>"
+                    f"<p>mg sinα = {mass*G*math.sin(alpha):.2f} N<br>"
+                    f"mg cosα = {mass*G*math.cos(alpha):.2f} N<br>"
+                    f"F_a = ma = {mass*sr['acc']:.2f} N</p>"
+                    f"<p><b>M_R = {MR:.2f} N·m</b><br><b>M_O = {MO:.2f} N·m</b><br>"
+                    f"<b>SF_slope = M_R/M_O = {sf_text}</b></p>"
                 )
 
             rows.append(
-                f"<tr><td>{idx}</td><td>{case['title']}</td><td>{angle_text}</td>"
-                f"<td>{MO:.2f}</td><td>{MR:.2f}</td><td>{sf_text}</td><td>{status}</td></tr>"
+                f"<tr><td>{idx}</td><td>{case['thai']}</td><td>{sf_text}</td>"
+                f"<td style='color:{status_color}'><b>{status}</b></td></tr>"
             )
-            pages.append(f"""
+
+            simple_pages.append(f"""
             <div style='page-break-before:always'></div>
-            <h1>FBD {idx}: {case['title']} / {case['thai']}</h1>
-            <p><b>Case angle:</b> {angle_text} &nbsp; | &nbsp; <b>Target SF:</b> {d['req']:.2f}
-            &nbsp; | &nbsp; <b>Result:</b> {status}</p>
+            <h1>FBD {idx}: {case['thai']}</h1>
+            <p style='font-size:11pt'><b>{meaning}</b></p>
+
+            <div style='background:#eef7ff;border:1px solid #b9d8f3;padding:10px;margin:8px 0'>
+              <b>อ่านรูปนี้แค่ 4 อย่าง</b><br>
+              {'<br>'.join(read_steps)}
+            </div>
+
             <p style='text-align:center'><img src='{fp.as_uri()}' width='660'></p>
-            <h3>Forces / แรงที่กระทำ</h3>
-            <p>{explain}</p>
-            <h3>Moment balance / สมดุลโมเมนต์</h3>
-            {formula}
+
+            <table border='1' cellspacing='0' cellpadding='8' style='border-collapse:collapse;width:100%'>
+              <tr>
+                <td style='background:#fff1f0'><b>ฝั่งพยายามทำให้คว่ำ</b><br><span style='font-size:15pt'>{MO:.1f} N·m</span></td>
+                <td style='background:#eefaf4'><b>ฝั่งช่วยต้านการคว่ำ</b><br><span style='font-size:15pt'>{MR:.1f} N·m</span></td>
+                <td style='background:{"#eefaf4" if ok else "#fff1f0"}'><b>คำตอบ</b><br><span style='font-size:15pt;color:{status_color}'>SF = {sf_text}<br>{status}</span></td>
+              </tr>
+            </table>
+
+            <p style='background:#fff8e9;border:1px solid #ead39a;padding:9px'>
+            <b>สูตรเดียวที่ต้องจำ:</b> Safety Factor = โมเมนต์ที่ช่วยต้าน ÷ โมเมนต์ที่พยายามทำให้คว่ำ<br>
+            <b>SF = M_R / M_O</b> และโปรแกรมตั้งเกณฑ์ไว้ที่ <b>SF ≥ {d['req']:.2f}</b>
+            </p>
+            """)
+
+            appendix_pages.append(f"""
+            <div style='page-break-before:always'></div>
+            <h2>รายละเอียดวิศวกรรม FBD {idx}: {case['title']}</h2>
+            <p><b>Case angle:</b> {angle_text} &nbsp; | &nbsp; <b>Target SF:</b> {d['req']:.2f}</p>
+            {technical}
             <p style='background:#f7fafc;border:1px solid #d7e1eb;padding:8px'>
-            <b>หลักการเริ่มคว่ำ:</b> เมื่อแรงปฏิกิริยาที่ฐานรองรับฝั่งตรงข้าม Pivot ลดลงเข้าใกล้ 0 N
-            แนวแรงลัพธ์กำลังออกนอกฐานรองรับ และรถมีแนวโน้มหมุนรอบ Pivot.<br>
-            <b>เกณฑ์:</b> SF = M_R / M_O และใช้ SF &gt;= {d['req']:.2f} เป็นเกณฑ์ออกแบบเบื้องต้น.
+            เมื่อแรงปฏิกิริยาของล้อฝั่งตรงข้าม Pivot ลดลงเข้าใกล้ 0 N รถกำลังเข้าใกล้จุดเริ่มคว่ำ.
+            การคำนวณนี้เป็น Preliminary rigid-body stability calculation และต้องยืนยันด้วยมวล/CG จริง.
             </p>
             """)
 
         summary=f"""
-        <h2>ALL-DIRECTION FBD SUMMARY / สรุป FBD การคว่ำทุกด้าน</h2>
-        <div style='background:#eef7ff;border:1px solid #b9d8f3;padding:10px;margin:8px 0'>
-        <b>วิธีอ่าน FBD แบบง่าย:</b><br>
-        1) หา <b>Pivot</b> จุดแดง — รถจะเริ่มหมุนรอบจุดนี้<br>
-        2) แรง/น้ำหนักที่อยู่นอก Pivot สร้าง <b>M_O โมเมนต์ทำให้คว่ำ</b><br>
-        3) แรง/น้ำหนักที่อยู่ด้านในฐานรองรับสร้าง <b>M_R โมเมนต์ต้านการคว่ำ</b><br>
-        4) <b>SF = M_R / M_O</b> และเปรียบเทียบกับ Target SF = {d['req']:.2f}
+        <h2>สรุป FBD การคว่ำทุกด้าน</h2>
+        <div style='background:#eef7ff;border:1px solid #b9d8f3;padding:12px;margin:8px 0'>
+        <b>ส่วนแรกของรายงานตั้งใจทำให้อ่านง่ายสำหรับนำเสนอ:</b><br>
+        ดูเพียง 4 อย่าง — <b>จุดหมุนแดง → ฝั่งทำให้คว่ำ → ฝั่งช่วยต้าน → ค่า SF</b><br>
+        รายละเอียดสูตรและตารางตัวเลขเต็มอยู่ใน <b>ภาคผนวกวิศวกรรม</b> หลัง FBD ทั้ง 5 รูป
         </div>
-        <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
-        <tr><th>#</th><th>Case</th><th>Governing angle</th><th>M_O (N.m)</th><th>M_R (N.m)</th><th>SF</th><th>Status</th></tr>
+        <table border='1' cellspacing='0' cellpadding='7' style='border-collapse:collapse;width:100%'>
+        <tr><th>#</th><th>กรณี</th><th>Safety Factor</th><th>ผล</th></tr>
         {''.join(rows)}
         </table>
-        <p><b>Force legend:</b> W = Weight (mg), R/N = Ground Reaction,
-        F_L = Dynamic design payload force when adverse, M_O = Overturning Moment,
-        M_R = Restoring Moment, Pivot = Tipping Axis.</p>
-        <p><b>หมายเหตุ:</b> FBD และ Safety Factor เปลี่ยนตาม Input ปัจจุบันของโปรแกรมอัตโนมัติ
-        ไม่ใช่รูปค่าคงที่.</p>
         """
-        return summary+"".join(pages)
+        appendix=(
+            "<div style='page-break-before:always'></div>"
+            "<h1>ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX</h1>"
+            "<p>ส่วนนี้เก็บสูตร ตัวแปร ระยะโมเมนต์ และตัวเลขสำหรับตรวจสอบโดยอาจารย์/วิศวกร. "
+            "ถ้าต้องการดูภาพรวมอย่างเดียว สามารถอ่านเฉพาะ FBD 1–5 ก่อนหน้านี้ได้.</p>"
+        )
+        return summary+"".join(simple_pages)+appendix+"".join(appendix_pages)
 
 
     def export_pdf_report(self):
