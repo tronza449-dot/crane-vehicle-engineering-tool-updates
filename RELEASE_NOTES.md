@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.8.0
+# Crane Vehicle Engineering Tool V53.8.1
 
 ## Stability PDF - All-Direction Free Body Diagrams (FBD)
 
@@ -67,3 +67,7 @@ SF = M_R / M_O
 โปรแกรมเปรียบเทียบกับ Target SF ที่ผู้ใช้ตั้งไว้
 
 ผลยังเป็น Preliminary rigid-body stability calculation ต้องยืนยันมวลจริง ตำแหน่ง CG จริง โครงสร้าง จุดยึด ยาง/พื้น Dynamic Shock และการทดสอบจริงก่อนผลิตหรือใช้งาน
+
+
+### Build fix
+- แก้การ render FBD แบบ offscreen สำหรับ PDF Export ให้ทำงานถูกต้องบน PySide6/Windows build.
