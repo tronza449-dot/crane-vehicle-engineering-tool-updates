@@ -144,6 +144,15 @@ jobs:
           assert web_stability["side"]["sf"]>=0
           assert "front" in web_stability and "rear" in web_stability
 
+          # Desktop PDF/FBD source must expose all 5 engineering cases.
+          assert "def stability_fbd_cases" in source
+          assert "def stability_fbd_report_html" in source
+          assert "SIDE TIPPING - LEFT" in source
+          assert "SIDE TIPPING - RIGHT" in source
+          assert "FRONT TIPPING" in source
+          assert "REAR TIPPING" in source
+          assert "SLOPE STABILITY" in source
+
           for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
               assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
           web_js=Path("web/app.js").read_text(encoding="utf-8")
@@ -885,6 +894,20 @@ jobs:
               out=w._download_update_installer(data)
               assert hashlib.sha256(out.read_bytes()).hexdigest()==sha
               out.unlink(missing_ok=True)
+
+          # ---------- Stability FBD regression ----------
+          cases=w.stability_fbd_cases()
+          assert len(cases)==5
+          assert [c["key"] for c in cases]==["side_left","side_right","front","rear","slope"]
+          assert w.fbdModeCombo.count()==5
+          with tempfile.TemporaryDirectory() as fbd_td:
+              fbd_td=Path(fbd_td)
+              html=w.stability_fbd_report_html(fbd_td,w.inputs())
+              assert "ALL-DIRECTION FBD SUMMARY" in html
+              assert "FBD 1:" in html and "FBD 5:" in html
+              for key in ("side_left","side_right","front","rear","slope"):
+                  img=fbd_td/f"fbd_{key}.png"
+                  assert img.exists() and img.stat().st_size>1000, f"Missing FBD image {key}"
 
           # ---------- PDF regression ----------
           with tempfile.TemporaryDirectory() as td:
