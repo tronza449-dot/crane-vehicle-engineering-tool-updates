@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.8.5
+# Crane Vehicle Engineering Tool V53.8.6
 
 ## FBD Beginner Mode — อ่านให้ง่ายกว่าเดิม
 
@@ -52,3 +52,7 @@ FBD ทั้ง 5 กรณี:
 ### หลักการคำนวณ
 ไม่ได้เปลี่ยนสูตรหรือโมเดล Stability
 อัปเดตรอบนี้เปลี่ยนเฉพาะการสื่อสาร รูป และการจัดหน้าให้เข้าใจง่ายขึ้น
+
+
+### Build fix
+- ปรับ regression ให้ตรงกับรูปแบบรายงาน Beginner FBD ใหม่
