@@ -1,90 +1,69 @@
-# Crane Vehicle Engineering Tool V53.7.0
+# Crane Vehicle Engineering Tool V53.8.0
 
-## Ramp Geometry / การคำนวณองศาและความชันทางลาด
+## Stability PDF - All-Direction Free Body Diagrams (FBD)
 
-เพิ่มการคำนวณตามค่าที่วัดจริงของทางลาดโดยตรง ทั้งใน Desktop และ Web
+อัปเดตนี้ปรับหน้า Stability และ PDF Export ให้มี Free Body Diagram แบบวิศวกรรมครบทุกทิศทางตามที่ต้องการ
 
-### Input
-ค่าเริ่มต้นตามข้อมูลที่วัด:
-- ความสูง h = 55 cm
-- ระยะราบ x = 280 cm
-- ความยาวทางลาดที่วัดได้ = 290 cm
-- มวลรถสำหรับตรวจ F_slope = 300 kg (Web)
-- Desktop สามารถเลือกใช้มวลจาก Main Battery ได้
+### FBD ในโปรแกรม
+หน้า FBD เปลี่ยนจาก 3 โหมดเป็น 5 โหมด:
+1. Side Left / คว่ำด้านซ้าย
+2. Side Right / คว่ำด้านขวา
+3. Front / คว่ำด้านหน้า
+4. Rear / คว่ำด้านหลัง
+5. Slope / ทางลาด
 
-### 1) ความยาวทางลาดจากพีทาโกรัส
-สูตร:
-`L = sqrt(x^2 + h^2)`
+Auto FBD ยังเลือกกรณีวิกฤตจาก Side / Front / Rear ตามมุมเครนปัจจุบัน
 
-สำหรับ h = 55 cm, x = 280 cm:
-- L = 285.35 cm
-- L = 2.854 m
-- เทียบค่าที่วัด 290 cm ต่างประมาณ 4.65 cm
+### แรงที่แสดงบนรูป
+FBD แสดงและระบุ:
+- W_vehicle = น้ำหนักตัวรถส่วนหลัก
+- W_boom = น้ำหนักแขนเครน
+- W_payload = น้ำหนักโหลด
+- R_L / R_R = Ground Reaction ด้านซ้าย/ขวา
+- R_front / R_rear = Ground Reaction หน้า/หลัง
+- N = Normal Reaction บนทางลาด
+- mg sin(alpha) = แรงตามทางลาด
+- mg cos(alpha) = แรงตั้งฉากกับทางลาด
+- F_a = m a = ผลของความเร่งบนทางลาด
+- Pivot / Tipping axis
+- Track width / Wheelbase
+- CG / ตำแหน่งโหลด
+- Overturning Moment M_O
+- Restoring Moment M_R
+- Safety Factor
 
-### 2) มุมทางลาด
-สูตร:
-`theta = atan(h/x)`
+### Stability PDF Export
+เมื่อกด Export PDF ในหน้า Stability รายงานจะสร้าง FBD แยกเป็นหน้า:
+- FBD 1: Side Tipping - Left
+- FBD 2: Side Tipping - Right
+- FBD 3: Front Tipping
+- FBD 4: Rear Tipping
+- FBD 5: Slope Stability
 
-ผล:
-- theta ≈ 11.11°
+แต่ละหน้ามี:
+- รูป FBD
+- จุด Pivot
+- ชื่อและทิศทางแรง
+- Moment arm / ระยะที่เกี่ยวข้อง
+- สมการ Moment balance
+- ค่า M_O
+- ค่า M_R
+- ค่า SF
+- Target SF
+- PASS / FAIL
+- คำอธิบายภาษาไทยว่าแรงแต่ละแรงกระทำที่ใดและมีผลอย่างไร
 
-### 3) เปอร์เซ็นต์ความชัน
-สูตร:
-`Slope (%) = (h/x) × 100`
+### Governing Case
+Front และ Rear FBD ใช้มุมเครนที่ทำให้ Safety Factor ของทิศนั้นต่ำที่สุดในช่วง -90 ถึง +90 องศา
+Side Left ใช้ -90 องศา และ Side Right ใช้ +90 องศา
 
-ผล:
-- Slope ≈ 19.64%
+### Final Engineering Report
+Final Engineering PDF จะรวม FBD ทั้ง 5 กรณีเหมือน Stability PDF ด้วย ไม่ใช่เพียง screenshot FBD เดียวอีกต่อไป
 
-โปรแกรมแสดงคำเตือนชัดเจนว่า:
-- 19.64% คือเปอร์เซ็นต์ความชัน
-- ไม่ใช่ 19.64°
-- สูตร sin/cos ของมอเตอร์ต้องใช้ 11.11°
+### Engineering note
+เกณฑ์พื้นฐาน:
+SF = M_R / M_O
 
-### 4) แรงจากความชัน
-โปรแกรมคำนวณและตรวจซ้ำสองสมการ:
-`F_slope = m g sin(theta)`
+โปรแกรมเปรียบเทียบกับ Target SF ที่ผู้ใช้ตั้งไว้
 
-และ
-
-`F_slope = m g (h/L)`
-
-ทั้งสองวิธีต้องให้ผลเท่ากันจากรูปสามเหลี่ยมทฤษฎี
-
-### Desktop
-เพิ่มส่วน Ramp Geometry ใน:
-Stability → Slope
-
-มีปุ่ม:
-- คำนวณ Ramp Geometry
-- ใช้มุมนี้กับ Torque + Main Battery + Stability
-- ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery
-
-เพิ่มความละเอียดมุมเป็น 2 ตำแหน่ง และ Slope Length เป็น 3 ตำแหน่ง
-
-### Web
-เพิ่มเมนู:
-- Ramp Geometry
-
-พร้อม:
-- รูปสามเหลี่ยมทางลาด
-- h / x / L
-- มุม theta
-- Slope %
-- ค่าความต่างระหว่าง L ที่วัดกับ L ทฤษฎี
-- F_slope
-- สูตร + แทนค่า
-- ปุ่มส่งมุมไป Drive Torque + Main Battery
-- ปุ่มส่ง L ทฤษฎีไป Main Battery
-
-ค่า Input ของหน้า Ramp ถูกจำไว้ใน Browser เช่นเดียวกับหน้าคำนวณอื่น
-
-### Regression
-เพิ่มการทดสอบอัตโนมัติสำหรับกรณี:
-h = 55 cm, x = 280 cm, L_measured = 290 cm
-
-ยืนยันว่า:
-- L ≈ 285.35 cm
-- theta ≈ 11.11°
-- Slope ≈ 19.64%
-- Difference ≈ 4.65 cm
-- m g sin(theta) = m g h/L
+ผลยังเป็น Preliminary rigid-body stability calculation ต้องยืนยันมวลจริง ตำแหน่ง CG จริง โครงสร้าง จุดยึด ยาง/พื้น Dynamic Shock และการทดสอบจริงก่อนผลิตหรือใช้งาน
