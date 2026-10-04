@@ -35,3 +35,5 @@ Stability PDF และ Final Engineering PDF เริ่มด้วย FBD �
 
 ### Build
 แก้ regression test รุ่นเก่าที่อ้างข้อความ FBD แบบเดิม เพื่อให้ build ตรวจ Beginner FBD รุ่นปัจจุบันแทน
+
+- เพิ่ม regression log artifact เพื่อวิเคราะห์กรณี Build ไม่ผ่านได้ตรงจุด
