@@ -8470,11 +8470,12 @@ void loop() {{
             color="#176337" if ok else "#b42318"
             status="ผ่านเกณฑ์เบื้องต้น" if ok else "ไม่ผ่าน — ต้องปรับแบบ"
             return (
-                f"<div style='background:#f8fafc;border:1px solid #d7e1eb;padding:10px;border-radius:8px'>"
-                f"<b>ผล:</b> M_O = {MO:.1f} N·m &nbsp; | &nbsp; "
-                f"M_R = {MR:.1f} N·m &nbsp; | &nbsp; "
-                f"<span style='color:{color}'><b>SF = {sf_text} → {status}</b></span><br>"
-                f"เกณฑ์ที่ตั้งไว้: SF ≥ {d['req']:.2f}"
+                f"<div style='background:#f8fafc;border:1px solid #d7e1eb;padding:12px;border-radius:8px'>"
+                f"<b>สรุปแบบง่าย</b><br>"
+                f"<span style='color:#b42318'><b>ฝั่งพยายามทำให้คว่ำ = {MO:.1f} N·m</b></span><br>"
+                f"<span style='color:#176337'><b>ฝั่งช่วยต้านการคว่ำ = {MR:.1f} N·m</b></span><br>"
+                f"<span style='color:{color};font-size:13pt'><b>Safety Factor = {sf_text} → {status}</b></span><br>"
+                f"<small>สูตร: SF = ฝั่งช่วยต้าน ÷ ฝั่งพยายามคว่ำ | ต้องได้ ≥ {d['req']:.2f}</small>"
                 f"</div>"
             )
 
@@ -8483,12 +8484,12 @@ void loop() {{
             sf,MO,MR=self.calc_side(d,theta=angle)
             side="ซ้าย" if left else "ขวา"
             html=f"""
-            <h3 style='color:#17456b;margin:2px'>วิธีอ่าน: รถคว่ำด้าน{side}</h3>
+            <h3 style='color:#17456b;margin:2px'>ดูรูปนี้แค่ 4 อย่าง: รถคว่ำด้าน{side}</h3>
             <ol>
-              <li><b>Pivot (จุดแดง)</b> = ล้อด้าน{side}ที่รถจะหมุนรอบเมื่อเริ่มคว่ำ</li>
-              <li><b>W โหลด + W แขนเครน</b> ที่ยื่นออกนอก Pivot จะสร้าง <span style='color:#b42318'><b>โมเมนต์ทำให้คว่ำ M_O</b></span></li>
-              <li><b>น้ำหนักตัวรถ</b> ที่ยังอยู่ด้านในฐานล้อจะสร้าง <span style='color:#176337'><b>โมเมนต์ต้าน M_R</b></span></li>
-              <li>เอา <b>M_R ÷ M_O</b> จะได้ Safety Factor</li>
+              <li><b>จุดแดง</b> = จุดหมุนที่รถจะเริ่มคว่ำ</li>
+              <li><span style='color:#b42318'><b>ลูกศรแดง</b></span> = น้ำหนักที่ช่วยดึงรถให้คว่ำ</li>
+              <li><span style='color:#2459b3'><b>ลูกศรน้ำเงิน</b></span> = น้ำหนักที่ช่วยต้านการคว่ำ</li>
+              <li><b>ดูค่า Safety Factor ด้านล่าง</b> — ถ้าถึงเกณฑ์ถือว่าผ่านเบื้องต้น</li>
             </ol>
             {result_box(MO,MR,sf)}
             <p><b>จำง่าย:</b> ถ้า M_R มากกว่า M_O มากพอ รถจะต้านการคว่ำได้ดีขึ้น</p>
@@ -8499,12 +8500,12 @@ void loop() {{
             angle=d["th"] if self.fbdAuto.isChecked() else d["th"]
             bal=self.longitudinal_moment_balance(d,angle,direction)
             html=f"""
-            <h3 style='color:#17456b;margin:2px'>วิธีอ่าน: รถคว่ำด้าน{label}</h3>
+            <h3 style='color:#17456b;margin:2px'>ดูรูปนี้แค่ 4 อย่าง: รถคว่ำด้าน{label}</h3>
             <ol>
-              <li><b>Pivot (จุดแดง)</b> = แนวล้อ{label}ที่รถจะหมุนรอบ</li>
-              <li>แรงน้ำหนักที่อยู่ <b>เลย Pivot ออกไป</b> จะช่วยทำให้คว่ำ</li>
-              <li>แรงน้ำหนักที่อยู่ <b>ด้านในฐานล้อ</b> จะช่วยต้านการคว่ำ</li>
-              <li>โปรแกรมรวมแรง × ระยะจาก Pivot เป็น M_O และ M_R</li>
+              <li><b>จุดแดง</b> = แนวล้อ{label}ที่รถจะหมุนรอบ</li>
+              <li><span style='color:#b42318'><b>สีแดง</b></span> = แรงที่พยายามทำให้คว่ำ</li>
+              <li><span style='color:#2459b3'><b>สีน้ำเงิน</b></span> = แรงที่ช่วยต้าน</li>
+              <li><b>Safety Factor</b> คือคำตอบสุดท้ายที่ใช้ตัดสินผ่าน/ไม่ผ่านเบื้องต้น</li>
             </ol>
             {result_box(bal['mo'],bal['mr'],bal['sf'])}
             <p>มุมเครนที่ใช้ในภาพ = <b>{angle:.0f}°</b> &nbsp; | &nbsp; Wheelbase = {d['WB']:.3f} m</p>
@@ -8515,12 +8516,12 @@ void loop() {{
             MR=d["mt"]*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
             MO=d["mt"]*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
             html=f"""
-            <h3 style='color:#17456b;margin:2px'>วิธีอ่าน: รถบนทางลาด</h3>
+            <h3 style='color:#17456b;margin:2px'>ดูรูปนี้แค่ 4 อย่าง: รถบนทางลาด</h3>
             <ol>
-              <li><b>mg</b> = น้ำหนักรถ ชี้ลงแนวดิ่งเสมอ</li>
-              <li><b>mg sinα</b> = ส่วนของน้ำหนักที่ดึงรถลงตามทางลาด</li>
-              <li><b>N ≈ mg cosα</b> = แรงปฏิกิริยาตั้งฉากกับพื้น</li>
-              <li><b>F_a = ma</b> = ผลจากการเร่งขึ้นลาด ซึ่งเพิ่มแนวโน้มคว่ำด้านหลัง</li>
+              <li><b>จุดแดง</b> = จุดหมุนด้านหลังที่ต้องเฝ้าระวัง</li>
+              <li><span style='color:#b42318'><b>สีแดง</b></span> = ส่วนของน้ำหนักที่ดึงรถลงตามทางลาด</li>
+              <li><span style='color:#16803a'><b>สีเขียว</b></span> = แรงจากพื้นที่พยุงรถ</li>
+              <li><b>Safety Factor</b> ใช้สรุปว่าผ่านเกณฑ์เบื้องต้นหรือไม่</li>
             </ol>
             {result_box(MO,MR,sr['sf'])}
             <p><b>มุมทางลาด α = {self.slope.value():.2f}°</b> — ใช้องศาใน sin/cos ไม่ใช้ค่า Slope %</p>
