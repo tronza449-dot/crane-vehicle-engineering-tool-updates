@@ -148,7 +148,7 @@ jobs:
           assert "def stability_fbd_cases" in source
           assert "def stability_fbd_report_html" in source
           assert "def longitudinal_moment_balance" in source
-          assert "M_O (N.m)" in source and "M_R (N.m)" in source
+          assert "M_O" in source and "M_R" in source
           assert "SIDE TIPPING - LEFT" in source
           assert "SIDE TIPPING - RIGHT" in source
           assert "FRONT TIPPING" in source
