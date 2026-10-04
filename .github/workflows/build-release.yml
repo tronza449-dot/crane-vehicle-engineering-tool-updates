@@ -147,6 +147,8 @@ jobs:
           # Desktop PDF/FBD source must expose all 5 engineering cases.
           assert "def stability_fbd_cases" in source
           assert "def stability_fbd_report_html" in source
+          assert "def longitudinal_moment_balance" in source
+          assert "M_O (N.m)" in source and "M_R (N.m)" in source
           assert "SIDE TIPPING - LEFT" in source
           assert "SIDE TIPPING - RIGHT" in source
           assert "FRONT TIPPING" in source
@@ -900,11 +902,25 @@ jobs:
           assert len(cases)==5
           assert [c["key"] for c in cases]==["side_left","side_right","front","rear","slope"]
           assert w.fbdModeCombo.count()==5
+
+          # Front/rear report math must expose the actual moment balance.
+          d_fbd=w.inputs()
+          for direction in ("front","rear"):
+              bal=w.longitudinal_moment_balance(d_fbd,0.0,direction)
+              finite(bal["sf"],bal["mo"],bal["mr"])
+              assert bal["mo"]>=0 and bal["mr"]>=0
+              expected=bal["mr"]/bal["mo"] if bal["mo"]>1e-12 else 999
+              assert abs(bal["sf"]-expected)<1e-9
+
           with tempfile.TemporaryDirectory() as fbd_td:
               fbd_td=Path(fbd_td)
               html=w.stability_fbd_report_html(fbd_td,w.inputs())
               assert "ALL-DIRECTION FBD SUMMARY" in html
               assert "FBD 1:" in html and "FBD 5:" in html
+              assert "M_O (N.m)" in html and "M_R (N.m)" in html
+              assert "Moment arm d (m)" in html
+              assert "W_vehicle" in html and "W_boom" in html and "W_payload" in html
+              assert "R_front / R_rear" in html and "R_L / R_R" in html
               for key in ("side_left","side_right","front","rear","slope"):
                   img=fbd_td/f"fbd_{key}.png"
                   assert img.exists() and img.stat().st_size>1000, f"Missing FBD image {key}"
