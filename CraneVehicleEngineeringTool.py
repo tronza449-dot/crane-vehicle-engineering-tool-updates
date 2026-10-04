@@ -8905,7 +8905,8 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
 
     def _render_stability_fbd_png(self,mode,path,angle=None):
         fd=ForceDiagram(self)
-        fd.resize(1100,680)
+        fd.resize(1100,720)
+        fd.setSimpleMode(True)
         fd.setMode(mode)
         fd.setCaseAngle(angle)
         pix=QPixmap(fd.size())
@@ -9025,6 +9026,13 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
 
         summary=f"""
         <h2>ALL-DIRECTION FBD SUMMARY / สรุป FBD การคว่ำทุกด้าน</h2>
+        <div style='background:#eef7ff;border:1px solid #b9d8f3;padding:10px;margin:8px 0'>
+        <b>วิธีอ่าน FBD แบบง่าย:</b><br>
+        1) หา <b>Pivot</b> จุดแดง — รถจะเริ่มหมุนรอบจุดนี้<br>
+        2) แรง/น้ำหนักที่อยู่นอก Pivot สร้าง <b>M_O โมเมนต์ทำให้คว่ำ</b><br>
+        3) แรง/น้ำหนักที่อยู่ด้านในฐานรองรับสร้าง <b>M_R โมเมนต์ต้านการคว่ำ</b><br>
+        4) <b>SF = M_R / M_O</b> และเปรียบเทียบกับ Target SF = {d['req']:.2f}
+        </div>
         <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
         <tr><th>#</th><th>Case</th><th>Governing angle</th><th>M_O (N.m)</th><th>M_R (N.m)</th><th>SF</th><th>Status</th></tr>
         {''.join(rows)}
@@ -9522,10 +9530,10 @@ class ForceDiagram(QWidget):
         angle=self._case_angle(d["th"])
         bal=self.app.longitudinal_moment_balance(d,angle,("front" if front_case else "rear"))
         rear_m=-d["WB"]/2;front_m=d["WB"]/2
-        lo=min(rear_m,bal["xload"],bal["xboom"],d["xCG"])-0.35
-        hi=max(front_m,bal["xload"],bal["xboom"],d["xCG"])+0.35
+        px_per_m=(front_px-rear_px)/max(d["WB"],1e-9)
         def sx(x):
-            return 100+(x-lo)/max(hi-lo,1e-9)*(ww-200)
+            raw=rear_px+(x-rear_m)*px_per_m
+            return max(85,min(ww-85,raw))
         mast=sx(bal["xc"]);top=deck-105;tip=sx(bal["xload"]);bcg=sx(bal["xboom"]);vcg=sx(d["xCG"])
         p.setPen(QPen(QColor("#f28c28"),12,Qt.SolidLine,Qt.RoundCap))
         p.drawLine(QPointF(mast,deck),QPointF(mast,top));p.drawLine(QPointF(mast,top),QPointF(tip,top))
@@ -9580,7 +9588,7 @@ class ForceDiagram(QWidget):
             self.A(p,QPointF(cx,cy)+QPointF(0,18),QPointF(cx,cy)+u*(-105)+QPointF(0,18),"#d97706",f"F_a = ma = {Fa:.0f} N",QPointF(10,18))
         pivot=QPointF(x0+run*.18,y0-run*.18*math.tan(alpha))
         self.pivot(p,pivot,"Rear Pivot")
-        self._simple_text(p,90,gy if False else y0+34,f"มุมทางลาด α = {self.app.slope.value():.2f}°",11,True,"#17324d")
+        self._simple_text(p,90,y0+34,f"มุมทางลาด α = {self.app.slope.value():.2f}°",11,True,"#17324d")
 
         sr=self.app.slope_stability_results(d)
         MR=mass*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
