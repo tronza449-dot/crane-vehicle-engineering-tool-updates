@@ -5897,13 +5897,14 @@ void loop() {{
             self._core_recalculate();self.update_project_tools();self.refresh_integration_suite()
             t=self.torque_results();e=self.electrical_results();w=self.winch_results();worst=self.stability_worst_record()
             images=[]
-            for name,widget in (("vehicle",getattr(self,"view",None)),("fbd",getattr(self,"forceDiagram",None)),
+            for name,widget in (("vehicle",getattr(self,"view",None)),
                                 ("stability_map",getattr(self,"graph",None)),("motor_operating",getattr(self,"motorOpGraph",None)),
                                 ("gpio_board",getattr(self,"hwBoardView",None)),("system_flowchart",getattr(self,"flowchartView",None))):
                 if widget is not None:
                     fp=tmp/f"{name}.png"
                     if widget.grab().save(str(fp)):images.append((name,fp.as_uri()))
             img_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in images)
+            fbd_html=self.stability_fbd_report_html(tmp,self.inputs())
             page="<div style='page-break-before:always'></div>"
             winch_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_html(w),flags=re.I)
             winch_speed_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_speed_html(self.winch_speed_results()),flags=re.I)
@@ -5917,6 +5918,7 @@ void loop() {{
             <h1>2. ELECTRICAL / BATTERY</h1>{self.equation_html(e)}{page}
             <h1>3. WINCH</h1>{winch_formula}<hr>{winch_speed_formula}<hr>{self.winch_duty_html()}{page}
             <h1>4. STABILITY</h1>{self.stability_formula_html()}{page}
+            <h1>4A. STABILITY FBD - ALL DIRECTIONS</h1>{fbd_html}{page}
             <h1>5. WORST CASE</h1><p>SF_worst = {worst[0]:.3f} at θ={worst[1]}° ({worst[2]}), target SF={self.req.value():.2f}</p>{page}
             <h1>6. BATTERY + BMS</h1>{self.bms_check_html()}{page}
             <h1>7. VALIDATION</h1>{self.validation_report_html()}{page}
@@ -8902,7 +8904,7 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
             self.calc_all();self.calc_worst()
             d=self.inputs();worst=self.stability_worst_record();slope=self.slope_stability_results(d)
             figures=[]
-            for name,widget in (("vehicle",getattr(self,"view",None)),("fbd",getattr(self,"forceDiagram",None)),("stability_map",getattr(self,"graph",None))):
+            for name,widget in (("vehicle",getattr(self,"view",None)),("stability_map",getattr(self,"graph",None))):
                 if widget is not None:
                     fp=tmpdir/f"{name}.png"
                     if widget.grab().save(str(fp)):
@@ -8911,6 +8913,7 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
                 f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>"
                 for name,uri in figures
             )
+            fbd_html=self.stability_fbd_report_html(tmpdir,d)
             slope_sf_text="∞" if slope["sf"]>=999 else f"{slope['sf']:.3f}"
             summary=f"""
             <h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
@@ -8929,7 +8932,8 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
             html=(
                 "<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
                 +summary+"<hr>"+self.stability_formula_html()
-                +"<div style='page-break-before:always'></div><h2>Figures / รูปประกอบ</h2>"+fig_html
+                +"<div style='page-break-before:always'></div>"+fbd_html
+                +"<div style='page-break-before:always'></div><h2>Other Figures / รูปประกอบเพิ่มเติม</h2>"+fig_html
                 +"</body></html>"
             )
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
