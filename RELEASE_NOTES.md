@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.8.1
+# Crane Vehicle Engineering Tool V53.8.2
 
 ## Stability PDF - All-Direction Free Body Diagrams (FBD)
 
@@ -71,3 +71,9 @@ SF = M_R / M_O
 
 ### Build fix
 - แก้การ render FBD แบบ offscreen สำหรับ PDF Export ให้ทำงานถูกต้องบน PySide6/Windows build.
+
+
+### V53.8.2 verification
+- Rebuilt from the cleaned source after the all-direction FBD implementation.
+- Verified the 5 FBD cases render to PNG during automated regression.
+- Verified both Stability PDF and Final Engineering PDF export successfully.
