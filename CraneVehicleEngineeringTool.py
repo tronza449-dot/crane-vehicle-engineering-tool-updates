@@ -9480,11 +9480,11 @@ class ForceDiagram(QWidget):
         self._simple_text(p,24,34,title,17,True,"#17324d")
         self._simple_text(p,24,58,subtitle,11,False,"#52606d")
         y=86
-        self._simple_text(p,24,y,"อ่านรูปจากเลข 1 → 4",11,True,"#17324d")
-        self._simple_text(p,205,y,"1 จุดแดง = จุดหมุนคว่ำ",10,True,"#b42318")
-        self._simple_text(p,410,y,"2 สีแดง = ทำให้คว่ำ",10,True,"#b42318")
-        self._simple_text(p,590,y,"3 สีน้ำเงิน = ช่วยต้าน",10,True,"#2459b3")
-        self._simple_text(p,790,y,"4 สีเขียว = แรงจากพื้น",10,True,"#16803a")
+        self._simple_text(p,24,y,"อ่านจากเลข 1 → 4",11,True,"#17324d")
+        self._simple_text(p,175,y,"1 จุดแดง = จุดหมุน",10,True,"#b42318")
+        self._simple_text(p,355,y,"2 สีแดง = พยายามคว่ำ",10,True,"#b42318")
+        self._simple_text(p,565,y,"3 สีน้ำเงิน = ช่วยต้าน",10,True,"#2459b3")
+        self._simple_text(p,770,y,"4 สีเขียว = พื้นพยุงรถ",10,True,"#16803a")
 
     def _simple_side_view(self,p,d,left_case=True):
         side_th="ซ้าย" if left_case else "ขวา"
@@ -9492,7 +9492,7 @@ class ForceDiagram(QWidget):
         self._simple_header(
             p,
             f"FBD การคว่ำด้าน{side_th} / SIDE TIPPING - {side_en}",
-            "ดู 3 อย่าง: จุดหมุนแดง → แรงที่อยู่นอกจุดหมุน → เปรียบเทียบ M_R กับ M_O"
+            "ไม่ต้องอ่านสูตรบนรูป: ดูจุดหมุน → สีแดง → สีน้ำเงิน → คำตอบ SF ด้านล่าง"
         )
         ww,hh=self.width(),self.height()
         gy=hh*0.62
@@ -9526,9 +9526,15 @@ class ForceDiagram(QWidget):
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
         Wv=mveh*G;Wb=d["mb"]*G;Wp=d["ml"]*G
         boom_cg=(mast_x+tip)/2
-        self.A(p,QPointF(cx,deck-95),QPointF(cx,deck-8),"#2459b3",f"3) น้ำหนักรถช่วยต้าน = {Wv:.0f} N",QPointF(10,-6))
-        self.A(p,QPointF(boom_cg,mast_top-65),QPointF(boom_cg,mast_top-8),"#b42318",f"2) น้ำหนักแขน = {Wb:.0f} N",QPointF(10,-6))
-        self.A(p,QPointF(tip,mast_top-80),QPointF(tip,mast_top+14),"#b42318",f"2) น้ำหนักโหลด = {Wp:.0f} N",QPointF(10,-6))
+        self.A(p,QPointF(cx,deck-95),QPointF(cx,deck-8),"#2459b3","3) น้ำหนักตัวรถ → ช่วยต้าน",QPointF(10,-6))
+        boom_over=abs((d["L"]/2.0)) > d["W"]/2.0
+        boom_color="#b42318" if boom_over else "#2459b3"
+        boom_label="2) น้ำหนักแขนเครน → พยายามคว่ำ" if boom_over else "3) น้ำหนักแขนเครน → ช่วยต้าน"
+        payload_over=abs(d["L"]) > d["W"]/2.0
+        payload_color="#b42318" if payload_over else "#2459b3"
+        payload_label="2) น้ำหนักโหลด → พยายามคว่ำ" if payload_over else "3) น้ำหนักโหลด → ช่วยต้าน"
+        self.A(p,QPointF(boom_cg,mast_top-65),QPointF(boom_cg,mast_top-8),boom_color,boom_label,QPointF(10,-6))
+        self.A(p,QPointF(tip,mast_top-80),QPointF(tip,mast_top+14),payload_color,payload_label,QPointF(10,-6))
 
         self.D(p,QPointF(xL,gy+88),QPointF(xR,gy+88),f"Track = {d['W']:.3f} m")
 
@@ -9588,9 +9594,11 @@ class ForceDiagram(QWidget):
         ):
             role=comp[name]["role"]
             color="#b42318" if role=="overturning" else "#2459b3"
-            prefix="2) ทำให้คว่ำ: " if role=="overturning" else "3) ช่วยต้าน: "
+            simple_name={"Vehicle":"น้ำหนักตัวรถ","Boom":"น้ำหนักแขนเครน","Payload":"น้ำหนักโหลด"}[name]
+            prefix="2) " if role=="overturning" else "3) "
+            action="→ พยายามคว่ำ" if role=="overturning" else "→ ช่วยต้าน"
             start_y=(deck-95 if name=="Vehicle" else top-70 if name=="Boom" else top-85)
-            self.A(p,QPointF(x,start_y),QPointF(x,yy),color,prefix+label,QPointF(10,-6))
+            self.A(p,QPointF(x,start_y),QPointF(x,yy),color,prefix+simple_name+" "+action,QPointF(10,-6))
 
         self.D(p,QPointF(rear_px,gy+88),QPointF(front_px,gy+88),f"Wheelbase = {d['WB']:.3f} m")
         sf=bal["sf"];sf_text="∞" if sf>=999 else f"{sf:.3f}"
@@ -9623,11 +9631,11 @@ class ForceDiagram(QWidget):
         self._simple_text(p,cx+10,cy-8,"CG",10,True)
 
         mass=d["mt"];W=mass*G;Wpar=W*math.sin(alpha);Wnorm=W*math.cos(alpha);Fa=mass*self.app.acc.value()
-        self.A(p,QPointF(cx,cy-100),QPointF(cx,cy+100),"#2459b3",f"3) น้ำหนักรถ = {W:.0f} N",QPointF(10,-6))
-        self.A(p,QPointF(cx,cy),QPointF(cx,cy)+u*(-150),"#b42318",f"2) แรงดึงลงตามลาด = {Wpar:.0f} N",QPointF(10,-6))
-        self.A(p,QPointF(cx,cy)+n*(-25),QPointF(cx,cy)+n*(-135),"#16803a",f"4) แรงจากพื้น = {Wnorm:.0f} N",QPointF(10,-6))
+        self.A(p,QPointF(cx,cy-100),QPointF(cx,cy+100),"#2459b3","3) น้ำหนักตัวรถ (mg)",QPointF(10,-6))
+        self.A(p,QPointF(cx,cy),QPointF(cx,cy)+u*(-150),"#b42318","2) ส่วนของน้ำหนักที่ดึงลงทางลาด",QPointF(10,-6))
+        self.A(p,QPointF(cx,cy)+n*(-25),QPointF(cx,cy)+n*(-135),"#16803a","4) พื้นพยุงรถ (N)",QPointF(10,-6))
         if Fa>0.5:
-            self.A(p,QPointF(cx,cy)+QPointF(0,18),QPointF(cx,cy)+u*(-105)+QPointF(0,18),"#d97706",f"F_a = ma = {Fa:.0f} N",QPointF(10,18))
+            self.A(p,QPointF(cx,cy)+QPointF(0,18),QPointF(cx,cy)+u*(-105)+QPointF(0,18),"#d97706","แรงเฉื่อยจากการเร่ง",QPointF(10,18))
         pivot=QPointF(x0+run*.18,y0-run*.18*math.tan(alpha))
         self.pivot(p,pivot,"1) จุดหมุนด้านหลัง")
         self._simple_text(p,90,y0+34,f"มุมทางลาด α = {self.app.slope.value():.2f}°",11,True,"#17324d")
