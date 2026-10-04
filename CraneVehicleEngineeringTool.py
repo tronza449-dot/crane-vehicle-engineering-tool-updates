@@ -9288,7 +9288,8 @@ class ForceDiagram(QWidget):
         self.app=app
         self.mode=0
         self.caseAngle=None
-        self.setMinimumHeight(430)
+        self.simpleMode=True
+        self.setMinimumHeight(500)
 
     def setMode(self,i):
         self.mode=int(i)
@@ -9297,6 +9298,190 @@ class ForceDiagram(QWidget):
     def setCaseAngle(self,angle):
         self.caseAngle=angle
         self.update()
+
+    def setSimpleMode(self,on):
+        self.simpleMode=bool(on)
+        self.update()
+
+    def _simple_text(self,p,x,y,label,size=11,bold=False,color="#17324d"):
+        p.setPen(QPen(QColor(color)))
+        f=p.font();f.setPointSize(size);f.setBold(bold);p.setFont(f)
+        p.drawText(QPointF(x,y),label)
+
+    def _simple_box(self,p,x,y,w,h,title,value,fill,border):
+        p.setPen(QPen(QColor(border),2))
+        p.setBrush(QColor(fill))
+        p.drawRoundedRect(QRectF(x,y,w,h),12,12)
+        self._simple_text(p,x+14,y+24,title,10,True,border)
+        self._simple_text(p,x+14,y+50,value,13,True,"#17324d")
+
+    def _simple_header(self,p,title,subtitle):
+        self._simple_text(p,24,34,title,16,True,"#17324d")
+        self._simple_text(p,24,58,subtitle,10,False,"#52606d")
+        # compact legend
+        y=84
+        self._simple_text(p,24,y,"วิธีอ่าน:",10,True)
+        self._simple_text(p,92,y,"● จุดแดง = จุดหมุนคว่ำ (Pivot)",10,False,"#b42318")
+        self._simple_text(p,330,y,"↓ น้ำหนัก",10,False,"#2459b3")
+        self._simple_text(p,430,y,"↑ แรงพื้น",10,False,"#16803a")
+        self._simple_text(p,535,y,"แดง = ฝั่งทำให้คว่ำ",10,False,"#b42318")
+        self._simple_text(p,700,y,"น้ำเงิน = ฝั่งช่วยต้าน",10,False,"#2459b3")
+
+    def _simple_side_view(self,p,d,left_case=True):
+        side_th="ซ้าย" if left_case else "ขวา"
+        side_en="LEFT" if left_case else "RIGHT"
+        self._simple_header(
+            p,
+            f"FBD การคว่ำด้าน{side_th} / SIDE TIPPING - {side_en}",
+            "ดู 3 อย่าง: จุดหมุนแดง → แรงที่อยู่นอกจุดหมุน → เปรียบเทียบ M_R กับ M_O"
+        )
+        ww,hh=self.width(),self.height()
+        gy=hh*0.62
+        xL=ww*0.30;xR=ww*0.70;cx=(xL+xR)/2
+        deck=gy-80
+        pivot_x=xL if left_case else xR
+        other_x=xR if left_case else xL
+        out_sign=-1 if left_case else 1
+
+        p.setPen(QPen(QColor("#64748b"),4))
+        p.drawLine(QPointF(80,gy),QPointF(ww-80,gy))
+        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"))
+        p.drawRoundedRect(QRectF(xL-95,deck,xR-xL+190,55),12,12)
+        for x in (xL,xR):
+            p.setBrush(QColor("#1f2933"));p.setPen(QPen(QColor("#1f2933"),2))
+            p.drawEllipse(QPointF(x,gy-3),27,27)
+
+        # pivot and reactions
+        self.pivot(p,QPointF(pivot_x,gy-1),"Pivot")
+        self.A(p,QPointF(pivot_x,gy+70),QPointF(pivot_x,gy-34),"#16803a","R_pivot",QPointF(10,-4))
+        self._simple_text(p,other_x-56,gy+65,"R ฝั่งตรงข้าม → 0 N",9,False,"#7a8793")
+
+        mast_x=cx;mast_top=deck-90
+        tip=mast_x+out_sign*min(230,ww*0.27)
+        p.setPen(QPen(QColor("#f28c28"),12,Qt.SolidLine,Qt.RoundCap))
+        p.drawLine(QPointF(mast_x,deck),QPointF(mast_x,mast_top))
+        p.drawLine(QPointF(mast_x,mast_top),QPointF(tip,mast_top))
+        p.setPen(QPen(QColor("#475569"),2));p.setBrush(QColor("#dfe6ee"))
+        p.drawRect(QRectF(tip-24,mast_top+18,48,40))
+
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        Wv=mveh*G;Wb=d["mb"]*G;Wp=d["ml"]*G
+        boom_cg=(mast_x+tip)/2
+        self.A(p,QPointF(cx,deck-95),QPointF(cx,deck-8),"#2459b3",f"W รถ = {Wv:.0f} N",QPointF(10,-6))
+        self.A(p,QPointF(boom_cg,mast_top-65),QPointF(boom_cg,mast_top-8),"#b42318",f"W แขน = {Wb:.0f} N",QPointF(10,-6))
+        self.A(p,QPointF(tip,mast_top-80),QPointF(tip,mast_top+14),"#b42318",f"W โหลด = {Wp:.0f} N",QPointF(10,-6))
+
+        self.D(p,QPointF(xL,gy+88),QPointF(xR,gy+88),f"Track = {d['W']:.3f} m")
+
+        sf,MO,MR=self.app.calc_side(d,theta=(-90 if left_case else 90))
+        sf_text="∞" if sf>=999 else f"{sf:.3f}"
+        status="ผ่าน" if sf>=d["req"] else "ไม่ผ่าน"
+        bw=(ww-80)/3
+        yb=hh-118
+        self._simple_box(p,20,yb,bw-10,78,"ทำให้คว่ำ M_O",f"{MO:.1f} N·m","#fff1f0","#b42318")
+        self._simple_box(p,20+bw,yb,bw-10,78,"ต้านการคว่ำ M_R",f"{MR:.1f} N·m","#eefaf4","#176337")
+        sf_fill="#eefaf4" if sf>=d["req"] else "#fff1f0"
+        sf_border="#176337" if sf>=d["req"] else "#b42318"
+        self._simple_box(p,20+2*bw,yb,bw-10,78,"Safety Factor",f"SF = {sf_text} → {status}",sf_fill,sf_border)
+        self._simple_text(p,24,hh-16,f"จำง่าย: SF = M_R ÷ M_O  |  ต้องได้ ≥ {d['req']:.2f}",11,True,"#17324d")
+
+    def _simple_long_view(self,p,d,front_case=True):
+        case_th="ด้านหน้า" if front_case else "ด้านหลัง"
+        case_en="FRONT" if front_case else "REAR"
+        self._simple_header(
+            p,
+            f"FBD การคว่ำ{case_th} / {case_en} TIPPING",
+            "Pivot คือแนวล้อที่รถจะหมุนรอบ; แรงด้านนอก Pivot ทำให้คว่ำ แรงด้านในช่วยต้าน"
+        )
+        ww,hh=self.width(),self.height()
+        gy=hh*0.62
+        rear_px=ww*0.30;front_px=ww*0.70
+        deck=gy-80
+        pivot_px=front_px if front_case else rear_px
+        other_px=rear_px if front_case else front_px
+
+        p.setPen(QPen(QColor("#64748b"),4));p.drawLine(QPointF(80,gy),QPointF(ww-80,gy))
+        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"))
+        p.drawRoundedRect(QRectF(rear_px-95,deck,front_px-rear_px+190,55),12,12)
+        for x in (rear_px,front_px):
+            p.setBrush(QColor("#1f2933"));p.setPen(QPen(QColor("#1f2933"),2));p.drawEllipse(QPointF(x,gy-3),27,27)
+        self.pivot(p,QPointF(pivot_px,gy-1),"Pivot")
+        self.A(p,QPointF(pivot_px,gy+70),QPointF(pivot_px,gy-34),"#16803a","R_pivot",QPointF(10,-4))
+        self._simple_text(p,other_px-56,gy+65,"R ฝั่งตรงข้าม → 0 N",9,False,"#7a8793")
+
+        angle=self._case_angle(d["th"])
+        bal=self.app.longitudinal_moment_balance(d,angle,("front" if front_case else "rear"))
+        rear_m=-d["WB"]/2;front_m=d["WB"]/2
+        lo=min(rear_m,bal["xload"],bal["xboom"],d["xCG"])-0.35
+        hi=max(front_m,bal["xload"],bal["xboom"],d["xCG"])+0.35
+        def sx(x):
+            return 100+(x-lo)/max(hi-lo,1e-9)*(ww-200)
+        mast=sx(bal["xc"]);top=deck-105;tip=sx(bal["xload"]);bcg=sx(bal["xboom"]);vcg=sx(d["xCG"])
+        p.setPen(QPen(QColor("#f28c28"),12,Qt.SolidLine,Qt.RoundCap))
+        p.drawLine(QPointF(mast,deck),QPointF(mast,top));p.drawLine(QPointF(mast,top),QPointF(tip,top))
+        p.setPen(QPen(QColor("#475569"),2));p.setBrush(QColor("#dfe6ee"));p.drawRect(QRectF(tip-23,top+18,46,40))
+
+        comp={c["name"]:c for c in bal["components"]}
+        for name,x,label,yy in (
+            ("Vehicle",vcg,f"W รถ = {comp['Vehicle']['force']:.0f} N",deck-8),
+            ("Boom",bcg,f"W แขน = {comp['Boom']['force']:.0f} N",top-8),
+            ("Payload",tip,f"W โหลด = {comp['Payload']['force']:.0f} N",top+14),
+        ):
+            role=comp[name]["role"]
+            color="#b42318" if role=="overturning" else "#2459b3"
+            start_y=(deck-95 if name=="Vehicle" else top-70 if name=="Boom" else top-85)
+            self.A(p,QPointF(x,start_y),QPointF(x,yy),color,label,QPointF(10,-6))
+
+        self.D(p,QPointF(rear_px,gy+88),QPointF(front_px,gy+88),f"Wheelbase = {d['WB']:.3f} m")
+        sf=bal["sf"];sf_text="∞" if sf>=999 else f"{sf:.3f}"
+        status="ผ่าน" if sf>=d["req"] else "ไม่ผ่าน"
+        bw=(ww-80)/3;yb=hh-118
+        self._simple_box(p,20,yb,bw-10,78,"ทำให้คว่ำ M_O",f"{bal['mo']:.1f} N·m","#fff1f0","#b42318")
+        self._simple_box(p,20+bw,yb,bw-10,78,"ต้านการคว่ำ M_R",f"{bal['mr']:.1f} N·m","#eefaf4","#176337")
+        sf_fill="#eefaf4" if sf>=d["req"] else "#fff1f0";sf_border="#176337" if sf>=d["req"] else "#b42318"
+        self._simple_box(p,20+2*bw,yb,bw-10,78,"Safety Factor",f"SF = {sf_text} → {status}",sf_fill,sf_border)
+        self._simple_text(p,24,hh-16,f"มุมเครนในรูป = {angle:.0f}°  |  SF ต้อง ≥ {d['req']:.2f}",11,True,"#17324d")
+
+    def _simple_slope_view(self,p,d):
+        self._simple_header(
+            p,
+            "FBD รถบนทางลาด / STABILITY ON SLOPE",
+            "น้ำหนัก mg แยกเป็นแรงตามทางลาด mg sinα และแรงกดพื้น mg cosα; ความเร่งขึ้นลาดเพิ่มแนวโน้มคว่ำ"
+        )
+        ww,hh=self.width(),self.height()
+        alpha=math.radians(self.app.slope.value())
+        x0,y0=120,hh*0.63;run=ww*0.68;x1=x0+run;y1=y0-run*math.tan(alpha)
+        p.setPen(QPen(QColor("#64748b"),5));p.drawLine(QPointF(x0,y0),QPointF(x1,y1))
+        cx,cy=(x0+x1)/2,(y0+y1)/2-50
+        u=QPointF(math.cos(alpha),-math.sin(alpha));n=QPointF(-math.sin(alpha),-math.cos(alpha))
+        pts=QPolygonF([
+            QPointF(cx,cy)+u*(-110)+n*(-34),QPointF(cx,cy)+u*(110)+n*(-34),
+            QPointF(cx,cy)+u*(110)+n*(34),QPointF(cx,cy)+u*(-110)+n*(34)
+        ])
+        p.setBrush(QColor("#eef2f6"));p.setPen(QPen(QColor("#334155"),2));p.drawPolygon(pts)
+        p.setBrush(QColor("#111827"));p.drawEllipse(QPointF(cx,cy),7,7)
+        self._simple_text(p,cx+10,cy-8,"CG",10,True)
+
+        mass=d["mt"];W=mass*G;Wpar=W*math.sin(alpha);Wnorm=W*math.cos(alpha);Fa=mass*self.app.acc.value()
+        self.A(p,QPointF(cx,cy-100),QPointF(cx,cy+100),"#2459b3",f"mg = {W:.0f} N",QPointF(10,-6))
+        self.A(p,QPointF(cx,cy),QPointF(cx,cy)+u*(-150),"#b42318",f"mg sinα = {Wpar:.0f} N",QPointF(10,-6))
+        self.A(p,QPointF(cx,cy)+n*(-25),QPointF(cx,cy)+n*(-135),"#16803a",f"N ≈ mg cosα = {Wnorm:.0f} N",QPointF(10,-6))
+        if Fa>0.5:
+            self.A(p,QPointF(cx,cy)+QPointF(0,18),QPointF(cx,cy)+u*(-105)+QPointF(0,18),"#d97706",f"F_a = ma = {Fa:.0f} N",QPointF(10,18))
+        pivot=QPointF(x0+run*.18,y0-run*.18*math.tan(alpha))
+        self.pivot(p,pivot,"Rear Pivot")
+        self._simple_text(p,90,gy if False else y0+34,f"มุมทางลาด α = {self.app.slope.value():.2f}°",11,True,"#17324d")
+
+        sr=self.app.slope_stability_results(d)
+        MR=mass*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
+        MO=mass*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
+        sf=sr["sf"];sf_text="∞" if sf>=999 else f"{sf:.3f}";status="ผ่าน" if sf>=d["req"] else "ไม่ผ่าน"
+        bw=(ww-80)/3;yb=hh-118
+        self._simple_box(p,20,yb,bw-10,78,"ทำให้คว่ำ M_O",f"{MO:.1f} N·m","#fff1f0","#b42318")
+        self._simple_box(p,20+bw,yb,bw-10,78,"ต้านการคว่ำ M_R",f"{MR:.1f} N·m","#eefaf4","#176337")
+        sf_fill="#eefaf4" if sf>=d["req"] else "#fff1f0";sf_border="#176337" if sf>=d["req"] else "#b42318"
+        self._simple_box(p,20+2*bw,yb,bw-10,78,"Safety Factor",f"SF = {sf_text} → {status}",sf_fill,sf_border)
+        self._simple_text(p,24,hh-16,"จำง่าย: mg sinα พยายามพารถไหล/คว่ำลงลาด ส่วน N ตั้งฉากกับพื้น",10,True,"#17324d")
 
     def A(self,p,a,b,c,label,off=QPointF(7,-7)):
         p.setPen(QPen(QColor(c),3,Qt.SolidLine,Qt.RoundCap))
@@ -9547,16 +9732,28 @@ class ForceDiagram(QWidget):
         if not hasattr(self.app,"mt"):
             return
         d=self.app.inputs()
-        if self.mode==0:
-            self._side_view(p,d,True)
-        elif self.mode==1:
-            self._side_view(p,d,False)
-        elif self.mode==2:
-            self._long_view(p,d,True)
-        elif self.mode==3:
-            self._long_view(p,d,False)
+        if self.simpleMode:
+            if self.mode==0:
+                self._simple_side_view(p,d,True)
+            elif self.mode==1:
+                self._simple_side_view(p,d,False)
+            elif self.mode==2:
+                self._simple_long_view(p,d,True)
+            elif self.mode==3:
+                self._simple_long_view(p,d,False)
+            else:
+                self._simple_slope_view(p,d)
         else:
-            self._slope_view(p,d)
+            if self.mode==0:
+                self._side_view(p,d,True)
+            elif self.mode==1:
+                self._side_view(p,d,False)
+            elif self.mode==2:
+                self._long_view(p,d,True)
+            elif self.mode==3:
+                self._long_view(p,d,False)
+            else:
+                self._slope_view(p,d)
 
 class GraphWidget(QWidget):
     """Stability map: Side / Front / Rear SF over crane angle with target and worst marker."""
