@@ -8548,30 +8548,41 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
         l.addWidget(self.worstout,1)
         self.tabs.addTab(w,"5. Worst Case / จุดวิกฤต")
 
-    def longitudinal_sf_at(self,d,th):
+    def longitudinal_moment_balance(self,d,th,direction="front"):
+        """Return SF, overturning/restoring moments and component moment arms."""
         rear=-d["WB"]/2; front=d["WB"]/2
         xc=rear+d["xC"]
         xload=xc+d["L"]*math.cos(math.radians(th))
         xboom=xc+(d["L"]/2)*math.cos(math.radians(th))
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        front_case=str(direction).lower().startswith("f")
+        pivot=front if front_case else rear
+        sense=1.0 if front_case else -1.0
 
-        def chk(pivot,direction):
-            # Vehicle + boom use static weight. Payload uses Kdyn only when it
-            # is on the overturning side; resisting payload uses static weight.
-            mo=0.0;mr=0.0
-            for mass,x,is_payload in (
-                (mveh,d["xCG"],False),
-                (d["ml"],xload,True),
-                (d["mb"],xboom,False),
-            ):
-                signed=direction*(x-pivot)
-                if signed>0:
-                    factor=d["kd"] if is_payload else 1.0
-                    mo+=factor*mass*G*signed
-                elif signed<0:
-                    mr+=mass*G*(-signed)
-            return mr/mo if mo>1e-12 else 999
-        return chk(front,1),chk(rear,-1)
+        mo=mr=0.0;components=[]
+        for name,mass,x,is_payload in (
+            ("Vehicle",mveh,d["xCG"],False),
+            ("Payload",d["ml"],xload,True),
+            ("Boom",d["mb"],xboom,False),
+        ):
+            signed=sense*(x-pivot)
+            if signed>1e-12:
+                factor=d["kd"] if is_payload else 1.0
+                force=factor*mass*G;arm=signed;moment=force*arm
+                mo+=moment;role="overturning"
+            else:
+                force=mass*G;arm=max(0.0,-signed);moment=force*arm
+                mr+=moment;role="restoring"
+            components.append(dict(name=name,mass=mass,x=x,force=force,arm=arm,moment=moment,role=role))
+        sf=mr/mo if mo>1e-12 else 999
+        return dict(sf=sf,mo=mo,mr=mr,pivot=pivot,rear=rear,front=front,xc=xc,
+                    xload=xload,xboom=xboom,components=components,
+                    direction=("front" if front_case else "rear"))
+
+    def longitudinal_sf_at(self,d,th):
+        front=self.longitudinal_moment_balance(d,th,"front")
+        rear=self.longitudinal_moment_balance(d,th,"rear")
+        return front["sf"],rear["sf"]
 
     def calc_worst(self):
         if not hasattr(self,"worstout") or not hasattr(self,"mt"):
