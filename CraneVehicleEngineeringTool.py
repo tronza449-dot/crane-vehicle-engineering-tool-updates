@@ -8892,6 +8892,181 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
         return summary+"".join(pages)
 
 
+
+    def _render_stability_fbd_case(self, case_name, path):
+        """Render a report-only engineering FBD for one stability case."""
+        d=self.inputs()
+        pm=QPixmap(1200,720)
+        pm.fill(QColor("white"))
+        p=QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+
+        def set_font(size=11,bold=False):
+            ff=p.font();ff.setPointSize(size);ff.setBold(bold);p.setFont(ff)
+
+        def label(x,y,text_value,size=11,bold=False,color="#17324d"):
+            p.setPen(QPen(QColor(color)));set_font(size,bold)
+            p.drawText(QPointF(x,y),str(text_value))
+
+        def arrow(x1,y1,x2,y2,color,text_value,dx=8,dy=-8):
+            p.setPen(QPen(QColor(color),4,Qt.SolidLine,Qt.RoundCap))
+            p.drawLine(QPointF(x1,y1),QPointF(x2,y2))
+            ang=math.atan2(y2-y1,x2-x1)
+            for off in (2.55,-2.55):
+                p.drawLine(QPointF(x2,y2),QPointF(x2+15*math.cos(ang+off),y2+15*math.sin(ang+off)))
+            label(x2+dx,y2+dy,text_value,11,True,color)
+
+        def dim(x1,y1,x2,y2,text_value):
+            p.setPen(QPen(QColor("#64748b"),2,Qt.DashLine))
+            p.drawLine(QPointF(x1,y1),QPointF(x2,y2))
+            p.drawLine(QPointF(x1,y1-7),QPointF(x1,y1+7))
+            p.drawLine(QPointF(x2,y2-7),QPointF(x2,y2+7))
+            label((x1+x2)/2-55,(y1+y2)/2-8,text_value,9,False,"#52606d")
+
+        titles={
+            "side_left":"FBD - SIDE TIPPING LEFT",
+            "side_right":"FBD - SIDE TIPPING RIGHT",
+            "front":"FBD - FRONT TIPPING",
+            "rear":"FBD - REAR TIPPING",
+            "slope":"FBD - STABILITY ON SLOPE",
+        }
+        label(35,42,titles.get(case_name,case_name),18,True)
+        label(35,68,"W = weight, R/N = ground reaction, Pivot = tipping axis, MO = overturning, MR = restoring",9,False,"#60758b")
+
+        if case_name in ("side_left","side_right"):
+            side=-1 if case_name=="side_left" else 1
+            th=-90.0 if side<0 else 90.0
+            sf,MO,MR=self.calc_side(d,theta=th)
+            ground=515;left_wheel=380;right_wheel=820
+            p.setPen(QPen(QColor("#475569"),4));p.drawLine(QPointF(150,ground),QPointF(1050,ground))
+            p.setPen(QPen(QColor("#334155"),3));p.setBrush(QColor("#e7edf3"))
+            p.drawRoundedRect(QRectF(310,350,580,95),12,12)
+            p.setBrush(QColor("#1f2937"))
+            p.drawEllipse(QPointF(left_wheel,ground-5),34,34);p.drawEllipse(QPointF(right_wheel,ground-5),34,34)
+
+            pivot_x=left_wheel if side<0 else right_wheel
+            p.setBrush(QColor("#d62828"));p.setPen(QPen(QColor("#d62828"),2));p.drawEllipse(QPointF(pivot_x,ground),9,9)
+            label(pivot_x-40,ground+48,"PIVOT",10,True,"#d62828")
+
+            mast_x=600;mast_top=215
+            p.setPen(QPen(QColor("#d97706"),14,Qt.SolidLine,Qt.RoundCap))
+            p.drawLine(QPointF(mast_x,350),QPointF(mast_x,mast_top))
+            boom_tip=155 if side<0 else 1045
+            p.drawLine(QPointF(mast_x,mast_top),QPointF(boom_tip,mast_top))
+            boom_cg=(mast_x+boom_tip)/2
+            p.setBrush(QColor("#dfe6ee"));p.setPen(QPen(QColor("#475569"),2));p.drawRect(QRectF(boom_tip-32,mast_top-24,64,48))
+
+            mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+            arrow(600,300,600,430,"#2459b3",f"W_vehicle = {mveh*G:.0f} N",12,-8)
+            arrow(boom_cg,175,boom_cg,320,"#7c3aed",f"W_boom = {d['mb']*G:.0f} N",12,-8)
+            arrow(boom_tip,145,boom_tip,315,"#d62828",f"W_payload = {d['ml']*G:.0f} N",12,-8)
+            arrow(left_wheel,ground+70,left_wheel,ground-45,"#16803a","R_left",12,-4)
+            arrow(right_wheel,ground+70,right_wheel,ground-45,"#16803a","R_right",12,-4)
+
+            dim(left_wheel,600,right_wheel,600,f"Track W = {d['W']:.3f} m")
+            label(35,655,f"theta = {th:.0f} deg    MO = {MO:.2f} N.m    MR = {MR:.2f} N.m    SF = {'INF' if sf>=999 else f'{sf:.3f}'}",12,True)
+            label(35,685,"At tipping onset the reaction opposite the Pivot approaches zero.",10,False,"#52606d")
+
+        elif case_name in ("front","rear"):
+            best=(999.0,0.0)
+            for a in range(-90,91):
+                fs,rs=self.longitudinal_sf_at(d,a)
+                val=fs if case_name=="front" else rs
+                if val<best[0]:best=(val,float(a))
+            sf,th=best
+            rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
+            xload=xc+d["L"]*math.cos(math.radians(th))
+            xboom=xc+(d["L"]/2)*math.cos(math.radians(th))
+            values=[rear,front,d["xCG"],xc,xload,xboom]
+            lo=min(values)-0.35;hi=max(values)+0.35
+            def X(x):return 120+(x-lo)/max(hi-lo,1e-9)*960
+            ground=515
+            xr=X(rear);xf=X(front);xc_px=X(xc);xl=X(xload);xb=X(xboom);xv=X(d["xCG"])
+            p.setPen(QPen(QColor("#475569"),4));p.drawLine(QPointF(90,ground),QPointF(1110,ground))
+            p.setPen(QPen(QColor("#334155"),3));p.setBrush(QColor("#e7edf3"))
+            p.drawRoundedRect(QRectF(min(xr,xf)-80,350,abs(xf-xr)+160,95),12,12)
+            p.setBrush(QColor("#1f2937"));p.drawEllipse(QPointF(xr,ground-5),34,34);p.drawEllipse(QPointF(xf,ground-5),34,34)
+
+            pivot_x=xf if case_name=="front" else xr
+            p.setBrush(QColor("#d62828"));p.setPen(QPen(QColor("#d62828"),2));p.drawEllipse(QPointF(pivot_x,ground),9,9)
+            label(pivot_x-40,ground+48,"PIVOT",10,True,"#d62828")
+
+            p.setPen(QPen(QColor("#d97706"),14,Qt.SolidLine,Qt.RoundCap))
+            p.drawLine(QPointF(xc_px,350),QPointF(xc_px,215));p.drawLine(QPointF(xc_px,215),QPointF(xl,215))
+            p.setBrush(QColor("#dfe6ee"));p.setPen(QPen(QColor("#475569"),2));p.drawRect(QRectF(xl-30,191,60,48))
+
+            mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+            arrow(xv,300,xv,430,"#2459b3",f"W_vehicle = {mveh*G:.0f} N",10,-8)
+            arrow(xb,165,xb,315,"#7c3aed",f"W_boom = {d['mb']*G:.0f} N",10,-8)
+            arrow(xl,135,xl,315,"#d62828",f"W_payload = {d['ml']*G:.0f} N",10,-8)
+            arrow(xr,ground+70,xr,ground-45,"#16803a","R_rear",10,-4)
+            arrow(xf,ground+70,xf,ground-45,"#16803a","R_front",10,-4)
+            dim(xr,605,xf,605,f"Wheelbase WB = {d['WB']:.3f} m")
+            label(35,655,f"Worst {case_name} case: theta = {th:.0f} deg    SF = {'INF' if sf>=999 else f'{sf:.3f}'}",12,True)
+            label(35,685,"Vertical force location relative to the selected axle determines restoring or overturning moment.",10,False,"#52606d")
+
+        else:
+            sr=self.slope_stability_results(d)
+            alpha=math.radians(self.slope.value())
+            x0=150;y0=545;run=850;x1=x0+run;y1=y0-run*math.tan(alpha)
+            p.setPen(QPen(QColor("#475569"),6));p.drawLine(QPointF(x0,y0),QPointF(x1,y1))
+            cx=(x0+x1)/2;cy=(y0+y1)/2-55
+            u=QPointF(math.cos(alpha),-math.sin(alpha));n=QPointF(-math.sin(alpha),-math.cos(alpha))
+            pts=QPolygonF([QPointF(cx,cy)+u*(-125)+n*(-38),QPointF(cx,cy)+u*(125)+n*(-38),
+                           QPointF(cx,cy)+u*(125)+n*(38),QPointF(cx,cy)+u*(-125)+n*(38)])
+            p.setPen(QPen(QColor("#334155"),3));p.setBrush(QColor("#e7edf3"));p.drawPolygon(pts)
+            p.setBrush(QColor("#111827"));p.drawEllipse(QPointF(cx,cy),7,7);label(cx+10,cy-12,"CG",10,True)
+            arrow(cx,cy-45,cx,cy+160,"#2459b3",f"W = mg = {d['mt']*G:.0f} N",10,-8)
+            arrow(cx,cy,cx+u.x()*(-190),cy+u.y()*(-190),"#d62828",f"mg sin(a) = {d['mt']*G*math.sin(alpha):.0f} N",10,-8)
+            arrow(cx,cy,cx+n.x()*150,cy+n.y()*150,"#7c3aed",f"mg cos(a) = {d['mt']*G*math.cos(alpha):.0f} N",10,-8)
+            arrow(cx+n.x()*55,cy+n.y()*55,cx+n.x()*210,cy+n.y()*210,"#16803a","N",10,-5)
+            label(50,620,f"alpha = {self.slope.value():.2f} deg   h_CG = {sr['h']:.3f} m   rear arm = {sr['rear_arm']:.3f} m",12,True)
+            label(50,652,f"SF_slope = {'INF' if sr['sf']>=999 else f'{sr['sf']:.3f}'}   Margin = {sr['margin']:.3f} m",12,True)
+            label(50,686,"Weight is resolved into components parallel/perpendicular to the ramp.",10,False,"#52606d")
+
+        p.end()
+        if not pm.save(str(path),"PNG"):raise RuntimeError("FBD image could not be saved")
+        return path
+
+    def _stability_fbd_pdf_html(self,tmpdir):
+        d=self.inputs()
+        cases=[("side_left","SIDE TIPPING - LEFT"),("side_right","SIDE TIPPING - RIGHT"),
+               ("front","FRONT TIPPING"),("rear","REAR TIPPING"),("slope","SLOPE STABILITY")]
+        pages=[];rows=[]
+        for idx,(key,title) in enumerate(cases,1):
+            fp=Path(tmpdir)/f"fbd_{key}.png";self._render_stability_fbd_case(key,fp)
+            if key=="side_left":
+                sf,MO,MR=self.calc_side(d,theta=-90);detail=f"MO={MO:.2f} N.m | MR={MR:.2f} N.m"
+            elif key=="side_right":
+                sf,MO,MR=self.calc_side(d,theta=90);detail=f"MO={MO:.2f} N.m | MR={MR:.2f} N.m"
+            elif key in ("front","rear"):
+                best=(999.0,0)
+                for a in range(-90,91):
+                    fs,rs=self.longitudinal_sf_at(d,a);val=fs if key=="front" else rs
+                    if val<best[0]:best=(val,a)
+                sf=best[0];detail=f"governing theta={best[1]} deg"
+            else:
+                sr=self.slope_stability_results(d);sf=sr["sf"];detail=f"alpha={self.slope.value():.2f} deg"
+            sf_text="INF" if sf>=999 else f"{sf:.3f}";status="PASS" if sf>=d["req"] else "FAIL"
+            rows.append(f"<tr><td>{idx}</td><td>{title}</td><td>{sf_text}</td><td>{status}</td></tr>")
+            pages.append(f"""<div style='page-break-before:always'></div>
+            <h1>FBD {idx}: {title}</h1><p><b>{detail}</b> | Target SF={d['req']:.2f}</p>
+            <p style='text-align:center'><img src='{fp.as_uri()}' width='670'></p>
+            <h3>Forces and tipping axis</h3>
+            <p><b>W_vehicle</b> = vehicle weight at vehicle CG; <b>W_boom</b> = boom weight at boom CG;
+            <b>W_payload</b> = payload weight at load point; <b>R/N</b> = ground reaction;
+            <b>Pivot</b> = tipping axis at wheel/axle-ground support line.</p>
+            <h3>Moment balance</h3>
+            <p>M = F x d, &nbsp; MO = sum of overturning moments, &nbsp; MR = sum of restoring moments,
+            &nbsp; <b>SF = MR / MO</b>.</p>
+            <p style='background:#fff8e9;border:1px solid #ead39a;padding:8px'>
+            At incipient tipping, the reaction at the support opposite the Pivot approaches 0 N.
+            Dynamic factor Kdyn is applied to payload only when payload creates an adverse overturning moment.
+            </p>""")
+        return f"""<h2>FBD ALL DIRECTIONS / STABILITY FORCE DIAGRAMS</h2>
+        <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
+        <tr><th>#</th><th>Case</th><th>SF</th><th>Status</th></tr>{''.join(rows)}</table>{''.join(pages)}"""
+
     def export_pdf_report(self):
         docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
         default_path=str(Path(docs)/"Crane_Stability_Engineering_Report.pdf")
