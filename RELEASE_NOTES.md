@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.8.2
+# Crane Vehicle Engineering Tool V53.8.3
 
 ## Stability PDF - All-Direction Free Body Diagrams (FBD)
 
@@ -77,3 +77,15 @@ SF = M_R / M_O
 - Rebuilt from the cleaned source after the all-direction FBD implementation.
 - Verified the 5 FBD cases render to PNG during automated regression.
 - Verified both Stability PDF and Final Engineering PDF export successfully.
+
+
+## V53.8.3 — Detailed Moment Balance in FBD PDF
+
+ปรับ FBD PDF ให้ใช้เป็นหน้าคำนวณวิศวกรรมได้ชัดขึ้น:
+- ตารางสรุป FBD เพิ่ม M_O และ M_R ของทุกกรณี
+- Front / Rear แสดงแรง, Moment Arm, Moment และหน้าที่ Restoring / Overturning ของแต่ละแรง
+- รูป Front / Rear แสดง M_O, M_R และ Safety Factor บนภาพ
+- รูป Slope แสดง M_O, M_R และ SF_slope บนภาพ
+- Stability PDF และ Final Engineering Report ใช้ชุด FBD เดียวกัน
+- ค่ารูปและสูตรเปลี่ยนตาม Input ปัจจุบันอัตโนมัติ ไม่ใช่รูปค่าคงที่
+- เพิ่ม Regression ตรวจภาพ FBD ครบ 5 รูป, Moment Balance และ PDF Export
