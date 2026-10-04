@@ -9099,102 +9099,275 @@ ASSUMPTIONS
 
 
 class ForceDiagram(QWidget):
-    """Clean engineering-style FBD, scaled to the current vehicle geometry."""
+    """Engineering FBD for side/front/rear tipping and slope stability."""
     def __init__(self,app):
-        super().__init__(); self.app=app; self.mode=0; self.setMinimumHeight(380)
-    def setMode(self,i): self.mode=i; self.update()
+        super().__init__()
+        self.app=app
+        self.mode=0
+        self.caseAngle=None
+        self.setMinimumHeight(430)
+
+    def setMode(self,i):
+        self.mode=int(i)
+        self.update()
+
+    def setCaseAngle(self,angle):
+        self.caseAngle=angle
+        self.update()
+
     def A(self,p,a,b,c,label,off=QPointF(7,-7)):
-        p.setPen(QPen(QColor(c),3,Qt.SolidLine,Qt.RoundCap));p.drawLine(a,b)
+        p.setPen(QPen(QColor(c),3,Qt.SolidLine,Qt.RoundCap))
+        p.drawLine(a,b)
         ang=math.atan2(b.y()-a.y(),b.x()-a.x())
         for d in (2.55,-2.55):
             p.drawLine(b,QPointF(b.x()+12*math.cos(ang+d),b.y()+12*math.sin(ang+d)))
-        p.setPen(QPen(QColor(c)));p.drawText(b+off,label)
+        p.setPen(QPen(QColor(c)))
+        p.drawText(b+off,label)
+
     def D(self,p,a,b,label,vertical=False):
-        pen=QPen(QColor("#52606d"),1,Qt.DashLine);p.setPen(pen);p.drawLine(a,b)
+        pen=QPen(QColor("#52606d"),1,Qt.DashLine)
+        p.setPen(pen)
+        p.drawLine(a,b)
         if vertical:
-            p.drawLine(a+QPointF(-5,0),a+QPointF(5,0));p.drawLine(b+QPointF(-5,0),b+QPointF(5,0))
+            p.drawLine(a+QPointF(-5,0),a+QPointF(5,0))
+            p.drawLine(b+QPointF(-5,0),b+QPointF(5,0))
             p.drawText((a+b)/2+QPointF(7,0),label)
         else:
-            p.drawLine(a+QPointF(0,-5),a+QPointF(0,5));p.drawLine(b+QPointF(0,-5),b+QPointF(0,5))
-            p.drawText((a+b)/2+QPointF(-28,-8),label)
+            p.drawLine(a+QPointF(0,-5),a+QPointF(0,5))
+            p.drawLine(b+QPointF(0,-5),b+QPointF(0,5))
+            p.drawText((a+b)/2+QPointF(-35,-8),label)
+
     def title(self,p,t,sub):
-        p.setPen(QPen(QColor("#17324d")));font=p.font();font.setBold(True);font.setPointSize(11);p.setFont(font);p.drawText(18,28,t)
-        font.setBold(False);font.setPointSize(9);p.setFont(font);p.setPen(QPen(QColor("#52606d")));p.drawText(18,50,sub)
+        p.setPen(QPen(QColor("#17324d")))
+        font=p.font()
+        font.setBold(True)
+        font.setPointSize(11)
+        p.setFont(font)
+        p.drawText(18,28,t)
+        font.setBold(False)
+        font.setPointSize(8)
+        p.setFont(font)
+        p.setPen(QPen(QColor("#52606d")))
+        p.drawText(18,50,sub)
+
+    def pivot(self,p,pt,label):
+        p.setPen(QPen(QColor("#b42318"),2))
+        p.setBrush(QColor("#ffe5e2"))
+        p.drawEllipse(pt,8,8)
+        p.drawText(pt+QPointF(10,-10),label)
+
+    def moment_mark(self,p,center,text,color="#b42318"):
+        p.setPen(QPen(QColor(color),3))
+        r=31
+        rect=QRectF(center.x()-r,center.y()-r,2*r,2*r)
+        p.drawArc(rect,25*16,255*16)
+        end=QPointF(center.x()+r*math.cos(math.radians(25)),
+                    center.y()-r*math.sin(math.radians(25)))
+        self.A(p,end+QPointF(-14,-3),end,QColor(color).name(),"")
+        p.drawText(center+QPointF(-22,-42),text)
+
+    def _case_angle(self,default):
+        return float(default if self.caseAngle is None else self.caseAngle)
+
+    def _side_view(self,p,d,left_case=True):
+        side="LEFT" if left_case else "RIGHT"
+        self.title(
+            p,
+            f"FREE BODY DIAGRAM - SIDE TIPPING ({side})",
+            "Front view: weights act downward, ground reactions act upward, red point is the tipping pivot"
+        )
+        ww,hh=self.width(),self.height()
+        gy=hh*.72
+        xL=ww*.31
+        xR=ww*.69
+        cx=(xL+xR)/2
+        deck=gy-115
+        pivot_x=xL if left_case else xR
+        out_sign=-1 if left_case else 1
+
+        p.setPen(QPen(QColor("#64748b"),3))
+        p.drawLine(QPointF(55,gy),QPointF(ww-55,gy))
+        p.setPen(QPen(QColor("#334155"),2))
+        p.setBrush(QColor("#e5e9ee"))
+        p.drawRoundedRect(QRectF(xL-80,deck,xR-xL+160,60),10,10)
+
+        for x,label in ((xL,"R_L"),(xR,"R_R")):
+            p.setPen(QPen(QColor("#1f2933"),2))
+            p.setBrush(QColor("#1f2933"))
+            p.drawEllipse(QPointF(x,gy-8),27,27)
+            self.A(p,QPointF(x,gy+70),QPointF(x,gy-38),"#16803a",label,QPointF(8,-5))
+
+        self.pivot(p,QPointF(pivot_x,gy-3),"Pivot / Tipping axis")
+
+        mast_x=cx
+        mast_top=deck-105
+        p.setPen(QPen(QColor("#f28c28"),11,Qt.SolidLine,Qt.RoundCap))
+        p.drawLine(QPointF(mast_x,deck),QPointF(mast_x,mast_top))
+        boom_tip_x=mast_x+out_sign*min(240,ww*.30)
+        p.drawLine(QPointF(mast_x,mast_top),QPointF(boom_tip_x,mast_top))
+
+        p.setPen(QPen(QColor("#475569"),2))
+        p.setBrush(QColor("#d8dee7"))
+        p.drawRect(QRectF(boom_tip_x-22,mast_top+20,44,38))
+        p.drawLine(QPointF(boom_tip_x,mast_top),QPointF(boom_tip_x,mast_top+20))
+
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        Wv=mveh*G
+        Wb=d["mb"]*G
+        Wp=d["ml"]*G
+        self.A(p,QPointF(cx,deck-105),QPointF(cx,deck-8),"#2459b3",f"W_vehicle = {Wv:.0f} N")
+        boom_cg=(mast_x+boom_tip_x)/2
+        self.A(p,QPointF(boom_cg,mast_top-65),QPointF(boom_cg,mast_top-8),"#2459b3",f"W_boom = {Wb:.0f} N")
+        self.A(p,QPointF(boom_tip_x,mast_top-82),QPointF(boom_tip_x,mast_top+18),"#d62828",f"W_payload = {Wp:.0f} N")
+
+        self.D(p,QPointF(xL,gy+72),QPointF(xR,gy+72),f"Track W = {d['W']:.3f} m")
+        self.D(p,QPointF(pivot_x,gy+105),QPointF(cx,gy+105),f"W/2 = {d['W']/2:.3f} m")
+
+        sf,MO,MR=self.app.calc_side(d,theta=(-90 if left_case else 90))
+        self.moment_mark(p,QPointF(pivot_x,gy-70),f"M_O = {MO:.0f} N.m","#b42318")
+        p.setPen(QPen(QColor("#176337"),2))
+        p.drawText(18,hh-88,f"M_R = {MR:.1f} N.m    M_O = {MO:.1f} N.m    SF = {'INF' if sf>=999 else f'{sf:.3f}'}")
+        p.setPen(QPen(QColor("#52606d")))
+        p.drawText(18,hh-60,"R_L/R_R = ground reactions. At incipient tipping, the reaction opposite the pivot tends to 0 N.")
+        p.drawText(18,hh-36,f"Payload adverse design force uses F_L = Kdyn*m_L*g = {d['kd']*d['ml']*G:.1f} N when it creates overturning moment.")
+
+    def _long_view(self,p,d,front_case=True):
+        case="FRONT" if front_case else "REAR"
+        self.title(
+            p,
+            f"FREE BODY DIAGRAM - {case} TIPPING",
+            "Side view: longitudinal moment balance about the front or rear wheel-contact line"
+        )
+        ww,hh=self.width(),self.height()
+        gy=hh*.74
+        rear=ww*.30
+        front=ww*.70
+        deck=gy-100
+        pivot_x=front if front_case else rear
+
+        p.setPen(QPen(QColor("#64748b"),3))
+        p.drawLine(QPointF(55,gy),QPointF(ww-55,gy))
+        p.setPen(QPen(QColor("#334155"),2))
+        p.setBrush(QColor("#e5e9ee"))
+        p.drawRoundedRect(QRectF(rear-80,deck,front-rear+160,58),10,10)
+
+        for x,label in ((rear,"R_rear"),(front,"R_front")):
+            p.setPen(QPen(QColor("#1f2933"),2))
+            p.setBrush(QColor("#1f2933"))
+            p.drawEllipse(QPointF(x,gy-8),28,28)
+            self.A(p,QPointF(x,gy+70),QPointF(x,gy-38),"#16803a",label,QPointF(8,-5))
+
+        self.pivot(p,QPointF(pivot_x,gy-3),"Pivot / Tipping axis")
+
+        angle=self._case_angle(d["th"])
+        rear_m=-d["WB"]/2
+        front_m=d["WB"]/2
+        xc=rear_m+d["xC"]
+        xload=xc+d["L"]*math.cos(math.radians(angle))
+        xboom=xc+(d["L"]/2)*math.cos(math.radians(angle))
+        def sx(x):
+            return rear+(x-rear_m)/max(d["WB"],1e-9)*(front-rear)
+
+        mast=sx(xc)
+        top=deck-120
+        p.setPen(QPen(QColor("#f28c28"),11,Qt.SolidLine,Qt.RoundCap))
+        p.drawLine(QPointF(mast,deck),QPointF(mast,top))
+        tip=sx(xload)
+        p.drawLine(QPointF(mast,top),QPointF(tip,top))
+        p.setPen(QPen(QColor("#475569"),2))
+        p.setBrush(QColor("#d8dee7"))
+        p.drawRect(QRectF(tip-21,top+20,42,36))
+        p.drawLine(QPointF(tip,top),QPointF(tip,top+20))
+
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        Wv=mveh*G
+        Wb=d["mb"]*G
+        Wp=d["ml"]*G
+        vcg=sx(d["xCG"])
+        bcg=sx(xboom)
+        self.A(p,QPointF(vcg,deck-90),QPointF(vcg,deck-8),"#2459b3",f"W_vehicle = {Wv:.0f} N")
+        self.A(p,QPointF(bcg,top-70),QPointF(bcg,top-8),"#2459b3",f"W_boom = {Wb:.0f} N")
+        self.A(p,QPointF(tip,top-88),QPointF(tip,top+18),"#d62828",f"W_payload = {Wp:.0f} N")
+
+        self.D(p,QPointF(rear,gy+76),QPointF(front,gy+76),f"Wheelbase WB = {d['WB']:.3f} m")
+
+        sfF,sfR=self.app.longitudinal_sf_at(d,angle)
+        sf=sfF if front_case else sfR
+        self.moment_mark(p,QPointF(pivot_x,gy-72),"M_O","#b42318")
+        p.setPen(QPen(QColor("#176337"),2))
+        p.drawText(18,hh-88,f"Crane angle = {angle:.0f} deg    SF_{case.lower()} = {'INF' if sf>=999 else f'{sf:.3f}'}")
+        p.setPen(QPen(QColor("#52606d")))
+        p.drawText(18,hh-60,f"x_CG={d['xCG']:.3f} m   x_boom={xboom:.3f} m   x_load={xload:.3f} m   (origin at wheelbase center)")
+        p.drawText(18,hh-36,"Payload uses Kdyn only when it lies on the overturning side of the selected pivot.")
+
+    def _slope_view(self,p,d):
+        self.title(
+            p,
+            "FREE BODY DIAGRAM - DRIVING ON SLOPE",
+            "Weight decomposition and uphill acceleration effect at the combined vehicle CG"
+        )
+        ww,hh=self.width(),self.height()
+        alpha=math.radians(self.app.slope.value())
+        x0,y0=90,hh*.78
+        run=ww*.68
+        x1=x0+run
+        y1=y0-run*math.tan(alpha)
+        p.setPen(QPen(QColor("#64748b"),5))
+        p.drawLine(QPointF(x0,y0),QPointF(x1,y1))
+        cx,cy=(x0+x1)/2,(y0+y1)/2-55
+        u=QPointF(math.cos(alpha),-math.sin(alpha))
+        n=QPointF(-math.sin(alpha),-math.cos(alpha))
+
+        pts=QPolygonF([
+            QPointF(cx,cy)+u*(-105)+n*(-30),
+            QPointF(cx,cy)+u*(105)+n*(-30),
+            QPointF(cx,cy)+u*(105)+n*(30),
+            QPointF(cx,cy)+u*(-105)+n*(30)
+        ])
+        p.setBrush(QColor("#e5e9ee"))
+        p.setPen(QPen(QColor("#334155"),2))
+        p.drawPolygon(pts)
+        p.setBrush(QColor("#111827"))
+        p.drawEllipse(QPointF(cx,cy),6,6)
+        p.setPen(QPen(QColor("#111827")))
+        p.drawText(QPointF(cx+10,cy-8),"CG")
+
+        mass=d["mt"]
+        W=mass*G
+        Wpar=W*math.sin(alpha)
+        Wnorm=W*math.cos(alpha)
+        Fa=mass*self.app.acc.value()
+        self.A(p,QPointF(cx,cy-95),QPointF(cx,cy+105),"#d62828",f"W=mg = {W:.0f} N")
+        self.A(p,QPointF(cx,cy),QPointF(cx,cy)+u*(-145),"#b42318",f"mg sin(alpha) = {Wpar:.0f} N")
+        self.A(p,QPointF(cx,cy),QPointF(cx,cy)+n*(115),"#2459b3",f"mg cos(alpha) = {Wnorm:.0f} N")
+        self.A(p,QPointF(cx,cy)+n*(-28),QPointF(cx,cy)+n*(-135),"#16803a","N (ground reaction)")
+        self.A(p,QPointF(cx,cy)+QPointF(0,16),QPointF(cx,cy)+u*(-105)+QPointF(0,16),"#8a3ffc",f"F_a = ma = {Fa:.0f} N")
+
+        sr=self.app.slope_stability_results(d)
+        self.pivot(p,QPointF(x0+run*.18,y0-run*.18*math.tan(alpha)),"Rear tipping pivot")
+        p.setPen(QPen(QColor("#176337"),2))
+        p.drawText(18,hh-66,f"alpha = {self.app.slope.value():.2f} deg    h_CG = {sr['h']:.3f} m    SF_slope = {'INF' if sr['sf']>=999 else f'{sr['sf']:.3f}'}")
+        p.setPen(QPen(QColor("#52606d")))
+        p.drawText(18,hh-38,"For motor force use mg sin(alpha). For tipping stability, combine slope gravity effect and inertia F_a=ma about the rear pivot.")
+
     def paintEvent(self,e):
-        p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("#ffffff"))
-        if not hasattr(self.app,"mt"):return
-        d=self.app.inputs();ww,hh=self.width(),self.height()
+        p=QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.fillRect(self.rect(),QColor("#ffffff"))
+        if not hasattr(self.app,"mt"):
+            return
+        d=self.app.inputs()
         if self.mode==0:
-            self.title(p,"FREE BODY DIAGRAM — SIDE TIPPING (TOP VIEW)","เครนติดท้ายรถ • แขนหมุนตาม θ • เส้นประสีม่วงคือแนวคว่ำ")
-            # Geometry, intentionally centered with margins.
-            cx,cy=ww*.46,hh*.52
-            carL=min(330,ww*.40);carW=min(205,hh*.38)
-            left,right=cx-carL/2,cx+carL/2;top,bottom=cy-carW/2,cy+carW/2
-            # chassis
-            p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#e5e9ee"));p.drawRoundedRect(int(left),int(top),int(carL),int(carW),10,10)
-            # centerlines
-            p.setPen(QPen(QColor("#a8b2bf"),1,Qt.DashLine));p.drawLine(QPointF(left-25,cy),QPointF(right+25,cy));p.drawLine(QPointF(cx,top-25),QPointF(cx,bottom+25))
-            # wheels
-            p.setBrush(QColor("#1f2933"));p.setPen(QPen(QColor("#111827"),1))
-            for x in (left+carL*.24,right-carL*.24):
-                for y in (top-11,bottom+11):p.drawRoundedRect(int(x-27),int(y-8),54,16,5,5)
-            # crane at rear (left)
-            bx=left+carL*.18;by=cy
-            p.setBrush(QColor("#f28c28"));p.setPen(QPen(QColor("#a9510c"),2));p.drawEllipse(QPointF(bx,by),15,15)
-            p.setPen(QPen(QColor("#17324d")));p.drawText(bx-28,by+34,"Crane axis")
-            # boom, fit to available screen but preserve angle
-            theta=math.radians(d["th"]); r=min(230,ww*.30)
-            ex=bx+r*math.cos(theta);ey=by-r*math.sin(theta)
-            p.setPen(QPen(QColor("#f28c28"),12,Qt.SolidLine,Qt.RoundCap));p.drawLine(QPointF(bx,by),QPointF(ex,ey))
-            # load marker and force
-            p.setBrush(QColor("#cbd5df"));p.setPen(QPen(QColor("#475569"),2));p.drawRect(int(ex-22),int(ey-15),44,30)
-            self.A(p,QPointF(ex,ey-70),QPointF(ex,ey-22),"#d62828","F_L")
-            # vehicle weight at CG center
-            self.A(p,QPointF(cx,cy-70),QPointF(cx,cy-15),"#2459b3","W_R")
-            # two support/tipping lines
-            p.setPen(QPen(QColor("#7c3aed"),2,Qt.DashLine))
-            p.drawLine(QPointF(left-35,top-11),QPointF(right+35,top-11));p.drawLine(QPointF(left-35,bottom+11),QPointF(right+35,bottom+11))
-            p.setPen(QPen(QColor("#7c3aed")));p.drawText(right+40,top-7,"Pivot L");p.drawText(right+40,bottom+15,"Pivot R")
-            # dimensions
-            self.D(p,QPointF(right+85,top-11),QPointF(right+85,bottom+11),f"W={d['W']:.2f} m",True)
-            # lateral projected distance schematic
-            yproj=abs(d["L"]*math.sin(theta))
-            p.setPen(QPen(QColor("#17324d")));p.drawText(18,hh-55,f"θ = {d['th']:.0f}°    y_L = |L sinθ| = {yproj:.3f} m")
-            p.drawText(18,hh-32,"แรงที่ทำให้คว่ำ: F_L = Kdyn × m_L × g     โมเมนต์: M_O = F × d")
+            self._side_view(p,d,True)
         elif self.mode==1:
-            self.title(p,"FREE BODY DIAGRAM — FRONT / REAR TIPPING (SIDE VIEW)","ตรวจโมเมนต์รอบแนวเพลาหน้าและเพลาหลัง")
-            gy=hh*.76;rear=ww*.30;front=ww*.70;deck=gy-80
-            p.setPen(QPen(QColor("#64748b"),2));p.drawLine(QPointF(55,gy),QPointF(ww-55,gy))
-            p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#e5e9ee"));p.drawRoundedRect(int(rear-70),int(deck),int(front-rear+140),55,8,8)
-            for x,n in ((rear,"Rear pivot"),(front,"Front pivot")):
-                p.setBrush(QColor("#1f2933"));p.drawEllipse(QPointF(x,gy-4),24,24)
-                self.A(p,QPointF(x,gy+50),QPointF(x,gy-38),"#2459b3","R")
-                p.setPen(QPen(QColor("#7c3aed"),1,Qt.DashLine));p.drawLine(QPointF(x,deck-175),QPointF(x,gy+35));p.drawText(x-35,deck-182,n)
-            # rear crane
-            mast=rear+max(-30,min(75,d["xC"]/max(d["WB"],.1)*(front-rear)))
-            top=deck-125;p.setPen(QPen(QColor("#f28c28"),11,Qt.SolidLine,Qt.RoundCap));p.drawLine(QPointF(mast,deck),QPointF(mast,top))
-            proj=160*math.cos(math.radians(d["th"]));tip=mast+proj;p.drawLine(QPointF(mast,top),QPointF(tip,top))
-            self.A(p,QPointF(tip,top-60),QPointF(tip,top-8),"#d62828","F_L")
-            cg=(rear+front)/2+d["xCG"]/max(d["WB"],.1)*(front-rear)
-            self.A(p,QPointF(cg,deck-65),QPointF(cg,deck-8),"#2459b3","W_R")
-            self.D(p,QPointF(rear,gy+58),QPointF(front,gy+58),f"WB={d['WB']:.2f} m")
-            p.setPen(QPen(QColor("#17324d")));p.drawText(18,hh-30,"ΣM_about pivot = 0 ที่จุดใกล้เริ่มคว่ำ  |  SF = M_R / M_O")
+            self._side_view(p,d,False)
+        elif self.mode==2:
+            self._long_view(p,d,True)
+        elif self.mode==3:
+            self._long_view(p,d,False)
         else:
-            self.title(p,"FREE BODY DIAGRAM — DRIVING ON SLOPE","แตกน้ำหนัก mg เป็นแรงขนานและตั้งฉากกับทางลาด")
-            alpha=math.radians(self.app.slope.value());x0,y0=90,hh*.78;run=ww*.68;x1=x0+run;y1=y0-run*math.tan(alpha)
-            p.setPen(QPen(QColor("#64748b"),5));p.drawLine(QPointF(x0,y0),QPointF(x1,y1))
-            cx,cy=(x0+x1)/2,(y0+y1)/2-50;u=QPointF(math.cos(alpha),-math.sin(alpha));n=QPointF(-math.sin(alpha),-math.cos(alpha))
-            # car
-            pts=QPolygonF([QPointF(cx,cy)+u*(-100)+n*(-27),QPointF(cx,cy)+u*(100)+n*(-27),QPointF(cx,cy)+u*(100)+n*(27),QPointF(cx,cy)+u*(-100)+n*(27)])
-            p.setBrush(QColor("#e5e9ee"));p.setPen(QPen(QColor("#334155"),2));p.drawPolygon(pts)
-            # CG
-            p.setBrush(QColor("#111827"));p.drawEllipse(QPointF(cx,cy),6,6)
-            self.A(p,QPointF(cx,cy-75),QPointF(cx,cy+90),"#d62828","W=mg")
-            self.A(p,QPointF(cx,cy),QPointF(cx,cy)+u*(-125),"#b42318","mg sinα")
-            self.A(p,QPointF(cx,cy),QPointF(cx,cy)+n*(95),"#2459b3","mg cosα")
-            self.A(p,QPointF(cx,cy)+QPointF(0,18),QPointF(cx,cy)+u*(125)+QPointF(0,18),"#16803a","F_trac")
-            p.setPen(QPen(QColor("#17324d")));p.drawText(18,hh-55,f"α={self.app.slope.value():.1f}°   W_parallel=mg sinα   W_normal=mg cosα")
-            p.drawText(18,hh-30,"F = m × a     W = m × g     M = F × d")
+            self._slope_view(p,d)
+
 class GraphWidget(QWidget):
     """Stability map: Side / Front / Rear SF over crane angle with target and worst marker."""
     def __init__(self,app):super().__init__();self.app=app;self.setMinimumHeight(400)
