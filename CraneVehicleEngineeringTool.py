@@ -5917,8 +5917,10 @@ void loop() {{
             <h1>1. DRIVE TORQUE</h1>{self.torque_formula_html(t)}{page}
             <h1>2. ELECTRICAL / BATTERY</h1>{self.equation_html(e)}{page}
             <h1>3. WINCH</h1>{winch_formula}<hr>{winch_speed_formula}<hr>{self.winch_duty_html()}{page}
-            <h1>4. STABILITY</h1>{self.stability_formula_html()}{page}
-            <h1>4A. STABILITY FBD - ALL DIRECTIONS</h1>{fbd_html}{page}
+            <h1>4. STABILITY — FBD แบบเข้าใจง่าย</h1>
+            <p><b>อ่านตามลำดับ:</b> จุดหมุนสีแดง → ฝั่งทำให้คว่ำ → ฝั่งช่วยต้าน → Safety Factor</p>
+            {fbd_html}{page}
+            <h1>4A. STABILITY — ENGINEERING CALCULATION</h1>{self.stability_formula_html()}{page}
             <h1>5. WORST CASE</h1><p>SF_worst = {worst[0]:.3f} at θ={worst[1]}° ({worst[2]}), target SF={self.req.value():.2f}</p>{page}
             <h1>6. BATTERY + BMS</h1>{self.bms_check_html()}{page}
             <h1>7. VALIDATION</h1>{self.validation_report_html()}{page}
@@ -9121,8 +9123,12 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
             """
             html=(
                 "<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
-                +summary+"<hr>"+self.stability_formula_html()
-                +"<div style='page-break-before:always'></div>"+fbd_html
+                +summary
+                +"<div style='page-break-before:always'></div><h1>FBD แบบเข้าใจง่าย / BEGINNER FBD</h1>"
+                +"<p><b>อ่านก่อน:</b> ดูจุดหมุนสีแดง → ดูฝั่งทำให้คว่ำ → ดูฝั่งช่วยต้าน → ดูค่า SF.</p>"
+                +fbd_html
+                +"<div style='page-break-before:always'></div><h1>รายละเอียดการคำนวณ / ENGINEERING CALCULATION</h1>"
+                +self.stability_formula_html()
                 +"<div style='page-break-before:always'></div><h2>Other Figures / รูปประกอบเพิ่มเติม</h2>"+fig_html
                 +"</body></html>"
             )
