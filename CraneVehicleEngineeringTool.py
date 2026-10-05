@@ -7776,9 +7776,9 @@ void loop() {{
             q=self.electrical_results()
             document=QTextDocument()
             document.setDefaultFont(QFont("Noto Sans Thai",10))
-            summary=(f"<h1>Main Battery 72 V — Simple Cycle Report</h1>"
-                     f"<p>Method: energy per Cycle; Total mass {q['m']:.1f} kg; Battery {q['V']:.1f} V; "
-                     f"Target runtime {q['runtime_h']:.2f} h</p>")
+            summary=(f"<h1>รายงานคำนวณแบตเตอรี่หลัก 72 V — Simple Cycle</h1>"
+                     f"<p><b>วิธีคำนวณ:</b> คิดพลังงานทีละ 1 Cycle แล้วรวมตามจำนวน Cycle ที่ทำได้; "
+                     f"มวลรวม {q['m']:.1f} kg; แบตเตอรี่ {q['V']:.1f} V; เวลาทำงานเป้าหมาย {q['runtime_h']:.2f} h</p>")
             document.setHtml(summary+self.equation_html(q)+
                 "<hr/><h2>คำอธิบายภาษาไทยเพิ่มเติม</h2>"+
                 self.eThaiExplain.toHtml())
@@ -8519,17 +8519,35 @@ void loop() {{
                    f"<p>x_rear={rb0['rear']:.3f}, x_front={rb0['front']:.3f}, x_crane={rb0['xc']:.3f}, "
                    f"x_B={rb0['xboom']:.3f}, x_L={rb0['xload']:.3f}; front reaction → 0.</p>")
         html+=f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
-        <h3>6. UPHILL REAR-TIPPING CHECK</h3>
-        <p>Use a coordinate system fixed to the slope. The weight is resolved into components; do not add W=mg again as another force.</p>
-        <p>W_parallel = mg sinα = {d['mt']:.2f}×9.81×sin({math.degrees(slope['alpha']):.2f}°) = <b>{slope['w_parallel']:.2f} N</b><br>
-        W_normal = mg cosα = {d['mt']:.2f}×9.81×cos({math.degrees(slope['alpha']):.2f}°) = <b>{slope['w_normal']:.2f} N</b><br>
-        F_I = ma = {d['mt']:.2f}×{slope['acc']:.3f} = <b>{slope['inertia']:.2f} N</b> (opposite uphill acceleration)<br>
-        d_R = x_CG,drive - x_rear = {slope['xcg']:.3f} - ({slope['rear']:.3f}) = <b>{slope['rear_arm']:.3f} m</b></p>
-        <p>M_O = (W_parallel + F_I)h_CG = ({slope['w_parallel']:.2f}+{slope['inertia']:.2f})×{slope['h']:.3f}
-        = <b>{slope['mo']:.2f} N·m</b><br>
-        M_R = W_normal d_R = {slope['w_normal']:.2f}×{max(0.0,slope['rear_arm']):.3f}
-        = <b>{slope['mr']:.2f} N·m</b><br>
-        SF_slope = M_R/M_O = <b>{fmt(slope['sf'])}</b></p></div>
+        <h3>6. UPHILL REAR-TIPPING CHECK / ตรวจการคว่ำด้านหลังขณะขึ้นทางลาด</h3>
+        <p><b>แนวคิด:</b> แตกน้ำหนักรวม mg ออกเป็นแรงตามแนวทางลาดและแรงตั้งฉากกับทางลาด โดยไม่เอา W=mg มาบวกซ้ำ</p>
+        <h4>ขั้นที่ 1: หาแรงตามแนวทางลาด</h4>
+        <p><b>สูตร:</b> W_parallel = mg sinα<br>
+        <b>แทนค่า:</b> {d['mt']:.2f}×9.81×sin({math.degrees(slope['alpha']):.2f}°)
+        = <b>{slope['w_parallel']:.2f} N</b><br>
+        <b>ความหมาย:</b> เป็นส่วนของน้ำหนักที่ดึงรถลงตามทางลาด</p>
+        <h4>ขั้นที่ 2: หาแรงตั้งฉากกับทางลาด</h4>
+        <p><b>สูตร:</b> W_normal = mg cosα<br>
+        <b>แทนค่า:</b> {d['mt']:.2f}×9.81×cos({math.degrees(slope['alpha']):.2f}°)
+        = <b>{slope['w_normal']:.2f} N</b></p>
+        <h4>ขั้นที่ 3: หาแรงเฉื่อย</h4>
+        <p><b>สูตร:</b> F_I = ma<br>
+        <b>แทนค่า:</b> {d['mt']:.2f}×{slope['acc']:.3f} = <b>{slope['inertia']:.2f} N</b><br>
+        <b>ความหมาย:</b> D'Alembert pseudo-force มีทิศตรงข้ามกับการเร่งขึ้นทางลาด</p>
+        <h4>ขั้นที่ 4: หาแขนโมเมนต์ด้านหลัง</h4>
+        <p><b>สูตร:</b> d_R = x_CG,drive - x_rear<br>
+        <b>แทนค่า:</b> {slope['xcg']:.3f} - ({slope['rear']:.3f}) = <b>{slope['rear_arm']:.3f} m</b></p>
+        <h4>ขั้นที่ 5: หาโมเมนต์คว่ำและโมเมนต์ต้าน</h4>
+        <p><b>โมเมนต์คว่ำ:</b> M_O = (W_parallel + F_I)h_CG<br>
+        <b>แทนค่า:</b> ({slope['w_parallel']:.2f}+{slope['inertia']:.2f})×{slope['h']:.3f}
+        = <b>{slope['mo']:.2f} N·m</b><br><br>
+        <b>โมเมนต์ต้าน:</b> M_R = W_normal d_R<br>
+        <b>แทนค่า:</b> {slope['w_normal']:.2f}×{max(0.0,slope['rear_arm']):.3f}
+        = <b>{slope['mr']:.2f} N·m</b></p>
+        <h4>ขั้นที่ 6: หา Safety Factor</h4>
+        <p><b>สูตร:</b> SF_slope = M_R/M_O<br>
+        <b>แทนค่า:</b> {slope['mr']:.2f}/{slope['mo']:.2f} = <b>{fmt(slope['sf'])}</b><br>
+        <b>เกณฑ์:</b> ต้องการ SF ≥ {d['req']:.2f}</p></div>
 
         <h2>7. Worst-case search</h2>
         <p>SF_worst = min[SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ)] for θ=-90°...+90° in 1° increments.<br>
@@ -9494,27 +9512,52 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             else:
                 bal=self.slope_stability_results(d);geomtxt=f"α={math.degrees(bal['alpha']):.2f}°, h_CG={bal['h']:.3f} m"
             if case["key"]!="slope":
+                name_th={"Vehicle":"ตัวรถ","Boom":"แขนเครน","Payload":"น้ำหนักบรรทุก"}
+                role_th={"overturning":"ทำให้คว่ำ","resisting":"ต้านการคว่ำ"}
                 rows="".join(
-                    f"<tr><td>{q['name']}</td><td>{q['force']:.2f}</td><td>{q['arm']:.3f}</td><td>{q['moment']:.2f}</td><td>{q['role']}</td></tr>"
+                    f"<tr><td>{q['name']} / {name_th.get(q['name'],q['name'])}</td><td>{q['force']:.2f}</td><td>{q['arm']:.3f}</td><td>{q['moment']:.2f}</td><td>{q['role']} / {role_th.get(q['role'],q['role'])}</td></tr>"
                     for q in bal["components"])
+                mo_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in bal["components"] if q["role"]=="overturning") or "0"
+                mr_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in bal["components"] if q["role"]=="resisting") or "0"
+                sf_sub="∞ (ไม่มีโมเมนต์คว่ำ)" if bal["mo"]<=1e-12 else f"{bal['mr']:.2f}/{bal['mo']:.2f} = {sftext}"
                 detail=f"""<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
-                <tr><th>Component</th><th>Design force (N)</th><th>d⊥ (m)</th><th>Moment (N·m)</th><th>Role</th></tr>{rows}</table>
-                <p>M_O = Σ(Fd)_overturning = <b>{bal['mo']:.2f} N·m</b><br>
-                M_R = Σ(Fd)_resisting = <b>{bal['mr']:.2f} N·m</b><br>
-                SF = M_R/M_O = <b>{sftext}</b></p>"""
+                <tr><th>Component / ส่วน</th><th>Design force / แรงออกแบบ (N)</th><th>d⊥ / แขนโมเมนต์ (m)</th><th>Moment / โมเมนต์ (N·m)</th><th>Role / หน้าที่</th></tr>{rows}</table>
+                <h3>1) หาโมเมนต์คว่ำ M_O</h3>
+                <p><b>กำลังหาอะไร:</b> โมเมนต์รวมของแรงที่พยายามทำให้รถคว่ำรอบแกน P<br>
+                <b>สูตร:</b> M_O = Σ(F_i d_i)<br>
+                <b>แทนค่า:</b> M_O = {mo_terms} = <b>{bal['mo']:.2f} N·m</b></p>
+                <h3>2) หาโมเมนต์ต้าน M_R</h3>
+                <p><b>กำลังหาอะไร:</b> โมเมนต์รวมของแรงที่ช่วยต้านไม่ให้รถคว่ำ<br>
+                <b>สูตร:</b> M_R = Σ(F_i d_i)<br>
+                <b>แทนค่า:</b> M_R = {mr_terms} = <b>{bal['mr']:.2f} N·m</b></p>
+                <h3>3) หา Safety Factor</h3>
+                <p><b>สูตร:</b> SF = M_R/M_O<br>
+                <b>แทนค่า:</b> SF = {sf_sub}<br>
+                <b>เกณฑ์:</b> SF ต้อง ≥ {d['req']:.2f}</p>"""
             else:
-                detail=f"""<p>W_parallel = mg sinα = {bal['w_parallel']:.2f} N<br>
-                W_normal = mg cosα = {bal['w_normal']:.2f} N<br>
-                F_I = ma = {bal['inertia']:.2f} N<br>
-                M_O = (W_parallel+F_I)h_CG = <b>{bal['mo']:.2f} N·m</b><br>
-                M_R = W_normal d_R = <b>{bal['mr']:.2f} N·m</b><br>
-                SF_slope = M_R/M_O = <b>{sftext}</b></p>"""
+                detail=f"""<h3>1) แตกน้ำหนักตามแกนทางลาด</h3>
+                <p><b>W_parallel = mg sinα</b> = {bal['w_parallel']:.2f} N — ดึงรถลงตามทางลาด<br>
+                <b>W_normal = mg cosα</b> = {bal['w_normal']:.2f} N — กดรถเข้าหาพื้นทางลาด</p>
+                <h3>2) หาแรงเฉื่อย</h3>
+                <p><b>F_I = ma</b> = {bal['inertia']:.2f} N — D'Alembert pseudo-force ตรงข้ามทิศเร่งขึ้นทางลาด</p>
+                <h3>3) หาโมเมนต์คว่ำ</h3>
+                <p><b>สูตร:</b> M_O = (W_parallel+F_I)h_CG<br>
+                <b>แทนค่า:</b> ({bal['w_parallel']:.2f}+{bal['inertia']:.2f})×{bal['h']:.3f}
+                = <b>{bal['mo']:.2f} N·m</b></p>
+                <h3>4) หาโมเมนต์ต้าน</h3>
+                <p><b>สูตร:</b> M_R = W_normal d_R<br>
+                <b>แทนค่า:</b> {bal['w_normal']:.2f}×{max(0.0,bal['rear_arm']):.3f}
+                = <b>{bal['mr']:.2f} N·m</b></p>
+                <h3>5) หา Safety Factor</h3>
+                <p><b>สูตร:</b> SF_slope = M_R/M_O<br>
+                <b>แทนค่า:</b> {bal['mr']:.2f}/{bal['mo']:.2f} = <b>{sftext}</b><br>
+                <b>เกณฑ์:</b> SF ต้อง ≥ {d['req']:.2f}</p>"""
             pages.append(f"""<div style='page-break-before:always'></div>
             <h1>FBD {i}: {case['title']} / {case['thai']}</h1>
-            <p><b>Critical case used on this page:</b> {geomtxt}</p>
+            <p><b>กรณีวิกฤตที่ใช้ในหน้านี้ / Critical case:</b> {geomtxt}</p>
             <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>
-            <h2>Equation and substitution</h2>{detail}
-            <p><b>Required:</b> SF ≥ {d['req']:.2f} &nbsp; | &nbsp; <b>Result:</b> SF = {sftext} → {status}</p>
+            <h2>สูตรและการแทนค่า / Equation and Substitution</h2>{detail}
+            <p><b>เกณฑ์ที่ต้องการ / Required:</b> SF ≥ {d['req']:.2f} &nbsp; | &nbsp; <b>ผลลัพธ์ / Result:</b> SF = {sftext} → {status}</p>
             <p style='font-size:9pt;color:#52606d'>{"Slope case uses the combined driving mass/CG with the payload stowed on the vehicle; Kdyn is not applied in this slope equation." if case["key"]=="slope" else "At impending tipping, the support reaction opposite the selected tipping axis tends to zero. Payload Kdyn is used only as an equivalent adverse design load when the payload contributes to overturning."}</p>""")
             summary.append(f"<tr><td>{i}</td><td>{case['title']}</td><td>{'-' if case['angle'] is None else f'{case['angle']:.1f}°'}</td><td>{sftext}</td><td>{status}</td></tr>")
         head=f"""<h2>FORMAL FBD CASE SUMMARY — CRITICAL-CASE SECTION</h2>
