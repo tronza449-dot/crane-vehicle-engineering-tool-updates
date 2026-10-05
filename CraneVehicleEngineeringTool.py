@@ -410,8 +410,8 @@ class Model3D(QWidget):
             rr=max(.48,L*.58)
             pt=(bx+rr*math.cos(a),rr*math.sin(a),base_z+.13)
             q,_=project(pt)
-            p.setPen(QColor("#6d86a0"));p.setFont(QFont("",7,QFont.Bold))
-            p.drawText(q+QPointF(4,-4),label)
+            p.setPen(QPen(QColor("#6d86a0"),1.5));p.setBrush(QColor("#ffffff"))
+            p.drawEllipse(q,3.5,3.5)
 
         # column
         column_z=base_z+.16+H/2
@@ -8210,12 +8210,15 @@ void loop() {{
                     f"<th>{coord} (m)</th><th>d⊥ (m)</th><th>M (N·m)</th><th>Role</th></tr>"
                     +"".join(rows)+"</table>")
         def case(title,b,coord,geom):
+            status="PASS" if b["sf"]>=d["req"] else "FAIL"
+            status_color="#176337" if status=="PASS" else "#b42318"
             return f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
             <h3>{title}</h3>{geom}
             {comp_table(b,coord)}
             <p><b>Overturning moment:</b> M_O = Σ(F_i d_i) on overturning side = {b['mo']:.2f} N·m<br>
             <b>Resisting moment:</b> M_R = Σ(F_i d_i) on resisting side = {b['mr']:.2f} N·m<br>
-            <b>Safety factor:</b> SF = M_R/M_O = {fmt(b['sf'])} &nbsp; | &nbsp; Required SF = {d['req']:.2f}</p>
+            <b>Safety factor:</b> SF = M_R/M_O = {fmt(b['sf'])} &nbsp; | &nbsp; Required SF = {d['req']:.2f}
+            &nbsp; | &nbsp; <b style='color:{status_color}'>Current-angle status: {status}</b></p>
             </div>"""
 
         html=f"""<h1>CURRENT-ANGLE SNAPSHOT — VARIABLES, EQUATIONS & SUBSTITUTION</h1>\n        <p style="background:#eef6ff;border:1px solid #cfe2f5;padding:10px"><b>Section scope:</b> this appendix uses the current input crane angle θ={th:.1f}°. The FBD pages before this appendix use their own searched critical angles. Do not mix current-angle results with critical-case results unless the angles coincide.</p>
@@ -8277,7 +8280,7 @@ void loop() {{
 
         <h2>7. Worst-case search</h2>
         <p>SF_worst = min[SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ)] for θ=-90°...+90° in 1° increments.<br>
-        181 angles × 3 reported records = <b>543 records</b> (Side internally compares Left and Right, so 724 directional balances are evaluated).<br>
+        181 angles × 4 tipping directions (Left / Right / Front / Rear) = <b>724 directional moment-balance evaluations</b>.<br>
         Critical result: θ={best[1]}°, {best[2]}, SF_worst={fmt(best[0])}.</p>
 
         <p><b>Engineering limitation:</b> preliminary rigid-body stability analysis only. Verify measured mass/CG, actual support geometry,
@@ -9294,12 +9297,29 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
         try:
             self.calc_all();self.calc_worst()
             d=self.inputs();worst=self.stability_worst_record();slope=self.slope_stability_results(d)
+            sl_now=self.side_moment_balance(d,d["th"],"left")
+            sr_now=self.side_moment_balance(d,d["th"],"right")
+            fb_now=self.longitudinal_moment_balance(d,d["th"],"front")
+            rb_now=self.longitudinal_moment_balance(d,d["th"],"rear")
+            current_cases=[("Side Left",sl_now["sf"]),("Side Right",sr_now["sf"]),("Front",fb_now["sf"]),("Rear",rb_now["sf"])]
+            current_name,current_sf=min(current_cases,key=lambda q:q[1])
+            current_sf_text="∞" if current_sf>=999 else f"{current_sf:.3f}"
+            current_status="PASS" if current_sf>=d["req"] else "FAIL"
+
+            # Render report figures at fixed size instead of grabbing the current UI widget size.
             figures=[]
-            for name,widget in (("vehicle",getattr(self,"view",None)),("stability_map",getattr(self,"graph",None))):
-                if widget is not None:
-                    fp=tmpdir/f"{name}.png"
-                    if widget.grab().save(str(fp)):figures.append((name,fp.as_uri()))
-            fig_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in figures)
+            report_vehicle=Model3D();report_vehicle.resize(980,430);report_vehicle.setD(d);report_vehicle.setCamera(38,24,1.0)
+            QApplication.processEvents()
+            fp=tmpdir/"vehicle.png";pix=QPixmap(report_vehicle.size());pix.fill(QColor("white"));report_vehicle.render(pix)
+            if pix.save(str(fp),"PNG"):figures.append(("vehicle",fp.as_uri()))
+            report_vehicle.deleteLater()
+
+            report_graph=GraphWidget(self);report_graph.resize(1100,650);QApplication.processEvents()
+            gp=tmpdir/"stability_map.png";gpix=QPixmap(report_graph.size());gpix.fill(QColor("white"));report_graph.render(gpix)
+            if gpix.save(str(gp),"PNG"):figures.append(("stability_map",gp.as_uri()))
+            report_graph.deleteLater()
+
+            fig_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p style='text-align:center'><img src='{uri}' width='680'></p>" for name,uri in figures)
             fbd_html=self.stability_fbd_report_html(tmpdir,d)
             summary=f"""<h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
             <p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
@@ -9309,6 +9329,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             <tr><td>Payload / Boom</td><td>{d['ml']:.2f} / {d['mb']:.2f} kg</td></tr>
             <tr><td>Track / Wheelbase</td><td>{d['W']:.3f} / {d['WB']:.3f} m</td></tr>
             <tr><td>Current crane input angle</td><td>θ = {d['th']:.1f}°</td></tr>
+            <tr><td>Current-angle governing case</td><td>{current_name}: SF {current_sf_text} — <b>{current_status}</b></td></tr>
             <tr><td>Worst critical-case stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
             <tr><td>Uphill rear-tipping stability</td><td>{'∞' if slope['sf']>=999 else f"{slope['sf']:.3f}"}</td></tr>
             <tr><td>Overall preliminary status</td><td><b>{'PASS' if worst[0]>=d['req'] and slope['sf']>=d['req'] else 'FAIL / revise geometry or operating limits'}</b></td></tr></table>
@@ -9650,7 +9671,10 @@ class ForceDiagram(QWidget):
         return "CURRENT INPUT" if self.caseAngle is None else "CRITICAL CASE"
 
     def txt(self,p,x,y,s,size=9,bold=False,color="#172b3a"):
-        p.setPen(QPen(QColor(color)));f=p.font();f.setPointSize(size);f.setBold(bold);p.setFont(f);p.drawText(QPointF(x,y),s)
+        # Exported FBD is rendered at 1180×760 then scaled to A4; enlarge report text
+        # without making the compact interactive widget oversized.
+        report_scale=1.16 if self.height()>=680 else 1.0
+        p.setPen(QPen(QColor(color)));f=p.font();f.setPointSizeF(float(size)*report_scale);f.setBold(bold);p.setFont(f);p.drawText(QPointF(x,y),s)
 
     def arrow(self,p,a,b,label="",color="#111827",off=QPointF(7,-7),width=2.4,style=Qt.SolidLine):
         p.setPen(QPen(QColor(color),width,style,Qt.RoundCap));p.drawLine(a,b)
@@ -9697,13 +9721,16 @@ class ForceDiagram(QWidget):
         dx=12 if side=="right" else -132
         self.txt(p,pt.x()+dx,pt.y()-13,label,9,True,"#b42318")
 
-    def legend(self,p):
+    def legend(self,p,include_inertia=False):
         """Compact color legend used on both interactive and exported FBDs."""
-        x=max(520,self.width()-560);y=78
         items=[("#111827","Weight"),("#16803a","Reaction / Resist"),("#b42318","Overturn"),("#f59e0b","Crane")]
+        if include_inertia:items.append(("#7c3aed","Inertia F_I"))
+        step=104 if include_inertia else 120
+        total=step*len(items)
+        x=max(500,self.width()-total-24);y=78
         for color,label in items:
-            p.setPen(QPen(QColor(color),3));p.drawLine(QPointF(x,y),QPointF(x+20,y))
-            self.txt(p,x+26,y+4,label,7,True,color);x+=128
+            p.setPen(QPen(QColor(color),3));p.drawLine(QPointF(x,y),QPointF(x+18,y))
+            self.txt(p,x+23,y+4,label,6.5 if include_inertia else 7,True,color);x+=step
 
     def result_box(self,p,sf,mo,mr,req):
         compact=self.height()<680
@@ -9889,7 +9916,7 @@ class ForceDiagram(QWidget):
         sr=self.app.slope_stability_results(d);alpha=sr["alpha"];deg=math.degrees(alpha)
         self.header(p,"FREE-BODY DIAGRAM — UPHILL REAR-TIPPING CHECK",
                     "Slope-fixed axes • resolved-weight representation • D'Alembert inertia force acts opposite uphill acceleration")
-        self.legend(p)
+        self.legend(p,True)
 
         ww,hh=self.width(),self.height();compact=hh<680
         u=QPointF(math.cos(alpha),-math.sin(alpha))
@@ -9982,6 +10009,20 @@ class GraphWidget(QWidget):
         # worst point
         worst=self.app.stability_worst_record();wv=min(worst[0],ymax);wx=L+(worst[1]+90)/180*(R-L);wy=B-wv/ymax*(B-T)
         p.setBrush(QColor("#b42318"));p.setPen(QPen(QColor("#b42318"),2));p.drawEllipse(QPointF(wx,wy),5,5);p.drawText(QPointF(wx+8,wy-8),f"Worst {worst[0]:.2f} @ {worst[1]}° {worst[2]}")
+
+        # Current input angle marker — makes the map directly comparable with Current-angle Snapshot.
+        ca=float(d["th"]);cx=L+(ca+90)/180*(R-L)
+        current_vals=[
+            ("Side Left",self.app.side_moment_balance(d,ca,"left")["sf"]),
+            ("Side Right",self.app.side_moment_balance(d,ca,"right")["sf"]),
+            ("Front",self.app.longitudinal_moment_balance(d,ca,"front")["sf"]),
+            ("Rear",self.app.longitudinal_moment_balance(d,ca,"rear")["sf"]),
+        ]
+        cname,csf=min(current_vals,key=lambda q:q[1]);cy=B-min(csf,ymax)/ymax*(B-T)
+        p.setPen(QPen(QColor("#334155"),1.8,Qt.DashLine));p.drawLine(QPointF(cx,T),QPointF(cx,B))
+        p.setBrush(QColor("#334155"));p.drawEllipse(QPointF(cx,cy),4.5,4.5)
+        csftxt="∞" if csf>=999 else f"{csf:.2f}"
+        p.setFont(QFont("Arial",7,QFont.Bold));p.drawText(QPointF(min(cx+7,R-180),max(T+15,cy-7)),f"Current θ={ca:.0f}° • {cname} SF {csftxt}")
         # x labels
         p.setPen(QColor("#475569"))
         for a in (-90,-60,-30,0,30,60,90):
