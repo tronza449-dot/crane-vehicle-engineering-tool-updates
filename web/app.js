@@ -5,6 +5,71 @@ function num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d;}
 function f(v,d=2){return num(v).toLocaleString("th-TH",{minimumFractionDigits:d,maximumFractionDigits:d});}
 function statusSpan(ok){return '<span class="'+(ok?'pass':'fail')+'">'+(ok?'PASS':'FAIL')+'</span>';}
 
+function actionToast(message,type="success"){
+  let box=document.getElementById("cvetActionToast");
+  if(!box){
+    box=document.createElement("div");
+    box.id="cvetActionToast";
+    document.body.appendChild(box);
+  }
+  box.className="action-toast "+type+" show";
+  box.textContent=message;
+  clearTimeout(box._hideTimer);
+  box._hideTimer=setTimeout(()=>box.classList.remove("show"),1500);
+}
+
+function buttonBusy(btn,text="กำลังทำงาน..."){
+  if(!btn)return;
+  if(!btn.dataset.cvetOriginalText) btn.dataset.cvetOriginalText=btn.textContent;
+  clearTimeout(btn._cvetRestoreTimer);
+  btn.disabled=true;
+  btn.classList.remove("btn-success","btn-error","btn-ack");
+  btn.classList.add("btn-busy");
+  btn.textContent=text;
+}
+
+function buttonRestore(btn){
+  if(!btn)return;
+  clearTimeout(btn._cvetRestoreTimer);
+  btn.classList.remove("btn-busy","btn-success","btn-error","btn-ack");
+  btn.disabled=false;
+  if(btn.dataset.cvetOriginalText){
+    btn.textContent=btn.dataset.cvetOriginalText;
+    delete btn.dataset.cvetOriginalText;
+  }
+}
+
+function buttonSuccess(btn,text="เสร็จแล้ว ✓",toastText=""){
+  if(!btn)return;
+  btn.classList.remove("btn-busy","btn-error","btn-ack");
+  btn.classList.add("btn-success");
+  btn.textContent=text;
+  if(toastText) actionToast(toastText,"success");
+  btn._cvetRestoreTimer=setTimeout(()=>buttonRestore(btn),1300);
+}
+
+function buttonError(btn,text="เกิดข้อผิดพลาด",toastText="ทำรายการไม่สำเร็จ"){
+  if(!btn)return;
+  btn.classList.remove("btn-busy","btn-success","btn-ack");
+  btn.classList.add("btn-error");
+  btn.textContent=text;
+  if(toastText) actionToast(toastText,"error");
+  btn._cvetRestoreTimer=setTimeout(()=>buttonRestore(btn),1700);
+}
+
+function buttonAck(btn){
+  if(!btn || btn.disabled || btn.classList.contains("btn-busy") || btn.classList.contains("btn-success") || btn.classList.contains("btn-error")) return;
+  btn.classList.add("btn-ack");
+  clearTimeout(btn._cvetAckTimer);
+  btn._cvetAckTimer=setTimeout(()=>btn.classList.remove("btn-ack"),420);
+}
+
+// ทุกปุ่มบนเว็บตอบสนองทันทีเมื่อกด แม้ปุ่มนั้นไม่ใช่ปุ่มคำนวณ
+document.addEventListener("click",(evt)=>{
+  const btn=evt.target.closest("button");
+  if(btn) buttonAck(btn);
+});
+
 function formObject(form){
   const out={};
   new FormData(form).forEach((value,key)=>{
@@ -274,7 +339,9 @@ $("#savePin").addEventListener("click",()=>{localStorage.setItem("cvet_web_pin",
 $("#eventMode").addEventListener("change",()=>{$("#manualEventsWrap").classList.toggle("hidden",$("#eventMode").value!=="manual");});
 $("#downMode").addEventListener("change",()=>{$$(".customDown").forEach(x=>x.classList.toggle("hidden",$("#downMode").value!=="custom"));});
 
-$("#calcDrive").addEventListener("click",async()=>{
+$("#calcDrive").addEventListener("click",async(evt)=>{
+  const btn=$("#calcDrive"),interactive=!!evt.isTrusted;
+  if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
   const out=$("#driveResult");setLoading(out);
   try{
     const r=await api("/api/calc/drive-torque",formObject($("#driveForm")));
@@ -291,7 +358,8 @@ $("#calcDrive").addEventListener("click",async()=>{
       '<div class="formula"><b>Fdesign = (Fg + Fr + Fa) × SF</b><br><b>สูตรภาษาไทย:</b> แรงออกแบบรวม = (แรงทางลาด + แรงต้านกลิ้ง + แรงเร่ง) × Safety Factor<br><b>ผล:</b> '+f(r.design_force_n,2)+' N</div>'+
       '<div class="formula"><b>T = (Fdesign ÷ จำนวนมอเตอร์) × รัศมีล้อ</b><br><b>ผล:</b> '+f(r.torque_per_motor_nm,2)+' N·m/มอเตอร์</div>'+
       '<p>Traction margin = <b>'+f(r.traction_margin,2)+'</b> • Limit '+f(r.traction_limit_n,1)+' N</p>';
-  }catch(e){setError(out,e);}
+    if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Drive Torque เสร็จแล้ว");
+  }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Drive Torque เสร็จแล้ว ไม่สำเร็จ");}
 });
 
 let lastRampResult=null;
@@ -352,20 +420,34 @@ async function calculateRampGeometry(){
   }catch(e){setError(out,e);throw e;}
 }
 
-$("#calcRamp").addEventListener("click",()=>{calculateRampGeometry().catch(()=>{});});
+$("#calcRamp").addEventListener("click",async(evt)=>{
+  const btn=$("#calcRamp"),interactive=!!evt.isTrusted;
+  if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
+  try{
+    await calculateRampGeometry();
+    if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Ramp Geometry เสร็จแล้ว");
+  }catch(err){
+    if(interactive) buttonError(btn,"คำนวณไม่สำเร็จ","คำนวณ Ramp Geometry ไม่สำเร็จ");
+  }
+});
 
 $("#applyRampAngle").addEventListener("click",async()=>{
+  const btn=$("#applyRampAngle");buttonBusy(btn,"กำลังใช้ค่า...");
   try{
     const r=lastRampResult||await calculateRampGeometry();
     const value=Number(r.angle_deg).toFixed(4);
     syncSharedProjectParameter("slope_deg",value);
     saveWebInputs();syncVehicleParameters();
     $("#rampResult").insertAdjacentHTML("beforeend",
-      '<div class="pass-note">ใช้มุม <b>'+f(r.angle_deg,2)+'°</b> กับ Drive Torque และ Main Battery แล้ว</div>');
-  }catch(e){}
+      '<div class="pass-note">ใช้มุม <b>'+f(r.angle_deg,2)+'°</b> กับ Drive Torque + Main Battery + Stability แล้ว</div>');
+    buttonSuccess(btn,"ใช้มุมแล้ว ✓","ใช้มุม "+f(r.angle_deg,2)+"° กับโมดูลที่เกี่ยวข้องแล้ว");
+  }catch(err){
+    buttonError(btn,"ใช้ค่าไม่สำเร็จ","ใช้มุมทางลาดไม่สำเร็จ");
+  }
 });
 
 $("#applyRampLength").addEventListener("click",async()=>{
+  const btn=$("#applyRampLength");buttonBusy(btn,"กำลังใช้ค่า...");
   try{
     const r=lastRampResult||await calculateRampGeometry();
     const el=getField("batteryForm","slope_length_m");
@@ -373,10 +455,15 @@ $("#applyRampLength").addEventListener("click",async()=>{
     saveWebInputs();syncVehicleParameters();
     $("#rampResult").insertAdjacentHTML("beforeend",
       '<div class="pass-note">ใช้ความยาวทางลาดทฤษฎี <b>'+f(r.theoretical_slant_m,3)+' m</b> ใน Main Battery แล้ว</div>');
-  }catch(e){}
+    buttonSuccess(btn,"ใช้ระยะแล้ว ✓","ใช้ Slope Length "+f(r.theoretical_slant_m,3)+" m ใน Main Battery แล้ว");
+  }catch(err){
+    buttonError(btn,"ใช้ค่าไม่สำเร็จ","ใช้ Slope Length ไม่สำเร็จ");
+  }
 });
 
-$("#calcBattery").addEventListener("click",async()=>{
+$("#calcBattery").addEventListener("click",async(evt)=>{
+  const btn=$("#calcBattery"),interactive=!!evt.isTrusted;
+  if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
   const out=$("#batteryResult");setLoading(out);
   try{
     const r=await api("/api/calc/drive-battery",formObject($("#batteryForm")));
@@ -465,10 +552,13 @@ $("#calcBattery").addEventListener("click",async()=>{
       '<h3>Compare Battery Size</h3>'+
       '<div style="overflow:auto"><table><tr><th>Battery</th><th>Rated Wh</th><th>Runtime*</th><th>Full Cycles*</th><th>Margin target</th><th>Req cont C</th><th>Req peak C</th><th>Check</th></tr>'+
       compare+'</table></div>';
-  }catch(e){setError(out,e);}
+    if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Main Battery เสร็จแล้ว");
+  }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Main Battery เสร็จแล้ว ไม่สำเร็จ");}
 });
 
-$("#calcWinch").addEventListener("click",async()=>{
+$("#calcWinch").addEventListener("click",async(evt)=>{
+  const btn=$("#calcWinch"),interactive=!!evt.isTrusted;
+  if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
   const out=$("#winchResult");setLoading(out);
   try{
     const r=await api("/api/calc/winch",formObject($("#winchForm"))),c=r.core,o=r.operation,b=r.battery;
@@ -498,7 +588,8 @@ $("#calcWinch").addEventListener("click",async()=>{
       '<div class="formula"><b>Etotal = Nevent × Eevent</b><br><b>สูตรภาษาไทย:</b> พลังงานรวม = จำนวนงานยก × พลังงานต่อ 1 งาน<br><b>แทนค่า:</b> '+b.events+' × '+f(b.e_event_wh,3)+' = <b>'+f(b.e_total_wh,2)+' Wh</b></div>'+
       '<div class="formula"><b>Ahdesign = Etotal × (1 + Reserve) ÷ (V × DoD)</b><br><b>สูตรภาษาไทย:</b> ความจุแบตออกแบบ = พลังงานรวม × (1 + สำรอง) ÷ (แรงดัน × DoD)<br><b>ผล:</b> <b>'+f(b.ah_design,2)+' Ah</b> → Standard ≥ '+f(b.standard_ah,0)+' Ah</div>'+
       '<p>Candidate '+f(b.candidate_ah,1)+' Ah: '+statusSpan(b.candidate_energy_ok)+' • BMS continuous: '+(b.bms_cont_a>0?statusSpan(b.bms_cont_ok):'<span class="check">CHECK</span>')+' • Peak: <span class="check">CHECK</span> (datasheet ไม่มี Starting/Stall surge)</p>';
-  }catch(e){setError(out,e);}
+    if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Winch เสร็จแล้ว");
+  }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Winch เสร็จแล้ว ไม่สำเร็จ");}
 });
 
 
@@ -672,7 +763,9 @@ function renderWebFbd(){
 $("#webFbdCase").addEventListener("change",renderWebFbd);
 $("#webFbdView").addEventListener("change",renderWebFbd);
 
-$("#calcStability").addEventListener("click",async()=>{
+$("#calcStability").addEventListener("click",async(evt)=>{
+  const btn=$("#calcStability"),interactive=!!evt.isTrusted;
+  if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
   const out=$("#stabilityResult");setLoading(out);
   try{
     const r=await api("/api/calc/stability",formObject($("#stabilityForm")));
@@ -690,7 +783,8 @@ $("#calcStability").addEventListener("click",async()=>{
       '</table>'+
       '<p class="check">เลือก Case และ Current/Critical ด้านล่างเพื่อดู FBD, Moment arm และสูตรแทนค่าจริง</p>';
     renderWebFbd();
-  }catch(e){setError(out,e);}
+    if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Stability + FBD เสร็จแล้ว");
+  }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Stability + FBD เสร็จแล้ว ไม่สำเร็จ");}
 });
 
 setupDynamicProjectParameters();
