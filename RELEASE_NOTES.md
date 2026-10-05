@@ -1,90 +1,47 @@
-# Crane Vehicle Engineering Tool V53.7.0
+# Crane Vehicle Engineering Tool V53.7.1
 
-## Ramp Geometry / การคำนวณองศาและความชันทางลาด
+## Formal Engineering FBD + Stability Report Audit
 
-เพิ่มการคำนวณตามค่าที่วัดจริงของทางลาดโดยตรง ทั้งใน Desktop และ Web
+ต่อจาก V53.7.0 โดยคงระบบ Ramp Geometry และฟังก์ชันหลักเดิมไว้ แล้วปรับ Stability/FBD สำหรับใช้ในรายงานวิศวกรรม
 
-### Input
-ค่าเริ่มต้นตามข้อมูลที่วัด:
-- ความสูง h = 55 cm
-- ระยะราบ x = 280 cm
-- ความยาวทางลาดที่วัดได้ = 290 cm
-- มวลรถสำหรับตรวจ F_slope = 300 kg (Web)
-- Desktop สามารถเลือกใช้มวลจาก Main Battery ได้
+### Formal FBD
+- แยก Geometry Top View ออกจาก Free-Body Diagram
+- Side Left / Side Right ใช้ Front Elevation
+- Front / Rear ใช้ Side Elevation
+- Slope FBD ใช้ resolved weight components โดยไม่วาด W=mg ซ้ำกับ mg sin(alpha), mg cos(alpha)
+- แสดง coordinate axes, tipping axis, support reactions, weights และ moment arms
+- ที่ impending tipping ระบุ reaction ฝั่งตรงข้าม tipping axis -> 0
 
-### 1) ความยาวทางลาดจากพีทาโกรัส
-สูตร:
-`L = sqrt(x^2 + h^2)`
+### Calculation convention
+- +x = ด้านหน้ารถ
+- +y = ด้านขวารถ
+- +z = ด้านบน
+- crane theta: -90 deg = left, 0 deg = forward, +90 deg = right
+- Left/Right/Front/Rear moment balance แยกกัน
+- Payload dynamic factor ใช้เฉพาะ adverse overturning payload moment
+- Worst-case search = 181 angles x 4 directions = 724 cases
 
-สำหรับ h = 55 cm, x = 280 cm:
-- L = 285.35 cm
-- L = 2.854 m
-- เทียบค่าที่วัด 290 cm ต่างประมาณ 4.65 cm
+### PDF Export
+Stability PDF และ Final Engineering PDF มี:
+- Geometry & Tipping-Axis Definition
+- FBD Left
+- FBD Right
+- FBD Front
+- FBD Rear
+- FBD Uphill Slope
+- Variable table
+- Formula
+- Numeric substitution
+- M_O / M_R / SF
+- PASS / FAIL
 
-### 2) มุมทางลาด
-สูตร:
-`theta = atan(h/x)`
+### Slope
+- W_parallel = m g sin(alpha)
+- W_normal = m g cos(alpha)
+- F_I = m a opposite acceleration for quasi-static check
+- M_O = (W_parallel + F_I) h_CG
+- M_R = W_normal d_rear
+- SF_slope = M_R / M_O
 
-ผล:
-- theta ≈ 11.11°
-
-### 3) เปอร์เซ็นต์ความชัน
-สูตร:
-`Slope (%) = (h/x) × 100`
-
-ผล:
-- Slope ≈ 19.64%
-
-โปรแกรมแสดงคำเตือนชัดเจนว่า:
-- 19.64% คือเปอร์เซ็นต์ความชัน
-- ไม่ใช่ 19.64°
-- สูตร sin/cos ของมอเตอร์ต้องใช้ 11.11°
-
-### 4) แรงจากความชัน
-โปรแกรมคำนวณและตรวจซ้ำสองสมการ:
-`F_slope = m g sin(theta)`
-
-และ
-
-`F_slope = m g (h/L)`
-
-ทั้งสองวิธีต้องให้ผลเท่ากันจากรูปสามเหลี่ยมทฤษฎี
-
-### Desktop
-เพิ่มส่วน Ramp Geometry ใน:
-Stability → Slope
-
-มีปุ่ม:
-- คำนวณ Ramp Geometry
-- ใช้มุมนี้กับ Torque + Main Battery + Stability
-- ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery
-
-เพิ่มความละเอียดมุมเป็น 2 ตำแหน่ง และ Slope Length เป็น 3 ตำแหน่ง
-
-### Web
-เพิ่มเมนู:
-- Ramp Geometry
-
-พร้อม:
-- รูปสามเหลี่ยมทางลาด
-- h / x / L
-- มุม theta
-- Slope %
-- ค่าความต่างระหว่าง L ที่วัดกับ L ทฤษฎี
-- F_slope
-- สูตร + แทนค่า
-- ปุ่มส่งมุมไป Drive Torque + Main Battery
-- ปุ่มส่ง L ทฤษฎีไป Main Battery
-
-ค่า Input ของหน้า Ramp ถูกจำไว้ใน Browser เช่นเดียวกับหน้าคำนวณอื่น
-
-### Regression
-เพิ่มการทดสอบอัตโนมัติสำหรับกรณี:
-h = 55 cm, x = 280 cm, L_measured = 290 cm
-
-ยืนยันว่า:
-- L ≈ 285.35 cm
-- theta ≈ 11.11°
-- Slope ≈ 19.64%
-- Difference ≈ 4.65 cm
-- m g sin(theta) = m g h/L
+### Scope
+Preliminary rigid-body engineering calculation. Actual mass/CG, structure, wheel/ground behavior, brakes, bearing, shock/dynamic loads and manufacturer limits still require validation.
