@@ -161,6 +161,10 @@ jobs:
           assert "ฝั่งช่วยต้านการคว่ำ" in source
           assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in source
           assert "สูตร + แทนค่าแบบทีละขั้น" in source
+          assert "อ่านสูตรแบบภาษาคน" in source
+          assert "ตัวแปรในสูตรนี้" in source
+          assert "ตัวเลขแต่ละพจน์" in source
+          assert "ความจุแบตขั้นต่ำ (Ah) = พลังงานที่ออกแบบเผื่อแล้ว" in source
           assert "กำลังหาอะไร:" in source
           assert "คำตอบสำหรับเลือกซื้อเบื้องต้น" in source
           assert "CURRENT-ANGLE SNAPSHOT — ตัวแปร สูตร และการแทนค่า" in source
