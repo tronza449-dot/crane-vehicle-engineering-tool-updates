@@ -58,16 +58,20 @@
         ["E_down","F_down L_slope /(η×3600)",f(r.downhill_drive_force_n,2)+" × "+f(r.slope_length_m,2)+" /(η×3600)",f(r.downhill_slope_energy_wh,4),"Wh","พลังงานช่วงลาดลง","ไม่หักพลังงานคืน"],
         ["E_go","E_flat + E_up",f(r.flat_energy_one_way_wh,4)+" + "+f(r.uphill_slope_energy_wh,4),f(r.outbound_drive_energy_wh,4),"Wh","พลังงานเที่ยวไป","ทางราบ + ขึ้นลาด"],
         ["E_return","E_down + E_flat",f(r.downhill_slope_energy_wh,4)+" + "+f(r.flat_energy_one_way_wh,4),f(r.return_drive_energy_wh,4),"Wh","พลังงานเที่ยวกลับ","ลงลาด + ทางราบ"],
-        ["E_drive,cycle","E_go + E_return",f(r.outbound_drive_energy_wh,4)+" + "+f(r.return_drive_energy_wh,4),f(r.trip_drive_energy_wh,4),"Wh/Cycle","พลังงานขับต่อ Cycle","ยังไม่รวม Auxiliary"],
+        ["E_turn,event","Cturn·m·g·(W/2)φ /(η×3600)",f(r.turn_coeff,3)+" × "+f(r.mass_kg,1)+" × 9.81 × "+f(r.turn_wheel_path_m,3)+" /(η×3600)",f(r.turn_energy_per_event_wh,4),"Wh/turn","พลังงานหมุน Differential 1 ครั้ง","ค่า Cturn เป็น empirical coefficient"],
+        ["E_turn,cycle","E_turn,event × Nturn",f(r.turn_energy_per_event_wh,4)+" × "+r.turns_per_cycle,f(r.turn_energy_per_cycle_wh,4),"Wh/Cycle","พลังงานหมุนต่อ Cycle","0 เมื่อปิด Turning Energy"],
+        ["E_drive,cycle","E_go + E_return + E_turn",f(r.outbound_drive_energy_wh,4)+" + "+f(r.return_drive_energy_wh,4)+" + "+f(r.turn_energy_per_cycle_wh,4),f(r.trip_drive_energy_wh,4),"Wh/Cycle","พลังงานขับต่อ Cycle","ยังไม่รวม Auxiliary"],
         ["t_cycle","t_drive + t_lift + t_other",f(r.drive_time_per_round_s,2)+" + "+f(r.lift_time_per_round_s,2)+" + "+f(r.other_stop_time_per_round_s,2),f(r.round_time_s,3),"s/Cycle","เวลาต่อ Cycle","งานยกมีผลต่อจำนวน Cycle แต่พลังงานวินช์แยก"],
         ["E_aux,cycle","P_aux × t_cycle",f(p.aux_power_w,2)+" × "+f(r.round_time_s/3600,6),f(r.aux_energy_per_cycle_wh,4),"Wh/Cycle","ไฟอุปกรณ์เสริมต่อ Cycle","ESP32/Display/Relay ฯลฯ"],
         ["E_cycle","E_drive,cycle + E_aux,cycle",f(r.trip_drive_energy_wh,4)+" + "+f(r.aux_energy_per_cycle_wh,4),f(r.total_energy_per_cycle_wh,4),"Wh/Cycle","พลังงานรวมต่อ Cycle","ตัวหลักที่ใช้คูณจำนวน Cycle"],
         ["N_cycle","floor(runtime/t_cycle)",f(r.runtime_h*3600,1)+" ÷ "+f(r.round_time_s,3),f(r.completed_round_trips,0),"Cycle","จำนวน Cycle เต็ม","ปัดลงเพราะต้องทำงานให้ครบรอบ"],
         ["E_total","E_cycle × N",f(r.total_energy_per_cycle_wh,4)+" × "+r.completed_round_trips,f(r.load_energy_wh,3),"Wh","พลังงานรวม","ก่อนเผื่อ DoD/Reserve"],
         ["E_design","(E_total/DoD)(1+Reserve)",f(r.load_energy_wh,3)+" / "+f(p.dod_pct/100,3)+" × (1+"+f(p.reserve_pct/100,3)+")",f(r.design_energy_wh,3),"Wh","พลังงานแบตออกแบบ","เผื่อความจุใช้งานและสำรอง"],
-        ["Ah","E_design / V",f(r.design_energy_wh,3)+" ÷ "+f(r.voltage_v,1),f(r.design_ah,3),"Ah","ความจุแบต","ค่าหยาบสำหรับเลือกขนาดแบต"],
+        ["Ah_min","E_design / V",f(r.design_energy_wh,3)+" ÷ "+f(r.voltage_v,1),f(r.design_ah,3),"Ah","ความจุขั้นต่ำตามโมเดล","ค่าทฤษฎี/ประมาณ"],
+        ["Ah_practical","Ah_min × Kb",f(r.design_ah,3)+" × "+f(r.battery_design_factor,2),f(r.recommended_ah,3),"Ah","ความจุแนะนำเชิงใช้งาน","เผื่อความไม่แน่นอนของโมเดลหยาบ"],
+        ["Ah_standard","ปัดขึ้นขนาดมาตรฐาน","จาก "+f(r.recommended_ah,3)+" Ah",f(r.suggested_ah,0),"Ah","ขนาดมาตรฐานที่แนะนำ","ยังต้องตรวจ BMS และ pack current"],
         ["I_up","P_up /(ηV)","จากกำลังขึ้นลาด",f(r.uphill_current_calc_a,3),"A","กระแสช่วงขึ้นลาด","ใช้ตรวจ BMS เบื้องต้นแยกจาก Ah"]
-      ],"แบบจำลองนี้ตั้งใจให้เรียบง่าย: ไม่คิดพลังงานช่วงออกตัว และไม่นำพลังงานจากช่วงลงลาดมาหักคืนแบตเตอรี่ • เที่ยวกลับยังใช้ไฟบนทางราบเสมอ • Winch ใช้แบต 12 V แยก");
+      ],"แบบจำลองนี้ตั้งใจให้เรียบง่าย: ไม่คิดพลังงานช่วงออกตัว และไม่นำพลังงานจากช่วงลงลาดมาหักคืนแบตเตอรี่ • Turning ใช้ Cturn แบบ empirical จึงควรปรับจากการวัดกระแสจริง • เที่ยวกลับยังใช้ไฟบนทางราบเสมอ • Winch ใช้แบต 12 V แยก");
     }catch(e){}
   }
 
