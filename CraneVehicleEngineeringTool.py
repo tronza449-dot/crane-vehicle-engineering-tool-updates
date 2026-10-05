@@ -7283,12 +7283,22 @@ void loop() {{
                   self.ebatteryFactor,self.eTurnAngle,self.eTurnTime,self.eTurnCoeff]
         for q in controls:q.valueChanged.connect(self.calc_electrical)
         self.eTurnEvents.valueChanged.connect(self.calc_electrical)
+        self.eTurnEnable.toggled.connect(self.set_turn_energy_inputs_enabled)
         self.eTurnEnable.toggled.connect(self.calc_electrical)
         self.ecalcRadio.toggled.connect(self.calc_electrical)
         self.euseTorqueMass.toggled.connect(self.calc_electrical)
         self.euseOperationCycle.toggled.connect(self.calc_electrical)
+        self.set_turn_energy_inputs_enabled(self.eTurnEnable.isChecked())
         self.tabs.addTab(w,"Electrical / Battery")
         self.calc_electrical()
+
+    def set_turn_energy_inputs_enabled(self,enabled):
+        """Enable Pivot/Differential inputs only when the turning-energy mode is included."""
+        on=bool(enabled)
+        for name in ("eTurnEvents","eTurnAngle","eTurnTime","eTurnCoeff"):
+            widget=getattr(self,name,None)
+            if widget is not None:
+                widget.setEnabled(on)
 
     def electrical_results(self):
         """Simple route-cycle energy model for the 72 V traction battery.
@@ -7727,7 +7737,8 @@ void loop() {{
             f"SIMPLE CYCLE MODEL\n"
             f"1 Cycle = ไป {q['one']:.1f} m + กลับ {q['one']:.1f} m | ทางลาด/เที่ยว {q['Ls']:.1f} m | ทางราบ/เที่ยว {q['flat_oneway']:.1f} m\n"
             f"เที่ยวไป = {q['Eout_drive']:.3f} Wh | เที่ยวกลับ = {q['Ereturn_drive']:.3f} Wh | Drive/Cycle = {q['Edrive_cycle']:.3f} Wh\n"
-            f"Turn/Cycle = {q['Eturn_cycle']:.3f} Wh | Aux/Cycle = {q['Eaux_cycle']:.3f} Wh | Total/Cycle = {q['Ecycle']:.3f} Wh\n"
+            f"Pivot Turning = {'INCLUDED' if q['turn_enabled'] else 'NOT INCLUDED'} | Turn/Cycle = {q['Eturn_cycle']:.3f} Wh | Turn time = {q['turn_time_cycle_s']:.1f} s\n"
+            f"Aux/Cycle = {q['Eaux_cycle']:.3f} Wh | Total/Cycle = {q['Ecycle']:.3f} Wh\n"
             f"{q['cycles']} Cycle → Min {q['Ah']:.2f} Ah | Practical Kb={q['Kb']:.1f} → {q['Ah_recommended']:.2f} Ah → เลือกประมาณ {q['recommended_standard']:.0f} Ah"
         )
 
@@ -7749,12 +7760,13 @@ void loop() {{
         → <b>{q['Eout_drive']:.3f} Wh</b></p>
         <p><b>เที่ยวกลับ:</b> ลงลาด {q['Ls']:.1f} m + ทางราบ {q['flat_oneway']:.1f} m
         → <b>{q['Ereturn_drive']:.3f} Wh</b></p>
+        <p>โหมด Differential/Pivot = <b>{"INCLUDED" if q['turn_enabled'] else "NOT INCLUDED"}</b></p>
         <p>พลังงานหมุน Differential/Pivot = <b>{q['Eturn_cycle']:.3f} Wh/Cycle</b>
         ({q['turn_events']} ครั้ง × {q['turn_angle_deg']:.0f}°)</p>
         <p>ดังนั้น <b>พลังงานขับต่อรอบ</b> = เที่ยวไป + เที่ยวกลับ + Turning
         = <b>{q['Edrive_cycle']:.3f} Wh/รอบ</b></p>
         <p>Auxiliary ต่อรอบ = {q['Eaux_cycle']:.3f} Wh → พลังงานรวมต่อ Cycle = <b>{q['Ecycle']:.3f} Wh</b></p>
-        <p>เวลา 1 Cycle = รถวิ่ง {q['drive_cycle_s']:.1f} s + งานยก {q['lift_round_s']:.1f} s + หยุดอื่น {q['other_stop_s']:.1f} s
+        <p>เวลา 1 Cycle = รถวิ่ง {q['drive_cycle_s']:.1f} s + งานยก {q['lift_round_s']:.1f} s + หยุดอื่น {q['other_stop_s']:.1f} s + หมุน Pivot {q['turn_time_cycle_s']:.1f} s
         = <b>{q['cycle_total_s']:.1f} s</b></p>
         <p>ใน {q['runtime_h']:.2f} h ทำได้ <b>{q['cycles']} Cycle เต็ม</b> → E_total = {q['Ecycle']:.3f} × {q['cycles']}
         = <b>{q['Eload']:.1f} Wh</b></p>
