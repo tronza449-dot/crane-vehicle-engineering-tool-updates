@@ -7740,7 +7740,7 @@ void loop() {{
         self.tripDriveTotalLabel.setText(f"{q['Eout_drive']:.3f} Wh")
         self.tripAuxLabel.setText(f"{q['Ereturn_drive']:.3f} Wh")
         self.tripLoadTotalLabel.setText(f"{q['Eload']:.1f} Wh")
-        self.tripBatteryLabel.setText(f"Min {q['Ah']:.2f} Ah\nPractical {q['Ah_recommended']:.2f} Ah → {q['recommended_standard']:.0f} Ah")
+        self.tripBatteryLabel.setText(f"Min {q['Ah']:.2f} Ah @ {q['V']:.0f} V\nPractical {q['Ah_recommended']:.2f} Ah → {q['recommended_standard']:.0f} Ah")
         self.tripEnergyExplain.setHtml(f"""
         <h3 style='color:#17324d'>คำนวณแบบ 1 Cycle</h3>
         <p><b>1 Cycle</b> = ไป {q['one']:.1f} m + กลับ {q['one']:.1f} m = {q['cycle_distance']:.1f} m</p>
