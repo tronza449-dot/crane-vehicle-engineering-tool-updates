@@ -215,7 +215,12 @@
           <label>Battery Design Factor Kb<input name="battery_design_factor" type="number" value="3.0" min="1" step="0.1"></label>
 
           <h3 class="full section-label">Differential / Pivot Turn Energy</h3>
-          <label class="full"><input name="turn_enabled" type="checkbox"> รวมพลังงานการหมุนแบบ Differential/Pivot ในแต่ละ Cycle</label>
+          <label class="full">Differential/Pivot Energy
+            <select name="turn_enabled">
+              <option value="false">ไม่รวมในการคำนวณแบต</option>
+              <option value="true">รวมในการคำนวณแบต</option>
+            </select>
+          </label>
           <label>จำนวนครั้งหมุน / Cycle<input name="turns_per_cycle" type="number" value="2" min="0" step="1"></label>
           <label>มุมหมุนต่อครั้ง (deg)<input name="turn_angle_deg" type="number" value="180" min="0" step="15"></label>
           <label>เวลาหมุนต่อครั้ง (s)<input name="turn_time_s" type="number" value="5" min="0.1" step="0.5"></label>
