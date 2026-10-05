@@ -103,7 +103,12 @@ function saveWebInputs(){
   try{
     const data={};
     storedInputElements().forEach(el=>{
-      data[inputStorageKey(el)]=el.type==="checkbox"?!!el.checked:el.value;
+      const key=inputStorageKey(el);
+      if(el.type==="radio"){
+        if(el.checked) data[key]=el.value;
+      }else{
+        data[key]=el.type==="checkbox"?!!el.checked:el.value;
+      }
     });
     localStorage.setItem(CVET_INPUT_STORE,JSON.stringify(data));
   }catch(e){}
@@ -116,6 +121,7 @@ function restoreWebInputs(){
       const key=inputStorageKey(el);
       if(!(key in data)) return;
       if(el.type==="checkbox") el.checked=!!data[key];
+      else if(el.type==="radio") el.checked=String(data[key])===String(el.value);
       else el.value=data[key];
     });
   }catch(e){}
@@ -308,6 +314,84 @@ function migrateLegacyMeasuredSlopeDefault(){
   }catch(e){}
 }
 
+function stabilityComponentRows(){
+  const body=$("#stabilityComponentBody");
+  if(!body) return [];
+  return $("tr",body).map(row=>({
+    name:$('[data-comp="name"]',row)?.value||"",
+    mass_kg:num($('[data-comp="mass"]',row)?.value,0),
+    x_m:num($('[data-comp="x"]',row)?.value,0),
+    y_m:num($('[data-comp="y"]',row)?.value,0),
+    z_m:num($('[data-comp="z"]',row)?.value,0)
+  }));
+}
+
+function stabilityComponentSummary(rows=stabilityComponentRows()){
+  const base=[],boom=[],payload=[];
+  rows.forEach(r=>{
+    const name=String(r.name||"").toLowerCase();
+    if(name.includes("boom")||name.includes("แขนเครน")) boom.push(r);
+    else if(name.includes("basket")||name.includes("ตะกร้า")||name.includes("payload")||name.includes("ซากสัตว์")) payload.push(r);
+    else base.push(r);
+  });
+  const group=(items)=>{
+    const mass=items.reduce((s,r)=>s+Math.max(0,num(r.mass_kg,0)),0);
+    if(mass<=0) return {mass_kg:0,x_m:0,y_m:0,z_m:0};
+    const weighted=(key)=>items.reduce((s,r)=>s+Math.max(0,num(r.mass_kg,0))*num(r[key],0),0)/mass;
+    return {mass_kg:mass,x_m:weighted("x_m"),y_m:weighted("y_m"),z_m:weighted("z_m")};
+  };
+  return {total:group(rows),base:group(base),boom:group(boom),payload:group(payload)};
+}
+
+function stabilityMassMode(){
+  return $('input[name="mass_mode"]:checked',$("#stabilityForm"))?.value||"total";
+}
+
+function applyComponentMassPreview(syncProject=true){
+  if(stabilityMassMode()!=="components") return;
+  const s=stabilityComponentSummary();
+  const form=$("#stabilityForm");
+  if(!form) return;
+  const wb=num(form.elements.wheelbase_m?.value,1.1);
+  if(form.elements.total_mass_kg) form.elements.total_mass_kg.value=s.total.mass_kg.toFixed(3);
+  if(form.elements.payload_mass_kg) form.elements.payload_mass_kg.value=s.payload.mass_kg.toFixed(3);
+  if(form.elements.boom_mass_kg) form.elements.boom_mass_kg.value=s.boom.mass_kg.toFixed(3);
+  if(form.elements.vehicle_cg_x_from_center_m) form.elements.vehicle_cg_x_from_center_m.value=s.base.x_m.toFixed(4);
+  if(form.elements.vehicle_cg_y_m) form.elements.vehicle_cg_y_m.value=s.base.y_m.toFixed(4);
+  if(form.elements.combined_cg_from_rear_m) form.elements.combined_cg_from_rear_m.value=Math.max(0,s.total.x_m+wb/2).toFixed(4);
+  if(form.elements.combined_cg_height_m) form.elements.combined_cg_height_m.value=Math.max(0,s.total.z_m).toFixed(4);
+
+  const preview=$("#componentMassPreview");
+  const derived=$("#componentDerivedPreview");
+  if(preview) preview.textContent="Σm = "+f(s.total.mass_kg,2)+" kg • CG ("+f(s.total.x_m,3)+", "+f(s.total.y_m,3)+", "+f(s.total.z_m,3)+") m";
+  if(derived) derived.textContent="Base "+f(s.base.mass_kg,2)+" kg • Boom "+f(s.boom.mass_kg,2)+" kg • Basket+Payload "+f(s.payload.mass_kg,2)+" kg";
+
+  if(syncProject && s.total.mass_kg>0){
+    const source=form.elements.total_mass_kg;
+    syncSharedProjectParameter("mass_kg",s.total.mass_kg,source);
+    saveWebInputs();
+    syncVehicleParameters();
+  }
+}
+
+function syncStabilityMassModeUI(){
+  const mode=stabilityMassMode();
+  $("#stabilityTotalMassFields")?.classList.toggle("hidden",mode!=="total");
+  $("#stabilityComponentMassFields")?.classList.toggle("hidden",mode!=="components");
+  $(".mass-mode-card",$("#stabilityForm")).forEach(card=>{
+    const radio=$('input[type="radio"]',card);
+    card.classList.toggle("selected",!!radio?.checked);
+  });
+  if(mode==="components") applyComponentMassPreview(true);
+}
+
+function stabilityPayload(){
+  const payload=formObject($("#stabilityForm"));
+  payload.mass_mode=stabilityMassMode();
+  payload.components=stabilityComponentRows();
+  return payload;
+}
+
 function setupDynamicProjectParameters(){
   restoreWebInputs();
   migrateLegacyMeasuredSlopeDefault();
@@ -320,6 +404,22 @@ function setupDynamicProjectParameters(){
     }));
   });
   setupSharedProjectParameterSync();
+
+  const stabilityForm=$("#stabilityForm");
+  if(stabilityForm){
+    $('input[name="mass_mode"]',stabilityForm).forEach(el=>el.addEventListener("change",()=>{
+      syncStabilityMassModeUI();
+      saveWebInputs();
+    }));
+    $("#stabilityComponentBody input").forEach(el=>["input","change"].forEach(evt=>el.addEventListener(evt,()=>{
+      if(stabilityMassMode()==="components") applyComponentMassPreview(true);
+    })));
+    const wb=stabilityForm.elements.wheelbase_m;
+    if(wb) ["input","change"].forEach(evt=>wb.addEventListener(evt,()=>{
+      if(stabilityMassMode()==="components") applyComponentMassPreview(true);
+    }));
+    syncStabilityMassModeUI();
+  }
 
   // Restore dependent visibility after persisted select values.
   const eventMode=$("#eventMode");
@@ -763,34 +863,51 @@ function renderSlopeFbd(r,bal){
 }
 
 function fbdFormulaHtml(key,bal,r){
+  const flow='<div class="calc-flow-strip">'+
+    '<span><b>1</b> แรง + ระยะ</span><i>→</i>'+
+    '<span><b>2</b> M_O</span><i>→</i>'+
+    '<span><b>3</b> M_R</span><i>→</i>'+
+    '<span><b>4</b> Safety Factor</span></div>';
+
   if(key==="slope"){
-    return '<div class="formula-human">'+
-      '<h4>สูตรและการแทนค่า — ทางลาด</h4>'+
-      '<p><b>W_parallel = mg sinα</b><br><b>อ่านแบบภาษาคน:</b> มวลรถ × แรงโน้มถ่วง × sin(มุมทางลาด) = แรงที่ดึงรถลงตามทางลาด<br>'+
-      '<b>แทนค่า:</b> '+f(r.total_mass_kg,2)+' × 9.81 × sin('+f(bal.slope_deg,2)+'°) = <b>'+f(bal.w_parallel_n,2)+' N</b></p>'+
-      '<p><b>W_normal = mg cosα</b><br><b>อ่านแบบภาษาคน:</b> มวลรถ × แรงโน้มถ่วง × cos(มุมทางลาด) = แรงที่กดรถเข้าหาพื้น<br>'+
-      '<b>ผล:</b> <b>'+f(bal.w_normal_n,2)+' N</b></p>'+
-      '<p><b>F_I = ma</b> = '+f(r.total_mass_kg,2)+' × '+f(bal.accel_mps2,3)+' = <b>'+f(bal.inertia_n,2)+' N</b></p>'+
-      '<p><b>M_O = (W_parallel + F_I)h_CG</b> = ('+f(bal.w_parallel_n,2)+' + '+f(bal.inertia_n,2)+') × '+f(bal.combined_cg_height_m,3)+' = <b>'+f(bal.overturning_moment_nm,2)+' N·m</b></p>'+
-      '<p><b>M_R = W_normal d_R</b> = '+f(bal.w_normal_n,2)+' × '+f(bal.combined_cg_from_rear_m,3)+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p>'+
-      '<p><b>SF = M_R ÷ M_O</b> = '+f(bal.resisting_moment_nm,2)+' ÷ '+f(bal.overturning_moment_nm,2)+' = <b>'+fbdSf(bal.sf)+'</b> '+statusSpan(bal.pass)+'</p>'+
-      '</div>';
+    return '<div class="formula-human step-formula">'+
+      '<h4>ขั้นตอนการคำนวณ — '+fbdName(key)+'</h4>'+flow+
+      '<section class="calc-step-card"><div class="calc-step-no">1</div><div><h5>หาแรงที่กระทำบนทางลาด</h5>'+
+      '<p><b>W_parallel = mg sinα</b><br>แทนค่า: '+f(r.total_mass_kg,2)+' × 9.81 × sin('+f(bal.slope_deg,2)+'°) = <b>'+f(bal.w_parallel_n,2)+' N</b></p>'+
+      '<p><b>W_normal = mg cosα</b> = <b>'+f(bal.w_normal_n,2)+' N</b><br>'+
+      '<b>F_I = ma</b> = '+f(r.total_mass_kg,2)+' × '+f(bal.accel_mps2,3)+' = <b>'+f(bal.inertia_n,2)+' N</b></p></div></section>'+
+      '<section class="calc-step-card"><div class="calc-step-no">2</div><div><h5>กำหนดแขนโมเมนต์รอบแกนคว่ำหลัง P</h5>'+
+      '<p>ระยะ CG ถึงแกนหลัง <b>d_R = '+f(bal.combined_cg_from_rear_m,3)+' m</b><br>'+
+      'ความสูง CG <b>h_CG = '+f(bal.combined_cg_height_m,3)+' m</b></p></div></section>'+
+      '<section class="calc-step-card"><div class="calc-step-no">3</div><div><h5>หาโมเมนต์คว่ำและโมเมนต์ต้าน</h5>'+
+      '<p><b>M_O = (W_parallel + F_I)h_CG</b><br>('+f(bal.w_parallel_n,2)+' + '+f(bal.inertia_n,2)+') × '+f(bal.combined_cg_height_m,3)+' = <b>'+f(bal.overturning_moment_nm,2)+' N·m</b></p>'+
+      '<p><b>M_R = W_normal d_R</b><br>'+f(bal.w_normal_n,2)+' × '+f(bal.combined_cg_from_rear_m,3)+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p></div></section>'+
+      '<section class="calc-step-card final-step"><div class="calc-step-no">4</div><div><h5>หา Safety Factor และตัดสินผล</h5>'+
+      '<p><b>SF = M_R ÷ M_O</b> = '+f(bal.resisting_moment_nm,2)+' ÷ '+f(bal.overturning_moment_nm,2)+' = <b>'+fbdSf(bal.sf)+'</b> &nbsp; '+statusSpan(bal.pass)+'</p>'+
+      '<p class="step-meaning">เกณฑ์ของโปรเจกต์: SF ≥ '+f(r.required_sf,2)+'</p></div></section></div>';
   }
+
   const comps=bal.components||[];
   const mo=comps.filter(q=>q.role==="overturning");
   const mr=comps.filter(q=>q.role==="resisting");
-  const term=(q)=>'('+f(q.force_n,2)+' N × '+f(q.arm_m,3)+' m)';
-  const details=(arr)=>arr.length?arr.map(q=>'• '+q.name+' / '+fbdThaiComponent(q.name)+': '+f(q.force_n,2)+' N × '+f(q.arm_m,3)+' m = '+f(q.moment_nm,2)+' N·m').join('<br>'):'• ไม่มีแรงในฝั่งนี้';
-  return '<div class="formula-human">'+
-    '<h4>สูตรและการแทนค่า — '+fbdName(key)+'</h4>'+
-    '<p><b>M_O = Σ(F_i d_i)</b><br><b>อ่านสูตรแบบภาษาคน:</b> แรงของแต่ละส่วนที่ทำให้รถคว่ำ × ระยะตั้งฉากถึงแกน P แล้วบวกกันทั้งหมด<br>'+
-    '<b>ตัวแปร:</b> M_O = โมเมนต์คว่ำ, Σ = รวมทุกพจน์, F_i = แรงของชิ้นส่วน, d_i = แขนโมเมนต์<br>'+
-    '<b>แต่ละพจน์:</b><br>'+details(mo)+'<br><b>แทนค่า:</b> '+(mo.length?mo.map(term).join(' + '):'0')+' = <b>'+f(bal.overturning_moment_nm,2)+' N·m</b></p>'+
-    '<p><b>M_R = Σ(F_i d_i)</b><br><b>อ่านสูตรแบบภาษาคน:</b> แรงของแต่ละส่วนที่ช่วยต้านการคว่ำ × ระยะถึงแกน P แล้วบวกกันทั้งหมด<br>'+
-    '<b>แต่ละพจน์:</b><br>'+details(mr)+'<br><b>แทนค่า:</b> '+(mr.length?mr.map(term).join(' + '):'0')+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p>'+
-    '<p><b>SF = M_R ÷ M_O</b><br><b>อ่านสูตรแบบภาษาคน:</b> โมเมนต์ต้าน ÷ โมเมนต์คว่ำ<br>'+
-    '<b>แทนค่า:</b> '+(bal.overturning_moment_nm>1e-9?f(bal.resisting_moment_nm,2)+' ÷ '+f(bal.overturning_moment_nm,2)+' = '+fbdSf(bal.sf):'ไม่มีโมเมนต์คว่ำ → SF = ∞')+
-    ' &nbsp; '+statusSpan(bal.pass)+'</p></div>';
+  const term=(q)=>'('+f(q.force_n,2)+' × '+f(q.arm_m,3)+')';
+  const posKey=(key==="side_left"||key==="side_right")?"y_m":"x_m";
+  const forceRows=comps.map(q=>'<tr><td>'+fbdThaiComponent(q.name)+'</td><td>'+f(q.force_n,2)+' N</td><td>'+f(q[posKey],3)+' m</td><td>'+f(q.arm_m,3)+' m</td><td>'+fbdRoleThai(q.role)+'</td></tr>').join('');
+  const details=(arr)=>arr.length?arr.map(q=>'• '+fbdThaiComponent(q.name)+': '+f(q.force_n,2)+' N × '+f(q.arm_m,3)+' m = <b>'+f(q.moment_nm,2)+' N·m</b>').join('<br>'):'• ไม่มีแรงในฝั่งนี้';
+  return '<div class="formula-human step-formula">'+
+    '<h4>ขั้นตอนการคำนวณ — '+fbdName(key)+'</h4>'+flow+
+    '<section class="calc-step-card"><div class="calc-step-no">1</div><div><h5>หาแรงและระยะแขนโมเมนต์จากแกนคว่ำ P</h5>'+
+    '<p class="step-meaning">ก่อนคิดโมเมนต์ ให้ดูว่าแต่ละแรงอยู่ฝั่ง “ทำให้คว่ำ” หรือ “ต้านการคว่ำ” แล้ววัดระยะตั้งฉากถึงแกน P</p>'+
+    '<div class="step-table-wrap"><table><tr><th>ส่วน</th><th>แรง F</th><th>ตำแหน่ง</th><th>แขน d</th><th>หน้าที่</th></tr>'+forceRows+'</table></div></div></section>'+
+    '<section class="calc-step-card"><div class="calc-step-no">2</div><div><h5>หาโมเมนต์คว่ำ M_O</h5>'+
+    '<p><b>สูตร:</b> M_O = Σ(F_i d_i)<br><b>อ่านง่าย:</b> รวม “แรง × แขนโมเมนต์” เฉพาะแรงที่พยายามทำให้รถคว่ำ</p>'+
+    '<p>'+details(mo)+'<br><b>แทนค่า:</b> M_O = '+(mo.length?mo.map(term).join(' + '):'0')+' = <b>'+f(bal.overturning_moment_nm,2)+' N·m</b></p></div></section>'+
+    '<section class="calc-step-card"><div class="calc-step-no">3</div><div><h5>หาโมเมนต์ต้าน M_R</h5>'+
+    '<p><b>สูตร:</b> M_R = Σ(F_i d_i)<br><b>อ่านง่าย:</b> รวม “แรง × แขนโมเมนต์” ของแรงที่ช่วยพยุงรถไม่ให้คว่ำ</p>'+
+    '<p>'+details(mr)+'<br><b>แทนค่า:</b> M_R = '+(mr.length?mr.map(term).join(' + '):'0')+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p></div></section>'+
+    '<section class="calc-step-card final-step"><div class="calc-step-no">4</div><div><h5>หา Safety Factor และตัดสินผล</h5>'+
+    '<p><b>สูตร:</b> SF = M_R ÷ M_O<br><b>แทนค่า:</b> '+(bal.overturning_moment_nm>1e-9?f(bal.resisting_moment_nm,2)+' ÷ '+f(bal.overturning_moment_nm,2)+' = <b>'+fbdSf(bal.sf)+'</b>':'ไม่มีโมเมนต์คว่ำ → <b>SF = ∞</b>')+
+    ' &nbsp; '+statusSpan(bal.pass)+'</p><p class="step-meaning">เกณฑ์ของโปรเจกต์: SF ≥ '+f(r.required_sf,2)+'</p></div></section></div>';
 }
 
 function renderWebFbd(){
@@ -815,12 +932,27 @@ $("#calcStability").addEventListener("click",async(evt)=>{
   if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
   const out=$("#stabilityResult");setLoading(out);
   try{
-    const r=await api("/api/calc/stability",formObject($("#stabilityForm")));
+    const r=await api("/api/calc/stability",stabilityPayload());
     lastStabilityResult=r;
+    if(r.mass_mode==="components"){
+      const form=$("#stabilityForm");
+      if(form?.elements.total_mass_kg) form.elements.total_mass_kg.value=Number(r.total_mass_kg).toFixed(3);
+      if(form?.elements.payload_mass_kg) form.elements.payload_mass_kg.value=Number(r.payload_mass_kg).toFixed(3);
+      if(form?.elements.boom_mass_kg) form.elements.boom_mass_kg.value=Number(r.boom_mass_kg).toFixed(3);
+      if(form?.elements.vehicle_cg_x_from_center_m) form.elements.vehicle_cg_x_from_center_m.value=Number(r.vehicle_cg_x_m).toFixed(4);
+      if(form?.elements.vehicle_cg_y_m) form.elements.vehicle_cg_y_m.value=Number(r.vehicle_cg_y_m).toFixed(4);
+      if(form?.elements.combined_cg_from_rear_m) form.elements.combined_cg_from_rear_m.value=Number(r.slope.combined_cg_from_rear_m).toFixed(4);
+      if(form?.elements.combined_cg_height_m) form.elements.combined_cg_height_m.value=Number(r.slope.combined_cg_height_m).toFixed(4);
+      syncSharedProjectParameter("mass_kg",r.total_mass_kg,form?.elements.total_mass_kg);
+      saveWebInputs();syncVehicleParameters();
+    }
     const cg=r.current_governing,crit=r.critical_governing;
     const cgSf=fbdSf(cg.sf),critSf=fbdSf(crit.sf);
+    const massSource=r.mass_mode==="components"
+      ? '<div class="mass-source-card"><b>MODE B — COMPONENT MASS</b><br>Σm = '+f(r.total_mass_kg,2)+' kg • Base '+f(r.base_vehicle_mass_kg,2)+' kg • Boom '+f(r.boom_mass_kg,2)+' kg • Basket+Payload '+f(r.payload_mass_kg,2)+' kg<br>Base CG x/y = '+f(r.vehicle_cg_x_m,3)+' / '+f(r.vehicle_cg_y_m,3)+' m • Combined h_CG = '+f(r.slope.combined_cg_height_m,3)+' m</div>'
+      : '<div class="mass-source-card"><b>MODE A — TOTAL MASS</b><br>ใช้ m_total, Payload, Boom และ CG ที่กรอกเองโดยตรง</div>';
     out.innerHTML=
-      '<h3>Stability Result</h3>'+
+      '<h3>Stability Result</h3>'+massSource+
       '<div class="notice"><b>Inputs used:</b> m_total '+f(r.total_mass_kg,1)+' kg • Payload '+f(r.payload_mass_kg,1)+' kg • Boom '+f(r.boom_mass_kg,1)+' kg • Track '+f(r.track_width_m,3)+' m • WB '+f(r.wheelbase_m,3)+' m • θ '+f(r.crane_angle_deg,1)+'°</div>'+
       '<div class="metric-grid">'+
       '<div class="metric"><div class="k">Current Governing</div><div class="v">'+cgSf+'</div><div>'+fbdName(cg.key)+' • '+statusSpan(cg.pass)+'</div></div>'+
