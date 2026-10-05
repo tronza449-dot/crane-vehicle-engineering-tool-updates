@@ -164,7 +164,7 @@ jobs:
           assert "CURRENT-ANGLE SNAPSHOT" in source
           assert "CRITICAL-CASE SECTION" in source
           assert "d_V" in source and "d_B" in source and "d_L" in source
-          assert "N_R is drawn outward normal to the road" in source
+          assert "N_R points outward normal to the road" in source
           assert "W_parallel and W_normal are components of the same weight W=mg" in source
           assert "graphic offset only — acts through CG" in source
           assert "NO OVERTURNING GRAVITY MOMENT" in source
