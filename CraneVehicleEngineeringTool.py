@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.8"
+APP_VERSION = "53.8.9"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -1182,9 +1182,13 @@ class App(QMainWindow):
         return "ผลลัพธ์ = ค่าตัวแปรที่เกี่ยวข้องตามสมการด้านล่าง"
 
     def inputs(self):
+        mode="components" if (hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1) else "total"
         return dict(mt=self.mt.value(),ml=self.ml.value(),mb=self.mb.value(),W=self.W.value(),L=self.L.value(),H=self.H.value(),
                     th=self.th.value(),kd=self.kd.value(),req=self.req.value(),WB=self.WB.value(),xC=self.xC.value(),
-                    xCG=self.xCG.value(),driveXCG=self.driveXCG.value() if hasattr(self,"driveXCG") else self.xCG.value())
+                    xCG=self.xCG.value(),yCG=self.yCG.value() if hasattr(self,"yCG") else 0.0,
+                    driveXCG=self.driveXCG.value() if hasattr(self,"driveXCG") else self.xCG.value(),
+                    massMode=mode)
+
 
 
 
@@ -8192,18 +8196,25 @@ void loop() {{
 
     def make_crane(self):
         w=QWidget();self.cranePage=w;m=QHBoxLayout(w); box=QGroupBox("INPUT PARAMETERS / ข้อมูลที่ใช้คำนวณ");f=QFormLayout(box)
+        self.massCalcMode=QComboBox()
+        self.massCalcMode.addItem("Mode A — Total Mass / กรอกมวลรวมเอง","total")
+        self.massCalcMode.addItem("Mode B — Component Mass / กรอกน้ำหนักแต่ละส่วน","components")
+        self.massCalcMode.setToolTip("Mode A: กรอกมวลรวมและค่าหลักเอง\nMode B: โปรแกรมรวมมวลจากตาราง Mass & CG และส่งเข้า Stability อัตโนมัติ")
         self.mt=spin(300,1,5000,10,1);self.ml=spin(100,0,2000,5,1);self.mb=spin(20,0,1000,1,1)
         self.W=spin(1,.1,5,.05);self.WB=spin(1.10,.2,5,.05);self.L=spin(1.2,.1,5,.05);self.H=spin(1,.2,3,.05)
-        self.xC=spin(.15,-2,2,.05);self.xCG=spin(0,-2,2,.05);self.driveXCG=spin(0,-2,2,.05)
+        self.xC=spin(.15,-2,2,.05);self.xCG=spin(0,-2,2,.05);self.yCG=spin(0,-2,2,.01,3);self.driveXCG=spin(0,-2,2,.05)
         self.th=spin(90,-90,90,5,0);self.kd=spin(1.2,1,3,.05);self.req=spin(1.5,1,5,.1)
-        rows=[("Total mass / มวลรวมทั้งระบบ (kg)",self.mt),("Payload / น้ำหนักสัตว์+ตะกร้า (kg)",self.ml),("Boom mass / น้ำหนักแขนเครน (kg)",self.mb),("Track width W / ระยะศูนย์กลางล้อซ้าย-ขวา (m)",self.W),
-              ("Wheelbase WB / ระยะฐานล้อหน้า-หลัง (m)",self.WB),("Boom length L / ความยาวแขนเครน (m)",self.L),("Column height / ความสูงเสาเครน (m)",self.H),
-              ("Crane x from rear axle / ตำแหน่งเครนจากเพลาหลัง (m)",self.xC),
-              ("Base vehicle CG x / CG รถส่วนหลัก ไม่รวม Payload+Boom (m)",self.xCG),
-              ("Driving combined CG x / CG รวมตอนวิ่ง (m)",self.driveXCG),
+        f.addRow("Mass calculation mode / โหมดน้ำหนัก",self.massCalcMode)
+        rows=[("Total mass m_total / มวลรวมทั้งระบบ (kg)",self.mt),("Payload system m_L / สัตว์+ตะกร้า (kg)",self.ml),("Boom mass m_B / น้ำหนักแขนเครน (kg)",self.mb),("Track width W / ระยะศูนย์กลางล้อซ้าย-ขวา (m)",self.W),
+              ("Wheelbase WB / ระยะฐานล้อหน้า-หลัง (m)",self.WB),("Boom length L / ความยาวแขนเครน (m)",self.L),("Column height H / ความสูงเสาเครน (m)",self.H),
+              ("Crane x from rear axle x_C / ตำแหน่งเครนจากเพลาหลัง (m)",self.xC),
+              ("Base vehicle CG x / x_CG,V (m)",self.xCG),
+              ("Base vehicle CG y / y_CG,V (m)",self.yCG),
+              ("Driving combined CG x / x_CG,drive (m)",self.driveXCG),
               ("Rotation angle θ / มุมหมุนเครน (deg)",self.th),("Dynamic factor Kdyn / ตัวคูณแรงไดนามิก",self.kd),("Required SF / ค่า SF ที่ต้องการ",self.req)]
         f.setVerticalSpacing(7);f.setHorizontalSpacing(10);f.setRowWrapPolicy(QFormLayout.WrapLongRows)
         for a,b in rows:f.addRow(a,b);b.valueChanged.connect(self.calc_all)
+        self.massCalcMode.currentIndexChanged.connect(self.set_mass_mode_from_combo)
         self.sl=QSlider(Qt.Horizontal);self.sl.setRange(-90,90);self.sl.setValue(90);self.sl.valueChanged.connect(lambda v:self.th.setValue(v));self.th.valueChanged.connect(lambda v:self.sl.setValue(int(v)));f.addRow("Rotate crane / เลื่อนเพื่อหมุนเครน",self.sl)
         craneInputScroll=QScrollArea();craneInputScroll.setWidgetResizable(True);craneInputScroll.setFrameShape(QFrame.NoFrame)
         craneInputScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff);craneInputScroll.setWidget(box);craneInputScroll.setMinimumWidth(300)
@@ -8297,6 +8308,10 @@ void loop() {{
         applyLength=QPushButton("ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery")
         applyLength.clicked.connect(self.apply_ramp_length_to_battery)
         btnrow.addWidget(calcRamp);btnrow.addWidget(applyAngle);btnrow.addWidget(applyLength)
+        exportSlope=QPushButton("Export Slope PDF / ส่งออกทางลาด")
+        exportSlope.setObjectName("primaryButton")
+        exportSlope.clicked.connect(lambda:self.export_stability_mode_pdf("slope"))
+        btnrow.addWidget(exportSlope)
         l.addLayout(btnrow)
 
         g=QGroupBox("UPHILL DRIVING STABILITY / เสถียรภาพขณะรถวิ่งขึ้นทางลาด")
@@ -8487,319 +8502,187 @@ Slope FBD ใช้ weight components mg sin(alpha), mg cos(alpha)
         l.addWidget(QLabel("COMPONENT MASS & CG TABLE / ตารางมวลและจุดศูนย์ถ่วงรายชิ้น"))
         modebox=QGroupBox("โหมดน้ำหนัก / Mass Calculation Mode")
         ml=QVBoxLayout(modebox)
-        self.massModeFixed=QRadioButton("โหมด A: กำหนดน้ำหนักรวมเอง / Fixed Total Mass")
-        self.massModeSum=QRadioButton("โหมด B: ใส่น้ำหนักอุปกรณ์แต่ละชิ้น แล้วรวมอัตโนมัติ / Sum Components")
-        self.massModeFixed.setChecked(True)
+        self.massModeFixed=QRadioButton("Mode A: Total Mass / กำหนดน้ำหนักรวมเอง")
+        self.massModeSum=QRadioButton("Mode B: Component Mass / ใส่น้ำหนักแต่ละส่วนและรวมอัตโนมัติ")
+        self.massModeFixed.setChecked(self.massCalcMode.currentIndex()==0)
+        self.massModeSum.setChecked(self.massCalcMode.currentIndex()==1)
         ml.addWidget(self.massModeFixed);ml.addWidget(self.massModeSum)
-        note=QLabel("A = ใช้ Total mass จากหน้า Crane Mode\nB = โปรแกรมรวม Mass ในตารางและส่งค่าไปใช้เป็น Total mass อัตโนมัติ")
+        note=QLabel("Mode A = ใช้ m_total, m_L, m_B และ CG ที่กรอกใน Crane Mode\n"
+                    "Mode B = ตารางนี้เป็นแหล่งข้อมูลหลัก: โปรแกรมรวม m_total และแยก Boom / Basket+Payload / Base vehicle ให้อัตโนมัติ")
         note.setWordWrap(True);ml.addWidget(note);l.addWidget(modebox)
-        self.massModeFixed.toggled.connect(self.apply_mass_mode)
-        self.massModeSum.toggled.connect(self.apply_mass_mode)
-        self.comp=QTableWidget(8,5)
+        self.massModeFixed.toggled.connect(lambda checked:self.set_mass_mode_from_radio("total") if checked else None)
+        self.massModeSum.toggled.connect(lambda checked:self.set_mass_mode_from_radio("components") if checked else None)
+
+        self.comp=QTableWidget(12,5)
         self.comp.setHorizontalHeaderLabels(["Component / อุปกรณ์","Mass m (kg)","x (m)","y (m)","z (m)"])
         defaults=[
-            ("Frame / โครงรถ",70,0,0,0.35),
-            ("Battery / แบตเตอรี่",35,0,0,0.25),
-            ("Drive motors / มอเตอร์ขับ",15,0,0,0.18),
-            ("Crane column+winch / เสาเครน+วินช์",60,-0.40,0,0.75),
-            ("Boom / แขนเครน",20,-0.10,0,1.28),
-            ("Basket+Payload / ตะกร้า+โหลด",100,0.62,0,0.60),
-            ("Counterweight / ตุ้มน้ำหนัก",0,0,0,0.20),
-            ("Other / อื่นๆ",0,0,0,0.30)]
+            ("Frame / โครงรถ",55,0.00,0.00,0.35),
+            ("Battery / แบตเตอรี่",35,0.00,0.00,0.25),
+            ("Drive motors / มอเตอร์ขับ",20,0.00,0.00,0.18),
+            ("Support wheels / ล้อพยุง",15,0.00,0.00,0.18),
+            ("Crane column / เสาเครน",30,-0.40,0.00,0.78),
+            ("Slewing drive+bearing / ชุดหมุนเครน",10,-0.40,0.00,0.82),
+            ("Winch / วินช์",15,-0.40,0.00,0.90),
+            ("Boom / แขนเครน",20,-0.10,0.00,1.28),
+            ("Basket / ตะกร้า",20,0.00,0.00,0.60),
+            ("Payload / ซากสัตว์",80,0.00,0.00,0.60),
+            ("Counterweight / ตุ้มน้ำหนัก",0,-0.45,0.00,0.25),
+            ("Other / อื่นๆ",0,0.00,0.00,0.30)]
         for r,row in enumerate(defaults):
-            for c,val in enumerate(row): self.comp.setItem(r,c,QTableWidgetItem(str(val)))
+            for col,val in enumerate(row): self.comp.setItem(r,col,QTableWidgetItem(str(val)))
         self.comp.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.comp.itemChanged.connect(self.on_component_table_changed)
         l.addWidget(self.comp)
+
+        legend=QLabel("การจัดกลุ่มอัตโนมัติ: ชื่อที่มี Boom/แขนเครน → m_B | Basket/ตะกร้า/Payload/ซากสัตว์ → m_L | ที่เหลือ → Base vehicle. "
+                      "ใน Crane tipping ตำแหน่ง Boom/Payload จะใช้ geometry L, θ และ x_C; ค่า x/y/z ในตารางใช้สำหรับ CG ตอนวิ่งและตรวจมวลรวม")
+        legend.setWordWrap(True);legend.setStyleSheet("color:#52606d");l.addWidget(legend)
+
         row=QHBoxLayout()
         b=QPushButton("คำนวณ CG รวม / Calculate Combined CG");b.clicked.connect(self.calc_components);row.addWidget(b)
-        self.applyMassBtn=QPushButton("ใช้ค่าน้ำหนักตามโหมด / Apply Mass Mode");self.applyMassBtn.clicked.connect(self.apply_mass_mode);row.addWidget(self.applyMassBtn)
+        self.applyMassBtn=QPushButton("Apply Component Mode / ใช้ค่าจากตาราง")
+        self.applyMassBtn.setObjectName("primaryButton");self.applyMassBtn.clicked.connect(self.apply_mass_mode);row.addWidget(self.applyMassBtn)
+        exportComp=QPushButton("Export All Stability Modes")
+        exportComp.clicked.connect(self.export_pdf_report);row.addWidget(exportComp)
         l.addLayout(row)
-        self.compout=QPlainTextEdit();self.compout.setReadOnly(True);self.compout.setMaximumHeight(190);l.addWidget(self.compout)
+        self.compout=QPlainTextEdit();self.compout.setReadOnly(True);self.compout.setMaximumHeight(240);l.addWidget(self.compout)
         self.tabs.addTab(w,"4. Component CG / ตาราง CG")
+        self.sync_mass_mode_controls()
 
     def component_values(self):
         rows=[];sm=sx=sy=sz=0.0
         for r in range(self.comp.rowCount()):
             try:
-                name=self.comp.item(r,0).text()
+                name=self.comp.item(r,0).text().strip()
                 m=float(self.comp.item(r,1).text());x=float(self.comp.item(r,2).text())
                 y=float(self.comp.item(r,3).text());z=float(self.comp.item(r,4).text())
                 if m<0: continue
                 rows.append((name,m,x,y,z));sm+=m;sx+=m*x;sy+=m*y;sz+=m*z
-            except: pass
+            except Exception:
+                pass
         if sm<=0:return rows,0,0,0,0
         return rows,sm,sx/sm,sy/sm,sz/sm
 
-    def apply_mass_mode(self):
-        if not hasattr(self,"massModeSum"): return
+    def component_mass_breakdown(self):
         rows,sm,xg,yg,zg=self.component_values()
-        if self.massModeSum.isChecked():
-            if sm>0:
-                self.mt.setValue(sm)
-                if hasattr(self,"driveXCG"): self.driveXCG.setValue(xg)
-                self.hcg.setValue(max(0,zg))
-                self.compout.setPlainText(
-                    f"โหมด B: รวมมวลอุปกรณ์อัตโนมัติ\n"
-                    f"Σm_i = {sm:.2f} kg → ส่งไป Total mass\n"
-                    f"x_CG,combined = {xg:.3f} m → ส่งไป Driving combined CG x\n"
-                    f"y_CG,combined = {yg:.3f} m\n"
-                    f"z_CG,combined = {zg:.3f} m → ส่งไป CG height\n\n"
-                    f"หมายเหตุ: Base vehicle CG x ในโมเดลเครนไม่ถูกเขียนทับ เพราะ Payload และ Boom ถูกจำลองแยกตามมุมเครน\n\n"
-                    f"สูตร: m_total = Σm_i\n"
-                    f"x_CG = Σ(m_i x_i)/Σm_i\n"
-                    f"y_CG = Σ(m_i y_i)/Σm_i\n"
-                    f"z_CG = Σ(m_i z_i)/Σm_i")
-                self.calc_all()
-        else:
-            self.compout.setPlainText(
-                f"โหมด A: กำหนดน้ำหนักรวมเอง\n"
-                f"โปรแกรมใช้ Total mass = {self.mt.value():.2f} kg จากหน้า Crane Mode\n"
-                f"ตารางอุปกรณ์ใช้สำหรับตรวจสอบมวลและ CG แต่จะไม่เขียนทับ Total mass")
-            self.calc_all()
+        base=[];boom=[];payload=[]
+        for row in rows:
+            name=row[0].lower()
+            if ("boom" in name) or ("แขนเครน" in name):
+                boom.append(row)
+            elif ("basket" in name) or ("ตะกร้า" in name) or ("payload" in name) or ("ซากสัตว์" in name):
+                payload.append(row)
+            else:
+                base.append(row)
+        def group_stats(items):
+            m=sum(r[1] for r in items)
+            if m<=0:return dict(m=0.0,x=0.0,y=0.0,z=0.0)
+            return dict(m=m,
+                        x=sum(r[1]*r[2] for r in items)/m,
+                        y=sum(r[1]*r[3] for r in items)/m,
+                        z=sum(r[1]*r[4] for r in items)/m)
+        return dict(rows=rows,total=sm,total_x=xg,total_y=yg,total_z=zg,
+                    base=group_stats(base),boom=group_stats(boom),payload=group_stats(payload))
 
-    def calc_components(self):
-        rows,sm,xg,yg,zg=self.component_values()
-        if sm<=0:
-            self.compout.setPlainText("กรุณากรอกมวลให้มากกว่า 0 kg")
-            return
-        mode="B: Sum Components" if self.massModeSum.isChecked() else "A: Fixed Total Mass"
-        diff=sm-self.mt.value()
-        self.compout.setPlainText(f"""ผลการคำนวณ Component Mass & CG
+    def set_mass_mode_from_combo(self,index):
+        key="components" if int(index)==1 else "total"
+        if hasattr(self,"massModeFixed"):
+            self.massModeFixed.blockSignals(True);self.massModeSum.blockSignals(True)
+            self.massModeFixed.setChecked(key=="total");self.massModeSum.setChecked(key=="components")
+            self.massModeFixed.blockSignals(False);self.massModeSum.blockSignals(False)
+        self.sync_mass_mode_controls()
+        self.apply_mass_mode()
 
-โหมดปัจจุบัน = {mode}
+    def set_mass_mode_from_radio(self,key):
+        if not hasattr(self,"massCalcMode"):return
+        idx=1 if key=="components" else 0
+        self.massCalcMode.blockSignals(True);self.massCalcMode.setCurrentIndex(idx);self.massCalcMode.blockSignals(False)
+        self.sync_mass_mode_controls()
+        self.apply_mass_mode()
 
-1) มวลรวมจากอุปกรณ์
-m_sum = Σm_i = {sm:.2f} kg
+    def sync_mass_mode_controls(self):
+        component_mode=hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1
+        # Derived fields are locked in Component Mode to prevent two conflicting sources of truth.
+        for name in ("mt","ml","mb","xCG","yCG","driveXCG","hcg"):
+            obj=getattr(self,name,None)
+            if obj is not None:
+                obj.setEnabled(not component_mode)
+                obj.setToolTip("คำนวณจาก Component Mass table อัตโนมัติ" if component_mode else "กรอกค่าเองใน Total Mass Mode")
+        if hasattr(self,"applyMassBtn"):self.applyMassBtn.setEnabled(component_mode)
 
-2) Combined CG แกน x
-x_CG,combined = Σ(m_i x_i) / Σm_i = {xg:.3f} m
-
-3) Combined CG แกน y
-y_CG,combined = Σ(m_i y_i) / Σm_i = {yg:.3f} m
-
-4) Combined CG แกน z
-z_CG,combined = Σ(m_i z_i) / Σm_i = {zg:.3f} m
-
-Total mass ใน Crane Mode = {self.mt.value():.2f} kg
-ผลต่าง Component sum - Total mass = {diff:+.2f} kg
-
-โหมด A: ใช้ Total mass ที่ผู้ใช้กำหนดเอง
-โหมด B: กด Apply แล้ว m_sum, x_CG,combined และ z_CG,combined
-จะถูกส่งไปใช้เป็น Total mass, Driving combined CG x และ CG height
-
-Base vehicle CG x ใน Crane tipping เป็นคนละตัวแปร
-เพราะ Payload และ Boom ถูกจำลองตำแหน่งแยกตามมุมเครนอยู่แล้ว
-""")
-        if self.massModeSum.isChecked():
+    def on_component_table_changed(self,item):
+        if hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1:
             self.apply_mass_mode()
 
-    def make_worstcase(self):
-        w=QWidget();self.worstPage=w
-        l=QVBoxLayout(w);l.setContentsMargins(18,18,18,18);l.setSpacing(12)
-        top=QHBoxLayout()
-        title=QLabel("WORST CASE / กรณีวิกฤต")
-        title.setStyleSheet("font-size:16px;font-weight:800;color:#17456b")
-        top.addWidget(title);top.addStretch(1)
-        self.worstButton=QPushButton("คำนวณใหม่ / Recalculate Worst Case")
-        self.worstButton.setMinimumHeight(42)
-        self.worstButton.clicked.connect(self.calc_worst)
-        top.addWidget(self.worstButton)
-        l.addLayout(top)
-        hint=QLabel("ตรวจมุมเครน -90° ถึง +90° ทุก 1° และเปรียบเทียบ Side / Front / Rear Safety Factor")
-        hint.setWordWrap(True);hint.setStyleSheet("color:#52606d;font-size:11pt")
-        l.addWidget(hint)
-        self.worstout=QTextEdit();self.worstout.setReadOnly(True)
-        self.worstout.setStyleSheet("font-size:12px;background:white")
-        l.addWidget(self.worstout,1)
-        self.tabs.addTab(w,"5. Worst Case / จุดวิกฤต")
+    def apply_mass_mode(self):
+        if not hasattr(self,"massCalcMode"):return
+        component_mode=self.massCalcMode.currentIndex()==1
+        self.sync_mass_mode_controls()
+        if not hasattr(self,"comp"):
+            self.calc_all();return
+        b=self.component_mass_breakdown()
+        if component_mode:
+            if b["total"]<=0:
+                if hasattr(self,"compout"):self.compout.setPlainText("กรุณากรอกมวล Component ให้มากกว่า 0 kg")
+                return
+            targets=[
+                (self.mt,b["total"]),(self.ml,b["payload"]["m"]),(self.mb,b["boom"]["m"]),
+                (self.xCG,b["base"]["x"]),(self.yCG,b["base"]["y"]),(self.driveXCG,b["total_x"]),
+            ]
+            if hasattr(self,"hcg"):targets.append((self.hcg,max(0.0,b["total_z"])))
+            for obj,val in targets:
+                obj.blockSignals(True);obj.setValue(val);obj.blockSignals(False)
+            if hasattr(self,"compout"):
+                self.compout.setPlainText(
+                    f"MODE B — COMPONENT MASS\n\n"
+                    f"m_total = Σm_i = {b['total']:.2f} kg\n"
+                    f"m_Boom = {b['boom']['m']:.2f} kg → m_B\n"
+                    f"m_Basket+Payload = {b['payload']['m']:.2f} kg → m_L\n"
+                    f"m_Base = {b['base']['m']:.2f} kg\n\n"
+                    f"Base CG: x={b['base']['x']:.3f} m, y={b['base']['y']:.3f} m, z={b['base']['z']:.3f} m\n"
+                    f"Combined driving CG: x={b['total_x']:.3f} m, y={b['total_y']:.3f} m, z={b['total_z']:.3f} m\n\n"
+                    f"ตรวจสอบ: m_Base + m_B + m_L = {b['base']['m']+b['boom']['m']+b['payload']['m']:.2f} kg")
+        else:
+            if hasattr(self,"compout"):
+                self.compout.setPlainText(
+                    f"MODE A — TOTAL MASS\n\n"
+                    f"ใช้ค่าที่กรอกใน Crane Mode โดยตรง\n"
+                    f"m_total={self.mt.value():.2f} kg, m_L={self.ml.value():.2f} kg, m_B={self.mb.value():.2f} kg\n"
+                    f"x_CG,V={self.xCG.value():.3f} m, y_CG,V={self.yCG.value():.3f} m, "
+                    f"x_CG,drive={self.driveXCG.value():.3f} m")
+        self.calc_all()
 
-    def longitudinal_moment_balance(self,d,th,case):
-        """Moment balance about front/rear wheel-contact line. +x = forward."""
-        rear=-d["WB"]/2.0; front=d["WB"]/2.0
-        xc=rear+d["xC"]
-        xload=xc+d["L"]*math.cos(math.radians(th))
-        xboom=xc+(d["L"]/2.0)*math.cos(math.radians(th))
-        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        case=str(case).lower()
-        pivot=front if case=="front" else rear
-        direction=1.0 if case=="front" else -1.0
-        mo=0.0;mr=0.0;components=[]
-        for name,mass,x,is_payload in (
-            ("Vehicle",mveh,d["xCG"],False),
-            ("Boom",d["mb"],xboom,False),
-            ("Payload",d["ml"],xload,True),
-        ):
-            signed=direction*(x-pivot)
-            role="overturning" if signed>1e-12 else "resisting" if signed<-1e-12 else "on_pivot"
-            factor=d["kd"] if (is_payload and role=="overturning") else 1.0
-            force=mass*G*factor
-            arm=abs(signed);moment=force*arm
-            if role=="overturning":mo+=moment
-            elif role=="resisting":mr+=moment
-            components.append(dict(name=name,mass=mass,x=x,force=force,arm=arm,moment=moment,
-                                   role=role,factor=factor))
-        sf=mr/mo if mo>1e-12 else 999.0
-        return dict(case=case,rear=rear,front=front,xc=xc,xload=xload,xboom=xboom,
-                    pivot=pivot,mo=mo,mr=mr,sf=sf,components=components)
+    def calc_components(self):
+        if not hasattr(self,"comp"):return
+        b=self.component_mass_breakdown()
+        if b["total"]<=0:
+            self.compout.setPlainText("กรุณากรอกมวลให้มากกว่า 0 kg");return
+        mode="B: Component Mass" if self.massCalcMode.currentIndex()==1 else "A: Total Mass"
+        self.compout.setPlainText(f"""COMPONENT MASS & CG CHECK
 
-    def longitudinal_sf_at(self,d,th):
-        return (self.longitudinal_moment_balance(d,th,"front")["sf"],
-                self.longitudinal_moment_balance(d,th,"rear")["sf"])
+Current mode = {mode}
 
-    def calc_worst(self):
-        if not hasattr(self,"worstout") or not hasattr(self,"mt"):
-            return
-        try:
-            d=self.inputs()
-            raw=self.stability_worst_scan()
-            map_name={"Side Left":"Side Left / ด้านซ้าย","Side Right":"Side Right / ด้านขวา","Front":"Front / ด้านหน้า","Rear":"Rear / ด้านหลัง"}
-            records=[(v,ang,map_name.get(typ,typ)) for v,ang,typ in raw]
-            val,ang,typ=records[0] if records else (999,None,"-")
-            status="PASS / ผ่านเกณฑ์เบื้องต้น" if val>=d["req"] else "FAIL / ต้องปรับแบบ"
-            top5=sorted(records,key=lambda x:x[0])[:5]
-            top_rows="".join(
-                f"<tr><td>{i+1}</td><td>{th}°</td><td>{typ0}</td><td>{'∞' if v>=999 else f'{v:.3f}'}</td></tr>"
-                for i,(v,th,typ0) in enumerate(top5)
-            )
-            val_text='∞' if val>=999 else f'{val:.3f}'
-            formula_text="SF_worst = min(SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ))"
-            html=f"""
-            <h2 style='color:#17456b'>WORST CASE SEARCH / ค้นหากรณีวิกฤต</h2>
-            <p>รูปแบบการแสดงผล: <b>คำอธิบายภาษาไทย → สูตรภาษาไทย → สูตรตัวแปร → แทนค่า → คำตอบ</b></p>
+Σm_i = {b['total']:.2f} kg
+Base vehicle mass = {b['base']['m']:.2f} kg
+Boom mass = {b['boom']['m']:.2f} kg
+Basket + Payload mass = {b['payload']['m']:.2f} kg
 
-            <div style='border:1px solid #d6e0ea;padding:14px 16px;margin:10px 0;background:#fbfdff'>
-              <h3 style='color:#17456b'>1. หลักการหา Worst Case</h3>
-              <p><b>คำอธิบายภาษาไทย:</b> โปรแกรมหมุนเครนจำลองทุก 1° ตั้งแต่ -90° ถึง +90° และคำนวณ Safety Factor ด้านข้าง ด้านหน้า และด้านหลัง จากนั้นเลือกค่าต่ำที่สุด</p>
-              <p><b>สูตรภาษาไทย</b></p>
-              <p style='margin-left:18px'><b>Safety Factor วิกฤต = ค่า Safety Factor ที่ต่ำที่สุดจากทุกมุมและทุกทิศทาง</b></p>
-              <p><b>สูตรตัวแปร</b></p>
-              <p style='margin-left:18px'>{formula_text}<br>θ = -90°, -89°, ..., +90°</p>
-              <p><b>แทนค่า</b></p>
-              <p style='margin-left:18px'>181 มุม × 3 records = 543 records (Side เปรียบเทียบ Left/Right ภายใน)</p>
-              <p style='color:#176337'><b>คำตอบ: ตรวจครบ 724 กรณี</b></p>
-            </div>
+Base CG:
+x_CG,V = {b['base']['x']:.3f} m
+y_CG,V = {b['base']['y']:.3f} m
+z_CG,V = {b['base']['z']:.3f} m
 
-            <div style='border:1px solid #d6e0ea;padding:14px 16px;margin:10px 0;background:#fbfdff'>
-              <h3 style='color:#17456b'>2. ผลลัพธ์กรณีวิกฤต</h3>
-              <p><b>สูตรภาษาไทย</b></p>
-              <p style='margin-left:18px'><b>มุมวิกฤต = มุมที่ทำให้ Safety Factor ต่ำที่สุด</b></p>
-              <p><b>แทนค่า</b></p>
-              <p style='margin-left:18px'>มุมวิกฤต = {ang}°<br>ทิศทางวิกฤต = {typ}<br>Safety Factor ต่ำสุด = {val_text}<br>Safety Factor เป้าหมาย = {d['req']:.2f}</p>
-              <p style='color:#176337'><b>คำตอบ: θ = {ang}° | {typ} | SF_worst = {val_text} | {status}</b></p>
-            </div>
+Combined driving CG:
+x_CG,drive = {b['total_x']:.3f} m
+y_CG,drive = {b['total_y']:.3f} m
+h_CG = z_CG,drive = {b['total_z']:.3f} m
 
-            <div style='border:1px solid #d6e0ea;padding:14px 16px;margin:10px 0;background:#fbfdff'>
-              <h3 style='color:#17456b'>3. 5 กรณีที่มี Safety Factor ต่ำที่สุด</h3>
-              <table cellpadding='6' cellspacing='0' border='1' style='border-collapse:collapse'>
-                <tr><th>อันดับ</th><th>มุมเครน</th><th>ทิศทาง</th><th>Safety Factor</th></tr>
-                {top_rows}
-              </table>
-            </div>
-            """
-            self.worstout.setHtml(html)
-        except Exception as exc:
-            self.worstout.setPlainText("Worst Case calculation error / เกิดข้อผิดพลาดในการคำนวณ\n"+str(exc))
-
-    def make_calc_steps(self):
-        w=QWidget();self.stepsPage=w;l=QVBoxLayout(w)
-        l.addWidget(QLabel("วิธีทำการคำนวณ / STEP-BY-STEP CALCULATION"))
-        self.steps=QPlainTextEdit();self.steps.setReadOnly(True);self.steps.setStyleSheet("font-size:12px");l.addWidget(self.steps)
-        self.tabs.addTab(w,"6. วิธีคำนวณ / Calculation Steps")
-
-    def update_calc_steps(self,d,sf,MO,MR,sfF,sfR):
-        th=float(d["th"])
-        sl=self.side_moment_balance(d,th,"left");sr=self.side_moment_balance(d,th,"right")
-        fb=self.longitudinal_moment_balance(d,th,"front");rb0=self.longitudinal_moment_balance(d,th,"rear")
-        slope=self.slope_stability_results(d)
-        yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
-        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        def fmt(v):return "∞" if v>=999 else f"{v:.3f}"
-        def lines(b,coord):
-            out=[]
-            for q in b["components"]:
-                out.append(f"{q['name']}: {coord}={q[coord]:+.3f} m, F={q['force']:.2f} N, "
-                           f"d={q['arm']:.3f} m, M={q['moment']:.2f} N·m, {q['role']}")
-            return "\n".join(out)
-        self.steps.setPlainText(f"""FORMAL STABILITY CALCULATION / สูตร + แทนค่า
-
-CONVENTION
-+x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
-θ = -90° ซ้าย, 0° หน้า, +90° ขวา
-ที่ impending tipping: Reaction ฝั่งตรงข้าม Tipping Axis → 0
-
-A) SIDE GEOMETRY
-m_V = m_total - m_L - m_B
-    = {d['mt']:.2f} - {d['ml']:.2f} - {d['mb']:.2f}
-    = {mveh:.2f} kg
-
-y_L = L sinθ
-    = {d['L']:.3f} sin({th:.1f}°)
-    = {yL:.3f} m
-
-y_B = (L/2) sinθ
-    = ({d['L']:.3f}/2) sin({th:.1f}°)
-    = {yB:.3f} m
-
-Left pivot  y_P,L = -W/2 = {-d['W']/2:.3f} m
-Right pivot y_P,R = +W/2 = { d['W']/2:.3f} m
-
-Equivalent adverse Payload design load:
-F_L,d = Kdyn m_L g
-      = {d['kd']:.2f} × {d['ml']:.2f} × 9.81
-      = {d['kd']*d['ml']*G:.2f} N
-หมายเหตุ: ใช้ Kdyn เฉพาะเมื่อ Payload สร้าง M_O
-
-B) LEFT SIDE TIPPING
-{lines(sl,'y')}
-M_O,L = {sl['mo']:.2f} N·m
-M_R,L = {sl['mr']:.2f} N·m
-SF_left = M_R,L / M_O,L = {fmt(sl['sf'])}
-
-C) RIGHT SIDE TIPPING
-{lines(sr,'y')}
-M_O,R = {sr['mo']:.2f} N·m
-M_R,R = {sr['mr']:.2f} N·m
-SF_right = M_R,R / M_O,R = {fmt(sr['sf'])}
-
-Side SF ที่การ์ด = min(SF_left, SF_right) = {fmt(min(sl['sf'],sr['sf']))}
-
-D) FRONT TIPPING
-Pivot x_P = x_front = {fb['pivot']:.3f} m
-x_crane={fb['xc']:.3f} m, x_B={fb['xboom']:.3f} m, x_L={fb['xload']:.3f} m
-{lines(fb,'x')}
-M_O,F = {fb['mo']:.2f} N·m
-M_R,F = {fb['mr']:.2f} N·m
-SF_front = {fmt(fb['sf'])}
-
-E) REAR TIPPING
-Pivot x_P = x_rear = {rb0['pivot']:.3f} m
-x_crane={rb0['xc']:.3f} m, x_B={rb0['xboom']:.3f} m, x_L={rb0['xload']:.3f} m
-{lines(rb0,'x')}
-M_O,Rr = {rb0['mo']:.2f} N·m
-M_R,Rr = {rb0['mr']:.2f} N·m
-SF_rear = {fmt(rb0['sf'])}
-
-F) UPHILL REAR-TIPPING
-α = {math.degrees(slope['alpha']):.2f}°
-W_parallel = mg sinα = {slope['w_parallel']:.2f} N
-W_normal   = mg cosα = {slope['w_normal']:.2f} N
-F_I = ma = {slope['inertia']:.2f} N
-d_R = x_CG,drive - x_rear = {slope['rear_arm']:.3f} m
-h_CG = {slope['h']:.3f} m
-
-M_O,slope = (W_parallel + F_I) h_CG
-          = ({slope['w_parallel']:.2f} + {slope['inertia']:.2f}) × {slope['h']:.3f}
-          = {slope['mo']:.2f} N·m
-
-M_R,slope = W_normal d_R
-          = {slope['w_normal']:.2f} × {max(0.0,slope['rear_arm']):.3f}
-          = {slope['mr']:.2f} N·m
-
-SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
-
-เกณฑ์ที่ตั้งไว้ SF_required = {d['req']:.2f}
-ผลทั้งหมดเป็น Preliminary rigid-body stability calculation.
+Mass consistency:
+m_Base + m_B + m_L = {b['base']['m']:.2f} + {b['boom']['m']:.2f} + {b['payload']['m']:.2f}
+                     = {b['base']['m']+b['boom']['m']+b['payload']['m']:.2f} kg
 """)
+        if self.massCalcMode.currentIndex()==1:self.apply_mass_mode()
+
 
     def make_design(self):
         w=QWidget();self.designPage=w;l=QVBoxLayout(w);self.designout=QPlainTextEdit();self.designout.setReadOnly(True);self.designout.setStyleSheet("font-size:13px");l.addWidget(QLabel("Automatic preliminary sizing / คำนวณขนาดเบื้องต้นจากโหลดและมุมปัจจุบัน"));l.addWidget(self.designout);self.tabs.addTab(w,"3. Width / Counterweight / ความกว้าง-ตุ้มน้ำหนัก")
@@ -9068,7 +8951,7 @@ WIDTH / COUNTERWEIGHT
         comps=[]
         mo=0.0;mr=0.0
         for name,mass,y,is_payload in (
-            ("Vehicle",m_vehicle,0.0,False),
+            ("Vehicle",m_vehicle,d.get("yCG",0.0),False),
             ("Boom",d["mb"],y_boom,False),
             ("Payload",d["ml"],y_load,True),
         ):
@@ -9349,7 +9232,7 @@ class ForceDiagram(QWidget):
         def sx(y):return cx+y*scale
         angle=self._angle(d);yB=(d["L"]/2)*math.sin(math.radians(angle));yL=d["L"]*math.sin(math.radians(angle))
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        forces=[("W_V",mveh*G,0.0,deck-6),("W_B",d["mb"]*G,yB,deck-92),("W_L",d["ml"]*G,yL,deck-132)]
+        forces=[("W_V",mveh*G,d.get("yCG",0.0),deck-6),("W_B",d["mb"]*G,yB,deck-92),("W_L",d["ml"]*G,yL,deck-132)]
         for lab,F,y,yy in forces:
             x=max(75,min(ww-75,sx(y)));self.arrow(p,QPointF(x,yy-60),QPointF(x,yy),lab,"#111827",QPointF(7,-2))
         self.dim(p,QPointF(xL,gy+70),QPointF(xR,gy+70),f"Track W = {d['W']:.3f} m")
