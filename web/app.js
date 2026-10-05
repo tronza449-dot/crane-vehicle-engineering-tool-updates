@@ -196,6 +196,16 @@ function setupSharedProjectParameterSync(){
   });
 }
 
+function syncTurnEnergyControls(){
+  const form=$("#batteryForm");
+  if(!form) return;
+  const enabled=!!(form.elements.turn_enabled && form.elements.turn_enabled.checked);
+  ["turns_per_cycle","turn_angle_deg","turn_time_s","track_width_m","turn_coeff"].forEach(name=>{
+    const el=form.elements[name];
+    if(el) el.disabled=!enabled;
+  });
+}
+
 function setupDynamicProjectParameters(){
   restoreWebInputs();
   restoreSharedProjectParameters();
@@ -212,7 +222,13 @@ function setupDynamicProjectParameters(){
   const eventMode=$("#eventMode");
   if(eventMode) $("#manualEventsWrap").classList.toggle("hidden",eventMode.value!=="manual");
   const downMode=$("#downMode");
-  if(downMode) $$(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
+  if(downMode) $(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
+
+  const turnEnable=getField("batteryForm","turn_enabled");
+  if(turnEnable){
+    turnEnable.addEventListener("change",syncTurnEnergyControls);
+    syncTurnEnergyControls();
+  }
 
   saveWebInputs();
   syncVehicleParameters();
@@ -408,7 +424,7 @@ $("#calcBattery").addEventListener("click",async()=>{
       'ถ้าช่วงลาดลงใช้ 0 Wh เที่ยวกลับยังไม่เป็น 0 เพราะมีทางราบ '+f(r.flat_one_way_m,1)+' m</div>'+
 
       '<h3>3) Differential / Pivot Turn</h3>'+
-      '<div class="formula">เปิดใช้ = <b>'+(r.turn_enabled?'Yes':'No')+'</b> • '+r.turns_per_cycle+' ครั้ง/Cycle × '+f(r.turn_angle_deg,0)+'°<br>'+
+      '<div class="formula">โหมด = <b>'+(r.turn_enabled?'INCLUDED':'NOT INCLUDED')+'</b> • '+r.turns_per_cycle+' ครั้ง/Cycle × '+f(r.turn_angle_deg,0)+'°<br>'+
       's_turn = (W/2)φ = <b>'+f(r.turn_wheel_path_m,3)+' m</b><br>'+
       'F_turn = Cturn·m·g = <b>'+f(r.turn_force_n,2)+' N</b><br>'+
       'E_turn/event = <b>'+f(r.turn_energy_per_event_wh,4)+' Wh</b> • E_turn/Cycle = <b>'+f(r.turn_energy_per_cycle_wh,4)+' Wh</b><br>'+
