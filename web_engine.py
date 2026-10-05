@@ -349,48 +349,43 @@ def calculate_drive_torque(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Simple per-cycle sizing model for the 72 V traction battery.
+
+    A complete cycle is one outbound trip plus one return trip. Each one-way
+    trip is split into flat distance and slope distance. Acceleration/start
+    energy and recovered downhill energy are intentionally excluded from the
+    sizing energy model to keep the preliminary calculation easy to audit.
+    """
     m = max(0.0, _f(data, "mass_kg", 300.0))
     voltage = max(0.1, _f(data, "voltage_v", 72.0))
     speed_kmh = max(0.001, _f(data, "speed_kmh", 1.0))
     v = speed_kmh / 3.6
     one = max(0.01, _f(data, "one_way_m", 30.0))
-    slope_len = _clamp(_f(data, "slope_length_m", 30.0), 0.0, one)
-    slope_deg = _f(data, "slope_deg", 19.0)
+    slope_len = _clamp(_f(data, "slope_length_m", 2.9), 0.0, one)
+    flat_oneway = max(0.0, one - slope_len)
+    slope_deg = _f(data, "slope_deg", 12.0)
     theta = math.radians(slope_deg)
     runtime_h = max(0.001, _f(data, "runtime_h", 3.0))
 
-    # Operating-time model for the MAIN 72 V battery:
-    # driving time + lifting time + other stops determine how many complete
-    # vehicle rounds fit in the requested runtime. Winch ENERGY is excluded
-    # because this project uses a separate 12 V winch battery.
     lift_event_s = max(0.0, _f(data, "lift_time_per_event_s", 0.0))
     lift_events_per_round = max(0, _i(data, "lift_events_per_round", 0))
     lift_round_s = lift_event_s * lift_events_per_round
     other_stop_s = max(
         0.0,
-        _f(
-            data,
-            "other_stop_time_per_round_s",
-            _f(data, "stop_time_per_round_s", 0.0),
-        ),
+        _f(data, "other_stop_time_per_round_s", _f(data, "stop_time_per_round_s", 0.0)),
     )
 
     crr = max(0.0, _f(data, "rolling_coeff", 0.02))
-    eff = _clamp(_f(data, "drive_eff_pct", 85.0) / 100.0, 0.01, 1.0)
-    up_eff = _clamp(_f(data, "uphill_eff_pct", 85.0) / 100.0, 0.01, 1.0)
-    starts = max(0, _i(data, "starts_per_round", 2))
-    accel_time = max(0.01, _f(data, "accel_time_s", 5.0))
-    motor_rated_w = max(0.0, _f(data, "motor_rated_w", 1500.0))
-    motors = max(1, _i(data, "motors", 2))
-    aux_w = max(0.0, _f(data, "aux_power_w", 100.0))
+    eff = _clamp(_f(data, "drive_eff_pct", 60.0) / 100.0, 0.01, 1.0)
+    aux_w = max(0.0, _f(data, "aux_power_w", 50.0))
     dod = _clamp(_f(data, "dod_pct", 80.0) / 100.0, 0.01, 1.0)
     reserve = max(0.0, _f(data, "reserve_pct", 20.0) / 100.0)
+
     target_cont_c = max(0.1, _f(data, "target_cont_c", 3.0))
     target_peak_c = max(0.1, _f(data, "target_peak_c", 5.0))
     candidate_ah = max(0.0, _f(data, "candidate_ah", 40.0))
     candidate_bms_cont_a = max(0.0, _f(data, "candidate_bms_cont_a", 0.0))
     candidate_bms_peak_a = max(0.0, _f(data, "candidate_bms_peak_a", 0.0))
-    model = str(data.get("energy_model", "calculated")).strip().lower()
 
     runtime_s = runtime_h * 3600.0
     cycle_distance = 2.0 * one
@@ -405,68 +400,53 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     operation_time_used_s = completed_rounds * cycle_total_s
     remaining_time_s = max(0.0, runtime_s - operation_time_used_s)
 
-    flat_cycle = max(0.0, cycle_distance - 2.0 * slope_len)
-    flat_time_h = (flat_cycle / v) / 3600.0
-    up_time_h = (slope_len / v) / 3600.0
-    down_time_h = up_time_h
+    flat_cycle = 2.0 * flat_oneway
 
     fflat = crr * m * G
-    pflat_mech = fflat * v
     fgrade = m * G * math.sin(theta)
     frrs = crr * m * G * math.cos(theta)
     fup = fgrade + frrs
-    pup_mech = fup * v
     fdown = max(0.0, frrs - fgrade)
+
+    pflat_mech = fflat * v
+    pup_mech = fup * v
     pdown_mech = fdown * v
 
-    eflat_mech_cycle = pflat_mech * flat_time_h
-    eup_mech_cycle = pup_mech * up_time_h
-    edown_mech_cycle = pdown_mech * down_time_h
+    eflat_mech_oneway = fflat * flat_oneway / 3600.0
+    eup_mech = fup * slope_len / 3600.0
+    edown_mech = fdown * slope_len / 3600.0
+    emech_cycle = 2.0 * eflat_mech_oneway + eup_mech + edown_mech
 
-    accel_a = v / accel_time
-    facc_peak = m * accel_a
-    pacc_peak_mech = (fup + facc_peak) * v
-    eacc_mech_cycle = (0.5 * m * v * v / 3600.0) * starts
+    eflat_batt_oneway = eflat_mech_oneway / eff
+    eup_batt = eup_mech / eff
+    edown_batt = edown_mech / eff
 
-    emech_cycle = eflat_mech_cycle + eup_mech_cycle + edown_mech_cycle + eacc_mech_cycle
+    eout_drive = eflat_batt_oneway + eup_batt
+    ereturn_drive = edown_batt + eflat_batt_oneway
+    edrive_cycle = eout_drive + ereturn_drive
+
+    eaux_cycle = aux_w * (cycle_total_s / 3600.0)
+    ecycle = edrive_cycle + eaux_cycle
+
     emech_total = emech_cycle * completed_rounds
-    ecalc_drive_cycle = emech_cycle / eff
-    ecalc_drive = ecalc_drive_cycle * completed_rounds
-
-    rated_total = motor_rated_w * motors
-    pworst_batt = rated_total / up_eff
-    eworst_up_cycle = pworst_batt * up_time_h
-    eflat_batt_cycle = eflat_mech_cycle / eff
-    edown_batt_cycle = edown_mech_cycle / eff
-    eacc_batt_cycle = eacc_mech_cycle / eff
-    eworst_drive_cycle = eflat_batt_cycle + edown_batt_cycle + eacc_batt_cycle + eworst_up_cycle
-    eworst_drive = eworst_drive_cycle * completed_rounds
-
-    use_worst = model == "worst"
-    edrive_cycle = eworst_drive_cycle if use_worst else ecalc_drive_cycle
     edrive = edrive_cycle * completed_rounds
-
-    # Aux power remains active across the whole requested runtime.
-    eaux = aux_w * runtime_h
-    eload = edrive + eaux
+    eaux = eaux_cycle * completed_rounds
+    eload = ecycle * completed_rounds
     enom = eload / dod
     edesign = enom * (1.0 + reserve)
     ah = edesign / voltage
 
     icalc_up = (pup_mech / eff) / voltage
-    icalc_accel = (pacc_peak_mech / eff) / voltage
-    iworst = pworst_batt / voltage
-
     cont_req = max(0.0, icalc_up)
-    peak_req = max(0.0, icalc_accel, iworst)
+    peak_req = cont_req
+
     ah_by_cont = cont_req / target_cont_c
     ah_by_peak = peak_req / target_peak_c
     design_ah_with_current = max(ah, ah_by_cont, ah_by_peak)
     suggested_ah = next_standard_capacity(design_ah_with_current)
 
     cycle_h = cycle_total_s / 3600.0 if cycle_total_s > 0 else 0.0
-    aux_per_cycle_wh = aux_w * cycle_h
-    load_per_cycle_wh = edrive_cycle + aux_per_cycle_wh
+    load_per_cycle_wh = ecycle
 
     def reverse_for(capacity_ah: float) -> Dict[str, Any]:
         cap = max(0.0, float(capacity_ah))
@@ -515,10 +495,11 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     })
 
     return {
-        "energy_model": "worst" if use_worst else "calculated",
+        "calculation_method": "simple_cycle",
+        "energy_model": "calculated",
         "mass_kg": m, "voltage_v": voltage, "speed_kmh": speed_kmh, "speed_m_s": v,
-        "one_way_m": one, "slope_length_m": slope_len, "slope_deg": slope_deg,
-        "runtime_h": runtime_h,
+        "one_way_m": one, "slope_length_m": slope_len, "flat_one_way_m": flat_oneway,
+        "flat_cycle_m": flat_cycle, "slope_deg": slope_deg, "runtime_h": runtime_h,
         "cycles_theoretical": cycles_theoretical,
         "completed_round_trips": completed_rounds,
         "cycle_distance_m": cycle_distance,
@@ -533,15 +514,41 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "other_stop_total_s": other_stop_total_s,
         "operation_time_used_s": operation_time_used_s,
         "remaining_time_s": remaining_time_s,
-        "drive_energy_wh": edrive, "aux_energy_wh": eaux, "load_energy_wh": eload,
-        "nominal_energy_wh": enom, "design_energy_wh": edesign, "design_ah": ah,
-        "standard_ah": next_standard_capacity(ah),
-        "uphill_current_calc_a": icalc_up, "accel_current_calc_a": icalc_accel,
-        "calculated_peak_current_a": max(icalc_up, icalc_accel),
-        "worst_current_reference_a": iworst,
+
+        "flat_force_n": fflat,
+        "grade_force_n": fgrade,
+        "slope_rolling_force_n": frrs,
+        "uphill_force_n": fup,
+        "downhill_drive_force_n": fdown,
+        "flat_power_mech_w": pflat_mech,
+        "uphill_power_mech_w": pup_mech,
+        "downhill_power_mech_w": pdown_mech,
+
+        "flat_energy_one_way_wh": eflat_batt_oneway,
+        "uphill_slope_energy_wh": eup_batt,
+        "downhill_slope_energy_wh": edown_batt,
+        "outbound_drive_energy_wh": eout_drive,
+        "return_drive_energy_wh": ereturn_drive,
         "trip_drive_energy_wh": edrive_cycle,
+        "aux_energy_per_cycle_wh": eaux_cycle,
+        "total_energy_per_cycle_wh": ecycle,
+
+        "drive_energy_wh": edrive,
+        "aux_energy_wh": eaux,
+        "load_energy_wh": eload,
+        "nominal_energy_wh": enom,
+        "design_energy_wh": edesign,
+        "design_ah": ah,
+        "standard_ah": next_standard_capacity(ah),
+
+        "uphill_current_calc_a": icalc_up,
+        # Compatibility fields retained; the simplified energy model does not use acceleration.
+        "accel_current_calc_a": icalc_up,
+        "calculated_peak_current_a": icalc_up,
+        "worst_current_reference_a": icalc_up,
         "continuous_current_required_a": cont_req,
         "peak_current_required_a": peak_req,
+
         "target_cont_c": target_cont_c,
         "target_peak_c": target_peak_c,
         "ah_by_continuous_c": ah_by_cont,
@@ -551,7 +558,7 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "suggested_reverse": reverse_for(suggested_ah),
         "candidate": candidate,
         "comparison": comparison,
-        "no_regen": True,
+        "energy_recovery_included": False,
         "winch_energy_included": False,
     }
 
