@@ -2,7 +2,7 @@ from pathlib import Path
 import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser
 from datetime import datetime
 from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal
-from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon
+from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon,QPixmap
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter
 
@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.6.5"
+APP_VERSION = "53.7.1"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -5667,7 +5667,7 @@ void loop() {{
         except Exception as exc:QMessageBox.critical(self,"Load Project ไม่สำเร็จ",str(exc))
 
     def slope_stability_results(self,d=None):
-        """Uphill forward-driving tipping model about the rear axle."""
+        """Uphill quasi-static tipping model about the rear wheel-contact line."""
         d=self.inputs() if d is None else d
         alpha=math.radians(self.slope.value())
         h=max(0.0,self.hcg.value())
@@ -5675,6 +5675,7 @@ void loop() {{
         xcg=d.get("driveXCG",d.get("xCG",0.0))
         rear=-d["WB"]/2
         rear_arm=xcg-rear
+        mass=max(0.0,d["mt"])
         normal_g=G*math.cos(alpha)
         tangential_g=G*math.sin(alpha)+acc
         overturn_per_mass=h*tangential_g
@@ -5684,18 +5685,29 @@ void loop() {{
         shift_acc=h*acc/max(G*math.cos(alpha),1e-9)
         shift_total=shift_slope+shift_acc
         margin=rear_arm-shift_total
+        w=mass*G
+        w_parallel=w*math.sin(alpha)
+        w_normal=w*math.cos(alpha)
+        inertia=mass*acc
+        traction=w_parallel+inertia
+        mr=mass*resist_per_mass
+        mo=mass*overturn_per_mass
         return dict(alpha=alpha,h=h,acc=acc,xcg=xcg,rear=rear,rear_arm=rear_arm,
                     shift_slope=shift_slope,shift_acc=shift_acc,shift_total=shift_total,
-                    margin=margin,sf=sf,normal_g=normal_g,tangential_g=tangential_g)
+                    margin=margin,sf=sf,normal_g=normal_g,tangential_g=tangential_g,
+                    weight=w,w_parallel=w_parallel,w_normal=w_normal,inertia=inertia,
+                    traction=traction,mr=mr,mo=mo)
 
     def stability_worst_scan(self):
-        """Single source of truth for -90°..+90° Side/Front/Rear worst-case search."""
+        """Single source of truth for -90°..+90° Left/Right/Front/Rear tipping."""
         d=self.inputs()
         records=[]
         for ang in range(-90,91):
-            side=self.calc_side(d,theta=ang)[0]
+            left=self.side_moment_balance(d,ang,"left")["sf"]
+            right=self.side_moment_balance(d,ang,"right")["sf"]
             front,rear=self.longitudinal_sf_at(d,ang)
-            records.extend(((side,ang,"Side"),(front,ang,"Front"),(rear,ang,"Rear")))
+            records.extend(((left,ang,"Side Left"),(right,ang,"Side Right"),
+                            (front,ang,"Front"),(rear,ang,"Rear")))
         records.sort(key=lambda x:x[0])
         return records
 
@@ -8355,37 +8367,44 @@ void loop() {{
     def make_fbd(self):
         w=QWidget();self.fbdPage=w; l=QVBoxLayout(w)
         top=QHBoxLayout()
-        self.fbdModeCombo=QComboBox(); self.fbdModeCombo.addItems(["Side Tipping / คว่ำด้านข้าง","Front-Rear / คว่ำหน้า-หลัง","Slope / ทางลาด"])
+        self.fbdModeCombo=QComboBox()
+        self.fbdModeCombo.addItems([
+            "Geometry / Support Polygon",
+            "Side Left / คว่ำซ้าย",
+            "Side Right / คว่ำขวา",
+            "Front / คว่ำหน้า",
+            "Rear / คว่ำหลัง",
+            "Slope / ทางลาด",
+        ])
         self.fbdAuto=QCheckBox("Auto FBD: แสดงทิศทางวิกฤตตามมุมเครนปัจจุบัน")
         self.fbdAuto.setChecked(True)
         self.fbdCriticalLabel=QLabel("Critical direction: -")
         self.fbdCriticalLabel.setStyleSheet("font-weight:700;color:#6542a5")
         top.addWidget(self.fbdModeCombo);top.addWidget(self.fbdAuto);top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
         self.forceDiagram=ForceDiagram(self); l.addWidget(self.forceDiagram)
-        t=QPlainTextEdit(); t.setReadOnly(True); t.setMaximumHeight(200)
-        t.setPlainText("""สมการพื้นฐาน / BASIC FORCE EQUATIONS
+        t=QPlainTextEdit(); t.setReadOnly(True); t.setMaximumHeight(220)
+        t.setPlainText("""FORMAL FBD CONVENTION / หลักการแผนภาพแรง
 
-แรง = มวล × ความเร่ง
-F = m × a
+แกนอ้างอิงรถ:
++x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
+มุมเครน: -90° = ซ้าย, 0° = หน้า, +90° = ขวา
 
-น้ำหนัก = มวล × ความเร่งโน้มถ่วง
-W = m × g
+FBD ต้องแยกตัวรถออกจากพื้น แล้วแสดงแรงภายนอกและแรงปฏิกิริยา
+W_V = น้ำหนักรถส่วนหลัก, W_B = น้ำหนักแขน, W_L = น้ำหนัก Payload
+R_L/R_R = แรงปฏิกิริยาพื้นด้านซ้าย/ขวา
+R_F/R_Rr = แรงปฏิกิริยาแนวล้อหน้า/หลัง
 
-แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g
-F_L = Kdyn × m_L × g
+ที่จุดเริ่มคว่ำ Reaction ฝั่งตรงข้าม Tipping Axis → 0
+โมเมนต์: M = F × d_perpendicular
+Safety Factor: SF = M_R / M_O
 
-โมเมนต์ = แรง × ระยะตั้งฉากจากจุดหมุน
-M = F × d
+หมายเหตุ Dynamic Factor:
+F_L,d = Kdyn × m_L × g เป็น Equivalent Design Load ใช้เฉพาะเมื่อ Payload
+สร้างโมเมนต์คว่ำ ไม่ใช่น้ำหนักจริงเพิ่มขึ้นทางกายภาพ
 
-ทางลาด:
-แรงตามทางลาด = mg sin(alpha)
-แรงตั้งฉากทางลาด = mg cos(alpha)
-
-Safety Factor = โมเมนต์ต้านการคว่ำ ÷ โมเมนต์ทำให้คว่ำ
-SF = M_R / M_O
-
-Auto FBD จะเลือก Side หรือ Front-Rear ตามค่า SF ต่ำสุด ณ มุมเครนปัจจุบัน
-หากต้องการดู Slope FBD ให้ปิด Auto แล้วเลือก Slope เอง
+Slope FBD ใช้ weight components mg sin(alpha), mg cos(alpha)
+โดยไม่วาด W=mg ซ้ำในชุดแรงเดียวกัน และใช้ F_I = ma ตรงข้ามความเร่ง
+สำหรับ quasi-static tipping calculation.
 """)
         l.addWidget(t)
         self.fbdModeCombo.currentIndexChanged.connect(lambda i: self.forceDiagram.setMode(i) if not self.fbdAuto.isChecked() else None)
@@ -8398,8 +8417,11 @@ Auto FBD จะเลือก Side หรือ Front-Rear ตามค่า S
             self.forceDiagram.setMode(self.fbdModeCombo.currentIndex())
             self.fbdCriticalLabel.setText("Manual FBD")
             return
-        d=self.inputs();side=self.calc_side(d,theta=d["th"])[0];front,rear=self.longitudinal_sf_at(d,d["th"])
-        vals=[("Side",side,0),("Front",front,1),("Rear",rear,1)]
+        d=self.inputs()
+        sl=self.side_moment_balance(d,d["th"],"left")["sf"]
+        sr=self.side_moment_balance(d,d["th"],"right")["sf"]
+        front,rear=self.longitudinal_sf_at(d,d["th"])
+        vals=[("Side Left",sl,1),("Side Right",sr,2),("Front",front,3),("Rear",rear,4)]
         typ,val,mode=min(vals,key=lambda x:x[1])
         self.fbdModeCombo.blockSignals(True);self.fbdModeCombo.setCurrentIndex(mode);self.fbdModeCombo.blockSignals(False)
         self.forceDiagram.setMode(mode)
@@ -8536,30 +8558,38 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
         l.addWidget(self.worstout,1)
         self.tabs.addTab(w,"5. Worst Case / จุดวิกฤต")
 
-    def longitudinal_sf_at(self,d,th):
-        rear=-d["WB"]/2; front=d["WB"]/2
+    def longitudinal_moment_balance(self,d,th,case):
+        """Moment balance about front/rear wheel-contact line. +x = forward."""
+        rear=-d["WB"]/2.0; front=d["WB"]/2.0
         xc=rear+d["xC"]
         xload=xc+d["L"]*math.cos(math.radians(th))
-        xboom=xc+(d["L"]/2)*math.cos(math.radians(th))
+        xboom=xc+(d["L"]/2.0)*math.cos(math.radians(th))
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        case=str(case).lower()
+        pivot=front if case=="front" else rear
+        direction=1.0 if case=="front" else -1.0
+        mo=0.0;mr=0.0;components=[]
+        for name,mass,x,is_payload in (
+            ("Vehicle",mveh,d["xCG"],False),
+            ("Boom",d["mb"],xboom,False),
+            ("Payload",d["ml"],xload,True),
+        ):
+            signed=direction*(x-pivot)
+            role="overturning" if signed>1e-12 else "resisting" if signed<-1e-12 else "on_pivot"
+            factor=d["kd"] if (is_payload and role=="overturning") else 1.0
+            force=mass*G*factor
+            arm=abs(signed);moment=force*arm
+            if role=="overturning":mo+=moment
+            elif role=="resisting":mr+=moment
+            components.append(dict(name=name,mass=mass,x=x,force=force,arm=arm,moment=moment,
+                                   role=role,factor=factor))
+        sf=mr/mo if mo>1e-12 else 999.0
+        return dict(case=case,rear=rear,front=front,xc=xc,xload=xload,xboom=xboom,
+                    pivot=pivot,mo=mo,mr=mr,sf=sf,components=components)
 
-        def chk(pivot,direction):
-            # Vehicle + boom use static weight. Payload uses Kdyn only when it
-            # is on the overturning side; resisting payload uses static weight.
-            mo=0.0;mr=0.0
-            for mass,x,is_payload in (
-                (mveh,d["xCG"],False),
-                (d["ml"],xload,True),
-                (d["mb"],xboom,False),
-            ):
-                signed=direction*(x-pivot)
-                if signed>0:
-                    factor=d["kd"] if is_payload else 1.0
-                    mo+=factor*mass*G*signed
-                elif signed<0:
-                    mr+=mass*G*(-signed)
-            return mr/mo if mo>1e-12 else 999
-        return chk(front,1),chk(rear,-1)
+    def longitudinal_sf_at(self,d,th):
+        return (self.longitudinal_moment_balance(d,th,"front")["sf"],
+                self.longitudinal_moment_balance(d,th,"rear")["sf"])
 
     def calc_worst(self):
         if not hasattr(self,"worstout") or not hasattr(self,"mt"):
@@ -8885,27 +8915,43 @@ WIDTH / COUNTERWEIGHT
 """)
         l.addWidget(txt);self.tabs.addTab(w,"6. คำอธิบายภาษาไทย")
 
-    def calc_side(self,d,W=None,theta=None,extra=0):
-        W=d["W"] if W is None else W
-        th=d["th"] if theta is None else theta
-        pivot=W/2
-        y_load=abs(d["L"]*math.sin(math.radians(th)))
-        y_boom=abs((d["L"]/2)*math.sin(math.radians(th)))
+    def side_moment_balance(self,d,theta,side,extra=0.0):
+        """Moment balance about one lateral tipping axis. +y = vehicle right."""
+        side=str(side).lower()
+        direction=1.0 if side=="right" else -1.0
+        pivot=direction*d["W"]/2.0
+        y_load=d["L"]*math.sin(math.radians(theta))
+        y_boom=(d["L"]/2.0)*math.sin(math.radians(theta))
         m_vehicle=max(0.0,d["mt"]-d["ml"]-d["mb"])+max(0.0,extra)
+        comps=[]
+        mo=0.0;mr=0.0
+        for name,mass,y,is_payload in (
+            ("Vehicle",m_vehicle,0.0,False),
+            ("Boom",d["mb"],y_boom,False),
+            ("Payload",d["ml"],y_load,True),
+        ):
+            signed=direction*(y-pivot)
+            role="overturning" if signed>1e-12 else "resisting" if signed<-1e-12 else "on_pivot"
+            factor=d["kd"] if (is_payload and role=="overturning") else 1.0
+            force=mass*G*factor
+            arm=abs(signed)
+            moment=force*arm
+            if role=="overturning": mo+=moment
+            elif role=="resisting": mr+=moment
+            comps.append(dict(name=name,mass=mass,y=y,force=force,arm=arm,moment=moment,
+                              role=role,factor=factor))
+        sf=mr/mo if mo>1e-12 else 999.0
+        return dict(side=side,direction=direction,pivot=pivot,y_load=y_load,y_boom=y_boom,
+                    mo=mo,mr=mr,sf=sf,components=comps)
 
-        # Static masses inside the support polygon contribute to resistance.
-        # Kdyn is applied only when Payload produces an adverse overturning
-        # moment, so a dynamic factor never creates artificial extra stability.
-        vehicle_MR=m_vehicle*G*pivot
-        payload_over=d["kd"]*d["ml"]*G*max(0.0,y_load-pivot)
-        payload_res=d["ml"]*G*max(0.0,pivot-y_load)
-        boom_over=d["mb"]*G*max(0.0,y_boom-pivot)
-        boom_res=d["mb"]*G*max(0.0,pivot-y_boom)
-
-        MO=payload_over+boom_over
-        MR=vehicle_MR+payload_res+boom_res
-        sf=MR/MO if MO>1e-12 else 999
-        return sf,MO,MR
+    def calc_side(self,d,W=None,theta=None,extra=0):
+        dd=dict(d)
+        if W is not None: dd["W"]=W
+        th=dd["th"] if theta is None else theta
+        left=self.side_moment_balance(dd,th,"left",extra)
+        right=self.side_moment_balance(dd,th,"right",extra)
+        critical=min((left,right),key=lambda q:q["sf"])
+        return critical["sf"],critical["mo"],critical["mr"]
 
     def calc_all(self):
         if not hasattr(self,"mt"):return
