@@ -168,6 +168,13 @@ jobs:
           assert "W_parallel and W_normal are components of the same weight W=mg" in source
           assert "graphic offset only — acts through CG" in source
           assert "NO OVERTURNING GRAVITY MOMENT" in source
+          assert "Current Angle Snapshot / มุมปัจจุบัน" in source
+          assert "Critical Case / มุมวิกฤตของด้านที่เลือก" in source
+          assert "Auto Current Worst / ด้านแย่สุด ณ มุมปัจจุบัน" in source
+          assert "Slope case uses the combined driving mass/CG" in source
+          assert "LEFT LIMIT" in source and "RIGHT LIMIT" in source
+          assert "DISPLAY NOTE: SF >" in source
+          assert "compact=self.height()<680" in source
 
           for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
               assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
