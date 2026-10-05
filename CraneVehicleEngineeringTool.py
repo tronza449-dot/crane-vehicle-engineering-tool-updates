@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.7"
+APP_VERSION = "53.7.1"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -1165,15 +1165,15 @@ class App(QMainWindow):
             ("ขีดจำกัดแรงยึดเกาะ", "แรงกดล้อขับ = สัดส่วนแรงกดล้อขับ × มวลรวมรถ × g × cos(มุมทางลาด)<br>แรงยึดเกาะสูงสุด = สัมประสิทธิ์แรงเสียดทาน × แรงกดล้อขับ"),
             ("ตรวจมอเตอร์และ Controller", "Margin = ค่าพิกัดอุปกรณ์ ÷ ค่าที่ระบบต้องการ"),
             ("แรงโหลดออกแบบ", "แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g"),
-            ("ตำแหน่งโหลดด้านข้างและแนวคว่ำ", "ระยะโหลดด้านข้าง = |ความยาวแขน × sin(มุมเครน)|<br>ตำแหน่งแนวคว่ำ = ความกว้างฐานล้อ ÷ 2<br>แขนโมเมนต์โหลด = ระยะโหลดด้านข้าง − ตำแหน่งแนวคว่ำ"),
-            ("โมเมนต์คว่ำด้านข้าง", "โมเมนต์คว่ำ = แรงโหลด × ระยะแขนโมเมนต์โหลด + น้ำหนักแขนเครน × g × ระยะแขนโมเมนต์ของแขน"),
-            ("โมเมนต์ต้านและ SF ด้านข้าง", "มวลต้าน = มวลรวม − มวลโหลด − มวลแขนเครน<br>โมเมนต์ต้าน = มวลต้าน × g × (ความกว้างฐานล้อ ÷ 2)<br>Safety Factor ด้านข้าง = โมเมนต์ต้าน ÷ โมเมนต์คว่ำ"),
+            ("ตำแหน่งโหลดด้านข้างและแนวคว่ำ", "กำหนด +y = ขวารถ, -y = ซ้ายรถ<br>y_L = L sinθ, y_B = (L/2) sinθ<br>Pivot ซ้าย = -W/2, Pivot ขวา = +W/2<br>แขนโมเมนต์ = ระยะตั้งฉากจาก line of action ถึง Pivot"),
+            ("โมเมนต์คว่ำด้านข้าง", "ตรวจ Left และ Right แยกกัน: M_O = Σ(F_i d_i) ของมวลที่อยู่เลย Tipping Axis ในทิศคว่ำ<br>Payload ใช้ F_L,d = Kdyn m_L g เฉพาะเมื่ออยู่ฝั่งทำให้คว่ำ"),
+            ("โมเมนต์ต้านและ SF ด้านข้าง", "M_R = Σ(F_i d_i) ของมวลที่อยู่ด้านใน Tipping Axis<br>SF_left = M_R,left/M_O,left, SF_right = M_R,right/M_O,right<br>Side SF ที่แสดงบนการ์ด = ค่าต่ำกว่าของ Left/Right"),
             ("ตำแหน่งตามแนวยาว", "ตำแหน่งเครน = ตำแหน่งเพลาหลัง + ระยะเครนจากเพลาหลัง<br>ตำแหน่งโหลด = ตำแหน่งเครน + ความยาวแขน × cos(มุมเครน)<br>ตำแหน่ง CG แขน = ตำแหน่งเครน + ครึ่งความยาวแขน × cos(มุมเครน)"),
             ("โมเมนต์คว่ำหน้า", "Safety Factor ด้านหน้า = ผลรวมโมเมนต์ต้านรอบเพลาหน้า ÷ ผลรวมโมเมนต์คว่ำรอบเพลาหน้า"),
             ("โมเมนต์คว่ำหลัง", "Safety Factor ด้านหลัง = ผลรวมโมเมนต์ต้านรอบเพลาหลัง ÷ ผลรวมโมเมนต์คว่ำรอบเพลาหลัง"),
-            ("รถวิ่งบนทางลาด", "ระยะเลื่อนจากความชัน = ความสูง CG × tan(มุมทางลาด)<br>ระยะเลื่อนจากความเร่ง = ความสูง CG × ความเร่ง ÷ g<br>ระยะเลื่อนรวม = ระยะจากความชัน + ระยะจากความเร่ง"),
+            ("รถวิ่งบนทางลาด", "ใช้แกนตามทางลาด: W_parallel = mg sinα, W_normal = mg cosα, F_I = ma ตรงข้ามความเร่ง<br>M_O = (W_parallel + F_I)h_CG<br>M_R = W_normal d_rear<br>SF_slope = M_R/M_O"),
             ("มวลรวมและ Combined CG", "มวลรวม = ผลรวมมวลทุกชิ้น<br>ตำแหน่ง CG = ผลรวม(มวลแต่ละชิ้น × ตำแหน่งแต่ละชิ้น) ÷ มวลรวม"),
-            ("Worst-case search", "Safety Factor ต่ำสุด = ค่าต่ำสุดของ SF ด้านข้าง, ด้านหน้า และด้านหลัง ในทุกมุมเครน"),
+            ("Worst-case search", "Safety Factor ต่ำสุด = min(SF_left, SF_right, SF_front, SF_rear) สำหรับทุกมุมเครน -90° ถึง +90°"),
             ("Minimum Width / Counterweight", "หาความกว้างฐานล้อต่ำสุดหรือมวลถ่วงต่ำสุดที่ทำให้ Safety Factor ≥ ค่า Safety Factor ที่กำหนด"),
         ]
         for key, text in rules:
@@ -4785,30 +4785,46 @@ void loop() {{
         return self._variable_table_html("WINCH — ตารางตัวแปร","รวมตัวแปรแบตเตอรี่ เวลา ความเร็ว แรง และแรงบิดของวินช์",rows)
 
     def stability_variables_html(self):
-        d=self.inputs();sf,MO,MR=self.calc_side(d);sfF,sfR=self.longitudinal_sf_at(d,d["th"])
-        FL=d["kd"]*d["ml"]*G
+        d=self.inputs();th=float(d["th"])
+        sl=self.side_moment_balance(d,th,"left");sr=self.side_moment_balance(d,th,"right")
+        fb=self.longitudinal_moment_balance(d,th,"front");rb0=self.longitudinal_moment_balance(d,th,"rear")
+        slope=self.slope_stability_results(d)
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
+        FLd=d["kd"]*d["ml"]*G
         rows=[
-            ("m_total","มวลรวมทั้งระบบ","kg",f"{d['mt']:.2f}","ควรรวมทุกชิ้นโดยไม่ซ้ำมวล"),
-            ("m_L","มวล Payload / สิ่งที่ยก","kg",f"{d['ml']:.2f}","โหลดที่ปลายเครน"),
-            ("m_B","มวลแขนเครน","kg",f"{d['mb']:.2f}","ใช้คำนวณโมเมนต์ของ Boom"),
-            ("W","Track width ระยะศูนย์กลางล้อซ้าย-ขวา","m",f"{d['W']:.3f}","มีผลโดยตรงต่อ Side tipping"),
-            ("WB","Wheelbase ระยะฐานล้อหน้า-หลัง","m",f"{d['WB']:.3f}","ใช้คำนวณ Front/Rear tipping"),
-            ("L","ความยาวแขนเครน","m",f"{d['L']:.3f}","ระยะจากแกนหมุนถึงปลายแขน"),
-            ("H","ความสูงเสาเครน","m",f"{d['H']:.3f}","ใช้ในโมเดล/ภาพ 3D และการจัดวาง"),
-            ("x_C","ตำแหน่งแกนเครนจากเพลาหลัง","m",f"{d['xC']:.3f}","ใช้หาโมเมนต์หน้า/หลัง"),
-            ("x_CG,base","ตำแหน่ง CG ของรถส่วนหลักที่ไม่รวม Payload+Boom","m",f"{d['xCG']:.3f}","ใช้ใน Front/Rear crane tipping"),
-            ("x_CG,drive","ตำแหน่ง CG รวมตอนรถวิ่ง","m",f"{d['driveXCG']:.3f}","ใช้ใน Slope driving stability"),
-            ("θ","มุมหมุนเครน","deg",f"{d['th']:.1f}","ช่วงใช้งาน -90° ถึง +90°"),
-            ("Kdyn","Dynamic factor ของ Payload","-",f"{d['kd']:.2f}","เผื่อแรงกระชากในการวิเคราะห์เบื้องต้น"),
+            ("m_total","มวลรวมทั้งระบบใน Crane Mode","kg",f"{d['mt']:.2f}","รวมรถ+เครน+Payload โดยไม่ซ้ำมวล"),
+            ("m_V","มวลรถส่วนหลัก = m_total-m_L-m_B","kg",f"{mveh:.2f}","ใช้เป็นน้ำหนักรถส่วนหลักใน moment balance"),
+            ("m_L","มวล Payload","kg",f"{d['ml']:.2f}","โหลดที่ปลายเครน"),
+            ("m_B","มวล Boom","kg",f"{d['mb']:.2f}","CG ของ Boom สมมติที่ L/2"),
+            ("W","Track width ศูนย์กลางล้อซ้าย-ขวา","m",f"{d['W']:.3f}","Pivot ซ้าย=-W/2, Pivot ขวา=+W/2"),
+            ("WB","Wheelbase ศูนย์กลางแนวล้อหน้า-หลัง","m",f"{d['WB']:.3f}","Pivot หน้า=+WB/2, Pivot หลัง=-WB/2"),
+            ("L","Boom radius ถึง Payload","m",f"{d['L']:.3f}","ใช้หา x/y ของ Payload"),
+            ("H","ความสูงเสาเครน","m",f"{d['H']:.3f}","ใช้ใน geometry/3D"),
+            ("x_C","ตำแหน่งแกนเครนจากเพลาหลัง","m",f"{d['xC']:.3f}","x_crane=x_rear+x_C"),
+            ("x_CG,V","CG รถส่วนหลัก","m",f"{d['xCG']:.3f}","ใช้ Front/Rear tipping"),
+            ("x_CG,drive","CG รวมตอนวิ่ง","m",f"{d['driveXCG']:.3f}","ใช้ Slope mode"),
+            ("h_CG","ความสูง Combined CG","m",f"{slope['h']:.3f}","ใช้ Slope rear-tipping"),
+            ("θ","มุม Slew เครน","deg",f"{th:.1f}","-90°=ซ้าย, 0°=หน้า, +90°=ขวา"),
+            ("y_L","ตำแหน่งด้านข้าง Payload = L sinθ","m",f"{yL:.3f}","+y = ขวารถ"),
+            ("y_B","ตำแหน่งด้านข้าง Boom CG = (L/2)sinθ","m",f"{yB:.3f}","+y = ขวารถ"),
+            ("Kdyn","Payload dynamic design factor","-",f"{d['kd']:.2f}","ใช้เฉพาะ Payload เมื่อสร้าง overturning moment"),
+            ("F_L,d","Equivalent adverse payload design force","N",f"{FLd:.2f}","Kdyn × m_L × g; ไม่ใช่น้ำหนักจริงเพิ่ม"),
+            ("M_O,L","Overturning moment รอบ Pivot ซ้าย","N·m",f"{sl['mo']:.2f}","Σ(Fd) ฝั่งคว่ำ"),
+            ("M_R,L","Resisting moment รอบ Pivot ซ้าย","N·m",f"{sl['mr']:.2f}","Σ(Fd) ฝั่งต้าน"),
+            ("SF_left","Safety Factor คว่ำซ้าย","-",("∞" if sl['sf']>=999 else f"{sl['sf']:.3f}"),"M_R,L ÷ M_O,L"),
+            ("M_O,R","Overturning moment รอบ Pivot ขวา","N·m",f"{sr['mo']:.2f}","Σ(Fd) ฝั่งคว่ำ"),
+            ("M_R,R","Resisting moment รอบ Pivot ขวา","N·m",f"{sr['mr']:.2f}","Σ(Fd) ฝั่งต้าน"),
+            ("SF_right","Safety Factor คว่ำขวา","-",("∞" if sr['sf']>=999 else f"{sr['sf']:.3f}"),"M_R,R ÷ M_O,R"),
+            ("SF_front","Safety Factor คว่ำหน้า","-",("∞" if fb['sf']>=999 else f"{fb['sf']:.3f}"),"Moment balance รอบแนวล้อหน้า"),
+            ("SF_rear","Safety Factor คว่ำหลัง","-",("∞" if rb0['sf']>=999 else f"{rb0['sf']:.3f}"),"Moment balance รอบแนวล้อหลัง"),
+            ("W_parallel","องค์ประกอบน้ำหนักตามทางลาด = mg sinα","N",f"{slope['w_parallel']:.2f}","ไม่บวก W=mg ซ้ำ"),
+            ("W_normal","องค์ประกอบน้ำหนักตั้งฉากทางลาด = mg cosα","N",f"{slope['w_normal']:.2f}","ใช้หา resisting moment"),
+            ("F_I","แรงเฉื่อย D'Alembert = ma","N",f"{slope['inertia']:.2f}","ทิศตรงข้ามความเร่งขึ้นลาด"),
+            ("SF_slope","Safety Factor คว่ำหลังบนทางลาด","-",("∞" if slope['sf']>=999 else f"{slope['sf']:.3f}"),"M_R,slope ÷ M_O,slope"),
             ("SF_req","Safety Factor เป้าหมาย","-",f"{d['req']:.2f}","ใช้เทียบ PASS/FAIL เชิงแบบจำลอง"),
-            ("F_L","แรงโหลดออกแบบ","N",f"{FL:.2f}","Kdyn × mL × g"),
-            ("M_O","โมเมนต์ทำให้คว่ำด้านข้าง","N·m",f"{MO:.2f}","รวม Payload + Boom ตามโมเดล"),
-            ("M_R","โมเมนต์ต้านการคว่ำด้านข้าง","N·m",f"{MR:.2f}","จากมวลต้านและฐานล้อ"),
-            ("SF_side","Safety Factor ด้านข้าง","-",("∞" if sf>=999 else f"{sf:.3f}"),"MR ÷ MO"),
-            ("SF_front","Safety Factor คว่ำด้านหน้า","-",("∞" if sfF>=999 else f"{sfF:.3f}"),"คำนวณรอบแนวเพลาหน้า"),
-            ("SF_rear","Safety Factor คว่ำด้านหลัง","-",("∞" if sfR>=999 else f"{sfR:.3f}"),"คำนวณรอบแนวเพลาหลัง"),
         ]
-        return self._variable_table_html("STABILITY — ตารางตัวแปร","ตัวแปรเรขาคณิต มวล โมเมนต์ และ Safety Factor ของรถเครน",rows)
+        return self._variable_table_html("STABILITY — ตารางตัวแปร Formal FBD","ตัวแปร แกนอ้างอิง แรง โมเมนต์ และ Safety Factor ที่ใช้ตรงกับ PDF Export",rows)
 
     def safety_variables_html(self):
         if not hasattr(self,"safetyEStop"):
@@ -5667,7 +5683,7 @@ void loop() {{
         except Exception as exc:QMessageBox.critical(self,"Load Project ไม่สำเร็จ",str(exc))
 
     def slope_stability_results(self,d=None):
-        """Uphill forward-driving tipping model about the rear axle."""
+        """Uphill quasi-static tipping model about the rear wheel-contact line."""
         d=self.inputs() if d is None else d
         alpha=math.radians(self.slope.value())
         h=max(0.0,self.hcg.value())
@@ -5675,6 +5691,7 @@ void loop() {{
         xcg=d.get("driveXCG",d.get("xCG",0.0))
         rear=-d["WB"]/2
         rear_arm=xcg-rear
+        mass=max(0.0,d["mt"])
         normal_g=G*math.cos(alpha)
         tangential_g=G*math.sin(alpha)+acc
         overturn_per_mass=h*tangential_g
@@ -5684,18 +5701,29 @@ void loop() {{
         shift_acc=h*acc/max(G*math.cos(alpha),1e-9)
         shift_total=shift_slope+shift_acc
         margin=rear_arm-shift_total
+        w=mass*G
+        w_parallel=w*math.sin(alpha)
+        w_normal=w*math.cos(alpha)
+        inertia=mass*acc
+        traction=w_parallel+inertia
+        mr=mass*resist_per_mass
+        mo=mass*overturn_per_mass
         return dict(alpha=alpha,h=h,acc=acc,xcg=xcg,rear=rear,rear_arm=rear_arm,
                     shift_slope=shift_slope,shift_acc=shift_acc,shift_total=shift_total,
-                    margin=margin,sf=sf,normal_g=normal_g,tangential_g=tangential_g)
+                    margin=margin,sf=sf,normal_g=normal_g,tangential_g=tangential_g,
+                    weight=w,w_parallel=w_parallel,w_normal=w_normal,inertia=inertia,
+                    traction=traction,mr=mr,mo=mo)
 
     def stability_worst_scan(self):
-        """Single source of truth for -90°..+90° Side/Front/Rear worst-case search."""
+        """Single source of truth for -90°..+90° Left/Right/Front/Rear tipping."""
         d=self.inputs()
         records=[]
         for ang in range(-90,91):
-            side=self.calc_side(d,theta=ang)[0]
+            left=self.side_moment_balance(d,ang,"left")["sf"]
+            right=self.side_moment_balance(d,ang,"right")["sf"]
             front,rear=self.longitudinal_sf_at(d,ang)
-            records.extend(((side,ang,"Side"),(front,ang,"Front"),(rear,ang,"Rear")))
+            records.extend(((left,ang,"Side Left"),(right,ang,"Side Right"),
+                            (front,ang,"Front"),(rear,ang,"Rear")))
         records.sort(key=lambda x:x[0])
         return records
 
@@ -5897,14 +5925,13 @@ void loop() {{
             self._core_recalculate();self.update_project_tools();self.refresh_integration_suite()
             t=self.torque_results();e=self.electrical_results();w=self.winch_results();worst=self.stability_worst_record()
             images=[]
-            for name,widget in (("vehicle",getattr(self,"view",None)),
-                                ("stability_map",getattr(self,"graph",None)),("motor_operating",getattr(self,"motorOpGraph",None)),
+            for name,widget in (("vehicle",getattr(self,"view",None)),("stability_map",getattr(self,"graph",None)),("motor_operating",getattr(self,"motorOpGraph",None)),
                                 ("gpio_board",getattr(self,"hwBoardView",None)),("system_flowchart",getattr(self,"flowchartView",None))):
                 if widget is not None:
                     fp=tmp/f"{name}.png"
                     if widget.grab().save(str(fp)):images.append((name,fp.as_uri()))
             img_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in images)
-            fbd_html=self.stability_fbd_report_html(tmp,self.inputs())
+            fbd_html=self.formal_fbd_report_html(tmp,self.inputs())
             page="<div style='page-break-before:always'></div>"
             winch_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_html(w),flags=re.I)
             winch_speed_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_speed_html(self.winch_speed_results()),flags=re.I)
@@ -5917,10 +5944,8 @@ void loop() {{
             <h1>1. DRIVE TORQUE</h1>{self.torque_formula_html(t)}{page}
             <h1>2. ELECTRICAL / BATTERY</h1>{self.equation_html(e)}{page}
             <h1>3. WINCH</h1>{winch_formula}<hr>{winch_speed_formula}<hr>{self.winch_duty_html()}{page}
-            <h1>4. STABILITY — FBD แบบเข้าใจง่าย</h1>
-            <p><b>อ่านตามลำดับ:</b> จุดหมุนสีแดง → ฝั่งทำให้คว่ำ → ฝั่งช่วยต้าน → Safety Factor</p>
-            {fbd_html}{page}
-            <h1>4A. STABILITY — ENGINEERING CALCULATION</h1>{self.stability_formula_html()}{page}
+            <h1>4. STABILITY — FORMAL FREE-BODY DIAGRAMS</h1>{fbd_html}{page}
+            <h1>4A. STABILITY — VARIABLES / EQUATIONS / SUBSTITUTION</h1>{self.stability_formula_html()}{page}
             <h1>5. WORST CASE</h1><p>SF_worst = {worst[0]:.3f} at θ={worst[1]}° ({worst[2]}), target SF={self.req.value():.2f}</p>{page}
             <h1>6. BATTERY + BMS</h1>{self.bms_check_html()}{page}
             <h1>7. VALIDATION</h1>{self.validation_report_html()}{page}
@@ -8064,76 +8089,96 @@ void loop() {{
 
 
     def stability_formula_html(self):
-        d=self.inputs();g=G;th=math.radians(d["th"])
-        sf,MO,MR=self.calc_side(d)
-        pivot=d["W"]/2
-        yL=abs(d["L"]*math.sin(th));yB=abs((d["L"]/2)*math.sin(th))
-        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        FL=d["kd"]*d["ml"]*g
-        dL=max(0.0,yL-pivot);rL=max(0.0,pivot-yL)
-        dB=max(0.0,yB-pivot);rB=max(0.0,pivot-yB)
-        MOL=FL*dL;MRL=d["ml"]*g*rL;MOB=d["mb"]*g*dB;MRB=d["mb"]*g*rB;MRV=mveh*g*pivot
-        rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
-        xload=xc+d["L"]*math.cos(th);xboom=xc+(d["L"]/2)*math.cos(th)
-        sfF,sfR=self.longitudinal_sf_at(d,d["th"])
+        d=self.inputs();th=float(d["th"]);g=G
+        sl=self.side_moment_balance(d,th,"left");sr=self.side_moment_balance(d,th,"right")
+        fb=self.longitudinal_moment_balance(d,th,"front");rb0=self.longitudinal_moment_balance(d,th,"rear")
         slope=self.slope_stability_results(d)
-        rows,sm,xg,yg,zg=self.component_values() if hasattr(self,"comp") else ([],0,0,0,0)
-
-        def frac(a,b):
-            return ("<table cellspacing='0' cellpadding='2' style='display:inline-table;margin:3px 8px;vertical-align:middle'>"
-                    f"<tr><td align='center' style='border-bottom:1px solid #243b53;padding:2px 8px'><b>{a}</b></td></tr>"
-                    f"<tr><td align='center' style='padding:2px 8px'><b>{b}</b></td></tr></table>")
-        def sec(n,title,meaning,thai_formula,var_formula,sub,result):
-            return (f"<div style='border:1px solid #d6e0ea;padding:14px 16px;margin:12px 0;background:#fbfdff'>"
-                    f"<h3 style='color:#17456b'>{n}. {title}</h3><p><b>คำอธิบายภาษาไทย:</b> {meaning}</p>"
-                    f"<p><b>สูตรภาษาไทย</b></p><div style='margin-left:18px;font-size:12pt'><b>{thai_formula}</b></div>"
-                    f"<p><b>สูตรตัวแปร</b></p><div style='margin-left:18px;font-size:12pt'>{var_formula}</div>"
-                    f"<p><b>แทนค่า</b></p><div style='margin-left:18px'>{sub}</div>"
-                    f"<p style='color:#176337'><b>คำตอบ: {result}</b></p></div>")
-
-        html="<h2>STABILITY ANALYSIS — สูตรครบ + แทนค่า</h2>"
-        html+="<p><b>หลักสำคัญ:</b> มวลทุกก้อนต้องถูกนับเป็น Overturning หรือ Resisting รอบแนว Pivot เพียงครั้งเดียว และ Total mass ต้องไม่บวก Payload ซ้ำ</p>"
-        html+=sec(1,"แรงโหลดออกแบบ","ใช้ Dynamic Factor กับ Payload เฉพาะเมื่อแรงนั้นทำให้คว่ำ; ด้านต้านใช้ Payload จริง",
-                  "แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g","F_L = Kdyn × m_L × g",
-                  f"F_L = {d['kd']:.2f} × {d['ml']:.2f} × 9.81 = {FL:.2f} N",f"{FL:.2f} N")
-        html+=sec(2,"ตำแหน่งด้านข้างและ Pivot","หาระยะ Payload/Boom จากกึ่งกลางรถและเทียบกับ W/2",
-                  "ตำแหน่งด้านข้าง = |ระยะแขน × sinθ|; Pivot = W/2",
-                  "y_L=|Lsinθ|, y_B=|(L/2)sinθ|, p=W/2",
-                  f"y_L={yL:.3f} m, y_B={yB:.3f} m, p={pivot:.3f} m",
-                  f"Payload {'เลย' if yL>pivot else 'ยังอยู่ใน'} แนวรองรับ")
-        html+=sec(3,"โมเมนต์คว่ำด้านข้าง","มวลที่อยู่นอก Pivot เท่านั้นที่สร้างโมเมนต์คว่ำ",
-                  "โมเมนต์คว่ำ = ผลรวม(น้ำหนัก × ระยะที่เลย Pivot)",
-                  "M_O = F_L max(0,y_L-p) + m_B g max(0,y_B-p)",
-                  f"M_OL={FL:.2f}×{dL:.3f}={MOL:.2f}<br>M_OB={d['mb']:.2f}×9.81×{dB:.3f}={MOB:.2f}",
-                  f"M_O={MO:.2f} N·m")
-        html+=sec(4,"โมเมนต์ต้านด้านข้าง","มวลส่วนรถ รวมถึง Payload/Boom ที่ยังอยู่ด้านใน Pivot ต้องช่วยต้าน ไม่ควรถูกละทิ้ง",
-                  "โมเมนต์ต้าน = รถส่วนหลัก + Payload ที่อยู่ด้านใน + Boom ที่อยู่ด้านใน",
-                  "M_R = m_vehicle g p + m_L g max(0,p-y_L) + m_B g max(0,p-y_B)",
-                  f"M_vehicle={mveh:.2f}×9.81×{pivot:.3f}={MRV:.2f}<br>M_payload,res={d['ml']:.2f}×9.81×{rL:.3f}={MRL:.2f}<br>M_boom,res={d['mb']:.2f}×9.81×{rB:.3f}={MRB:.2f}",
-                  f"M_R={MR:.2f} N·m; SF_side={'∞' if sf>=999 else f'{sf:.3f}'}")
-        html+=sec(5,"การคว่ำหน้า-หลัง","ใช้เพลาหน้า/หลังเป็น Pivot และรวมโมเมนต์ทุกมวลตามตำแหน่งจริงในแนวยาว",
-                  "Safety Factor = ผลรวมโมเมนต์ต้าน ÷ ผลรวมโมเมนต์คว่ำ",
-                  "SF_front=ΣM_R/ΣM_O; SF_rear=ΣM_R/ΣM_O",
-                  f"x_rear={rear:.3f}, x_front={front:.3f}, x_crane={xc:.3f}, x_load={xload:.3f}, x_boom={xboom:.3f}",
-                  f"SF_front={'∞' if sfF>=999 else f'{sfF:.3f}'}, SF_rear={'∞' if sfR>=999 else f'{sfR:.3f}'}")
-        html+=sec(6,"เสถียรภาพขณะวิ่งขึ้นทางลาด","ใช้ CG รวมตอนวิ่ง, ความสูง CG, ความชัน และความเร่ง ตรวจโมเมนต์รอบเพลาหลัง",
-                  "ระยะจาก CG ถึงเพลาหลัง = x_CG,drive - x_rear; การเลื่อนแนวแรง = h[tanα + a/(g cosα)]",
-                  "d_shift=h tanα + h a/(g cosα); SF_slope=[g cosα·d_rear]/[h(g sinα+a)]",
-                  f"d_rear={slope['rear_arm']:.3f} m<br>d_slope={slope['shift_slope']:.3f} m<br>d_acc={slope['shift_acc']:.3f} m<br>margin={slope['margin']:.3f} m",
-                  ("SF_slope=∞" if slope["sf"]>=999 else f"SF_slope={slope['sf']:.3f}"))
-        if sm>0:
-            contrib="<br>".join([f"{name}: m={m:.2f} kg, x={x:.3f}, y={y:.3f}, z={z:.3f}" for name,m,x,y,z in rows])
-            html+=sec(7,"Combined CG จากตารางมวล","ใช้ค่าเฉลี่ยถ่วงน้ำหนักของมวลรายชิ้นสำหรับ Driving CG และ CG height",
-                      "CG รวม = Σ(m_i × ตำแหน่ง_i) ÷ Σm_i",
-                      "x_CG=Σ(m_i x_i)/Σm_i; y_CG=Σ(m_i y_i)/Σm_i; z_CG=Σ(m_i z_i)/Σm_i",
-                      contrib+f"<br>Σm={sm:.2f} kg",f"x={xg:.3f}, y={yg:.3f}, z={zg:.3f} m")
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
         best=self.stability_worst_record()
-        html+=sec(8,"Worst Case","สแกนมุมเครน -90° ถึง +90° ทีละ 1° และตรวจ Side/Front/Rear",
-                  "Safety Factor วิกฤต = ค่าต่ำสุดจากทุกมุมและทุกทิศ",
-                  "SF_worst=min(SF_side(θ),SF_front(θ),SF_rear(θ))",
-                  f"181 มุม × 3 ทิศ = 543 กรณี; วิกฤตที่ θ={best[1]}° {best[2]}",
-                  f"SF_worst={best[0]:.3f}")
-        html+="<p><b>ข้อจำกัด:</b> เป็น Preliminary rigid-body model; ต้องยืนยัน CG จริง, load transfer, tire/ground compliance, โครงสร้าง, bearing, brake และ dynamic shock ก่อนใช้งานจริง</p>"
+
+        def fmt(v):return "∞" if v>=999 else f"{v:.3f}"
+        def comp_table(b,coord):
+            rows=[]
+            for q in b["components"]:
+                pos=q[coord]
+                rows.append(f"<tr><td>{q['name']}</td><td>{q['mass']:.2f}</td><td>{q['factor']:.2f}</td>"
+                            f"<td>{q['force']:.2f}</td><td>{pos:.3f}</td><td>{q['arm']:.3f}</td>"
+                            f"<td>{q['moment']:.2f}</td><td>{q['role']}</td></tr>")
+            return ("<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>"
+                    "<tr><th>Component</th><th>m (kg)</th><th>Factor</th><th>Design force (N)</th>"
+                    f"<th>{coord} (m)</th><th>d⊥ (m)</th><th>M (N·m)</th><th>Role</th></tr>"
+                    +"".join(rows)+"</table>")
+        def case(title,b,coord,geom):
+            return f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
+            <h3>{title}</h3>{geom}
+            {comp_table(b,coord)}
+            <p><b>Overturning moment:</b> M_O = Σ(F_i d_i) on overturning side = {b['mo']:.2f} N·m<br>
+            <b>Resisting moment:</b> M_R = Σ(F_i d_i) on resisting side = {b['mr']:.2f} N·m<br>
+            <b>Safety factor:</b> SF = M_R/M_O = {fmt(b['sf'])} &nbsp; | &nbsp; Required SF = {d['req']:.2f}</p>
+            </div>"""
+
+        html=f"""<h1>STABILITY ANALYSIS — FORMAL VARIABLES, EQUATIONS & SUBSTITUTION</h1>
+        <p><b>Coordinate convention:</b> +x = vehicle forward, +y = vehicle right, +z = upward.
+        Crane angle θ: -90° = left, 0° = forward, +90° = right.</p>
+        <p><b>Tipping criterion:</b> at impending tipping, the support reaction on the wheel line opposite the selected tipping axis approaches 0.
+        Moment balance is therefore taken about the tipping axis P.</p>
+        <table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
+        <tr><th>Symbol</th><th>Definition</th><th>Value</th><th>Unit</th></tr>
+        <tr><td>m_total</td><td>Total vehicle system mass during crane mode</td><td>{d['mt']:.2f}</td><td>kg</td></tr>
+        <tr><td>m_V</td><td>Base vehicle mass = m_total - m_L - m_B</td><td>{mveh:.2f}</td><td>kg</td></tr>
+        <tr><td>m_L</td><td>Payload mass</td><td>{d['ml']:.2f}</td><td>kg</td></tr>
+        <tr><td>m_B</td><td>Boom mass</td><td>{d['mb']:.2f}</td><td>kg</td></tr>
+        <tr><td>W</td><td>Track width, wheel-center to wheel-center</td><td>{d['W']:.3f}</td><td>m</td></tr>
+        <tr><td>WB</td><td>Wheelbase, axle-center to axle-center</td><td>{d['WB']:.3f}</td><td>m</td></tr>
+        <tr><td>L</td><td>Boom radius to payload</td><td>{d['L']:.3f}</td><td>m</td></tr>
+        <tr><td>θ</td><td>Crane slew angle</td><td>{th:.1f}</td><td>deg</td></tr>
+        <tr><td>Kdyn</td><td>Payload dynamic design factor; adverse payload moment only</td><td>{d['kd']:.2f}</td><td>-</td></tr>
+        <tr><td>x_C</td><td>Crane axis measured forward from rear axle</td><td>{d['xC']:.3f}</td><td>m</td></tr>
+        <tr><td>x_CG,V</td><td>Base vehicle longitudinal CG</td><td>{d['xCG']:.3f}</td><td>m</td></tr>
+        <tr><td>x_CG,drive</td><td>Combined CG used in driving/slope mode</td><td>{d['driveXCG']:.3f}</td><td>m</td></tr>
+        <tr><td>h_CG</td><td>Combined CG height in slope mode</td><td>{slope['h']:.3f}</td><td>m</td></tr>
+        <tr><td>g</td><td>Gravitational acceleration</td><td>9.81</td><td>m/s²</td></tr>
+        </table>
+
+        <h2>1. Side geometry</h2>
+        <p>y_L = L sinθ = {d['L']:.3f} sin({th:.1f}°) = <b>{yL:.3f} m</b><br>
+        y_B = (L/2) sinθ = ({d['L']:.3f}/2) sin({th:.1f}°) = <b>{yB:.3f} m</b><br>
+        Left pivot: y_P,L = -W/2 = {-d['W']/2:.3f} m &nbsp; | &nbsp;
+        Right pivot: y_P,R = +W/2 = {d['W']/2:.3f} m</p>
+        <p>For each component: d⊥ = |y_i-y_P|. If the component is beyond P in the tipping direction it contributes to M_O;
+        otherwise it contributes to M_R. For an adverse payload only, F_L,d = Kdyn m_L g.</p>
+        """
+        html+=case("2. LEFT SIDE TIPPING",sl,"y",
+                   f"<p>Pivot P = {sl['pivot']:.3f} m; opposite reaction R_right → 0.</p>")
+        html+=case("3. RIGHT SIDE TIPPING",sr,"y",
+                   f"<p>Pivot P = {sr['pivot']:.3f} m; opposite reaction R_left → 0.</p>")
+        html+=case("4. FRONT TIPPING",fb,"x",
+                   f"<p>x_rear={fb['rear']:.3f}, x_front={fb['front']:.3f}, x_crane={fb['xc']:.3f}, "
+                   f"x_B={fb['xboom']:.3f}, x_L={fb['xload']:.3f}; rear reaction → 0.</p>")
+        html+=case("5. REAR TIPPING",rb0,"x",
+                   f"<p>x_rear={rb0['rear']:.3f}, x_front={rb0['front']:.3f}, x_crane={rb0['xc']:.3f}, "
+                   f"x_B={rb0['xboom']:.3f}, x_L={rb0['xload']:.3f}; front reaction → 0.</p>")
+        html+=f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
+        <h3>6. UPHILL REAR-TIPPING CHECK</h3>
+        <p>Use a coordinate system fixed to the slope. The weight is resolved into components; do not add W=mg again as another force.</p>
+        <p>W_parallel = mg sinα = {d['mt']:.2f}×9.81×sin({math.degrees(slope['alpha']):.2f}°) = <b>{slope['w_parallel']:.2f} N</b><br>
+        W_normal = mg cosα = {d['mt']:.2f}×9.81×cos({math.degrees(slope['alpha']):.2f}°) = <b>{slope['w_normal']:.2f} N</b><br>
+        F_I = ma = {d['mt']:.2f}×{slope['acc']:.3f} = <b>{slope['inertia']:.2f} N</b> (opposite uphill acceleration)<br>
+        d_R = x_CG,drive - x_rear = {slope['xcg']:.3f} - ({slope['rear']:.3f}) = <b>{slope['rear_arm']:.3f} m</b></p>
+        <p>M_O = (W_parallel + F_I)h_CG = ({slope['w_parallel']:.2f}+{slope['inertia']:.2f})×{slope['h']:.3f}
+        = <b>{slope['mo']:.2f} N·m</b><br>
+        M_R = W_normal d_R = {slope['w_normal']:.2f}×{max(0.0,slope['rear_arm']):.3f}
+        = <b>{slope['mr']:.2f} N·m</b><br>
+        SF_slope = M_R/M_O = <b>{fmt(slope['sf'])}</b></p></div>
+
+        <h2>7. Worst-case search</h2>
+        <p>SF_worst = min[SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ)] for θ=-90°...+90° in 1° increments.<br>
+        181 angles × 4 tipping directions = <b>724 cases</b>.<br>
+        Critical result: θ={best[1]}°, {best[2]}, SF_worst={fmt(best[0])}.</p>
+
+        <p><b>Engineering limitation:</b> preliminary rigid-body stability analysis only. Verify measured mass/CG, actual support geometry,
+        tire/ground compliance, structural strength, slewing bearing, brakes, dynamic shock and manufacturer limits before fabrication/use.</p>"""
         return html
 
     def make_crane(self):
@@ -8357,178 +8402,67 @@ void loop() {{
 
 
     def make_fbd(self):
-        w=QWidget();self.fbdPage=w
-        l=QVBoxLayout(w);l.setContentsMargins(14,14,14,14);l.setSpacing(10)
-
-        guide=QLabel(
-            "วิธีอ่าน FBD แบบง่าย:  1) หาจุดแดง Pivot  →  "
-            "2) ดูแรงที่ทำให้คว่ำ  →  3) ดูแรงที่ช่วยต้าน  →  "
-            "4) เปรียบเทียบ SF กับค่าที่ต้องการ"
-        )
-        guide.setWordWrap(True)
-        guide.setStyleSheet(
-            "background:#eef7ff;border:1px solid #b9d8f3;border-radius:10px;"
-            "padding:10px;font-size:11pt;font-weight:700;color:#17456b"
-        )
-        l.addWidget(guide)
-
+        w=QWidget();self.fbdPage=w; l=QVBoxLayout(w)
         top=QHBoxLayout()
-        self.fbdModeCombo=QComboBox(); self.fbdModeCombo.addItems([
-            "คว่ำซ้าย / Side Left",
-            "คว่ำขวา / Side Right",
-            "คว่ำหน้า / Front",
-            "คว่ำหลัง / Rear",
-            "รถบนทางลาด / Slope"
+        self.fbdModeCombo=QComboBox()
+        self.fbdModeCombo.addItems([
+            "Geometry / Support Polygon",
+            "Side Left / คว่ำซ้าย",
+            "Side Right / คว่ำขวา",
+            "Front / คว่ำหน้า",
+            "Rear / คว่ำหลัง",
+            "Slope / ทางลาด",
         ])
-        self.fbdModeCombo.setMinimumWidth(190)
+        self.fbdAuto=QCheckBox("Auto FBD: แสดงทิศทางวิกฤตตามมุมเครนปัจจุบัน")
+        self.fbdAuto.setChecked(True)
+        self.fbdCriticalLabel=QLabel("Critical direction: -")
+        self.fbdCriticalLabel.setStyleSheet("font-weight:700;color:#6542a5")
+        top.addWidget(self.fbdModeCombo);top.addWidget(self.fbdAuto);top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
+        self.forceDiagram=ForceDiagram(self); l.addWidget(self.forceDiagram)
+        t=QPlainTextEdit(); t.setReadOnly(True); t.setMaximumHeight(220)
+        t.setPlainText("""FORMAL FBD CONVENTION / หลักการแผนภาพแรง
 
-        self.fbdSimple=QCheckBox("โหมดง่ายมาก (แนะนำสำหรับนำเสนอ)")
-        self.fbdSimple.setChecked(True)
-        self.fbdSimple.setToolTip("เปิด = ลดข้อมูลบนรูป เหลือเฉพาะแรงหลัก Pivot และผล M_O / M_R / SF")
+แกนอ้างอิงรถ:
++x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
+มุมเครน: -90° = ซ้าย, 0° = หน้า, +90° = ขวา
 
-        self.fbdAuto=QCheckBox("Auto: เลือกทิศวิกฤตให้")
-        self.fbdAuto.setChecked(False)
-        self.fbdAuto.setToolTip("ถ้าเปิด โปรแกรมจะเลือก Side/Front/Rear ที่ SF ต่ำที่สุดตามมุมเครนปัจจุบัน")
+FBD ต้องแยกตัวรถออกจากพื้น แล้วแสดงแรงภายนอกและแรงปฏิกิริยา
+W_V = น้ำหนักรถส่วนหลัก, W_B = น้ำหนักแขน, W_L = น้ำหนัก Payload
+R_L/R_R = แรงปฏิกิริยาพื้นด้านซ้าย/ขวา
+R_F/R_Rr = แรงปฏิกิริยาแนวล้อหน้า/หลัง
 
-        self.fbdCriticalLabel=QLabel("เลือกกรณีที่ต้องการดู")
-        self.fbdCriticalLabel.setStyleSheet(
-            "font-weight:700;color:#6542a5;background:#f5f1ff;padding:6px 10px;border-radius:8px"
-        )
+ที่จุดเริ่มคว่ำ Reaction ฝั่งตรงข้าม Tipping Axis → 0
+โมเมนต์: M = F × d_perpendicular
+Safety Factor: SF = M_R / M_O
 
-        top.addWidget(QLabel("กรณี:"))
-        top.addWidget(self.fbdModeCombo)
-        top.addWidget(self.fbdSimple)
-        top.addWidget(self.fbdAuto)
-        top.addStretch(1)
-        top.addWidget(self.fbdCriticalLabel)
-        l.addLayout(top)
+หมายเหตุ Dynamic Factor:
+F_L,d = Kdyn × m_L × g เป็น Equivalent Design Load ใช้เฉพาะเมื่อ Payload
+สร้างโมเมนต์คว่ำ ไม่ใช่น้ำหนักจริงเพิ่มขึ้นทางกายภาพ
 
-        self.forceDiagram=ForceDiagram(self)
-        self.forceDiagram.setSimpleMode(True)
-        l.addWidget(self.forceDiagram,1)
-
-        self.fbdExplain=QTextEdit()
-        self.fbdExplain.setReadOnly(True)
-        self.fbdExplain.setMaximumHeight(220)
-        self.fbdExplain.setStyleSheet(
-            "font-size:11pt;background:white;border:1px solid #d7e1eb;border-radius:10px;padding:6px"
-        )
-        l.addWidget(self.fbdExplain)
-
-        self.fbdModeCombo.currentIndexChanged.connect(self._on_fbd_mode_changed)
-        self.fbdSimple.toggled.connect(self._on_fbd_simple_changed)
+Slope FBD ใช้ weight components mg sin(alpha), mg cos(alpha)
+โดยไม่วาด W=mg ซ้ำในชุดแรงเดียวกัน และใช้ F_I = ma ตรงข้ามความเร่ง
+สำหรับ quasi-static tipping calculation.
+""")
+        l.addWidget(t)
+        self.fbdModeCombo.currentIndexChanged.connect(lambda i: self.forceDiagram.setMode(i) if not self.fbdAuto.isChecked() else None)
         self.fbdAuto.toggled.connect(self.update_auto_fbd)
         self.tabs.addTab(w,"3. FBD / แผนภาพแรง")
-        self.update_auto_fbd()
-        self.update_fbd_explanation()
-
-    def _on_fbd_mode_changed(self,i):
-        if not self.fbdAuto.isChecked():
-            self.forceDiagram.setCaseAngle(None)
-            self.forceDiagram.setMode(i)
-            self.fbdCriticalLabel.setText("Manual: "+self.fbdModeCombo.currentText())
-        self.update_fbd_explanation()
-
-    def _on_fbd_simple_changed(self,on):
-        self.forceDiagram.setSimpleMode(on)
-        self.fbdCriticalLabel.setText(
-            ("โหมดเข้าใจง่าย • " if on else "โหมดรายละเอียดวิศวกรรม • ")
-            + self.fbdModeCombo.currentText()
-        )
-        self.update_fbd_explanation()
 
     def update_auto_fbd(self):
         if not hasattr(self,"fbdAuto") or not hasattr(self,"forceDiagram"): return
-        self.forceDiagram.setSimpleMode(
-            self.fbdSimple.isChecked() if hasattr(self,"fbdSimple") else True
-        )
         if not self.fbdAuto.isChecked():
-            self.forceDiagram.setCaseAngle(None)
             self.forceDiagram.setMode(self.fbdModeCombo.currentIndex())
-            self.fbdCriticalLabel.setText("Manual: "+self.fbdModeCombo.currentText())
-            if hasattr(self,"fbdExplain"): self.update_fbd_explanation()
+            self.fbdCriticalLabel.setText("Manual FBD")
             return
-        d=self.inputs();side=self.calc_side(d,theta=d["th"])[0];front,rear=self.longitudinal_sf_at(d,d["th"])
-        side_mode=1 if d["th"]>=0 else 0
-        side_name="Side Right / คว่ำขวา" if d["th"]>=0 else "Side Left / คว่ำซ้าย"
-        vals=[(side_name,side,side_mode),("Front / คว่ำหน้า",front,2),("Rear / คว่ำหลัง",rear,3)]
+        d=self.inputs()
+        sl=self.side_moment_balance(d,d["th"],"left")["sf"]
+        sr=self.side_moment_balance(d,d["th"],"right")["sf"]
+        front,rear=self.longitudinal_sf_at(d,d["th"])
+        vals=[("Side Left",sl,1),("Side Right",sr,2),("Front",front,3),("Rear",rear,4)]
         typ,val,mode=min(vals,key=lambda x:x[1])
         self.fbdModeCombo.blockSignals(True);self.fbdModeCombo.setCurrentIndex(mode);self.fbdModeCombo.blockSignals(False)
-        self.forceDiagram.setCaseAngle(d["th"])
         self.forceDiagram.setMode(mode)
-        self.fbdCriticalLabel.setText(
-            f"Auto Critical @ θ={d['th']:.0f}°: {typ} | SF={'∞' if val>=999 else f'{val:.3f}'}"
-        )
-        if hasattr(self,"fbdExplain"): self.update_fbd_explanation()
-
-    def update_fbd_explanation(self):
-        if not hasattr(self,"fbdExplain") or not hasattr(self,"fbdModeCombo"): return
-        d=self.inputs()
-        mode=self.fbdModeCombo.currentIndex()
-
-        def result_box(MO,MR,sf):
-            sf_text="∞" if sf>=999 else f"{sf:.3f}"
-            ok=sf>=d["req"]
-            color="#176337" if ok else "#b42318"
-            status="ผ่านเกณฑ์เบื้องต้น" if ok else "ไม่ผ่าน — ต้องปรับแบบ"
-            return (
-                f"<div style='background:#f8fafc;border:1px solid #d7e1eb;padding:12px;border-radius:8px'>"
-                f"<b>สรุปแบบง่าย</b><br>"
-                f"<span style='color:#b42318'><b>ฝั่งพยายามทำให้คว่ำ = {MO:.1f} N·m</b></span><br>"
-                f"<span style='color:#176337'><b>ฝั่งช่วยต้านการคว่ำ = {MR:.1f} N·m</b></span><br>"
-                f"<span style='color:{color};font-size:13pt'><b>Safety Factor = {sf_text} → {status}</b></span><br>"
-                f"<small>สูตร: SF = ฝั่งช่วยต้าน ÷ ฝั่งพยายามคว่ำ | ต้องได้ ≥ {d['req']:.2f}</small>"
-                f"</div>"
-            )
-
-        if mode in (0,1):
-            left=(mode==0);angle=-90 if left else 90
-            sf,MO,MR=self.calc_side(d,theta=angle)
-            side="ซ้าย" if left else "ขวา"
-            html=f"""
-            <h3 style='color:#17456b;margin:2px'>ดูรูปนี้แค่ 4 อย่าง: รถคว่ำด้าน{side}</h3>
-            <ol>
-              <li><b>จุดแดง</b> = จุดหมุนที่รถจะเริ่มคว่ำ</li>
-              <li><span style='color:#b42318'><b>ลูกศรแดง</b></span> = น้ำหนักที่ช่วยดึงรถให้คว่ำ</li>
-              <li><span style='color:#2459b3'><b>ลูกศรน้ำเงิน</b></span> = น้ำหนักที่ช่วยต้านการคว่ำ</li>
-              <li><b>ดูค่า Safety Factor ด้านล่าง</b> — ถ้าถึงเกณฑ์ถือว่าผ่านเบื้องต้น</li>
-            </ol>
-            {result_box(MO,MR,sf)}
-            <p><b>จำง่าย:</b> ถ้า M_R มากกว่า M_O มากพอ รถจะต้านการคว่ำได้ดีขึ้น</p>
-            """
-        elif mode in (2,3):
-            front=(mode==2);direction="front" if front else "rear"
-            label="หน้า" if front else "หลัง"
-            angle=d["th"] if self.fbdAuto.isChecked() else d["th"]
-            bal=self.longitudinal_moment_balance(d,angle,direction)
-            html=f"""
-            <h3 style='color:#17456b;margin:2px'>ดูรูปนี้แค่ 4 อย่าง: รถคว่ำด้าน{label}</h3>
-            <ol>
-              <li><b>จุดแดง</b> = แนวล้อ{label}ที่รถจะหมุนรอบ</li>
-              <li><span style='color:#b42318'><b>สีแดง</b></span> = แรงที่พยายามทำให้คว่ำ</li>
-              <li><span style='color:#2459b3'><b>สีน้ำเงิน</b></span> = แรงที่ช่วยต้าน</li>
-              <li><b>Safety Factor</b> คือคำตอบสุดท้ายที่ใช้ตัดสินผ่าน/ไม่ผ่านเบื้องต้น</li>
-            </ol>
-            {result_box(bal['mo'],bal['mr'],bal['sf'])}
-            <p>มุมเครนที่ใช้ในภาพ = <b>{angle:.0f}°</b> &nbsp; | &nbsp; Wheelbase = {d['WB']:.3f} m</p>
-            """
-        else:
-            sr=self.slope_stability_results(d)
-            alpha=math.radians(self.slope.value())
-            MR=d["mt"]*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
-            MO=d["mt"]*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
-            html=f"""
-            <h3 style='color:#17456b;margin:2px'>ดูรูปนี้แค่ 4 อย่าง: รถบนทางลาด</h3>
-            <ol>
-              <li><b>จุดแดง</b> = จุดหมุนด้านหลังที่ต้องเฝ้าระวัง</li>
-              <li><span style='color:#b42318'><b>สีแดง</b></span> = ส่วนของน้ำหนักที่ดึงรถลงตามทางลาด</li>
-              <li><span style='color:#16803a'><b>สีเขียว</b></span> = แรงจากพื้นที่พยุงรถ</li>
-              <li><b>Safety Factor</b> ใช้สรุปว่าผ่านเกณฑ์เบื้องต้นหรือไม่</li>
-            </ol>
-            {result_box(MO,MR,sr['sf'])}
-            <p><b>มุมทางลาด α = {self.slope.value():.2f}°</b> — ใช้องศาใน sin/cos ไม่ใช้ค่า Slope %</p>
-            """
-        self.fbdExplain.setHtml(html)
+        self.fbdCriticalLabel.setText(f"Critical @ θ={d['th']:.0f}°: {typ} | SF={'∞' if val>=999 else f'{val:.3f}'}")
 
     def make_components(self):
         w=QWidget();self.componentsPage=w; l=QVBoxLayout(w)
@@ -8661,41 +8595,38 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
         l.addWidget(self.worstout,1)
         self.tabs.addTab(w,"5. Worst Case / จุดวิกฤต")
 
-    def longitudinal_moment_balance(self,d,th,direction="front"):
-        """Return SF, overturning/restoring moments and component moment arms."""
-        rear=-d["WB"]/2; front=d["WB"]/2
+    def longitudinal_moment_balance(self,d,th,case):
+        """Moment balance about front/rear wheel-contact line. +x = forward."""
+        rear=-d["WB"]/2.0; front=d["WB"]/2.0
         xc=rear+d["xC"]
         xload=xc+d["L"]*math.cos(math.radians(th))
-        xboom=xc+(d["L"]/2)*math.cos(math.radians(th))
+        xboom=xc+(d["L"]/2.0)*math.cos(math.radians(th))
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        front_case=str(direction).lower().startswith("f")
-        pivot=front if front_case else rear
-        sense=1.0 if front_case else -1.0
-
-        mo=mr=0.0;components=[]
+        case=str(case).lower()
+        pivot=front if case=="front" else rear
+        direction=1.0 if case=="front" else -1.0
+        mo=0.0;mr=0.0;components=[]
         for name,mass,x,is_payload in (
             ("Vehicle",mveh,d["xCG"],False),
-            ("Payload",d["ml"],xload,True),
             ("Boom",d["mb"],xboom,False),
+            ("Payload",d["ml"],xload,True),
         ):
-            signed=sense*(x-pivot)
-            if signed>1e-12:
-                factor=d["kd"] if is_payload else 1.0
-                force=factor*mass*G;arm=signed;moment=force*arm
-                mo+=moment;role="overturning"
-            else:
-                force=mass*G;arm=max(0.0,-signed);moment=force*arm
-                mr+=moment;role="restoring"
-            components.append(dict(name=name,mass=mass,x=x,force=force,arm=arm,moment=moment,role=role))
-        sf=mr/mo if mo>1e-12 else 999
-        return dict(sf=sf,mo=mo,mr=mr,pivot=pivot,rear=rear,front=front,xc=xc,
-                    xload=xload,xboom=xboom,components=components,
-                    direction=("front" if front_case else "rear"))
+            signed=direction*(x-pivot)
+            role="overturning" if signed>1e-12 else "resisting" if signed<-1e-12 else "on_pivot"
+            factor=d["kd"] if (is_payload and role=="overturning") else 1.0
+            force=mass*G*factor
+            arm=abs(signed);moment=force*arm
+            if role=="overturning":mo+=moment
+            elif role=="resisting":mr+=moment
+            components.append(dict(name=name,mass=mass,x=x,force=force,arm=arm,moment=moment,
+                                   role=role,factor=factor))
+        sf=mr/mo if mo>1e-12 else 999.0
+        return dict(case=case,rear=rear,front=front,xc=xc,xload=xload,xboom=xboom,
+                    pivot=pivot,mo=mo,mr=mr,sf=sf,components=components)
 
     def longitudinal_sf_at(self,d,th):
-        front=self.longitudinal_moment_balance(d,th,"front")
-        rear=self.longitudinal_moment_balance(d,th,"rear")
-        return front["sf"],rear["sf"]
+        return (self.longitudinal_moment_balance(d,th,"front")["sf"],
+                self.longitudinal_moment_balance(d,th,"rear")["sf"])
 
     def calc_worst(self):
         if not hasattr(self,"worstout") or not hasattr(self,"mt"):
@@ -8703,7 +8634,7 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
         try:
             d=self.inputs()
             raw=self.stability_worst_scan()
-            map_name={"Side":"Side / ด้านข้าง","Front":"Front / ด้านหน้า","Rear":"Rear / ด้านหลัง"}
+            map_name={"Side Left":"Side Left / ด้านซ้าย","Side Right":"Side Right / ด้านขวา","Front":"Front / ด้านหน้า","Rear":"Rear / ด้านหลัง"}
             records=[(v,ang,map_name.get(typ,typ)) for v,ang,typ in raw]
             val,ang,typ=records[0] if records else (999,None,"-")
             status="PASS / ผ่านเกณฑ์เบื้องต้น" if val>=d["req"] else "FAIL / ต้องปรับแบบ"
@@ -8713,7 +8644,7 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
                 for i,(v,th,typ0) in enumerate(top5)
             )
             val_text='∞' if val>=999 else f'{val:.3f}'
-            formula_text="SF_worst = min(SF_side(θ), SF_front(θ), SF_rear(θ))"
+            formula_text="SF_worst = min(SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ))"
             html=f"""
             <h2 style='color:#17456b'>WORST CASE SEARCH / ค้นหากรณีวิกฤต</h2>
             <p>รูปแบบการแสดงผล: <b>คำอธิบายภาษาไทย → สูตรภาษาไทย → สูตรตัวแปร → แทนค่า → คำตอบ</b></p>
@@ -8726,8 +8657,8 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
               <p><b>สูตรตัวแปร</b></p>
               <p style='margin-left:18px'>{formula_text}<br>θ = -90°, -89°, ..., +90°</p>
               <p><b>แทนค่า</b></p>
-              <p style='margin-left:18px'>181 มุม × 3 ทิศทาง = 543 กรณี</p>
-              <p style='color:#176337'><b>คำตอบ: ตรวจครบ 543 กรณี</b></p>
+              <p style='margin-left:18px'>181 มุม × 4 ทิศทาง = 724 กรณี</p>
+              <p style='color:#176337'><b>คำตอบ: ตรวจครบ 724 กรณี</b></p>
             </div>
 
             <div style='border:1px solid #d6e0ea;padding:14px 16px;margin:10px 0;background:#fbfdff'>
@@ -8758,110 +8689,98 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
         self.tabs.addTab(w,"6. วิธีคำนวณ / Calculation Steps")
 
     def update_calc_steps(self,d,sf,MO,MR,sfF,sfR):
-        th=math.radians(d["th"]);g=G
-        pivot=d["W"]/2
-        FL=d["kd"]*d["ml"]*g
-        yL=abs(d["L"]*math.sin(th));yB=abs((d["L"]/2)*math.sin(th))
-        dL=max(0.0,yL-pivot);rL=max(0.0,pivot-yL)
-        dB=max(0.0,yB-pivot);rB=max(0.0,pivot-yB)
+        th=float(d["th"])
+        sl=self.side_moment_balance(d,th,"left");sr=self.side_moment_balance(d,th,"right")
+        fb=self.longitudinal_moment_balance(d,th,"front");rb0=self.longitudinal_moment_balance(d,th,"rear")
+        slope=self.slope_stability_results(d)
+        yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        MOL=FL*dL
-        MOB=d["mb"]*g*dB
-        MRveh=mveh*g*pivot
-        MRL=d["ml"]*g*rL
-        MRB=d["mb"]*g*rB
-        rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
-        xload=xc+d["L"]*math.cos(th);xboom=xc+(d["L"]/2)*math.cos(th)
-        sr=self.slope_stability_results(d)
-        sf_text="∞" if sf>=999 else f"{sf:.3f}"
-        sfF_text="∞" if sfF>=999 else f"{sfF:.3f}"
-        sfR_text="∞" if sfR>=999 else f"{sfR:.3f}"
-        slope_text="∞" if sr["sf"]>=999 else f"{sr['sf']:.3f}"
+        def fmt(v):return "∞" if v>=999 else f"{v:.3f}"
+        def lines(b,coord):
+            out=[]
+            for q in b["components"]:
+                out.append(f"{q['name']}: {coord}={q[coord]:+.3f} m, F={q['force']:.2f} N, "
+                           f"d={q['arm']:.3f} m, M={q['moment']:.2f} N·m, {q['role']}")
+            return "\n".join(out)
+        self.steps.setPlainText(f"""FORMAL STABILITY CALCULATION / สูตร + แทนค่า
 
-        self.steps.setPlainText(f"""A) SIDE TIPPING / การคว่ำด้านข้าง
+CONVENTION
++x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
+θ = -90° ซ้าย, 0° หน้า, +90° ขวา
+ที่ impending tipping: Reaction ฝั่งตรงข้าม Tipping Axis → 0
 
-1) แรง Payload สำหรับด้านที่ทำให้คว่ำ
-F_L,design = Kdyn × m_L × g
-           = {d['kd']:.2f} × {d['ml']:.2f} × 9.81
-           = {FL:.2f} N
+A) SIDE GEOMETRY
+m_V = m_total - m_L - m_B
+    = {d['mt']:.2f} - {d['ml']:.2f} - {d['mb']:.2f}
+    = {mveh:.2f} kg
 
-หมายเหตุ: Kdyn ใช้เพิ่มเฉพาะโมเมนต์ด้านที่เป็นผลเสีย
-ถ้า Payload ยังอยู่ด้านใน Pivot จะใช้มวลจริง m_L ในโมเมนต์ต้าน
-เพื่อไม่ให้ Dynamic Factor สร้างความเสถียรเพิ่มแบบไม่สมเหตุผล
+y_L = L sinθ
+    = {d['L']:.3f} sin({th:.1f}°)
+    = {yL:.3f} m
 
-2) ตำแหน่งด้านข้าง
-y_L = |L sinθ| = {yL:.3f} m
-y_B = |(L/2) sinθ| = {yB:.3f} m
-Pivot = W/2 = {d['W']:.3f}/2 = {pivot:.3f} m
+y_B = (L/2) sinθ
+    = ({d['L']:.3f}/2) sin({th:.1f}°)
+    = {yB:.3f} m
 
-3) แขนโมเมนต์คว่ำ
-d_L = max(0, y_L-Pivot) = {dL:.3f} m
-d_B = max(0, y_B-Pivot) = {dB:.3f} m
+Left pivot  y_P,L = -W/2 = {-d['W']/2:.3f} m
+Right pivot y_P,R = +W/2 = { d['W']/2:.3f} m
 
-4) โมเมนต์คว่ำ
-M_OL = F_L,design × d_L = {FL:.2f} × {dL:.3f} = {MOL:.2f} N·m
-M_OB = m_B × g × d_B = {d['mb']:.2f} × 9.81 × {dB:.3f} = {MOB:.2f} N·m
-M_O = M_OL + M_OB = {MO:.2f} N·m
+Equivalent adverse Payload design load:
+F_L,d = Kdyn m_L g
+      = {d['kd']:.2f} × {d['ml']:.2f} × 9.81
+      = {d['kd']*d['ml']*G:.2f} N
+หมายเหตุ: ใช้ Kdyn เฉพาะเมื่อ Payload สร้าง M_O
 
-5) โมเมนต์ต้าน
-m_vehicle = m_total - m_L - m_B
-          = {d['mt']:.2f} - {d['ml']:.2f} - {d['mb']:.2f}
-          = {mveh:.2f} kg
+B) LEFT SIDE TIPPING
+{lines(sl,'y')}
+M_O,L = {sl['mo']:.2f} N·m
+M_R,L = {sl['mr']:.2f} N·m
+SF_left = M_R,L / M_O,L = {fmt(sl['sf'])}
 
-M_R,vehicle = m_vehicle × g × Pivot = {MRveh:.2f} N·m
-M_R,payload = m_L × g × max(0,Pivot-y_L) = {MRL:.2f} N·m
-M_R,boom    = m_B × g × max(0,Pivot-y_B) = {MRB:.2f} N·m
-M_R,total   = {MR:.2f} N·m
+C) RIGHT SIDE TIPPING
+{lines(sr,'y')}
+M_O,R = {sr['mo']:.2f} N·m
+M_R,R = {sr['mr']:.2f} N·m
+SF_right = M_R,R / M_O,R = {fmt(sr['sf'])}
 
-6) Safety Factor
-SF_side = M_R / M_O = {sf_text}
-Target SF = {d['req']:.2f}
-Result = {'PASS / ผ่านเกณฑ์เบื้องต้น' if sf>=d['req'] else 'FAIL / ต้องปรับแบบ'}
+Side SF ที่การ์ด = min(SF_left, SF_right) = {fmt(min(sl['sf'],sr['sf']))}
 
-------------------------------------------------------------
+D) FRONT TIPPING
+Pivot x_P = x_front = {fb['pivot']:.3f} m
+x_crane={fb['xc']:.3f} m, x_B={fb['xboom']:.3f} m, x_L={fb['xload']:.3f} m
+{lines(fb,'x')}
+M_O,F = {fb['mo']:.2f} N·m
+M_R,F = {fb['mr']:.2f} N·m
+SF_front = {fmt(fb['sf'])}
 
-B) FRONT / REAR TIPPING / การคว่ำหน้า-หลัง
+E) REAR TIPPING
+Pivot x_P = x_rear = {rb0['pivot']:.3f} m
+x_crane={rb0['xc']:.3f} m, x_B={rb0['xboom']:.3f} m, x_L={rb0['xload']:.3f} m
+{lines(rb0,'x')}
+M_O,Rr = {rb0['mo']:.2f} N·m
+M_R,Rr = {rb0['mr']:.2f} N·m
+SF_rear = {fmt(rb0['sf'])}
 
-x_rear  = -WB/2 = {rear:.3f} m
-x_front = +WB/2 = {front:.3f} m
-x_crane = x_rear + x_C = {xc:.3f} m
-x_load  = x_crane + L cosθ = {xload:.3f} m
-x_boom  = x_crane + (L/2)cosθ = {xboom:.3f} m
+F) UPHILL REAR-TIPPING
+α = {math.degrees(slope['alpha']):.2f}°
+W_parallel = mg sinα = {slope['w_parallel']:.2f} N
+W_normal   = mg cosα = {slope['w_normal']:.2f} N
+F_I = ma = {slope['inertia']:.2f} N
+d_R = x_CG,drive - x_rear = {slope['rear_arm']:.3f} m
+h_CG = {slope['h']:.3f} m
 
-หลักการ:
-- แต่ละมวลถูกจัดเป็นโมเมนต์คว่ำหรือโมเมนต์ต้านตามด้านของ Pivot
-- Payload ใช้ Kdyn เฉพาะเมื่อเป็นโมเมนต์คว่ำ
-- ถ้า Payload เป็นโมเมนต์ต้าน ใช้น้ำหนักจริงของ Payload
+M_O,slope = (W_parallel + F_I) h_CG
+          = ({slope['w_parallel']:.2f} + {slope['inertia']:.2f}) × {slope['h']:.3f}
+          = {slope['mo']:.2f} N·m
 
-SF_front = {sfF_text}
-SF_rear  = {sfR_text}
+M_R,slope = W_normal d_R
+          = {slope['w_normal']:.2f} × {max(0.0,slope['rear_arm']):.3f}
+          = {slope['mr']:.2f} N·m
 
-------------------------------------------------------------
+SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
 
-C) UPHILL DRIVING STABILITY / รถวิ่งขึ้นทางลาด
-
-ใช้ Combined driving CG เพราะในโหมดวิ่ง โหลดวางอยู่บนรถ ไม่ได้แขวนที่ปลายเครน
-
-x_CG,drive = {sr['xcg']:.3f} m
-x_rear     = {sr['rear']:.3f} m
-d_rear     = x_CG,drive - x_rear = {sr['rear_arm']:.3f} m
-
-d_slope = h_CG tanα
-        = {sr['h']:.3f} × tan({self.slope.value():.1f}°)
-        = {sr['shift_slope']:.3f} m
-
-d_acc = h_CG × a/(g cosα)
-      = {sr['shift_acc']:.3f} m
-
-d_total = {sr['shift_total']:.3f} m
-Margin to rear pivot = {sr['margin']:.3f} m
-
-SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
-         = {slope_text}
-
-หมายเหตุ:
-ผลทั้งหมดเป็น Preliminary Engineering Calculation
-ต้องยืนยันมวล/CG จริง, การถ่ายน้ำหนัก, ยาง/พื้น, โครงสร้าง และแรงกระแทกก่อนผลิตจริง
+เกณฑ์ที่ตั้งไว้ SF_required = {d['req']:.2f}
+ผลทั้งหมดเป็น Preliminary rigid-body stability calculation.
 """)
 
     def make_design(self):
@@ -8885,205 +8804,82 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
 
     def stability_fbd_cases(self,d=None):
         d=d or self.inputs()
-        front_candidates=[]
-        rear_candidates=[]
-        for a in range(-90,91):
-            sfF,sfR=self.longitudinal_sf_at(d,a)
-            front_candidates.append((sfF,a))
-            rear_candidates.append((sfR,a))
-        front_angle=min(front_candidates,key=lambda x:x[0])[1]
-        rear_angle=min(rear_candidates,key=lambda x:x[0])[1]
-        side_sf_left=self.calc_side(d,theta=-90)[0]
-        side_sf_right=self.calc_side(d,theta=90)[0]
-        front_sf=self.longitudinal_sf_at(d,front_angle)[0]
-        rear_sf=self.longitudinal_sf_at(d,rear_angle)[1]
+        left=min((self.side_moment_balance(d,a,"left")["sf"],a) for a in range(-90,91))
+        right=min((self.side_moment_balance(d,a,"right")["sf"],a) for a in range(-90,91))
+        front=min((self.longitudinal_moment_balance(d,a,"front")["sf"],a) for a in range(-90,91))
+        rear=min((self.longitudinal_moment_balance(d,a,"rear")["sf"],a) for a in range(-90,91))
         slope=self.slope_stability_results(d)
         return [
-            {"key":"side_left","title":"SIDE TIPPING - LEFT","thai":"การคว่ำด้านซ้าย","mode":0,"angle":-90.0,"sf":side_sf_left},
-            {"key":"side_right","title":"SIDE TIPPING - RIGHT","thai":"การคว่ำด้านขวา","mode":1,"angle":90.0,"sf":side_sf_right},
-            {"key":"front","title":"FRONT TIPPING","thai":"การคว่ำด้านหน้า","mode":2,"angle":float(front_angle),"sf":front_sf},
-            {"key":"rear","title":"REAR TIPPING","thai":"การคว่ำด้านหลัง","mode":3,"angle":float(rear_angle),"sf":rear_sf},
-            {"key":"slope","title":"SLOPE STABILITY","thai":"เสถียรภาพบนทางลาด","mode":4,"angle":None,"sf":slope["sf"]},
+            {"key":"side_left","title":"LEFT SIDE TIPPING","thai":"การคว่ำด้านซ้าย","mode":1,"angle":float(left[1]),"sf":float(left[0])},
+            {"key":"side_right","title":"RIGHT SIDE TIPPING","thai":"การคว่ำด้านขวา","mode":2,"angle":float(right[1]),"sf":float(right[0])},
+            {"key":"front","title":"FRONT TIPPING","thai":"การคว่ำด้านหน้า","mode":3,"angle":float(front[1]),"sf":float(front[0])},
+            {"key":"rear","title":"REAR TIPPING","thai":"การคว่ำด้านหลัง","mode":4,"angle":float(rear[1]),"sf":float(rear[0])},
+            {"key":"slope","title":"UPHILL REAR-TIPPING","thai":"การคว่ำขณะขึ้นทางลาด","mode":5,"angle":None,"sf":float(slope["sf"])},
         ]
 
     def _render_stability_fbd_png(self,mode,path,angle=None):
-        fd=ForceDiagram(self)
-        fd.resize(1100,720)
-        fd.setSimpleMode(True)
-        fd.setMode(mode)
-        fd.setCaseAngle(angle)
-        pix=QPixmap(fd.size())
-        pix.fill(QColor("white"))
-        fd.render(pix)
-        ok=pix.save(str(path),"PNG")
-        fd.deleteLater()
-        if not ok:
-            raise RuntimeError("Could not render FBD image")
+        fd=ForceDiagram(self);fd.resize(1180,760);fd.setMode(mode);fd.setCaseAngle(angle)
+        pix=QPixmap(fd.size());pix.fill(QColor("white"));fd.render(pix)
+        ok=pix.save(str(path),"PNG");fd.deleteLater()
+        if not ok:raise RuntimeError("Could not render FBD image")
         return path
 
-    def stability_fbd_report_html(self,tmpdir,d=None):
-        """Generate beginner-first FBD pages plus a technical appendix."""
-        d=d or self.inputs()
-        cases=self.stability_fbd_cases(d)
-        rows=[];simple_pages=[];appendix_pages=[]
-
-        for idx,case in enumerate(cases,1):
-            key=case["key"];angle=case["angle"]
-            sf=float(case["sf"])
-            sf_text="∞" if sf>=999 else f"{sf:.3f}"
-            ok=sf>=d["req"]
-            status="ผ่านเกณฑ์" if ok else "ไม่ผ่าน — ต้องปรับแบบ"
-            status_color="#176337" if ok else "#b42318"
-            angle_text="-" if angle is None else f"{angle:.0f}°"
-            fp=Path(tmpdir)/("fbd_"+key+".png")
-            self._render_stability_fbd_png(case["mode"],fp,angle)
-
-            if key in ("side_left","side_right"):
-                _,MO,MR=self.calc_side(d,theta=angle)
-                side_th="ซ้าย" if key=="side_left" else "ขวา"
-                mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-                read_steps=[
-                    f"<b>1.</b> จุดแดงที่ล้อ{side_th} = จุดที่รถจะเริ่มหมุนคว่ำ",
-                    "<b>2.</b> ลูกศรสีแดง = น้ำหนักที่พยายามดึงรถให้คว่ำ",
-                    "<b>3.</b> ลูกศรสีน้ำเงิน = น้ำหนักรถที่ช่วยต้านการคว่ำ",
-                    "<b>4.</b> ดูกล่อง SF ด้านล่าง: ถ้า SF มากกว่าหรือเท่ากับค่าที่กำหนดถือว่าผ่านเบื้องต้น",
-                ]
-                meaning=(
-                    f"กรณีนี้จำลองเครนยื่นไปด้าน{side_th}. "
-                    f"รถจะเริ่มคว่ำรอบล้อด้าน{side_th}. "
-                    "ล้อฝั่งตรงข้ามจะเริ่มยกจากพื้นและแรงปฏิกิริยาฝั่งนั้นจะลดลง."
-                )
-                technical=(
-                    f"<p><b>Track width W</b> = {d['W']:.3f} m → W/2 = {d['W']/2:.3f} m</p>"
-                    f"<p>W_vehicle = {mveh:.2f}×9.81 = {mveh*G:.2f} N<br>"
-                    f"W_boom = {d['mb']:.2f}×9.81 = {d['mb']*G:.2f} N<br>"
-                    f"W_payload = {d['ml']:.2f}×9.81 = {d['ml']*G:.2f} N</p>"
-                    f"<p>F_payload,design = Kdyn×m_L×g = {d['kd']:.2f}×{d['ml']:.2f}×9.81 = "
-                    f"{d['kd']*d['ml']*G:.2f} N เมื่อ Payload อยู่ฝั่งทำให้คว่ำ</p>"
-                    f"<p><b>M_O = {MO:.2f} N·m</b><br><b>M_R = {MR:.2f} N·m</b><br>"
-                    f"<b>SF = M_R/M_O = {sf_text}</b></p>"
-                )
-
-            elif key in ("front","rear"):
-                bal=self.longitudinal_moment_balance(d,angle,key)
-                MO=bal["mo"];MR=bal["mr"]
-                dir_th="หน้า" if key=="front" else "หลัง"
-                read_steps=[
-                    f"<b>1.</b> จุดแดงที่แนวล้อ{dir_th} = จุดที่รถจะเริ่มหมุนคว่ำ",
-                    "<b>2.</b> น้ำหนักที่อยู่เลยจุดแดงออกไป = ช่วยทำให้คว่ำ",
-                    "<b>3.</b> น้ำหนักที่อยู่ด้านในช่วงล้อ = ช่วยต้านการคว่ำ",
-                    "<b>4.</b> โปรแกรมรวม แรง × ระยะจากจุดแดง แล้วคำนวณ SF ให้",
-                ]
-                meaning=(
-                    f"กรณีนี้ตรวจการคว่ำด้าน{dir_th}. "
-                    f"Pivot อยู่ที่แนวล้อ{dir_th}. "
-                    "ตำแหน่งของรถ แขนเครน และโหลดเมื่อเทียบกับ Pivot เป็นตัวกำหนดว่าแรงนั้นช่วยคว่ำหรือช่วยต้าน."
-                )
-                component_rows="".join(
-                    f"<tr><td>{c['name']}</td><td>{c['force']:.2f}</td><td>{c['arm']:.3f}</td>"
-                    f"<td>{c['moment']:.2f}</td><td>{'ทำให้คว่ำ' if c['role']=='overturning' else 'ช่วยต้าน'}</td></tr>"
-                    for c in bal["components"]
-                )
-                technical=(
-                    f"<p>Rear axle = {bal['rear']:.3f} m, Front axle = {bal['front']:.3f} m, "
-                    f"Pivot = {bal['pivot']:.3f} m</p>"
-                    f"<p>x_crane = {bal['xc']:.3f} m, x_boom = {bal['xboom']:.3f} m, "
-                    f"x_load = {bal['xload']:.3f} m, x_CG = {d['xCG']:.3f} m</p>"
-                    "<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>"
-                    "<tr><th>แรง</th><th>F (N)</th><th>ระยะแขน d (m)</th><th>M (N·m)</th><th>หน้าที่</th></tr>"
-                    f"{component_rows}</table>"
-                    f"<p><b>M_O = {MO:.2f} N·m</b><br><b>M_R = {MR:.2f} N·m</b><br>"
-                    f"<b>SF = M_R/M_O = {sf_text}</b></p>"
-                )
-
+    def formal_fbd_report_html(self,tmpdir,d=None):
+        d=d or self.inputs();cases=self.stability_fbd_cases(d)
+        geom=Path(tmpdir)/"fbd_geometry.png";self._render_stability_fbd_png(0,geom,d["th"])
+        pages=[f"""<div style='page-break-before:always'></div>
+        <h1>GEOMETRY & TIPPING-AXIS DEFINITION</h1>
+        <p>Coordinate convention: +x forward, +y right, +z upward. Crane slew: -90° left, 0° forward, +90° right.</p>
+        <p style='text-align:center'><img src='{geom.as_uri()}' width='680'></p>
+        <p><b>Important:</b> this top view defines geometry and support/tipping axes. It is not used as the force FBD because gravity acts vertically.
+        The force FBDs use front/side elevations so all vertical weights and ground reactions are shown in their true line of action.</p>"""]
+        summary=[]
+        for i,case in enumerate(cases,1):
+            fp=Path(tmpdir)/f"formal_{case['key']}.png";self._render_stability_fbd_png(case["mode"],fp,case["angle"])
+            sf=case["sf"];sftext="∞" if sf>=999 else f"{sf:.3f}";status="PASS" if sf>=d["req"] else "FAIL"
+            if case["key"]=="side_left":
+                bal=self.side_moment_balance(d,case["angle"],"left")
+                geomtxt=f"θ={case['angle']:.1f}°, y_P={bal['pivot']:.3f} m"
+            elif case["key"]=="side_right":
+                bal=self.side_moment_balance(d,case["angle"],"right")
+                geomtxt=f"θ={case['angle']:.1f}°, y_P={bal['pivot']:.3f} m"
+            elif case["key"]=="front":
+                bal=self.longitudinal_moment_balance(d,case["angle"],"front")
+                geomtxt=f"θ={case['angle']:.1f}°, x_P={bal['pivot']:.3f} m"
+            elif case["key"]=="rear":
+                bal=self.longitudinal_moment_balance(d,case["angle"],"rear")
+                geomtxt=f"θ={case['angle']:.1f}°, x_P={bal['pivot']:.3f} m"
             else:
-                sr=self.slope_stability_results(d)
-                alpha=math.radians(self.slope.value())
-                mass=d["mt"]
-                MR=mass*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
-                MO=mass*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
-                read_steps=[
-                    "<b>1.</b> จุดแดงด้านหลัง = จุดที่รถอาจหมุนคว่ำขณะขึ้นลาด",
-                    "<b>2.</b> แรงสีแดง = ส่วนของน้ำหนักที่ดึงรถลงตามทางลาด",
-                    "<b>3.</b> น้ำหนักรถและตำแหน่ง CG เป็นตัวช่วยต้านการคว่ำ",
-                    "<b>4.</b> แรงจากการเร่งขึ้นลาดเพิ่มแนวโน้มคว่ำด้านหลัง",
-                ]
-                meaning=(
-                    "บนทางลาด น้ำหนักรถยังชี้ลงแนวดิ่ง แต่สามารถแยกเป็นแรงตามทางลาดและแรงกดตั้งฉากกับทางลาด. "
-                    "โปรแกรมใช้ตำแหน่ง CG, มุมลาด และความเร่งเพื่อคำนวณ SF_slope."
-                )
-                technical=(
-                    f"<p>α = {self.slope.value():.2f}°, h_CG = {sr['h']:.3f} m, "
-                    f"d_rear = {sr['rear_arm']:.3f} m, a = {sr['acc']:.3f} m/s²</p>"
-                    f"<p>mg sinα = {mass*G*math.sin(alpha):.2f} N<br>"
-                    f"mg cosα = {mass*G*math.cos(alpha):.2f} N<br>"
-                    f"F_a = ma = {mass*sr['acc']:.2f} N</p>"
-                    f"<p><b>M_R = {MR:.2f} N·m</b><br><b>M_O = {MO:.2f} N·m</b><br>"
-                    f"<b>SF_slope = M_R/M_O = {sf_text}</b></p>"
-                )
-
-            rows.append(
-                f"<tr><td>{idx}</td><td>{case['thai']}</td><td>{sf_text}</td>"
-                f"<td style='color:{status_color}'><b>{status}</b></td></tr>"
-            )
-
-            simple_pages.append(f"""
-            <div style='page-break-before:always'></div>
-            <h1>FBD {idx}: {case['thai']}</h1>
-            <p style='font-size:11pt'><b>{meaning}</b></p>
-
-            <div style='background:#eef7ff;border:1px solid #b9d8f3;padding:10px;margin:8px 0'>
-              <b>อ่านรูปนี้แค่ 4 อย่าง</b><br>
-              {'<br>'.join(read_steps)}
-            </div>
-
-            <p style='text-align:center'><img src='{fp.as_uri()}' width='660'></p>
-
-            <table border='1' cellspacing='0' cellpadding='8' style='border-collapse:collapse;width:100%'>
-              <tr>
-                <td style='background:#fff1f0'><b>ฝั่งพยายามทำให้คว่ำ</b><br><span style='font-size:15pt'>{MO:.1f} N·m</span></td>
-                <td style='background:#eefaf4'><b>ฝั่งช่วยต้านการคว่ำ</b><br><span style='font-size:15pt'>{MR:.1f} N·m</span></td>
-                <td style='background:{"#eefaf4" if ok else "#fff1f0"}'><b>คำตอบ</b><br><span style='font-size:15pt;color:{status_color}'>SF = {sf_text}<br>{status}</span></td>
-              </tr>
-            </table>
-
-            <p style='background:#fff8e9;border:1px solid #ead39a;padding:9px'>
-            <b>สูตรเดียวที่ต้องจำ:</b> Safety Factor = โมเมนต์ที่ช่วยต้าน ÷ โมเมนต์ที่พยายามทำให้คว่ำ<br>
-            <b>SF = M_R / M_O</b> และโปรแกรมตั้งเกณฑ์ไว้ที่ <b>SF ≥ {d['req']:.2f}</b>
-            </p>
-            """)
-
-            appendix_pages.append(f"""
-            <div style='page-break-before:always'></div>
-            <h2>รายละเอียดวิศวกรรม FBD {idx}: {case['title']}</h2>
-            <p><b>Case angle:</b> {angle_text} &nbsp; | &nbsp; <b>Target SF:</b> {d['req']:.2f}</p>
-            {technical}
-            <p style='background:#f7fafc;border:1px solid #d7e1eb;padding:8px'>
-            เมื่อแรงปฏิกิริยาของล้อฝั่งตรงข้าม Pivot ลดลงเข้าใกล้ 0 N รถกำลังเข้าใกล้จุดเริ่มคว่ำ.
-            การคำนวณนี้เป็น Preliminary rigid-body stability calculation และต้องยืนยันด้วยมวล/CG จริง.
-            </p>
-            """)
-
-        summary=f"""
-        <h2>สรุป FBD การคว่ำทุกด้าน</h2>
-        <div style='background:#eef7ff;border:1px solid #b9d8f3;padding:12px;margin:8px 0'>
-        <b>ส่วนแรกของรายงานตั้งใจทำให้อ่านง่ายสำหรับนำเสนอ:</b><br>
-        ดูเพียง 4 อย่าง — <b>จุดหมุนแดง → ฝั่งทำให้คว่ำ → ฝั่งช่วยต้าน → ค่า SF</b><br>
-        รายละเอียดสูตรและตารางตัวเลขเต็มอยู่ใน <b>ภาคผนวกวิศวกรรม</b> หลัง FBD ทั้ง 5 รูป
-        </div>
-        <table border='1' cellspacing='0' cellpadding='7' style='border-collapse:collapse;width:100%'>
-        <tr><th>#</th><th>กรณี</th><th>Safety Factor</th><th>ผล</th></tr>
-        {''.join(rows)}
-        </table>
-        """
-        appendix=(
-            "<div style='page-break-before:always'></div>"
-            "<h1>ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX</h1>"
-            "<p>ส่วนนี้เก็บสูตร ตัวแปร ระยะโมเมนต์ และตัวเลขสำหรับตรวจสอบโดยอาจารย์/วิศวกร. "
-            "ถ้าต้องการดูภาพรวมอย่างเดียว สามารถอ่านเฉพาะ FBD 1–5 ก่อนหน้านี้ได้.</p>"
-        )
-        return summary+"".join(simple_pages)+appendix+"".join(appendix_pages)
-
+                bal=self.slope_stability_results(d);geomtxt=f"α={math.degrees(bal['alpha']):.2f}°, h_CG={bal['h']:.3f} m"
+            if case["key"]!="slope":
+                rows="".join(
+                    f"<tr><td>{q['name']}</td><td>{q['force']:.2f}</td><td>{q['arm']:.3f}</td><td>{q['moment']:.2f}</td><td>{q['role']}</td></tr>"
+                    for q in bal["components"])
+                detail=f"""<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
+                <tr><th>Component</th><th>Design force (N)</th><th>d⊥ (m)</th><th>Moment (N·m)</th><th>Role</th></tr>{rows}</table>
+                <p>M_O = Σ(Fd)_overturning = <b>{bal['mo']:.2f} N·m</b><br>
+                M_R = Σ(Fd)_resisting = <b>{bal['mr']:.2f} N·m</b><br>
+                SF = M_R/M_O = <b>{sftext}</b></p>"""
+            else:
+                detail=f"""<p>W_parallel = mg sinα = {bal['w_parallel']:.2f} N<br>
+                W_normal = mg cosα = {bal['w_normal']:.2f} N<br>
+                F_I = ma = {bal['inertia']:.2f} N<br>
+                M_O = (W_parallel+F_I)h_CG = <b>{bal['mo']:.2f} N·m</b><br>
+                M_R = W_normal d_R = <b>{bal['mr']:.2f} N·m</b><br>
+                SF_slope = M_R/M_O = <b>{sftext}</b></p>"""
+            pages.append(f"""<div style='page-break-before:always'></div>
+            <h1>FBD {i}: {case['title']} / {case['thai']}</h1>
+            <p><b>Critical case used on this page:</b> {geomtxt}</p>
+            <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>
+            <h2>Equation and substitution</h2>{detail}
+            <p><b>Required:</b> SF ≥ {d['req']:.2f} &nbsp; | &nbsp; <b>Result:</b> SF = {sftext} → {status}</p>
+            <p style='font-size:9pt;color:#52606d'>At impending tipping, the support reaction opposite the selected tipping axis tends to zero.
+            Payload Kdyn is used only as an equivalent adverse design load in the overturning moment.</p>""")
+            summary.append(f"<tr><td>{i}</td><td>{case['title']}</td><td>{'-' if case['angle'] is None else f'{case['angle']:.1f}°'}</td><td>{sftext}</td><td>{status}</td></tr>")
+        head=f"""<h2>FORMAL FBD CASE SUMMARY</h2>
+        <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
+        <tr><th>#</th><th>Case</th><th>Critical angle</th><th>SF</th><th>Status</th></tr>{''.join(summary)}</table>"""
+        return head+"".join(pages)
 
     def export_pdf_report(self):
         docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
@@ -9099,44 +8895,29 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
             for name,widget in (("vehicle",getattr(self,"view",None)),("stability_map",getattr(self,"graph",None))):
                 if widget is not None:
                     fp=tmpdir/f"{name}.png"
-                    if widget.grab().save(str(fp)):
-                        figures.append((name,fp.as_uri()))
-            fig_html="".join(
-                f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>"
-                for name,uri in figures
-            )
-            fbd_html=self.stability_fbd_report_html(tmpdir,d)
-            slope_sf_text="∞" if slope["sf"]>=999 else f"{slope['sf']:.3f}"
-            summary=f"""
-            <h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
+                    if widget.grab().save(str(fp)):figures.append((name,fp.as_uri()))
+            fig_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in figures)
+            fbd_html=self.formal_fbd_report_html(tmpdir,d)
+            summary=f"""<h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
             <p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
             <table border='1' cellspacing='0' cellpadding='6'>
             <tr><th>Input / Result</th><th>Value</th></tr>
             <tr><td>Total mass</td><td>{d['mt']:.2f} kg</td></tr>
-            <tr><td>Payload</td><td>{d['ml']:.2f} kg</td></tr>
-            <tr><td>Boom mass</td><td>{d['mb']:.2f} kg</td></tr>
+            <tr><td>Payload / Boom</td><td>{d['ml']:.2f} / {d['mb']:.2f} kg</td></tr>
             <tr><td>Track / Wheelbase</td><td>{d['W']:.3f} / {d['WB']:.3f} m</td></tr>
-            <tr><td>Worst stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
-            <tr><td>Uphill driving stability</td><td>{slope_sf_text}</td></tr>
-            </table>
-            <p><b>Scope:</b> Preliminary tipping/stability calculation. Use measured mass/CG and validate the real structure, tires, ground, brakes, slewing bearing and lifting system before fabrication/use.</p>
-            """
-            html=(
-                "<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
-                +summary
-                +"<div style='page-break-before:always'></div><h1>FBD แบบเข้าใจง่าย / BEGINNER FBD</h1>"
-                +"<p><b>อ่านก่อน:</b> ดูจุดหมุนสีแดง → ดูฝั่งทำให้คว่ำ → ดูฝั่งช่วยต้าน → ดูค่า SF.</p>"
-                +fbd_html
-                +"<div style='page-break-before:always'></div><h1>รายละเอียดการคำนวณ / ENGINEERING CALCULATION</h1>"
-                +self.stability_formula_html()
-                +"<div style='page-break-before:always'></div><h2>Other Figures / รูปประกอบเพิ่มเติม</h2>"+fig_html
-                +"</body></html>"
-            )
+            <tr><td>Worst crane-mode stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
+            <tr><td>Uphill stability</td><td>{'∞' if slope['sf']>=999 else f"{slope['sf']:.3f}"}</td></tr></table>
+            <p><b>Method:</b> rigid-body moment balance about each tipping axis. FBDs show external weights/reactions and the selected tipping axis.
+            Dynamic factor is an equivalent design multiplier on adverse payload moment only.</p>"""
+            html=("<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
+                  +summary+fbd_html
+                  +"<div style='page-break-before:always'></div>"+self.stability_formula_html()
+                  +"<div style='page-break-before:always'></div><h1>OTHER FIGURES</h1>"+fig_html
+                  +"</body></html>")
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(path);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
-            if not Path(path).exists() or Path(path).stat().st_size<1000:
-                raise RuntimeError("PDF file was not created correctly")
+            if not Path(path).exists() or Path(path).stat().st_size<1000:raise RuntimeError("PDF file was not created correctly")
             QMessageBox.information(self,"PDF Export","สร้างรายงาน PDF สำเร็จแล้ว:\n"+path)
         except Exception as ex:
             QMessageBox.critical(self,"PDF Export Error","สร้าง PDF ไม่สำเร็จ\n"+str(ex))
@@ -9150,6 +8931,11 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
 
 โปรแกรมนี้เป็น Preliminary Engineering Tool สำหรับรถขนซากสัตว์พร้อมเครนรูปตัว L
 เครนไม่ก้ม-เงย แขนแนวนอนคงที่ และหมุนซ้าย-ขวา -90° ถึง +90°
+
+CONVENTION ที่ใช้ทั้งโปรแกรมและ PDF
++x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
+θ = -90° หมายถึงเครนอยู่ด้านซ้าย, θ = 0° ด้านหน้า, θ = +90° ด้านขวา
+Formal FBD ใช้ Front Elevation สำหรับ Side tipping และ Side Elevation สำหรับ Front/Rear tipping
 
 1) Total mass (m_total)
 มวลรวมทั้งระบบขณะใช้งาน รวมรถ เครน วินช์ แบตเตอรี่ ตะกร้า และ Payload
@@ -9197,6 +8983,8 @@ Payload/Boom ที่ยังอยู่ภายในฐานรองร�
 
 14) Safety Factor (SF)
 SF = M_R / M_O
+Side tipping ต้องตรวจ SF_left และ SF_right แยกกัน
+ที่จุดเริ่มคว่ำ Reaction ของแนวล้อฝั่งตรงข้าม Tipping Axis จะเข้าใกล้ 0 N
 PASS หมายถึงผ่านเกณฑ์ของแบบจำลองเบื้องต้นเท่านั้น ไม่ใช่การรับรองความปลอดภัย
 
 CRANE MODE
@@ -9229,27 +9017,43 @@ WIDTH / COUNTERWEIGHT
 """)
         l.addWidget(txt);self.tabs.addTab(w,"6. คำอธิบายภาษาไทย")
 
-    def calc_side(self,d,W=None,theta=None,extra=0):
-        W=d["W"] if W is None else W
-        th=d["th"] if theta is None else theta
-        pivot=W/2
-        y_load=abs(d["L"]*math.sin(math.radians(th)))
-        y_boom=abs((d["L"]/2)*math.sin(math.radians(th)))
+    def side_moment_balance(self,d,theta,side,extra=0.0):
+        """Moment balance about one lateral tipping axis. +y = vehicle right."""
+        side=str(side).lower()
+        direction=1.0 if side=="right" else -1.0
+        pivot=direction*d["W"]/2.0
+        y_load=d["L"]*math.sin(math.radians(theta))
+        y_boom=(d["L"]/2.0)*math.sin(math.radians(theta))
         m_vehicle=max(0.0,d["mt"]-d["ml"]-d["mb"])+max(0.0,extra)
+        comps=[]
+        mo=0.0;mr=0.0
+        for name,mass,y,is_payload in (
+            ("Vehicle",m_vehicle,0.0,False),
+            ("Boom",d["mb"],y_boom,False),
+            ("Payload",d["ml"],y_load,True),
+        ):
+            signed=direction*(y-pivot)
+            role="overturning" if signed>1e-12 else "resisting" if signed<-1e-12 else "on_pivot"
+            factor=d["kd"] if (is_payload and role=="overturning") else 1.0
+            force=mass*G*factor
+            arm=abs(signed)
+            moment=force*arm
+            if role=="overturning": mo+=moment
+            elif role=="resisting": mr+=moment
+            comps.append(dict(name=name,mass=mass,y=y,force=force,arm=arm,moment=moment,
+                              role=role,factor=factor))
+        sf=mr/mo if mo>1e-12 else 999.0
+        return dict(side=side,direction=direction,pivot=pivot,y_load=y_load,y_boom=y_boom,
+                    mo=mo,mr=mr,sf=sf,components=comps)
 
-        # Static masses inside the support polygon contribute to resistance.
-        # Kdyn is applied only when Payload produces an adverse overturning
-        # moment, so a dynamic factor never creates artificial extra stability.
-        vehicle_MR=m_vehicle*G*pivot
-        payload_over=d["kd"]*d["ml"]*G*max(0.0,y_load-pivot)
-        payload_res=d["ml"]*G*max(0.0,pivot-y_load)
-        boom_over=d["mb"]*G*max(0.0,y_boom-pivot)
-        boom_res=d["mb"]*G*max(0.0,pivot-y_boom)
-
-        MO=payload_over+boom_over
-        MR=vehicle_MR+payload_res+boom_res
-        sf=MR/MO if MO>1e-12 else 999
-        return sf,MO,MR
+    def calc_side(self,d,W=None,theta=None,extra=0):
+        dd=dict(d)
+        if W is not None: dd["W"]=W
+        th=dd["th"] if theta is None else theta
+        left=self.side_moment_balance(dd,th,"left",extra)
+        right=self.side_moment_balance(dd,th,"right",extra)
+        critical=min((left,right),key=lambda q:q["sf"])
+        return critical["sf"],critical["mo"],critical["mr"]
 
     def calc_all(self):
         if not hasattr(self,"mt"):return
@@ -9267,67 +9071,45 @@ WIDTH / COUNTERWEIGHT
             self.update_auto_fbd()
             self.forceDiagram.update()
         if hasattr(self,'steps'): self.update_calc_steps(d,sf,MO,MR,sfF,sfR)
-        self.craneout.setPlainText(f"""การคำนวณการคว่ำรถเครน / CRANE TIPPING CALCULATION
+        sl_now=self.side_moment_balance(d,d["th"],"left")
+        sr_now=self.side_moment_balance(d,d["th"],"right")
+        fb_now=self.longitudinal_moment_balance(d,d["th"],"front")
+        rb_now=self.longitudinal_moment_balance(d,d["th"],"rear")
+        yL_signed=d["L"]*math.sin(math.radians(d["th"]))
+        yB_signed=(d["L"]/2)*math.sin(math.radians(d["th"]))
+        self.craneout.setPlainText(f"""CRANE TIPPING CALCULATION — FORMAL SUMMARY
 
-1) คำนวณแรงโหลดออกแบบ (Design Load Force)
-   ความหมาย: แรงโหลด = ตัวประกอบไดนามิก × มวลโหลด × ความเร่งโน้มถ่วง\n   สูตร: F_L = Kdyn × m_L × g
-   แทนค่า: F_L = {d['kd']:.2f} × {d['ml']:.1f} × 9.81
-   ผลลัพธ์: F_L = {d['kd']*d['ml']*G:.2f} N
-   อธิบาย: เป็นแรงจากโหลดที่รวม Dynamic Factor เพื่อเผื่อแรงกระชากแล้ว
+Coordinate convention:
++x forward, +y right, +z up
+θ=-90° left, 0° forward, +90° right
 
-2) หาระยะโหลดในแนวด้านข้าง (Lateral Load Position)
-   ความหมาย: ระยะด้านข้าง = ความยาวแขน × sin(มุมหมุน)\n   สูตร: y_L = |L × sin(theta)|
-   แทนค่า: y_L = |{d['L']:.2f} × sin({d['th']:.0f}°)|
-   ผลลัพธ์: y_L = {abs(d['L']*math.sin(math.radians(d['th']))):.3f} m
-   อธิบาย: เมื่อเครนหมุนออกด้านข้าง ระยะ y_L จะเพิ่มและมีผลต่อการคว่ำด้านข้าง
+Side positions:
+y_L = L sinθ = {d['L']:.3f} sin({d['th']:.1f}°) = {yL_signed:.3f} m
+y_B = (L/2) sinθ = {yB_signed:.3f} m
+Left pivot = {-d['W']/2:.3f} m
+Right pivot = {d['W']/2:.3f} m
 
-3) โมเมนต์ทำให้คว่ำด้านข้าง (Overturning Moment)
-   ผลลัพธ์: M_O = {MO:.2f} N·m
-   อธิบาย: M_O คือโมเมนต์จากโหลดและแขนเครนที่พยายามหมุนรถรอบแนวล้อด้านนอก
+Equivalent adverse Payload design force:
+F_L,d = Kdyn m_L g = {d['kd']:.2f}×{d['ml']:.2f}×9.81 = {d['kd']*d['ml']*G:.2f} N
+(Kdyn ใช้เฉพาะเมื่อ Payload อยู่ฝั่ง overturning)
 
-4) โมเมนต์ต้านการคว่ำ (Resisting Moment)
-   ผลลัพธ์: M_R = {MR:.2f} N·m
-   อธิบาย: M_R รวมรถส่วนหลัก และ Payload/Boom ที่ยังอยู่ด้านในแนว Pivot
+LEFT:
+M_O={sl_now['mo']:.2f} N·m, M_R={sl_now['mr']:.2f} N·m, SF_left={'∞' if sl_now['sf']>=999 else f"{sl_now['sf']:.3f}"}
 
-5) Safety Factor ด้านข้าง
-   ความหมาย: SF = โมเมนต์ต้าน ÷ โมเมนต์ทำให้คว่ำ\n   สูตร: SF_side = M_R / M_O
-   ผลลัพธ์: SF_side = {'∞' if sf>=999 else f'{sf:.3f}'}
-   เกณฑ์ที่กำหนด: SF >= {d['req']:.2f}
-   สถานะ: {'PASS / ผ่านเกณฑ์เบื้องต้น' if sf>=d['req'] else 'FAIL / ไม่ผ่านเกณฑ์'}
+RIGHT:
+M_O={sr_now['mo']:.2f} N·m, M_R={sr_now['mr']:.2f} N·m, SF_right={'∞' if sr_now['sf']>=999 else f"{sr_now['sf']:.3f}"}
 
-6) การคว่ำหน้า-หลัง (Longitudinal Tipping)
-   แนวเพลาหลัง = {rear:.3f} m
-   แนวเพลาหน้า = {front:.3f} m
+FRONT:
+M_O={fb_now['mo']:.2f} N·m, M_R={fb_now['mr']:.2f} N·m, SF_front={'∞' if fb_now['sf']>=999 else f"{fb_now['sf']:.3f}"}
 
-   ตำแหน่งโหลด:
-   x_load = x_crane + L cos(theta)
-          = {xload:.3f} m
+REAR:
+M_O={rb_now['mo']:.2f} N·m, M_R={rb_now['mr']:.2f} N·m, SF_rear={'∞' if rb_now['sf']>=999 else f"{rb_now['sf']:.3f}"}
 
-   ตำแหน่ง CG ของแขน:
-   x_boom = x_crane + (L/2) cos(theta)
-          = {xboom:.3f} m
+Side card = min(SF_left,SF_right)
+At impending tipping, reaction on the wheel line opposite the selected tipping axis approaches 0 N.
+Required SF = {d['req']:.2f}
 
-   SF_front = {'∞' if sfF>=999 else f'{sfF:.3f}'}
-   SF_rear  = {'∞' if sfR>=999 else f'{sfR:.3f}'}
-
-   อธิบาย:
-   - SF_front ใช้ตรวจแนวโน้มคว่ำผ่านแนวล้อหน้า
-   - SF_rear ใช้ตรวจแนวโน้มคว่ำผ่านแนวล้อหลัง
-   - เพราะเครนติดท้ายรถ ตำแหน่งเครนและ CG ตามแนวยาวมีผลโดยตรง
-
-7) แรงปฏิกิริยาที่แนวล้อด้านข้าง / Side Support Reactions
-   สำหรับโมเดลกึ่งกลางแบบเบื้องต้น:
-   R_left + R_right = น้ำหนักรวม
-   ใช้สมดุลแรง: ΣF_z = 0
-   ใช้สมดุลโมเมนต์: ΣM = 0
-
-   แนวคิดสำคัญ:
-   ถ้า Reaction ที่ล้อด้านใดลดลงเข้าใกล้ 0 N
-   หมายถึงล้อด้านนั้นกำลังเริ่มยกจากพื้น และเข้าใกล้สภาวะคว่ำ
-
-หมายเหตุทางวิศวกรรม:
-ผลนี้เป็นการคำนวณเบื้องต้น ต้องใช้ตำแหน่ง CG และน้ำหนักจริงของชุดประกอบ
-ก่อนนำไปยืนยันความปลอดภัยของรถที่ผลิตจริง
+ดูรายละเอียดเต็ม: FBD / สูตร + แทนค่า / PDF Export
 """)
         # Uphill driving stability — single source of truth.
         sr=self.slope_stability_results(d)
@@ -9443,485 +9225,157 @@ ASSUMPTIONS
 
 
 class ForceDiagram(QWidget):
-    """Engineering FBD for side/front/rear tipping and slope stability."""
+    """Formal engineering FBDs for report-quality stability calculations."""
     def __init__(self,app):
-        super().__init__()
-        self.app=app
-        self.mode=0
-        self.caseAngle=None
-        self.simpleMode=True
-        self.setMinimumHeight(500)
+        super().__init__();self.app=app;self.mode=0;self.caseAngle=None;self.setMinimumHeight(500)
+    def setMode(self,i):self.mode=int(i);self.update()
+    def setCaseAngle(self,a):self.caseAngle=a;self.update()
+    def _angle(self,d):return float(d["th"] if self.caseAngle is None else self.caseAngle)
 
-    def setMode(self,i):
-        self.mode=int(i)
-        self.update()
-
-    def setCaseAngle(self,angle):
-        self.caseAngle=angle
-        self.update()
-
-    def setSimpleMode(self,on):
-        self.simpleMode=bool(on)
-        self.update()
-
-    def _simple_text(self,p,x,y,label,size=11,bold=False,color="#17324d"):
-        p.setPen(QPen(QColor(color)))
-        f=p.font();f.setPointSize(size);f.setBold(bold);p.setFont(f)
-        p.drawText(QPointF(x,y),label)
-
-    def _simple_box(self,p,x,y,w,h,title,value,fill,border):
-        p.setPen(QPen(QColor(border),2))
-        p.setBrush(QColor(fill))
-        p.drawRoundedRect(QRectF(x,y,w,h),12,12)
-        self._simple_text(p,x+14,y+24,title,10,True,border)
-        self._simple_text(p,x+14,y+50,value,13,True,"#17324d")
-
-    def _simple_header(self,p,title,subtitle):
-        self._simple_text(p,24,34,title,17,True,"#17324d")
-        self._simple_text(p,24,58,subtitle,11,False,"#52606d")
-        y=86
-        self._simple_text(p,24,y,"อ่านจากเลข 1 → 4",11,True,"#17324d")
-        self._simple_text(p,175,y,"1 จุดแดง = จุดหมุน",10,True,"#b42318")
-        self._simple_text(p,355,y,"2 สีแดง = พยายามคว่ำ",10,True,"#b42318")
-        self._simple_text(p,565,y,"3 สีน้ำเงิน = ช่วยต้าน",10,True,"#2459b3")
-        self._simple_text(p,770,y,"4 สีเขียว = พื้นพยุงรถ",10,True,"#16803a")
-
-    def _simple_side_view(self,p,d,left_case=True):
-        side_th="ซ้าย" if left_case else "ขวา"
-        side_en="LEFT" if left_case else "RIGHT"
-        self._simple_header(
-            p,
-            f"FBD การคว่ำด้าน{side_th} / SIDE TIPPING - {side_en}",
-            "ไม่ต้องอ่านสูตรบนรูป: ดูจุดหมุน → สีแดง → สีน้ำเงิน → คำตอบ SF ด้านล่าง"
-        )
-        ww,hh=self.width(),self.height()
-        gy=hh*0.62
-        xL=ww*0.30;xR=ww*0.70;cx=(xL+xR)/2
-        deck=gy-80
-        pivot_x=xL if left_case else xR
-        other_x=xR if left_case else xL
-        out_sign=-1 if left_case else 1
-
-        p.setPen(QPen(QColor("#64748b"),4))
-        p.drawLine(QPointF(80,gy),QPointF(ww-80,gy))
-        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"))
-        p.drawRoundedRect(QRectF(xL-95,deck,xR-xL+190,55),12,12)
-        for x in (xL,xR):
-            p.setBrush(QColor("#1f2933"));p.setPen(QPen(QColor("#1f2933"),2))
-            p.drawEllipse(QPointF(x,gy-3),27,27)
-
-        # pivot and reactions
-        self.pivot(p,QPointF(pivot_x,gy-1),"1) จุดหมุนคว่ำ")
-        self.A(p,QPointF(pivot_x,gy+70),QPointF(pivot_x,gy-34),"#16803a","4) แรงจากพื้น",QPointF(10,-4))
-        self._simple_text(p,other_x-80,gy+65,"ล้ออีกฝั่งเริ่มยก → แรงพื้นลดลง",9,False,"#7a8793")
-
-        mast_x=cx;mast_top=deck-90
-        tip=mast_x+out_sign*min(230,ww*0.27)
-        p.setPen(QPen(QColor("#f28c28"),12,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(mast_x,deck),QPointF(mast_x,mast_top))
-        p.drawLine(QPointF(mast_x,mast_top),QPointF(tip,mast_top))
-        p.setPen(QPen(QColor("#475569"),2));p.setBrush(QColor("#dfe6ee"))
-        p.drawRect(QRectF(tip-24,mast_top+18,48,40))
-
-        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        Wv=mveh*G;Wb=d["mb"]*G;Wp=d["ml"]*G
-        boom_cg=(mast_x+tip)/2
-        self.A(p,QPointF(cx,deck-95),QPointF(cx,deck-8),"#2459b3","3) น้ำหนักตัวรถ → ช่วยต้าน",QPointF(10,-6))
-        boom_over=abs((d["L"]/2.0)) > d["W"]/2.0
-        boom_color="#b42318" if boom_over else "#2459b3"
-        boom_label="2) น้ำหนักแขนเครน → พยายามคว่ำ" if boom_over else "3) น้ำหนักแขนเครน → ช่วยต้าน"
-        payload_over=abs(d["L"]) > d["W"]/2.0
-        payload_color="#b42318" if payload_over else "#2459b3"
-        payload_label="2) น้ำหนักโหลด → พยายามคว่ำ" if payload_over else "3) น้ำหนักโหลด → ช่วยต้าน"
-        self.A(p,QPointF(boom_cg,mast_top-65),QPointF(boom_cg,mast_top-8),boom_color,boom_label,QPointF(10,-6))
-        self.A(p,QPointF(tip,mast_top-80),QPointF(tip,mast_top+14),payload_color,payload_label,QPointF(10,-6))
-
-        self.D(p,QPointF(xL,gy+88),QPointF(xR,gy+88),f"Track = {d['W']:.3f} m")
-
-        sf,MO,MR=self.app.calc_side(d,theta=(-90 if left_case else 90))
-        sf_text="∞" if sf>=999 else f"{sf:.3f}"
-        status="ผ่าน" if sf>=d["req"] else "ไม่ผ่าน"
-        bw=(ww-80)/3
-        yb=hh-118
-        self._simple_box(p,20,yb,bw-10,78,"ฝั่งพยายามทำให้คว่ำ",f"{MO:.1f} N·m","#fff1f0","#b42318")
-        self._simple_box(p,20+bw,yb,bw-10,78,"ฝั่งช่วยต้านการคว่ำ",f"{MR:.1f} N·m","#eefaf4","#176337")
-        sf_fill="#eefaf4" if sf>=d["req"] else "#fff1f0"
-        sf_border="#176337" if sf>=d["req"] else "#b42318"
-        self._simple_box(p,20+2*bw,yb,bw-10,78,"Safety Factor",f"SF = {sf_text} → {status}",sf_fill,sf_border)
-        self._simple_text(p,24,hh-16,f"จำง่าย: SF = ฝั่งช่วยต้าน ÷ ฝั่งพยายามคว่ำ  |  ต้องได้ ≥ {d['req']:.2f}",11,True,"#17324d")
-
-    def _simple_long_view(self,p,d,front_case=True):
-        case_th="ด้านหน้า" if front_case else "ด้านหลัง"
-        case_en="FRONT" if front_case else "REAR"
-        self._simple_header(
-            p,
-            f"FBD การคว่ำ{case_th} / {case_en} TIPPING",
-            "Pivot คือแนวล้อที่รถจะหมุนรอบ; แรงด้านนอก Pivot ทำให้คว่ำ แรงด้านในช่วยต้าน"
-        )
-        ww,hh=self.width(),self.height()
-        gy=hh*0.62
-        rear_px=ww*0.30;front_px=ww*0.70
-        deck=gy-80
-        pivot_px=front_px if front_case else rear_px
-        other_px=rear_px if front_case else front_px
-
-        p.setPen(QPen(QColor("#64748b"),4));p.drawLine(QPointF(80,gy),QPointF(ww-80,gy))
-        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"))
-        p.drawRoundedRect(QRectF(rear_px-95,deck,front_px-rear_px+190,55),12,12)
-        for x in (rear_px,front_px):
-            p.setBrush(QColor("#1f2933"));p.setPen(QPen(QColor("#1f2933"),2));p.drawEllipse(QPointF(x,gy-3),27,27)
-        self.pivot(p,QPointF(pivot_px,gy-1),"1) จุดหมุนคว่ำ")
-        self.A(p,QPointF(pivot_px,gy+70),QPointF(pivot_px,gy-34),"#16803a","4) แรงจากพื้น",QPointF(10,-4))
-        self._simple_text(p,other_px-78,gy+65,"ล้ออีกฝั่งเริ่มยก → แรงพื้นลดลง",9,False,"#7a8793")
-
-        angle=self._case_angle(d["th"])
-        bal=self.app.longitudinal_moment_balance(d,angle,("front" if front_case else "rear"))
-        rear_m=-d["WB"]/2;front_m=d["WB"]/2
-        px_per_m=(front_px-rear_px)/max(d["WB"],1e-9)
-        def sx(x):
-            raw=rear_px+(x-rear_m)*px_per_m
-            return max(85,min(ww-85,raw))
-        mast=sx(bal["xc"]);top=deck-105;tip=sx(bal["xload"]);bcg=sx(bal["xboom"]);vcg=sx(d["xCG"])
-        p.setPen(QPen(QColor("#f28c28"),12,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(mast,deck),QPointF(mast,top));p.drawLine(QPointF(mast,top),QPointF(tip,top))
-        p.setPen(QPen(QColor("#475569"),2));p.setBrush(QColor("#dfe6ee"));p.drawRect(QRectF(tip-23,top+18,46,40))
-
-        comp={c["name"]:c for c in bal["components"]}
-        for name,x,label,yy in (
-            ("Vehicle",vcg,f"น้ำหนักรถ = {comp['Vehicle']['force']:.0f} N",deck-8),
-            ("Boom",bcg,f"น้ำหนักแขน = {comp['Boom']['force']:.0f} N",top-8),
-            ("Payload",tip,f"น้ำหนักโหลด = {comp['Payload']['force']:.0f} N",top+14),
-        ):
-            role=comp[name]["role"]
-            color="#b42318" if role=="overturning" else "#2459b3"
-            simple_name={"Vehicle":"น้ำหนักตัวรถ","Boom":"น้ำหนักแขนเครน","Payload":"น้ำหนักโหลด"}[name]
-            prefix="2) " if role=="overturning" else "3) "
-            action="→ พยายามคว่ำ" if role=="overturning" else "→ ช่วยต้าน"
-            start_y=(deck-95 if name=="Vehicle" else top-70 if name=="Boom" else top-85)
-            self.A(p,QPointF(x,start_y),QPointF(x,yy),color,prefix+simple_name+" "+action,QPointF(10,-6))
-
-        self.D(p,QPointF(rear_px,gy+88),QPointF(front_px,gy+88),f"Wheelbase = {d['WB']:.3f} m")
-        sf=bal["sf"];sf_text="∞" if sf>=999 else f"{sf:.3f}"
-        status="ผ่าน" if sf>=d["req"] else "ไม่ผ่าน"
-        bw=(ww-80)/3;yb=hh-118
-        self._simple_box(p,20,yb,bw-10,78,"ฝั่งพยายามทำให้คว่ำ",f"{bal['mo']:.1f} N·m","#fff1f0","#b42318")
-        self._simple_box(p,20+bw,yb,bw-10,78,"ฝั่งช่วยต้านการคว่ำ",f"{bal['mr']:.1f} N·m","#eefaf4","#176337")
-        sf_fill="#eefaf4" if sf>=d["req"] else "#fff1f0";sf_border="#176337" if sf>=d["req"] else "#b42318"
-        self._simple_box(p,20+2*bw,yb,bw-10,78,"Safety Factor",f"SF = {sf_text} → {status}",sf_fill,sf_border)
-        self._simple_text(p,24,hh-16,f"มุมเครนในรูป = {angle:.0f}°  |  SF ต้อง ≥ {d['req']:.2f}",11,True,"#17324d")
-
-    def _simple_slope_view(self,p,d):
-        self._simple_header(
-            p,
-            "FBD รถบนทางลาด / STABILITY ON SLOPE",
-            "น้ำหนัก mg แยกเป็นแรงตามทางลาด mg sinα และแรงกดพื้น mg cosα; ความเร่งขึ้นลาดเพิ่มแนวโน้มคว่ำ"
-        )
-        ww,hh=self.width(),self.height()
-        alpha=math.radians(self.app.slope.value())
-        x0,y0=120,hh*0.63;run=ww*0.68;x1=x0+run;y1=y0-run*math.tan(alpha)
-        p.setPen(QPen(QColor("#64748b"),5));p.drawLine(QPointF(x0,y0),QPointF(x1,y1))
-        cx,cy=(x0+x1)/2,(y0+y1)/2-50
-        u=QPointF(math.cos(alpha),-math.sin(alpha));n=QPointF(-math.sin(alpha),-math.cos(alpha))
-        pts=QPolygonF([
-            QPointF(cx,cy)+u*(-110)+n*(-34),QPointF(cx,cy)+u*(110)+n*(-34),
-            QPointF(cx,cy)+u*(110)+n*(34),QPointF(cx,cy)+u*(-110)+n*(34)
-        ])
-        p.setBrush(QColor("#eef2f6"));p.setPen(QPen(QColor("#334155"),2));p.drawPolygon(pts)
-        p.setBrush(QColor("#111827"));p.drawEllipse(QPointF(cx,cy),7,7)
-        self._simple_text(p,cx+10,cy-8,"CG",10,True)
-
-        mass=d["mt"];W=mass*G;Wpar=W*math.sin(alpha);Wnorm=W*math.cos(alpha);Fa=mass*self.app.acc.value()
-        self.A(p,QPointF(cx,cy-100),QPointF(cx,cy+100),"#2459b3","3) น้ำหนักตัวรถ (mg)",QPointF(10,-6))
-        self.A(p,QPointF(cx,cy),QPointF(cx,cy)+u*(-150),"#b42318","2) ส่วนของน้ำหนักที่ดึงลงทางลาด",QPointF(10,-6))
-        self.A(p,QPointF(cx,cy)+n*(-25),QPointF(cx,cy)+n*(-135),"#16803a","4) พื้นพยุงรถ (N)",QPointF(10,-6))
-        if Fa>0.5:
-            self.A(p,QPointF(cx,cy)+QPointF(0,18),QPointF(cx,cy)+u*(-105)+QPointF(0,18),"#d97706","แรงเฉื่อยจากการเร่ง",QPointF(10,18))
-        pivot=QPointF(x0+run*.18,y0-run*.18*math.tan(alpha))
-        self.pivot(p,pivot,"1) จุดหมุนด้านหลัง")
-        self._simple_text(p,90,y0+34,f"มุมทางลาด α = {self.app.slope.value():.2f}°",11,True,"#17324d")
-
-        sr=self.app.slope_stability_results(d)
-        MR=mass*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
-        MO=mass*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
-        sf=sr["sf"];sf_text="∞" if sf>=999 else f"{sf:.3f}";status="ผ่าน" if sf>=d["req"] else "ไม่ผ่าน"
-        bw=(ww-80)/3;yb=hh-118
-        self._simple_box(p,20,yb,bw-10,78,"ฝั่งพยายามทำให้คว่ำ",f"{MO:.1f} N·m","#fff1f0","#b42318")
-        self._simple_box(p,20+bw,yb,bw-10,78,"ฝั่งช่วยต้านการคว่ำ",f"{MR:.1f} N·m","#eefaf4","#176337")
-        sf_fill="#eefaf4" if sf>=d["req"] else "#fff1f0";sf_border="#176337" if sf>=d["req"] else "#b42318"
-        self._simple_box(p,20+2*bw,yb,bw-10,78,"Safety Factor",f"SF = {sf_text} → {status}",sf_fill,sf_border)
-        self._simple_text(p,24,hh-16,"จำง่าย: mg sinα พยายามพารถไหล/คว่ำลงลาด ส่วน N ตั้งฉากกับพื้น",10,True,"#17324d")
-
-    def A(self,p,a,b,c,label,off=QPointF(7,-7)):
-        p.setPen(QPen(QColor(c),3,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(a,b)
+    def txt(self,p,x,y,s,size=9,bold=False,color="#172b3a"):
+        p.setPen(QPen(QColor(color)));f=p.font();f.setPointSize(size);f.setBold(bold);p.setFont(f);p.drawText(QPointF(x,y),s)
+    def arrow(self,p,a,b,label="",color="#111827",off=QPointF(7,-7)):
+        p.setPen(QPen(QColor(color),2.4,Qt.SolidLine,Qt.RoundCap));p.drawLine(a,b)
         ang=math.atan2(b.y()-a.y(),b.x()-a.x())
-        for d in (2.55,-2.55):
-            p.drawLine(b,QPointF(b.x()+12*math.cos(ang+d),b.y()+12*math.sin(ang+d)))
-        p.setPen(QPen(QColor(c)))
-        p.drawText(b+off,label)
-
-    def D(self,p,a,b,label,vertical=False):
-        pen=QPen(QColor("#52606d"),1,Qt.DashLine)
-        p.setPen(pen)
-        p.drawLine(a,b)
+        for q in (2.55,-2.55):p.drawLine(b,QPointF(b.x()+11*math.cos(ang+q),b.y()+11*math.sin(ang+q)))
+        if label:self.txt(p,b.x()+off.x(),b.y()+off.y(),label,9,True,color)
+    def dim(self,p,a,b,label,vertical=False):
+        p.setPen(QPen(QColor("#64748b"),1,Qt.DashLine));p.drawLine(a,b)
         if vertical:
-            p.drawLine(a+QPointF(-5,0),a+QPointF(5,0))
-            p.drawLine(b+QPointF(-5,0),b+QPointF(5,0))
-            p.drawText((a+b)/2+QPointF(7,0),label)
+            p.drawLine(a+QPointF(-5,0),a+QPointF(5,0));p.drawLine(b+QPointF(-5,0),b+QPointF(5,0))
+            self.txt(p,(a.x()+b.x())/2+8,(a.y()+b.y())/2,label,8,False,"#475569")
         else:
-            p.drawLine(a+QPointF(0,-5),a+QPointF(0,5))
-            p.drawLine(b+QPointF(0,-5),b+QPointF(0,5))
-            p.drawText((a+b)/2+QPointF(-35,-8),label)
-
-    def title(self,p,t,sub):
-        p.setPen(QPen(QColor("#17324d")))
-        font=p.font()
-        font.setBold(True)
-        font.setPointSize(11)
-        p.setFont(font)
-        p.drawText(18,28,t)
-        font.setBold(False)
-        font.setPointSize(8)
-        p.setFont(font)
-        p.setPen(QPen(QColor("#52606d")))
-        p.drawText(18,50,sub)
-
+            p.drawLine(a+QPointF(0,-5),a+QPointF(0,5));p.drawLine(b+QPointF(0,-5),b+QPointF(0,5))
+            self.txt(p,(a.x()+b.x())/2-40,(a.y()+b.y())/2-8,label,8,False,"#475569")
+    def header(self,p,title,subtitle):
+        self.txt(p,20,30,title,14,True);self.txt(p,20,52,subtitle,9,False,"#52606d")
+        p.setPen(QPen(QColor("#cbd5e1"),1));p.drawLine(QPointF(20,62),QPointF(self.width()-20,62))
+    def axes(self,p,origin,xlabel,ylabel,rot=0.0):
+        r=math.radians(rot);ux=QPointF(math.cos(r),-math.sin(r));uy=QPointF(-math.sin(r),-math.cos(r))
+        self.arrow(p,origin,origin+ux*55,xlabel,"#334155",QPointF(6,0))
+        self.arrow(p,origin,origin+uy*55,ylabel,"#334155",QPointF(6,0))
     def pivot(self,p,pt,label):
-        p.setPen(QPen(QColor("#b42318"),2))
-        p.setBrush(QColor("#ffe5e2"))
-        p.drawEllipse(pt,8,8)
-        p.drawText(pt+QPointF(10,-10),label)
+        p.setPen(QPen(QColor("#b42318"),2));p.setBrush(QColor("#ffffff"));p.drawEllipse(pt,7,7)
+        self.txt(p,pt.x()+10,pt.y()-10,label,9,True,"#b42318")
+    def result_box(self,p,sf,mo,mr,req):
+        y=self.height()-88;w=(self.width()-60)/3
+        vals=[("Overturning moment M_O",f"{mo:.1f} N·m"),("Resisting moment M_R",f"{mr:.1f} N·m"),
+              ("Safety Factor",("∞" if sf>=999 else f"{sf:.3f}")+("  PASS" if sf>=req else "  FAIL"))]
+        for i,(t,v) in enumerate(vals):
+            x=20+i*w;p.setPen(QPen(QColor("#94a3b8"),1));p.setBrush(QColor("#f8fafc"));p.drawRect(QRectF(x,y,w-8,54))
+            self.txt(p,x+8,y+19,t,8,True);self.txt(p,x+8,y+42,v,11,True,"#176337" if (i<2 or sf>=req) else "#b42318")
 
-    def moment_mark(self,p,center,text,color="#b42318"):
-        p.setPen(QPen(QColor(color),3))
-        r=31
-        rect=QRectF(center.x()-r,center.y()-r,2*r,2*r)
-        p.drawArc(rect,25*16,255*16)
-        end=QPointF(center.x()+r*math.cos(math.radians(25)),
-                    center.y()-r*math.sin(math.radians(25)))
-        self.A(p,end+QPointF(-14,-3),end,QColor(color).name(),"")
-        p.drawText(center+QPointF(-22,-42),text)
+    def geometry(self,p,d):
+        self.header(p,"GEOMETRY & TIPPING-AXIS DEFINITION (TOP VIEW)",
+                    "Reference geometry only — forces are shown in the elevation FBDs on the following modes")
+        ww,hh=self.width(),self.height();cx,cy=ww*.48,hh*.47;L=min(360,ww*.44);W=min(230,hh*.38)
+        x0,x1=cx-L/2,cx+L/2;y0,y1=cy-W/2,cy+W/2
+        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(x0,y0,L,W))
+        rearx=x0+L*.20;frontx=x0+L*.80
+        for x in (rearx,frontx):
+            for y in (y0-9,y1+9):
+                p.setBrush(QColor("#1f2937"));p.drawRoundedRect(QRectF(x-24,y-7,48,14),4,4)
+        p.setPen(QPen(QColor("#7c3aed"),1.7,Qt.DashLine))
+        p.drawLine(QPointF(x0-35,y0),QPointF(x1+35,y0));p.drawLine(QPointF(x0-35,y1),QPointF(x1+35,y1))
+        p.drawLine(QPointF(rearx,y0-35),QPointF(rearx,y1+35));p.drawLine(QPointF(frontx,y0-35),QPointF(frontx,y1+35))
+        self.txt(p,x1+42,y0+4,"Left tipping axis",8,True,"#7c3aed");self.txt(p,x1+42,y1+4,"Right tipping axis",8,True,"#7c3aed")
+        self.txt(p,rearx-35,y0-42,"Rear axis",8,True,"#7c3aed");self.txt(p,frontx-35,y0-42,"Front axis",8,True,"#7c3aed")
+        crane_x=rearx+(d["xC"]/max(d["WB"],1e-9))*(frontx-rearx);crane_y=cy
+        p.setBrush(QColor("#f59e0b"));p.setPen(QPen(QColor("#a45108"),2));p.drawEllipse(QPointF(crane_x,crane_y),10,10)
+        th=math.radians(self._angle(d));r=min(210,ww*.27);tip=QPointF(crane_x+r*math.cos(th),crane_y+r*math.sin(th))
+        p.setPen(QPen(QColor("#f59e0b"),9,Qt.SolidLine,Qt.RoundCap));p.drawLine(QPointF(crane_x,crane_y),tip)
+        p.setBrush(QColor("#cbd5e1"));p.setPen(QPen(QColor("#475569"),1.5));p.drawRect(QRectF(tip.x()-15,tip.y()-12,30,24))
+        self.dim(p,QPointF(rearx,y1+56),QPointF(frontx,y1+56),f"WB = {d['WB']:.3f} m")
+        self.dim(p,QPointF(x1+105,y0),QPointF(x1+105,y1),f"W = {d['W']:.3f} m",True)
+        self.axes(p,QPointF(75,hh-120),"+x forward","+y right",0)
+        self.txt(p,20,hh-25,f"Crane convention: θ = -90° left, 0° forward, +90° right   |   Current θ = {self._angle(d):.1f}°",9,True)
 
-    def _case_angle(self,default):
-        return float(default if self.caseAngle is None else self.caseAngle)
-
-    def _side_view(self,p,d,left_case=True):
-        side="LEFT" if left_case else "RIGHT"
-        self.title(
-            p,
-            f"FREE BODY DIAGRAM - SIDE TIPPING ({side})",
-            "Front view: weights act downward, ground reactions act upward, red point is the tipping pivot"
-        )
-        ww,hh=self.width(),self.height()
-        gy=hh*.72
-        xL=ww*.31
-        xR=ww*.69
-        cx=(xL+xR)/2
-        deck=gy-115
-        pivot_x=xL if left_case else xR
-        out_sign=-1 if left_case else 1
-
-        p.setPen(QPen(QColor("#64748b"),3))
-        p.drawLine(QPointF(55,gy),QPointF(ww-55,gy))
-        p.setPen(QPen(QColor("#334155"),2))
-        p.setBrush(QColor("#e5e9ee"))
-        p.drawRoundedRect(QRectF(xL-80,deck,xR-xL+160,60),10,10)
-
-        for x,label in ((xL,"R_L"),(xR,"R_R")):
-            p.setPen(QPen(QColor("#1f2933"),2))
-            p.setBrush(QColor("#1f2933"))
-            p.drawEllipse(QPointF(x,gy-8),27,27)
-            self.A(p,QPointF(x,gy+70),QPointF(x,gy-38),"#16803a",label,QPointF(8,-5))
-
-        self.pivot(p,QPointF(pivot_x,gy-3),"Pivot / Tipping axis")
-
-        mast_x=cx
-        mast_top=deck-105
-        p.setPen(QPen(QColor("#f28c28"),11,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(mast_x,deck),QPointF(mast_x,mast_top))
-        boom_tip_x=mast_x+out_sign*min(240,ww*.30)
-        p.drawLine(QPointF(mast_x,mast_top),QPointF(boom_tip_x,mast_top))
-
-        p.setPen(QPen(QColor("#475569"),2))
-        p.setBrush(QColor("#d8dee7"))
-        p.drawRect(QRectF(boom_tip_x-22,mast_top+20,44,38))
-        p.drawLine(QPointF(boom_tip_x,mast_top),QPointF(boom_tip_x,mast_top+20))
-
+    def side(self,p,d,side):
+        left=side=="left";name="LEFT" if left else "RIGHT";bal=self.app.side_moment_balance(d,self._angle(d),side)
+        self.header(p,f"FREE-BODY DIAGRAM — {name} SIDE TIPPING (FRONT ELEVATION)",
+                    "At incipient tipping, the ground reaction on the wheel line opposite the tipping axis tends to zero")
+        ww,hh=self.width(),self.height();gy=hh*.63;xL=ww*.30;xR=ww*.70;cx=(xL+xR)/2;deck=gy-74
+        p.setPen(QPen(QColor("#64748b"),3));p.drawLine(QPointF(70,gy),QPointF(ww-70,gy))
+        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(xL-70,deck,xR-xL+140,45))
+        for x in (xL,xR):p.setBrush(QColor("#1f2937"));p.drawEllipse(QPointF(x,gy-3),23,23)
+        pivotx=xL if left else xR;other=xR if left else xL
+        self.pivot(p,QPointF(pivotx,gy),"Tipping axis P")
+        self.arrow(p,QPointF(pivotx,gy+58),QPointF(pivotx,gy-28),"R_P","#16803a")
+        self.txt(p,other-42,gy+52,"R_opposite → 0",9,True,"#b42318")
+        scale=(xR-xL)/max(d["W"],1e-9)
+        def sx(y):return cx+y*scale
+        angle=self._angle(d);yB=(d["L"]/2)*math.sin(math.radians(angle));yL=d["L"]*math.sin(math.radians(angle))
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        Wv=mveh*G
-        Wb=d["mb"]*G
-        Wp=d["ml"]*G
-        self.A(p,QPointF(cx,deck-105),QPointF(cx,deck-8),"#2459b3",f"W_vehicle = {Wv:.0f} N")
-        boom_cg=(mast_x+boom_tip_x)/2
-        self.A(p,QPointF(boom_cg,mast_top-65),QPointF(boom_cg,mast_top-8),"#2459b3",f"W_boom = {Wb:.0f} N")
-        self.A(p,QPointF(boom_tip_x,mast_top-82),QPointF(boom_tip_x,mast_top+18),"#d62828",f"W_payload = {Wp:.0f} N")
+        forces=[("W_V",mveh*G,0.0,deck-6),("W_B",d["mb"]*G,yB,deck-92),("W_L",d["ml"]*G,yL,deck-132)]
+        for lab,F,y,yy in forces:
+            x=max(75,min(ww-75,sx(y)));self.arrow(p,QPointF(x,yy-60),QPointF(x,yy),lab,"#111827",QPointF(7,-2))
+        self.dim(p,QPointF(xL,gy+70),QPointF(xR,gy+70),f"Track W = {d['W']:.3f} m")
+        self.axes(p,QPointF(78,125),"+y","+z")
+        self.txt(p,20,hh-112,f"θ={angle:.1f}° | y_B={yB:.3f} m | y_L={yL:.3f} m | Pivot y_P={bal['pivot']:.3f} m",8)
+        self.txt(p,20,hh-96,"Design note: if Payload is overturning, use equivalent design load F_L,d = Kdyn·m_L·g in M_O.",8,False,"#52606d")
+        self.result_box(p,bal["sf"],bal["mo"],bal["mr"],d["req"])
 
-        self.D(p,QPointF(xL,gy+72),QPointF(xR,gy+72),f"Track W = {d['W']:.3f} m")
-        self.D(p,QPointF(pivot_x,gy+105),QPointF(cx,gy+105),f"W/2 = {d['W']/2:.3f} m")
+    def longitudinal(self,p,d,case):
+        frontcase=case=="front";name="FRONT" if frontcase else "REAR";bal=self.app.longitudinal_moment_balance(d,self._angle(d),case)
+        self.header(p,f"FREE-BODY DIAGRAM — {name} TIPPING (SIDE ELEVATION)",
+                    "Moment balance about the selected wheel-contact line; the opposite wheel reaction tends to zero at impending tip")
+        ww,hh=self.width(),self.height();gy=hh*.64;rear=ww*.29;front=ww*.71;deck=gy-74
+        p.setPen(QPen(QColor("#64748b"),3));p.drawLine(QPointF(65,gy),QPointF(ww-65,gy))
+        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(rear-70,deck,front-rear+140,45))
+        for x in (rear,front):p.setBrush(QColor("#1f2937"));p.drawEllipse(QPointF(x,gy-3),23,23)
+        pivotx=front if frontcase else rear;other=rear if frontcase else front
+        self.pivot(p,QPointF(pivotx,gy),"Tipping axis P")
+        self.arrow(p,QPointF(pivotx,gy+58),QPointF(pivotx,gy-28),"R_P","#16803a")
+        self.txt(p,other-46,gy+52,"R_opposite → 0",9,True,"#b42318")
+        xr=-d["WB"]/2;xf=d["WB"]/2;scale=(front-rear)/max(d["WB"],1e-9)
+        def sx(x):return rear+(x-xr)*scale
+        comps={q["name"]:q for q in bal["components"]}
+        for nm,lab,yy in (("Vehicle","W_V",deck-8),("Boom","W_B",deck-96),("Payload","W_L",deck-136)):
+            xval=d["xCG"] if nm=="Vehicle" else bal["xboom"] if nm=="Boom" else bal["xload"]
+            x=max(70,min(ww-70,sx(xval)));self.arrow(p,QPointF(x,yy-58),QPointF(x,yy),lab,"#111827",QPointF(7,-2))
+        mast=max(70,min(ww-70,sx(bal["xc"])));tip=max(70,min(ww-70,sx(bal["xload"])))
+        p.setPen(QPen(QColor("#f59e0b"),8,Qt.SolidLine,Qt.RoundCap));p.drawLine(QPointF(mast,deck),QPointF(mast,deck-115));p.drawLine(QPointF(mast,deck-115),QPointF(tip,deck-115))
+        self.dim(p,QPointF(rear,gy+70),QPointF(front,gy+70),f"Wheelbase WB = {d['WB']:.3f} m")
+        self.axes(p,QPointF(78,125),"+x","+z")
+        self.txt(p,20,hh-112,f"θ={self._angle(d):.1f}° | x_C={bal['xc']:.3f} m | x_B={bal['xboom']:.3f} m | x_L={bal['xload']:.3f} m | x_P={bal['pivot']:.3f} m",8)
+        self.txt(p,20,hh-96,"Payload dynamic factor is applied only when Payload is on the overturning side of P.",8,False,"#52606d")
+        self.result_box(p,bal["sf"],bal["mo"],bal["mr"],d["req"])
 
-        sf,MO,MR=self.app.calc_side(d,theta=(-90 if left_case else 90))
-        self.moment_mark(p,QPointF(pivot_x,gy-70),f"M_O = {MO:.0f} N.m","#b42318")
-        p.setPen(QPen(QColor("#176337"),2))
-        p.drawText(18,hh-88,f"M_R = {MR:.1f} N.m    M_O = {MO:.1f} N.m    SF = {'INF' if sf>=999 else f'{sf:.3f}'}")
-        p.setPen(QPen(QColor("#52606d")))
-        p.drawText(18,hh-60,"R_L/R_R = ground reactions. At incipient tipping, the reaction opposite the pivot tends to 0 N.")
-        p.drawText(18,hh-36,f"Payload adverse design force uses F_L = Kdyn*m_L*g = {d['kd']*d['ml']*G:.1f} N when it creates overturning moment.")
-
-    def _long_view(self,p,d,front_case=True):
-        case="FRONT" if front_case else "REAR"
-        self.title(
-            p,
-            f"FREE BODY DIAGRAM - {case} TIPPING",
-            "Side view: longitudinal moment balance about the front or rear wheel-contact line"
-        )
-        ww,hh=self.width(),self.height()
-        gy=hh*.74
-        rear=ww*.30
-        front=ww*.70
-        deck=gy-100
-        pivot_x=front if front_case else rear
-
-        p.setPen(QPen(QColor("#64748b"),3))
-        p.drawLine(QPointF(55,gy),QPointF(ww-55,gy))
-        p.setPen(QPen(QColor("#334155"),2))
-        p.setBrush(QColor("#e5e9ee"))
-        p.drawRoundedRect(QRectF(rear-80,deck,front-rear+160,58),10,10)
-
-        for x,label in ((rear,"R_rear"),(front,"R_front")):
-            p.setPen(QPen(QColor("#1f2933"),2))
-            p.setBrush(QColor("#1f2933"))
-            p.drawEllipse(QPointF(x,gy-8),28,28)
-            self.A(p,QPointF(x,gy+70),QPointF(x,gy-38),"#16803a",label,QPointF(8,-5))
-
-        self.pivot(p,QPointF(pivot_x,gy-3),"Pivot / Tipping axis")
-
-        angle=self._case_angle(d["th"])
-        rear_m=-d["WB"]/2
-        front_m=d["WB"]/2
-        xc=rear_m+d["xC"]
-        xload=xc+d["L"]*math.cos(math.radians(angle))
-        xboom=xc+(d["L"]/2)*math.cos(math.radians(angle))
-        def sx(x):
-            return rear+(x-rear_m)/max(d["WB"],1e-9)*(front-rear)
-
-        mast=sx(xc)
-        top=deck-120
-        p.setPen(QPen(QColor("#f28c28"),11,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(mast,deck),QPointF(mast,top))
-        tip=sx(xload)
-        p.drawLine(QPointF(mast,top),QPointF(tip,top))
-        p.setPen(QPen(QColor("#475569"),2))
-        p.setBrush(QColor("#d8dee7"))
-        p.drawRect(QRectF(tip-21,top+20,42,36))
-        p.drawLine(QPointF(tip,top),QPointF(tip,top+20))
-
-        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        Wv=mveh*G
-        Wb=d["mb"]*G
-        Wp=d["ml"]*G
-        vcg=sx(d["xCG"])
-        bcg=sx(xboom)
-        self.A(p,QPointF(vcg,deck-90),QPointF(vcg,deck-8),"#2459b3",f"W_vehicle = {Wv:.0f} N")
-        self.A(p,QPointF(bcg,top-70),QPointF(bcg,top-8),"#2459b3",f"W_boom = {Wb:.0f} N")
-        self.A(p,QPointF(tip,top-88),QPointF(tip,top+18),"#d62828",f"W_payload = {Wp:.0f} N")
-
-        self.D(p,QPointF(rear,gy+76),QPointF(front,gy+76),f"Wheelbase WB = {d['WB']:.3f} m")
-
-        bal=self.app.longitudinal_moment_balance(d,angle,("front" if front_case else "rear"))
-        sf=bal["sf"]
-        self.moment_mark(p,QPointF(pivot_x,gy-72),f"M_O={bal['mo']:.0f} N.m","#b42318")
-        p.setPen(QPen(QColor("#176337"),2))
-        p.drawText(18,hh-88,
-                   f"M_R={bal['mr']:.1f} N.m    M_O={bal['mo']:.1f} N.m    "
-                   f"SF_{case.lower()} = {'INF' if sf>=999 else f'{sf:.3f}'}")
-        p.setPen(QPen(QColor("#52606d")))
-        p.drawText(18,hh-60,f"Crane angle={angle:.0f} deg   x_CG={d['xCG']:.3f} m   x_boom={xboom:.3f} m   x_load={xload:.3f} m")
-        p.drawText(18,hh-36,"Payload uses Kdyn only when it lies on the overturning side of the selected pivot.")
-
-    def _slope_view(self,p,d):
-        self.title(
-            p,
-            "FREE BODY DIAGRAM - DRIVING ON SLOPE",
-            "Weight decomposition and uphill acceleration effect at the combined vehicle CG"
-        )
-        ww,hh=self.width(),self.height()
-        alpha=math.radians(self.app.slope.value())
-        x0,y0=90,hh*.78
-        run=ww*.68
-        x1=x0+run
-        y1=y0-run*math.tan(alpha)
-        p.setPen(QPen(QColor("#64748b"),5))
-        p.drawLine(QPointF(x0,y0),QPointF(x1,y1))
-        cx,cy=(x0+x1)/2,(y0+y1)/2-55
-        u=QPointF(math.cos(alpha),-math.sin(alpha))
-        n=QPointF(-math.sin(alpha),-math.cos(alpha))
-
-        pts=QPolygonF([
-            QPointF(cx,cy)+u*(-105)+n*(-30),
-            QPointF(cx,cy)+u*(105)+n*(-30),
-            QPointF(cx,cy)+u*(105)+n*(30),
-            QPointF(cx,cy)+u*(-105)+n*(30)
-        ])
-        p.setBrush(QColor("#e5e9ee"))
-        p.setPen(QPen(QColor("#334155"),2))
-        p.drawPolygon(pts)
-        p.setBrush(QColor("#111827"))
-        p.drawEllipse(QPointF(cx,cy),6,6)
-        p.setPen(QPen(QColor("#111827")))
-        p.drawText(QPointF(cx+10,cy-8),"CG")
-
-        mass=d["mt"]
-        W=mass*G
-        Wpar=W*math.sin(alpha)
-        Wnorm=W*math.cos(alpha)
-        Fa=mass*self.app.acc.value()
-        self.A(p,QPointF(cx,cy-95),QPointF(cx,cy+105),"#d62828",f"W=mg = {W:.0f} N")
-        self.A(p,QPointF(cx,cy),QPointF(cx,cy)+u*(-145),"#b42318",f"mg sin(alpha) = {Wpar:.0f} N")
-        self.A(p,QPointF(cx,cy),QPointF(cx,cy)+n*(115),"#2459b3",f"mg cos(alpha) = {Wnorm:.0f} N")
-        self.A(p,QPointF(cx,cy)+n*(-28),QPointF(cx,cy)+n*(-135),"#16803a","N (ground reaction)")
-        self.A(p,QPointF(cx,cy)+QPointF(0,16),QPointF(cx,cy)+u*(-105)+QPointF(0,16),"#8a3ffc",f"F_a = ma = {Fa:.0f} N")
-
-        sr=self.app.slope_stability_results(d)
-        MR=mass*G*math.cos(alpha)*max(0.0,sr["rear_arm"])
-        MO=mass*max(0.0,sr["h"])*(G*math.sin(alpha)+max(0.0,sr["acc"]))
-        self.pivot(p,QPointF(x0+run*.18,y0-run*.18*math.tan(alpha)),"Rear tipping pivot")
-        p.setPen(QPen(QColor("#176337"),2))
-        sf_text="INF" if sr["sf"]>=999 else f"{sr['sf']:.3f}"
-        p.drawText(18,hh-66,
-                   f"M_R={MR:.1f} N.m    M_O={MO:.1f} N.m    SF_slope={sf_text}    alpha={self.app.slope.value():.2f} deg")
-        p.setPen(QPen(QColor("#52606d")))
-        p.drawText(18,hh-38,
-                   f"h_CG={sr['h']:.3f} m   rear arm={sr['rear_arm']:.3f} m. Use mg sin(alpha) for grade force; F_a=ma adds tipping effect.")
+    def slope(self,p,d):
+        sr=self.app.slope_stability_results(d);alpha=sr["alpha"];deg=math.degrees(alpha)
+        self.header(p,"FREE-BODY DIAGRAM — UPHILL REAR-TIPPING CHECK",
+                    "Resolved-weight representation: W_parallel and W_normal are components of W, not additional forces")
+        ww,hh=self.width(),self.height();x0,y0=110,hh*.68;run=ww*.68;x1=x0+run;y1=y0-run*math.tan(alpha)
+        p.setPen(QPen(QColor("#64748b"),4));p.drawLine(QPointF(x0,y0),QPointF(x1,y1))
+        u=QPointF(math.cos(alpha),-math.sin(alpha));n=QPointF(-math.sin(alpha),-math.cos(alpha))
+        rear=QPointF(x0+run*.25,y0-run*.25*math.tan(alpha));front=rear+u*240
+        cg=rear+u*max(60,min(210,240*sr["rear_arm"]/max(d["WB"],1e-9)))+n*(-110)
+        body=QPolygonF([rear+u*(-35)+n*(-25),front+u*(35)+n*(-25),front+u*(35)+n*(25),rear+u*(-35)+n*(25)])
+        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawPolygon(body)
+        self.pivot(p,rear,"Rear tipping axis P")
+        self.arrow(p,rear+n*(-6),rear+n*(-85),"N_R","#16803a")
+        self.txt(p,front.x()-35,front.y()+45,"N_F → 0",9,True,"#b42318")
+        self.arrow(p,cg,cg+u*(-130),"W_parallel = mg sinα","#b42318",QPointF(-150,-7))
+        self.arrow(p,cg,cg+n*(115),"W_normal = mg cosα","#111827",QPointF(8,0))
+        if sr["acc"]>1e-9:self.arrow(p,cg+QPointF(0,18),cg+u*(-105)+QPointF(0,18),"F_I = ma","#7c3aed",QPointF(-90,18))
+        self.arrow(p,rear+QPointF(0,12),rear+u*(120)+QPointF(0,12),"T_R","#0f766e",QPointF(6,16))
+        self.dim(p,rear+u*(-5)+n*(150),rear+u*max(0.0,sr["rear_arm"])+n*(150),f"d_R = {sr['rear_arm']:.3f} m")
+        self.dim(p,cg+u*(45),rear+u*sr["rear_arm"]+u*(45),f"h_CG = {sr['h']:.3f} m",True)
+        self.axes(p,QPointF(80,125),"+x_s uphill","+z_s normal",-deg)
+        self.txt(p,20,hh-112,f"α={deg:.2f}° | W_parallel={sr['w_parallel']:.1f} N | W_normal={sr['w_normal']:.1f} N | F_I={sr['inertia']:.1f} N",8)
+        self.txt(p,20,hh-96,"Moment about rear pivot: M_O=(mg sinα + ma)h_CG ; M_R=(mg cosα)d_R.",8,False,"#52606d")
+        self.result_box(p,sr["sf"],sr["mo"],sr["mr"],d["req"])
 
     def paintEvent(self,e):
-        p=QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        p.fillRect(self.rect(),QColor("#ffffff"))
-        if not hasattr(self.app,"mt"):
-            return
+        p=QPainter(self);p.setRenderHint(QPainter.Antialiasing);p.fillRect(self.rect(),QColor("white"))
+        if not hasattr(self.app,"mt"):return
         d=self.app.inputs()
-        if self.simpleMode:
-            if self.mode==0:
-                self._simple_side_view(p,d,True)
-            elif self.mode==1:
-                self._simple_side_view(p,d,False)
-            elif self.mode==2:
-                self._simple_long_view(p,d,True)
-            elif self.mode==3:
-                self._simple_long_view(p,d,False)
-            else:
-                self._simple_slope_view(p,d)
-        else:
-            if self.mode==0:
-                self._side_view(p,d,True)
-            elif self.mode==1:
-                self._side_view(p,d,False)
-            elif self.mode==2:
-                self._long_view(p,d,True)
-            elif self.mode==3:
-                self._long_view(p,d,False)
-            else:
-                self._slope_view(p,d)
+        if self.mode==0:self.geometry(p,d)
+        elif self.mode==1:self.side(p,d,"left")
+        elif self.mode==2:self.side(p,d,"right")
+        elif self.mode==3:self.longitudinal(p,d,"front")
+        elif self.mode==4:self.longitudinal(p,d,"rear")
+        else:self.slope(p,d)
 
 class GraphWidget(QWidget):
     """Stability map: Side / Front / Rear SF over crane angle with target and worst marker."""
@@ -9933,16 +9387,16 @@ class GraphWidget(QWidget):
         p.setPen(QPen(QColor("#374151"),2));p.drawLine(L,B,R,B);p.drawLine(L,T,L,B)
         data=[];finite=[]
         for a in range(-90,91,2):
-            side=self.app.calc_side(d,theta=a)[0];front,rear=self.app.longitudinal_sf_at(d,a)
-            data.append((a,side,front,rear))
-            finite.extend([v for v in (side,front,rear) if v<100])
+            left=self.app.side_moment_balance(d,a,"left")["sf"];right=self.app.side_moment_balance(d,a,"right")["sf"];front,rear=self.app.longitudinal_sf_at(d,a)
+            data.append((a,left,right,front,rear))
+            finite.extend([v for v in (left,right,front,rear) if v<100])
         req=d['req'];ymax=max(2.0,req*1.6,min(8.0,(max(finite)*1.12 if finite else 5.0)))
         # grid and y labels
         p.setFont(QFont("Arial",8));p.setPen(QPen(QColor("#e2e8f0"),1))
         for i in range(6):
             val=ymax*i/5;y=B-(B-T)*i/5;p.drawLine(L,y,R,y);p.setPen(QColor("#64748b"));p.drawText(12,int(y+4),f"{val:.1f}");p.setPen(QPen(QColor("#e2e8f0"),1))
-        colors=[QColor("#2563eb"),QColor("#d97706"),QColor("#7c3aed")]
-        labels=["Side SF","Front SF","Rear SF"]
+        colors=[QColor("#2563eb"),QColor("#0f766e"),QColor("#d97706"),QColor("#7c3aed")]
+        labels=["Side Left","Side Right","Front SF","Rear SF"]
         for j,color in enumerate(colors,1):
             pts=[]
             for row in data:
@@ -9962,7 +9416,7 @@ class GraphWidget(QWidget):
         p.setFont(QFont("Arial",11,QFont.Bold));p.setPen(QColor("#17324d"));p.drawText(L,28,"STABILITY MAP — Safety Factor vs Crane Angle")
         p.setFont(QFont("Arial",8,QFont.Bold));x=L
         for lab,col in zip(labels,colors):
-            p.setPen(QPen(col,3));p.drawLine(x,44,x+24,44);p.setPen(col);p.drawText(x+30,48,lab);x+=125
+            p.setPen(QPen(col,3));p.drawLine(x,44,x+24,44);p.setPen(col);p.drawText(x+30,48,lab);x+=118
         p.setPen(QColor("#475569"));p.drawText(L,B+49,"Crane rotation angle θ (deg)")
 
 class MotorOperatingGraphWidget(QWidget):
@@ -10000,12 +9454,6 @@ if __name__=="__main__":
     ui_font.setStyleStrategy(QFont.PreferAntialias)
     a.setFont(ui_font)
     w=App();w.show();sys.exit(a.exec())
-
-
-
-
-
-
 
 
 
