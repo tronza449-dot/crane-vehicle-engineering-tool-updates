@@ -1,75 +1,51 @@
-# Crane Vehicle Engineering Tool V53.8.9
+# Crane Vehicle Engineering Tool V53.8.10
 
-## Stability Mass Modes + Complete Variables + Per-Mode PDF Export
+## Main Battery 72 V — Simple Cycle Energy
 
-อัปเดตต่อจาก V53.8.8 เพื่อแก้การป้อนมวลและการ Export Stability ให้ชัดเจนขึ้น
+อัปเดตต่อจาก V53.8.9 โดยปรับการคำนวณแบตเตอรี่รถให้เป็นแบบหยาบและอธิบายง่ายตามแนวคิด “คำนวณต่อ 1 Cycle แล้วคูณจำนวน Cycle”
 
-### 1) Mass Calculation Mode แยกเป็น 2 โหมด
-- Mode A — Total Mass
-  - ผู้ใช้กรอก m_total, m_L, m_B, Base CG และ Driving CG เอง
-- Mode B — Component Mass
-  - ผู้ใช้กรอกน้ำหนักแต่ละส่วนในตาราง
-  - โปรแกรมรวม m_total อัตโนมัติ
-  - Boom ถูกส่งไป m_B
-  - Basket + Payload ถูกส่งไป m_L
-  - ชิ้นส่วนที่เหลือรวมเป็น Base vehicle
-  - คำนวณ x_CG,V, y_CG,V, x_CG,drive และ h_CG จากตาราง
-  - ช่องค่าที่เป็นผลลัพธ์จะถูกล็อกเพื่อป้องกันการกรอกซ้ำ/ค่าขัดกัน
+### Route model
+- 1 Cycle = เที่ยวไป + เที่ยวกลับ
+- ระยะเที่ยวเดียวเริ่มต้น 30 m
+- ระยะทางลาดเริ่มต้น 2.9 m
+- ระยะทางราบต่อเที่ยว = 30 - 2.9 = 27.1 m
+- เที่ยวไป = ทางราบ + ขึ้นทางลาด
+- เที่ยวกลับ = ลงทางลาด + ทางราบ
 
-### 2) Component Mass table
-เพิ่มรายการแยก:
-- Frame
-- Battery
-- Drive motors
-- Support wheels
-- Crane column
-- Slewing drive + bearing
-- Winch
-- Boom
-- Basket
-- Payload
-- Counterweight
-- Other
+### Simple energy equations
+- ทางราบ: F_flat = Crr m g
+- ขึ้นลาด: F_up = m g sin(theta) + Crr m g cos(theta)
+- ลงลาด: F_down = max(0, Crr m g cos(theta) - m g sin(theta))
+- พลังงานแต่ละช่วง: E = F s / (eta × 3600)
+- E_go = E_flat,oneway + E_up,slope
+- E_return = E_down,slope + E_flat,oneway
+- E_drive,cycle = E_go + E_return
+- E_cycle = E_drive,cycle + E_aux,cycle
+- E_total = E_cycle × N_cycle
+- E_design = (E_total / DoD) × (1 + Reserve)
+- Ah = E_design / V
 
-### 3) Stability variables
-Variable Dictionary เพิ่มตัวแปรที่ใช้จริงให้ครบมากขึ้น:
-- Mass source / mass mode
-- m_total, m_V, m_B, m_L
-- W_V, W_B, W_L, F_L,d
-- x/y tipping axes
-- x/y CG
-- Boom/Payload positions
-- Moment arms ของ Left / Right / Front / Rear
-- M_O, M_R และ SF ของทุกทิศ
-- Slope variables: alpha, a, d_rear, W_parallel, W_normal, F_I, traction,
-  CG shift, stability margin, M_O,slope, M_R,slope, SF_slope
-- Component source table แสดงในรายงานเมื่อใช้ Component Mass Mode
+### Important behavior
+- ช่วงลงทางลาดอาจมี traction energy ≈ 0 Wh หากแรงโน้มถ่วงช่วยพารถลง
+- แต่เที่ยวกลับไม่ใช่ 0 Wh เพราะยังมีทางราบ 27.1 m
+- ไม่คิดพลังงานช่วงออกตัวใน Wh/Ah sizing
+- ไม่ใช้ Rated Motor Power เป็น Worst-case energy model
+- ไม่นำพลังงานจากช่วงลงทางลาดมาหักคืนแบตเตอรี่
+- Winch 12 V ยังแยกพลังงานออกจาก Main Battery 72 V; ใช้เฉพาะเวลายกในการหาจำนวน Cycle
 
-### 4) PDF Export
-เพิ่มการส่งออกแยก:
-- Geometry + Tipping Axes
-- Side Left
-- Side Right
-- Front
-- Rear
-- Slope
-
-เพิ่มปุ่ม:
-- Export Current Mode PDF ที่หน้า FBD
-- Export Slope PDF ที่หน้า Slope
-- Export Selected Mode PDF ที่หน้า Report
-- Export ALL Stability Modes PDF
-- Export All Stability Modes ที่หน้า Mass & CG
-
-### 5) Side CG
-เพิ่ม y_CG,V และใช้จริงใน Left/Right moment balance
-Component Mass Mode จะคำนวณ y_CG,V จากตารางอัตโนมัติ
+### UI / Report
+- Input Battery ตัดช่องจำนวนครั้งออกตัว, เวลาเร่ง, Worst-case energy mode และ Uphill efficiency ออกจากหน้าหลัก
+- Trip Summary แสดงพลังงานเที่ยวไป / เที่ยวกลับ / ต่อ Cycle
+- Variables และ Calculation Steps ปรับเป็น Cycle model
+- Thai Guide และ Battery PDF ใช้สูตรแบบเดียวกัน
+- Web version ใช้ Cycle model เดียวกับ Windows
 
 ### Validation
-ทดสอบ syntax, Total/Component mode, automatic Boom/Payload sync,
-base lateral CG, complete variables และการ render Export ครบทุกโหมดแล้ว
+- ตรวจเส้นทาง 30 m = slope 2.9 m + flat 27.1 m
+- ตรวจว่า Return energy > 0 จากทางราบ
+- ตรวจว่า acceleration setting ไม่เปลี่ยน Edrive/Edesign
+- ตรวจ Windows + Web calculation และ JavaScript syntax ผ่าน
 
 ### Scope
-ยังเป็น Preliminary rigid-body engineering calculation.
-ควรยืนยันมวล/CG จริง, โครงสร้าง, wheel-ground interaction, braking,
-slewing bearing และ dynamic/shock load ก่อนใช้งานจริง.
+เป็น Preliminary battery sizing แบบหยาบเพื่อใช้เลือกความจุและอธิบายหลักการ
+ควรวัดกระแส/กำลังจริงของรถเพื่อปรับค่า Efficiency และยืนยัน Pack/BMS ก่อนซื้อใช้งานจริง.
