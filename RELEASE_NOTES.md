@@ -1,53 +1,55 @@
-# Crane Vehicle Engineering Tool V53.8.17
+# Crane Vehicle Engineering Tool V53.8.18
 
-## Thai Formula + Substitution Upgrade
+## Plain-Thai Formula Explanation Upgrade
 
-อัปเดตต่อจาก V53.8.16 ตามรูปแบบรายงานที่ต้องการให้อ่านง่ายสำหรับนำเสนออาจารย์:
-กำลังหาอะไร → สูตร → ความหมาย → แทนค่า → ผลลัพธ์ → ใช้ตัดสินอะไร
+อัปเดตต่อจาก V53.8.17 เพื่อให้คนอ่านไม่ต้องจำตัวแปรเอง
 
 ### Stability / FBD
-- Current-angle Snapshot เปลี่ยนหัวข้อเป็นภาษาไทยร่วมกับอังกฤษ
-- ตารางตัวแปรเพิ่มคำอธิบายภาษาไทย
-- Left / Right / Front / Rear แสดงทีละขั้น:
-  1. หาโมเมนต์คว่ำ M_O
-  2. หาโมเมนต์ต้าน M_R
-  3. หา Safety Factor
-- แสดงตัวเลขแทนค่าจริงของ F_i × d_i ก่อนรวมผล
-- ระบุ PASS/FAIL พร้อมคำว่า ผ่าน/ไม่ผ่าน
-- Slope อธิบายไทยแบบทีละขั้น:
-  W_parallel, W_normal, F_I, d_R, M_O, M_R และ SF
-- Critical-case FBD PDF เปลี่ยนหัวข้อเป็น
-  สูตรและการแทนค่า / Equation and Substitution
-- ตาราง Force / Moment arm / Moment / Role เป็นอังกฤษ + ไทย
+สูตรสำคัญทุกส่วนเพิ่ม:
+- อ่านสูตรแบบภาษาคน
+- ตัวแปรในสูตรนี้
+- ตัวเลขแต่ละพจน์มาจากส่วนไหน
+- แสดงว่าแรง × ระยะ ของแต่ละชิ้นได้โมเมนต์เท่าไร
+
+ตัวอย่าง:
+M_O = Σ(F_i d_i)
+
+อ่านแบบภาษาคน:
+เอาแรงของทุกชิ้นที่ช่วยทำให้รถคว่ำ × ระยะตั้งฉากจากแนวแรงถึงแกนคว่ำ P แล้วบวกกันทั้งหมด
+
+พร้อมอธิบาย:
+- M_O = โมเมนต์คว่ำ
+- Σ = รวมทุกพจน์
+- F_i = แรงของชิ้นส่วนลำดับที่ i
+- d_i = แขนโมเมนต์ของแรงนั้นถึงแกน P
+
+และแสดงแต่ละพจน์เช่น:
+Boom: 196.20 N × 0.050 m = 9.81 N·m
+Payload: 1177.20 N × 0.650 m = 765.18 N·m
+
+M_R และ SF ใช้รูปแบบเดียวกัน
+
+### Slope
+เพิ่มคำแปลภาษาคนของ:
+- W_parallel = mg sinα
+- W_normal = mg cosα
+- F_I = ma
 
 ### Main Battery 72 V
-แท็บ "สูตร + แทนค่า / Calculation Steps" เขียนใหม่เป็นภาษาไทยแบบทีละขั้น:
-1. แบ่งระยะ 1 Cycle
-2. หาแรงและพลังงานทางราบ
-3. หาแรงและพลังงานขึ้นทางลาด
-4. หาแรงและพลังงานลงทางลาด
-5. Differential / Pivot Turning Energy
-6. รวมเที่ยวไป + เที่ยวกลับ + Turning + Auxiliary
-7. หาเวลาต่อ Cycle และจำนวน Cycle
-8. หาพลังงานรวม E_total
-9. เผื่อ DoD + Reserve
-10. แปลง Wh → Ah และใช้ Battery Design Factor Kb
+เพิ่มคำอธิบายภาษาคนและความหมายตัวแปรให้สูตรหลัก:
+- F_flat = Crr m g
+- E_flat = Fd/(η×3600)
+- F_up = mg sinθ + Crr mg cosθ
+- E_up = F_up L/(η×3600)
+- t_cycle
+- N_cycle
+- E_total
+- Ah_min = E_design/V
+- Ah_practical = Ah_min × Kb
 
-ทุกขั้นมี:
-- กำลังหาอะไร
-- สูตร
-- แทนค่าจริง
-- ผลลัพธ์
-- คำอธิบายว่าค่านั้นหมายถึงอะไร
-
-### Battery PDF
-- หัวรายงานเป็นภาษาไทย
-- ใช้ Calculation Steps ชุดเดียวกับหน้าโปรแกรม
-- แสดงคำตอบสุดท้ายสำหรับเลือกแบต:
-  Ah_min → Ah_practical → Standard Ah
-- ย้ำว่า Ah เป็นการเลือกความจุพลังงาน
-  ส่วน BMS / Continuous current / Peak current / Fuse / Cable / VESC limit ต้องตรวจแยก
+รูปแบบ:
+กำลังหาอะไร → สูตร → อ่านแบบภาษาคน → ตัวแปร → แทนค่า → คำตอบ
 
 ### Calculation scope
-ไม่มีการเปลี่ยนสูตรหลักของ Stability หรือ Battery
-การอัปเดตนี้เน้น presentation / explanation / substitution เท่านั้น
+ไม่มีการเปลี่ยนสูตรคำนวณหลัก
+เป็นการปรับคำอธิบายและ presentation เท่านั้น
