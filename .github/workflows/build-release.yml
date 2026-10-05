@@ -130,8 +130,10 @@ jobs:
           assert 331.2 < web_battery["round_time_s"] < 331.3
           assert web_battery["winch_energy_included"] is False
           assert abs(web_battery["drive_reference_current_a"]-12.5)<1e-9
-          assert web_battery["continuous_current_required_a"]>=12.5
+          assert web_battery["continuous_current_required_a"]>=web_battery["uphill_current_calc_a"]-1e-9
+          assert web_battery["peak_current_required_a"]>=12.5
           assert web_battery["peak_current_required_a"]>=web_battery["continuous_current_required_a"]
+          assert web_battery["continuous_current_required_a"]<web_battery["peak_current_required_a"]
           assert web_battery["suggested_ah"]>=web_battery["design_ah_with_current"]
           assert len(web_battery["comparison"])>=10
           assert web_battery["candidate"]["runtime_h"]>0
