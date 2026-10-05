@@ -1,0 +1,120 @@
+name: Validate V53.8.11 Battery Turn
+
+on:
+  push:
+    branches:
+      - v53.8.11-battery-design-turning
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Qt libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install PySide6 pyserial
+      - name: Syntax
+        run: |
+          python -m py_compile CraneVehicleEngineeringTool.py web_engine.py web_server.py web_launcher.py
+          node --check web/app.js
+          node --check web/details.js
+      - name: Battery design factor and turning regression
+        run: |
+          python - <<'PY'
+          import math
+          from PySide6.QtWidgets import QApplication
+          import CraneVehicleEngineeringTool as cvet
+          import web_engine
+
+          app=QApplication([])
+          w=cvet.App()
+          w.euseOperationCycle.setChecked(False)
+          w.euseTorqueMass.setChecked(False)
+          w.emass.setValue(300.0)
+          w.evolt.setValue(72.0)
+          w.espeed.setValue(1.0)
+          w.eoneway.setValue(30.0)
+          w.eslopeLen.setValue(2.9)
+          w.eslopeDeg.setValue(12.0)
+          w.eruntime.setValue(3.0)
+          w.err.setValue(0.02)
+          w.edriveEff.setValue(60.0)
+          w.eaux.setValue(50.0)
+          w.edod.setValue(80.0)
+          w.ereserve.setValue(20.0)
+          w.ebatteryFactor.setValue(3.0)
+          w.W.setValue(0.70)
+
+          # Baseline: no differential turn.
+          w.eTurnEnable.setChecked(False)
+          base=w.electrical_results()
+          assert base["Eturn_cycle"]==0.0
+          assert abs(base["Ah_recommended"]-3.0*base["Ah"])<1e-10
+
+          # Two 180-degree pivot turns per cycle.
+          w.eTurnEvents.setValue(2)
+          w.eTurnAngle.setValue(180.0)
+          w.eTurnTime.setValue(5.0)
+          w.eTurnCoeff.setValue(0.20)
+          w.eTurnEnable.setChecked(True)
+          q=w.electrical_results()
+          expected_s=0.70/2*math.pi
+          expected_event=0.20*300*9.81*expected_s/(0.60*3600)
+          assert abs(q["turn_wheel_path"]-expected_s)<1e-10
+          assert abs(q["Eturn_event"]-expected_event)<1e-10
+          assert abs(q["Eturn_cycle"]-2*expected_event)<1e-10
+          assert q["Edrive_cycle"]>base["Edrive_cycle"]
+          assert q["turn_time_cycle_s"]==10.0
+          assert q["Iturn_avg"]>0
+          assert q["Ah_recommended"]>q["Ah"]
+          assert q["recommended_standard"]>=q["Ah_recommended"]
+
+          vars_html=w.electrical_variables_html()
+          eq_html=w.equation_html(q)
+          for token in ("C_turn","E_turn,event","Ah_practical","Battery Design Factor","Differential / Pivot"):
+              assert token in vars_html or token in eq_html, token
+
+          br=w.battery_selection_results()
+          assert abs(br["energy_min"]-q["Ah_recommended"])<1e-9
+          assert br["suggested"]>=q["Ah_recommended"]
+
+          # Web model same simplified turn equation.
+          r=web_engine.calculate_drive_battery({
+              "mass_kg":300,"voltage_v":72,"speed_kmh":1,
+              "one_way_m":30,"slope_length_m":2.9,"slope_deg":12,
+              "runtime_h":3,"rolling_coeff":0.02,"drive_eff_pct":60,
+              "aux_power_w":50,"dod_pct":80,"reserve_pct":20,
+              "battery_design_factor":3,
+              "turn_enabled":"on","turns_per_cycle":2,"turn_angle_deg":180,
+              "turn_time_s":5,"turn_coeff":0.20,"track_width_m":0.70,
+              "lift_time_per_event_s":0,"lift_events_per_round":0,
+              "other_stop_time_per_round_s":0
+          })
+          assert r["turn_enabled"] is True
+          assert abs(r["turn_wheel_path_m"]-expected_s)<1e-10
+          assert abs(r["turn_energy_per_event_wh"]-expected_event)<1e-10
+          assert abs(r["turn_energy_per_cycle_wh"]-2*expected_event)<1e-10
+          assert abs(r["recommended_ah"]-3*r["design_ah"])<1e-10
+          assert r["suggested_ah"]>=r["recommended_ah"]
+          assert r["peak_current_required_a"]>=r["turn_average_current_a"]
+
+          print("V53.8.11 BATTERY TURN PASS")
+          print("Turn/event Wh", q["Eturn_event"])
+          print("Turn/cycle Wh", q["Eturn_cycle"])
+          print("Minimum Ah", q["Ah"])
+          print("Practical Ah", q["Ah_recommended"])
+          print("Standard Ah", q["recommended_standard"])
+          PY
