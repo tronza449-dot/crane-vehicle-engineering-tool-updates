@@ -1165,15 +1165,15 @@ class App(QMainWindow):
             ("ขีดจำกัดแรงยึดเกาะ", "แรงกดล้อขับ = สัดส่วนแรงกดล้อขับ × มวลรวมรถ × g × cos(มุมทางลาด)<br>แรงยึดเกาะสูงสุด = สัมประสิทธิ์แรงเสียดทาน × แรงกดล้อขับ"),
             ("ตรวจมอเตอร์และ Controller", "Margin = ค่าพิกัดอุปกรณ์ ÷ ค่าที่ระบบต้องการ"),
             ("แรงโหลดออกแบบ", "แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g"),
-            ("ตำแหน่งโหลดด้านข้างและแนวคว่ำ", "ระยะโหลดด้านข้าง = |ความยาวแขน × sin(มุมเครน)|<br>ตำแหน่งแนวคว่ำ = ความกว้างฐานล้อ ÷ 2<br>แขนโมเมนต์โหลด = ระยะโหลดด้านข้าง − ตำแหน่งแนวคว่ำ"),
-            ("โมเมนต์คว่ำด้านข้าง", "โมเมนต์คว่ำ = แรงโหลด × ระยะแขนโมเมนต์โหลด + น้ำหนักแขนเครน × g × ระยะแขนโมเมนต์ของแขน"),
-            ("โมเมนต์ต้านและ SF ด้านข้าง", "มวลต้าน = มวลรวม − มวลโหลด − มวลแขนเครน<br>โมเมนต์ต้าน = มวลต้าน × g × (ความกว้างฐานล้อ ÷ 2)<br>Safety Factor ด้านข้าง = โมเมนต์ต้าน ÷ โมเมนต์คว่ำ"),
+            ("ตำแหน่งโหลดด้านข้างและแนวคว่ำ", "กำหนด +y = ขวารถ, -y = ซ้ายรถ<br>y_L = L sinθ, y_B = (L/2) sinθ<br>Pivot ซ้าย = -W/2, Pivot ขวา = +W/2<br>แขนโมเมนต์ = ระยะตั้งฉากจาก line of action ถึง Pivot"),
+            ("โมเมนต์คว่ำด้านข้าง", "ตรวจ Left และ Right แยกกัน: M_O = Σ(F_i d_i) ของมวลที่อยู่เลย Tipping Axis ในทิศคว่ำ<br>Payload ใช้ F_L,d = Kdyn m_L g เฉพาะเมื่ออยู่ฝั่งทำให้คว่ำ"),
+            ("โมเมนต์ต้านและ SF ด้านข้าง", "M_R = Σ(F_i d_i) ของมวลที่อยู่ด้านใน Tipping Axis<br>SF_left = M_R,left/M_O,left, SF_right = M_R,right/M_O,right<br>Side SF ที่แสดงบนการ์ด = ค่าต่ำกว่าของ Left/Right"),
             ("ตำแหน่งตามแนวยาว", "ตำแหน่งเครน = ตำแหน่งเพลาหลัง + ระยะเครนจากเพลาหลัง<br>ตำแหน่งโหลด = ตำแหน่งเครน + ความยาวแขน × cos(มุมเครน)<br>ตำแหน่ง CG แขน = ตำแหน่งเครน + ครึ่งความยาวแขน × cos(มุมเครน)"),
             ("โมเมนต์คว่ำหน้า", "Safety Factor ด้านหน้า = ผลรวมโมเมนต์ต้านรอบเพลาหน้า ÷ ผลรวมโมเมนต์คว่ำรอบเพลาหน้า"),
             ("โมเมนต์คว่ำหลัง", "Safety Factor ด้านหลัง = ผลรวมโมเมนต์ต้านรอบเพลาหลัง ÷ ผลรวมโมเมนต์คว่ำรอบเพลาหลัง"),
-            ("รถวิ่งบนทางลาด", "ระยะเลื่อนจากความชัน = ความสูง CG × tan(มุมทางลาด)<br>ระยะเลื่อนจากความเร่ง = ความสูง CG × ความเร่ง ÷ g<br>ระยะเลื่อนรวม = ระยะจากความชัน + ระยะจากความเร่ง"),
+            ("รถวิ่งบนทางลาด", "ใช้แกนตามทางลาด: W_parallel = mg sinα, W_normal = mg cosα, F_I = ma ตรงข้ามความเร่ง<br>M_O = (W_parallel + F_I)h_CG<br>M_R = W_normal d_rear<br>SF_slope = M_R/M_O"),
             ("มวลรวมและ Combined CG", "มวลรวม = ผลรวมมวลทุกชิ้น<br>ตำแหน่ง CG = ผลรวม(มวลแต่ละชิ้น × ตำแหน่งแต่ละชิ้น) ÷ มวลรวม"),
-            ("Worst-case search", "Safety Factor ต่ำสุด = ค่าต่ำสุดของ SF ด้านข้าง, ด้านหน้า และด้านหลัง ในทุกมุมเครน"),
+            ("Worst-case search", "Safety Factor ต่ำสุด = min(SF_left, SF_right, SF_front, SF_rear) สำหรับทุกมุมเครน -90° ถึง +90°"),
             ("Minimum Width / Counterweight", "หาความกว้างฐานล้อต่ำสุดหรือมวลถ่วงต่ำสุดที่ทำให้ Safety Factor ≥ ค่า Safety Factor ที่กำหนด"),
         ]
         for key, text in rules:
@@ -8928,6 +8928,11 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
 โปรแกรมนี้เป็น Preliminary Engineering Tool สำหรับรถขนซากสัตว์พร้อมเครนรูปตัว L
 เครนไม่ก้ม-เงย แขนแนวนอนคงที่ และหมุนซ้าย-ขวา -90° ถึง +90°
 
+CONVENTION ที่ใช้ทั้งโปรแกรมและ PDF
++x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
+θ = -90° หมายถึงเครนอยู่ด้านซ้าย, θ = 0° ด้านหน้า, θ = +90° ด้านขวา
+Formal FBD ใช้ Front Elevation สำหรับ Side tipping และ Side Elevation สำหรับ Front/Rear tipping
+
 1) Total mass (m_total)
 มวลรวมทั้งระบบขณะใช้งาน รวมรถ เครน วินช์ แบตเตอรี่ ตะกร้า และ Payload
 ห้ามบวก Payload ซ้ำถ้า Total mass รวม Payload อยู่แล้ว
@@ -8974,6 +8979,8 @@ Payload/Boom ที่ยังอยู่ภายในฐานรองร�
 
 14) Safety Factor (SF)
 SF = M_R / M_O
+Side tipping ต้องตรวจ SF_left และ SF_right แยกกัน
+ที่จุดเริ่มคว่ำ Reaction ของแนวล้อฝั่งตรงข้าม Tipping Axis จะเข้าใกล้ 0 N
 PASS หมายถึงผ่านเกณฑ์ของแบบจำลองเบื้องต้นเท่านั้น ไม่ใช่การรับรองความปลอดภัย
 
 CRANE MODE
@@ -9398,16 +9405,16 @@ class GraphWidget(QWidget):
         p.setPen(QPen(QColor("#374151"),2));p.drawLine(L,B,R,B);p.drawLine(L,T,L,B)
         data=[];finite=[]
         for a in range(-90,91,2):
-            side=self.app.calc_side(d,theta=a)[0];front,rear=self.app.longitudinal_sf_at(d,a)
-            data.append((a,side,front,rear))
-            finite.extend([v for v in (side,front,rear) if v<100])
+            left=self.app.side_moment_balance(d,a,"left")["sf"];right=self.app.side_moment_balance(d,a,"right")["sf"];front,rear=self.app.longitudinal_sf_at(d,a)
+            data.append((a,left,right,front,rear))
+            finite.extend([v for v in (left,right,front,rear) if v<100])
         req=d['req'];ymax=max(2.0,req*1.6,min(8.0,(max(finite)*1.12 if finite else 5.0)))
         # grid and y labels
         p.setFont(QFont("Arial",8));p.setPen(QPen(QColor("#e2e8f0"),1))
         for i in range(6):
             val=ymax*i/5;y=B-(B-T)*i/5;p.drawLine(L,y,R,y);p.setPen(QColor("#64748b"));p.drawText(12,int(y+4),f"{val:.1f}");p.setPen(QPen(QColor("#e2e8f0"),1))
-        colors=[QColor("#2563eb"),QColor("#d97706"),QColor("#7c3aed")]
-        labels=["Side SF","Front SF","Rear SF"]
+        colors=[QColor("#2563eb"),QColor("#0f766e"),QColor("#d97706"),QColor("#7c3aed")]
+        labels=["Side Left","Side Right","Front SF","Rear SF"]
         for j,color in enumerate(colors,1):
             pts=[]
             for row in data:
@@ -9427,7 +9434,7 @@ class GraphWidget(QWidget):
         p.setFont(QFont("Arial",11,QFont.Bold));p.setPen(QColor("#17324d"));p.drawText(L,28,"STABILITY MAP — Safety Factor vs Crane Angle")
         p.setFont(QFont("Arial",8,QFont.Bold));x=L
         for lab,col in zip(labels,colors):
-            p.setPen(QPen(col,3));p.drawLine(x,44,x+24,44);p.setPen(col);p.drawText(x+30,48,lab);x+=125
+            p.setPen(QPen(col,3));p.drawLine(x,44,x+24,44);p.setPen(col);p.drawText(x+30,48,lab);x+=118
         p.setPen(QColor("#475569"));p.drawText(L,B+49,"Crane rotation angle θ (deg)")
 
 class MotorOperatingGraphWidget(QWidget):
