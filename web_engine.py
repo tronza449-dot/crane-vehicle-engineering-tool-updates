@@ -380,6 +380,14 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     aux_w = max(0.0, _f(data, "aux_power_w", 50.0))
     dod = _clamp(_f(data, "dod_pct", 80.0) / 100.0, 0.01, 1.0)
     reserve = max(0.0, _f(data, "reserve_pct", 20.0) / 100.0)
+    battery_factor = max(1.0, _f(data, "battery_design_factor", 3.0))
+
+    turn_enabled = str(data.get("turn_enabled", "false")).strip().lower() in ("1","true","on","yes")
+    turn_events = max(0, _i(data, "turns_per_cycle", 2)) if turn_enabled else 0
+    turn_angle_deg = max(0.0, _f(data, "turn_angle_deg", 180.0))
+    turn_time_event_s = max(0.1, _f(data, "turn_time_s", 5.0))
+    turn_coeff = max(0.0, _f(data, "turn_coeff", 0.20))
+    track_width = max(0.01, _f(data, "track_width_m", 0.70))
 
     target_cont_c = max(0.1, _f(data, "target_cont_c", 3.0))
     target_peak_c = max(0.1, _f(data, "target_peak_c", 5.0))
@@ -390,7 +398,8 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     runtime_s = runtime_h * 3600.0
     cycle_distance = 2.0 * one
     drive_cycle_s = cycle_distance / v
-    cycle_total_s = drive_cycle_s + lift_round_s + other_stop_s
+    turn_time_cycle_s = turn_events * turn_time_event_s
+    cycle_total_s = drive_cycle_s + lift_round_s + other_stop_s + turn_time_cycle_s
     cycles_theoretical = runtime_s / cycle_total_s if cycle_total_s > 0 else 0.0
     completed_rounds = int(math.floor(cycles_theoretical + 1e-12))
 
@@ -423,7 +432,16 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
 
     eout_drive = eflat_batt_oneway + eup_batt
     ereturn_drive = edown_batt + eflat_batt_oneway
-    edrive_cycle = eout_drive + ereturn_drive
+
+    turn_phi = abs(math.radians(turn_angle_deg))
+    turn_wheel_path = (track_width / 2.0) * turn_phi
+    fturn_effective = turn_coeff * m * G
+    eturn_event = (fturn_effective * turn_wheel_path) / (eff * 3600.0) if turn_events > 0 else 0.0
+    eturn_cycle = eturn_event * turn_events
+    pturn_avg = eturn_event * 3600.0 / turn_time_event_s if turn_events > 0 else 0.0
+    iturn_avg = pturn_avg / voltage if voltage > 0 else 0.0
+
+    edrive_cycle = eout_drive + ereturn_drive + eturn_cycle
 
     eaux_cycle = aux_w * (cycle_total_s / 3600.0)
     ecycle = edrive_cycle + eaux_cycle
@@ -435,14 +453,16 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     enom = eload / dod
     edesign = enom * (1.0 + reserve)
     ah = edesign / voltage
+    erecommended = edesign * battery_factor
+    ah_recommended = ah * battery_factor
 
     icalc_up = (pup_mech / eff) / voltage
-    cont_req = max(0.0, icalc_up)
+    cont_req = max(0.0, icalc_up, iturn_avg)
     peak_req = cont_req
 
     ah_by_cont = cont_req / target_cont_c
     ah_by_peak = peak_req / target_peak_c
-    design_ah_with_current = max(ah, ah_by_cont, ah_by_peak)
+    design_ah_with_current = max(ah_recommended, ah_by_cont, ah_by_peak)
     suggested_ah = next_standard_capacity(design_ah_with_current)
 
     cycle_h = cycle_total_s / 3600.0 if cycle_total_s > 0 else 0.0
@@ -455,7 +475,7 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         avg_load_w = load_per_cycle_wh / cycle_h if cycle_h > 0 else 0.0
         runtime_est_h = load_budget_wh / avg_load_w if avg_load_w > 0 else 0.0
         full_rounds = int(math.floor(runtime_est_h / cycle_h + 1e-12)) if cycle_h > 0 else 0
-        margin_wh = rated_wh - edesign
+        margin_wh = rated_wh - erecommended
         margin_pct = (100.0 * margin_wh / rated_wh) if rated_wh > 0 else -100.0
         return {
             "capacity_ah": cap,
@@ -466,7 +486,7 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
             "target_margin_pct": margin_pct,
             "required_cont_c": cont_req / cap if cap > 0 else 999.0,
             "required_peak_c": peak_req / cap if cap > 0 else 999.0,
-            "energy_ok": cap + 1e-9 >= ah,
+            "energy_ok": cap + 1e-9 >= ah_recommended,
             "c_rate_ok": (
                 cap > 0
                 and cont_req / cap <= target_cont_c + 1e-9
@@ -508,6 +528,8 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "lift_events_per_round": lift_events_per_round,
         "lift_time_per_round_s": lift_round_s,
         "other_stop_time_per_round_s": other_stop_s,
+        "turn_time_per_event_s": turn_time_event_s,
+        "turn_time_per_round_s": turn_time_cycle_s,
         "round_time_s": cycle_total_s,
         "drive_time_total_s": drive_time_total_s,
         "lift_time_total_s": lift_time_total_s,
@@ -529,6 +551,17 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "downhill_slope_energy_wh": edown_batt,
         "outbound_drive_energy_wh": eout_drive,
         "return_drive_energy_wh": ereturn_drive,
+        "turn_enabled": turn_enabled,
+        "turns_per_cycle": turn_events,
+        "turn_angle_deg": turn_angle_deg,
+        "turn_coeff": turn_coeff,
+        "track_width_m": track_width,
+        "turn_wheel_path_m": turn_wheel_path,
+        "turn_force_n": fturn_effective,
+        "turn_energy_per_event_wh": eturn_event,
+        "turn_energy_per_cycle_wh": eturn_cycle,
+        "turn_average_power_w": pturn_avg,
+        "turn_average_current_a": iturn_avg,
         "trip_drive_energy_wh": edrive_cycle,
         "aux_energy_per_cycle_wh": eaux_cycle,
         "total_energy_per_cycle_wh": ecycle,
@@ -539,7 +572,10 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "nominal_energy_wh": enom,
         "design_energy_wh": edesign,
         "design_ah": ah,
-        "standard_ah": next_standard_capacity(ah),
+        "battery_design_factor": battery_factor,
+        "recommended_energy_wh": erecommended,
+        "recommended_ah": ah_recommended,
+        "standard_ah": next_standard_capacity(ah_recommended),
 
         "uphill_current_calc_a": icalc_up,
         # Compatibility fields retained; the simplified energy model does not use acceleration.
