@@ -8761,6 +8761,214 @@ m_Base + m_B + m_L = {b['base']['m']:.2f} + {b['boom']['m']:.2f} + {b['payload']
         if self.massCalcMode.currentIndex()==1:self.apply_mass_mode()
 
 
+    def make_worstcase(self):
+        w=QWidget();self.worstPage=w
+        l=QVBoxLayout(w);l.setContentsMargins(18,18,18,18);l.setSpacing(12)
+        top=QHBoxLayout()
+        title=QLabel("WORST CASE / กรณีวิกฤต")
+        title.setStyleSheet("font-size:16px;font-weight:800;color:#17456b")
+        top.addWidget(title);top.addStretch(1)
+        self.worstButton=QPushButton("คำนวณใหม่ / Recalculate Worst Case")
+        self.worstButton.setMinimumHeight(42)
+        self.worstButton.clicked.connect(self.calc_worst)
+        top.addWidget(self.worstButton)
+        l.addLayout(top)
+        hint=QLabel("ตรวจมุมเครน -90° ถึง +90° ทุก 1° และเปรียบเทียบ Side / Front / Rear Safety Factor")
+        hint.setWordWrap(True);hint.setStyleSheet("color:#52606d;font-size:11pt")
+        l.addWidget(hint)
+        self.worstout=QTextEdit();self.worstout.setReadOnly(True)
+        self.worstout.setStyleSheet("font-size:12px;background:white")
+        l.addWidget(self.worstout,1)
+        self.tabs.addTab(w,"5. Worst Case / จุดวิกฤต")
+
+    def longitudinal_moment_balance(self,d,th,case):
+        """Moment balance about front/rear wheel-contact line. +x = forward."""
+        rear=-d["WB"]/2.0; front=d["WB"]/2.0
+        xc=rear+d["xC"]
+        xload=xc+d["L"]*math.cos(math.radians(th))
+        xboom=xc+(d["L"]/2.0)*math.cos(math.radians(th))
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        case=str(case).lower()
+        pivot=front if case=="front" else rear
+        direction=1.0 if case=="front" else -1.0
+        mo=0.0;mr=0.0;components=[]
+        for name,mass,x,is_payload in (
+            ("Vehicle",mveh,d["xCG"],False),
+            ("Boom",d["mb"],xboom,False),
+            ("Payload",d["ml"],xload,True),
+        ):
+            signed=direction*(x-pivot)
+            role="overturning" if signed>1e-12 else "resisting" if signed<-1e-12 else "on_pivot"
+            factor=d["kd"] if (is_payload and role=="overturning") else 1.0
+            force=mass*G*factor
+            arm=abs(signed);moment=force*arm
+            if role=="overturning":mo+=moment
+            elif role=="resisting":mr+=moment
+            components.append(dict(name=name,mass=mass,x=x,force=force,arm=arm,moment=moment,
+                                   role=role,factor=factor))
+        sf=mr/mo if mo>1e-12 else 999.0
+        return dict(case=case,rear=rear,front=front,xc=xc,xload=xload,xboom=xboom,
+                    pivot=pivot,mo=mo,mr=mr,sf=sf,components=components)
+
+    def longitudinal_sf_at(self,d,th):
+        return (self.longitudinal_moment_balance(d,th,"front")["sf"],
+                self.longitudinal_moment_balance(d,th,"rear")["sf"])
+
+    def calc_worst(self):
+        if not hasattr(self,"worstout") or not hasattr(self,"mt"):
+            return
+        try:
+            d=self.inputs()
+            raw=self.stability_worst_scan()
+            map_name={"Side Left":"Side Left / ด้านซ้าย","Side Right":"Side Right / ด้านขวา","Front":"Front / ด้านหน้า","Rear":"Rear / ด้านหลัง"}
+            records=[(v,ang,map_name.get(typ,typ)) for v,ang,typ in raw]
+            val,ang,typ=records[0] if records else (999,None,"-")
+            status="PASS / ผ่านเกณฑ์เบื้องต้น" if val>=d["req"] else "FAIL / ต้องปรับแบบ"
+            top5=sorted(records,key=lambda x:x[0])[:5]
+            top_rows="".join(
+                f"<tr><td>{i+1}</td><td>{th}°</td><td>{typ0}</td><td>{'∞' if v>=999 else f'{v:.3f}'}</td></tr>"
+                for i,(v,th,typ0) in enumerate(top5)
+            )
+            val_text='∞' if val>=999 else f'{val:.3f}'
+            formula_text="SF_worst = min(SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ))"
+            html=f"""
+            <h2 style='color:#17456b'>WORST CASE SEARCH / ค้นหากรณีวิกฤต</h2>
+            <p>รูปแบบการแสดงผล: <b>คำอธิบายภาษาไทย → สูตรภาษาไทย → สูตรตัวแปร → แทนค่า → คำตอบ</b></p>
+
+            <div style='border:1px solid #d6e0ea;padding:14px 16px;margin:10px 0;background:#fbfdff'>
+              <h3 style='color:#17456b'>1. หลักการหา Worst Case</h3>
+              <p><b>คำอธิบายภาษาไทย:</b> โปรแกรมหมุนเครนจำลองทุก 1° ตั้งแต่ -90° ถึง +90° และคำนวณ Safety Factor ด้านข้าง ด้านหน้า และด้านหลัง จากนั้นเลือกค่าต่ำที่สุด</p>
+              <p><b>สูตรภาษาไทย</b></p>
+              <p style='margin-left:18px'><b>Safety Factor วิกฤต = ค่า Safety Factor ที่ต่ำที่สุดจากทุกมุมและทุกทิศทาง</b></p>
+              <p><b>สูตรตัวแปร</b></p>
+              <p style='margin-left:18px'>{formula_text}<br>θ = -90°, -89°, ..., +90°</p>
+              <p><b>แทนค่า</b></p>
+              <p style='margin-left:18px'>181 มุม × 3 records = 543 records (Side เปรียบเทียบ Left/Right ภายใน)</p>
+              <p style='color:#176337'><b>คำตอบ: ตรวจครบ 724 กรณี</b></p>
+            </div>
+
+            <div style='border:1px solid #d6e0ea;padding:14px 16px;margin:10px 0;background:#fbfdff'>
+              <h3 style='color:#17456b'>2. ผลลัพธ์กรณีวิกฤต</h3>
+              <p><b>สูตรภาษาไทย</b></p>
+              <p style='margin-left:18px'><b>มุมวิกฤต = มุมที่ทำให้ Safety Factor ต่ำที่สุด</b></p>
+              <p><b>แทนค่า</b></p>
+              <p style='margin-left:18px'>มุมวิกฤต = {ang}°<br>ทิศทางวิกฤต = {typ}<br>Safety Factor ต่ำสุด = {val_text}<br>Safety Factor เป้าหมาย = {d['req']:.2f}</p>
+              <p style='color:#176337'><b>คำตอบ: θ = {ang}° | {typ} | SF_worst = {val_text} | {status}</b></p>
+            </div>
+
+            <div style='border:1px solid #d6e0ea;padding:14px 16px;margin:10px 0;background:#fbfdff'>
+              <h3 style='color:#17456b'>3. 5 กรณีที่มี Safety Factor ต่ำที่สุด</h3>
+              <table cellpadding='6' cellspacing='0' border='1' style='border-collapse:collapse'>
+                <tr><th>อันดับ</th><th>มุมเครน</th><th>ทิศทาง</th><th>Safety Factor</th></tr>
+                {top_rows}
+              </table>
+            </div>
+            """
+            self.worstout.setHtml(html)
+        except Exception as exc:
+            self.worstout.setPlainText("Worst Case calculation error / เกิดข้อผิดพลาดในการคำนวณ\n"+str(exc))
+
+    def make_calc_steps(self):
+        w=QWidget();self.stepsPage=w;l=QVBoxLayout(w)
+        l.addWidget(QLabel("วิธีทำการคำนวณ / STEP-BY-STEP CALCULATION"))
+        self.steps=QPlainTextEdit();self.steps.setReadOnly(True);self.steps.setStyleSheet("font-size:12px");l.addWidget(self.steps)
+        self.tabs.addTab(w,"6. วิธีคำนวณ / Calculation Steps")
+
+    def update_calc_steps(self,d,sf,MO,MR,sfF,sfR):
+        th=float(d["th"])
+        sl=self.side_moment_balance(d,th,"left");sr=self.side_moment_balance(d,th,"right")
+        fb=self.longitudinal_moment_balance(d,th,"front");rb0=self.longitudinal_moment_balance(d,th,"rear")
+        slope=self.slope_stability_results(d)
+        yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        def fmt(v):return "∞" if v>=999 else f"{v:.3f}"
+        def lines(b,coord):
+            out=[]
+            for q in b["components"]:
+                out.append(f"{q['name']}: {coord}={q[coord]:+.3f} m, F={q['force']:.2f} N, "
+                           f"d={q['arm']:.3f} m, M={q['moment']:.2f} N·m, {q['role']}")
+            return "\n".join(out)
+        self.steps.setPlainText(f"""FORMAL STABILITY CALCULATION / สูตร + แทนค่า
+
+CONVENTION
++x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
+θ = -90° ซ้าย, 0° หน้า, +90° ขวา
+ที่ impending tipping: Reaction ฝั่งตรงข้าม Tipping Axis → 0
+
+A) SIDE GEOMETRY
+m_V = m_total - m_L - m_B
+    = {d['mt']:.2f} - {d['ml']:.2f} - {d['mb']:.2f}
+    = {mveh:.2f} kg
+
+y_L = L sinθ
+    = {d['L']:.3f} sin({th:.1f}°)
+    = {yL:.3f} m
+
+y_B = (L/2) sinθ
+    = ({d['L']:.3f}/2) sin({th:.1f}°)
+    = {yB:.3f} m
+
+Left pivot  y_P,L = -W/2 = {-d['W']/2:.3f} m
+Right pivot y_P,R = +W/2 = { d['W']/2:.3f} m
+
+Equivalent adverse Payload design load:
+F_L,d = Kdyn m_L g
+      = {d['kd']:.2f} × {d['ml']:.2f} × 9.81
+      = {d['kd']*d['ml']*G:.2f} N
+หมายเหตุ: ใช้ Kdyn เฉพาะเมื่อ Payload สร้าง M_O
+
+B) LEFT SIDE TIPPING
+{lines(sl,'y')}
+M_O,L = {sl['mo']:.2f} N·m
+M_R,L = {sl['mr']:.2f} N·m
+SF_left = M_R,L / M_O,L = {fmt(sl['sf'])}
+
+C) RIGHT SIDE TIPPING
+{lines(sr,'y')}
+M_O,R = {sr['mo']:.2f} N·m
+M_R,R = {sr['mr']:.2f} N·m
+SF_right = M_R,R / M_O,R = {fmt(sr['sf'])}
+
+Side SF ที่การ์ด = min(SF_left, SF_right) = {fmt(min(sl['sf'],sr['sf']))}
+
+D) FRONT TIPPING
+Pivot x_P = x_front = {fb['pivot']:.3f} m
+x_crane={fb['xc']:.3f} m, x_B={fb['xboom']:.3f} m, x_L={fb['xload']:.3f} m
+{lines(fb,'x')}
+M_O,F = {fb['mo']:.2f} N·m
+M_R,F = {fb['mr']:.2f} N·m
+SF_front = {fmt(fb['sf'])}
+
+E) REAR TIPPING
+Pivot x_P = x_rear = {rb0['pivot']:.3f} m
+x_crane={rb0['xc']:.3f} m, x_B={rb0['xboom']:.3f} m, x_L={rb0['xload']:.3f} m
+{lines(rb0,'x')}
+M_O,Rr = {rb0['mo']:.2f} N·m
+M_R,Rr = {rb0['mr']:.2f} N·m
+SF_rear = {fmt(rb0['sf'])}
+
+F) UPHILL REAR-TIPPING
+α = {math.degrees(slope['alpha']):.2f}°
+W_parallel = mg sinα = {slope['w_parallel']:.2f} N
+W_normal   = mg cosα = {slope['w_normal']:.2f} N
+F_I = ma = {slope['inertia']:.2f} N
+d_R = x_CG,drive - x_rear = {slope['rear_arm']:.3f} m
+h_CG = {slope['h']:.3f} m
+
+M_O,slope = (W_parallel + F_I) h_CG
+          = ({slope['w_parallel']:.2f} + {slope['inertia']:.2f}) × {slope['h']:.3f}
+          = {slope['mo']:.2f} N·m
+
+M_R,slope = W_normal d_R
+          = {slope['w_normal']:.2f} × {max(0.0,slope['rear_arm']):.3f}
+          = {slope['mr']:.2f} N·m
+
+SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
+
+เกณฑ์ที่ตั้งไว้ SF_required = {d['req']:.2f}
+ผลทั้งหมดเป็น Preliminary rigid-body stability calculation.
+""")
+
     def make_design(self):
         w=QWidget();self.designPage=w;l=QVBoxLayout(w);self.designout=QPlainTextEdit();self.designout.setReadOnly(True);self.designout.setStyleSheet("font-size:13px");l.addWidget(QLabel("Automatic preliminary sizing / คำนวณขนาดเบื้องต้นจากโหลดและมุมปัจจุบัน"));l.addWidget(self.designout);self.tabs.addTab(w,"3. Width / Counterweight / ความกว้าง-ตุ้มน้ำหนัก")
 
