@@ -1,56 +1,53 @@
-# Crane Vehicle Engineering Tool V53.8.16
+# Crane Vehicle Engineering Tool V53.8.17
 
-## Final FBD Geometry + Design Guidance Update
+## Thai Formula + Substitution Upgrade
 
-อัปเดตต่อจาก V53.8.15 หลังตรวจภาพ FBD แยกและ PDF จริงครบทุกหน้า
+อัปเดตต่อจาก V53.8.16 ตามรูปแบบรายงานที่ต้องการให้อ่านง่ายสำหรับนำเสนออาจารย์:
+กำลังหาอะไร → สูตร → ความหมาย → แทนค่า → ผลลัพธ์ → ใช้ตัดสินอะไร
 
-### Geometry top view
-- แก้ screen-coordinate mapping ให้ +y physical ถูกวาดขึ้นบนจอ
-- θ<0 จึงไปฝั่ง -y ตาม convention จริง
-- แก้กรณี Current θ=-66° ที่ภาพเดิมดูเหมือนชี้ไป +y
+### Stability / FBD
+- Current-angle Snapshot เปลี่ยนหัวข้อเป็นภาษาไทยร่วมกับอังกฤษ
+- ตารางตัวแปรเพิ่มคำอธิบายภาษาไทย
+- Left / Right / Front / Rear แสดงทีละขั้น:
+  1. หาโมเมนต์คว่ำ M_O
+  2. หาโมเมนต์ต้าน M_R
+  3. หา Safety Factor
+- แสดงตัวเลขแทนค่าจริงของ F_i × d_i ก่อนรวมผล
+- ระบุ PASS/FAIL พร้อมคำว่า ผ่าน/ไม่ผ่าน
+- Slope อธิบายไทยแบบทีละขั้น:
+  W_parallel, W_normal, F_I, d_R, M_O, M_R และ SF
+- Critical-case FBD PDF เปลี่ยนหัวข้อเป็น
+  สูตรและการแทนค่า / Equation and Substitution
+- ตาราง Force / Moment arm / Moment / Role เป็นอังกฤษ + ไทย
 
-### FBD layout
-- ย้าย legend ลงคนละระดับกับ Overturning / Resisting labels
-- ขยับ Tipping axis label ออกจาก wheel/pivot
-- Front / Rear note เปลี่ยน x_C ที่เป็นพิกัด global เป็น x_crane(global)
-  เพื่อไม่ให้สับสนกับ input x_C ที่วัดจาก rear axle
-- Slope: แยก label W_parallel กับ F_I ออกจากกัน
-- Slope pivot label จัดตำแหน่งเฉพาะ
+### Main Battery 72 V
+แท็บ "สูตร + แทนค่า / Calculation Steps" เขียนใหม่เป็นภาษาไทยแบบทีละขั้น:
+1. แบ่งระยะ 1 Cycle
+2. หาแรงและพลังงานทางราบ
+3. หาแรงและพลังงานขึ้นทางลาด
+4. หาแรงและพลังงานลงทางลาด
+5. Differential / Pivot Turning Energy
+6. รวมเที่ยวไป + เที่ยวกลับ + Turning + Auxiliary
+7. หาเวลาต่อ Cycle และจำนวน Cycle
+8. หาพลังงานรวม E_total
+9. เผื่อ DoD + Reserve
+10. แปลง Wh → Ah และใช้ Battery Design Factor Kb
 
-### PDF pagination
-หน้า 2 เดิมมีเพียง row ที่ 5 ของ Critical Case Summary เพราะตารางล้นหน้า
-รุ่นนี้เปลี่ยนหน้า 2 เป็น:
-DESIGN GUIDANCE & CRITICAL-CASE SUMMARY
+ทุกขั้นมี:
+- กำลังหาอะไร
+- สูตร
+- แทนค่าจริง
+- ผลลัพธ์
+- คำอธิบายว่าค่านั้นหมายถึงอะไร
 
-ทำให้ page break มีความหมายและไม่มี orphan row
-
-### Automatic preliminary design guidance
-เพิ่ม stability_design_guidance() ใช้ calculation model เดียวกับ FBD เพื่อหา:
-- Minimum track width ที่ทำให้ full -90°...+90° slew ผ่าน Required SF
-- Contiguous safe slew range รอบ 0° สำหรับ track ปัจจุบัน
-- Margin ของ current angle ถึง safe range boundary
-
-สำหรับค่าตัวอย่างปัจจุบัน W=1.10 m, m_total=300 kg, payload=100 kg,
-boom=20 kg, L=1.20 m, Kdyn=1.20 และ Required SF=1.50:
-- Full ±90° ยังไม่ผ่าน
-- Current -66° ผ่านแบบมี margin เล็กมาก
-- โปรแกรมจะคำนวณค่าคำแนะนำจริงจาก input ทุกครั้ง ไม่ hard-code ตัวเลข
-
-### 3D figure in report
-- เพิ่ม reportMode
-- ตัด interactive mouse instructions, in-scene current label และ bottom badge ออกจาก PDF
-- คง CRANE LIVE DATA เป็นแหล่งแสดง current angle หลัก
-
-### Worst Case wording
-แก้ UI และ report เป็น:
-181 angles × 4 directions = 724 directional moment-balance evaluations
+### Battery PDF
+- หัวรายงานเป็นภาษาไทย
+- ใช้ Calculation Steps ชุดเดียวกับหน้าโปรแกรม
+- แสดงคำตอบสุดท้ายสำหรับเลือกแบต:
+  Ah_min → Ah_practical → Standard Ah
+- ย้ำว่า Ah เป็นการเลือกความจุพลังงาน
+  ส่วน BMS / Continuous current / Peak current / Fuse / Cable / VESC limit ต้องตรวจแยก
 
 ### Calculation scope
-สูตรหลัก stability ไม่เปลี่ยน
-ค่าทั้งหมดอ้างอิง:
-- side_moment_balance(...)
-- longitudinal_moment_balance(...)
-- slope_stability_results(...)
-
-Design guidance เป็น preliminary sizing เท่านั้น ต้องตรวจ measured CG, ground/tire compliance,
-dynamic shock, structural strength, bearing/brake limits และ manufacturer limits ก่อน fabrication/use.
+ไม่มีการเปลี่ยนสูตรหลักของ Stability หรือ Battery
+การอัปเดตนี้เน้น presentation / explanation / substitution เท่านั้น
