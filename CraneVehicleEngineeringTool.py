@@ -8451,8 +8451,16 @@ void loop() {{
             status="PASS" if b["sf"]>=d["req"] else "FAIL"
             status_th="ผ่าน" if status=="PASS" else "ไม่ผ่าน"
             status_color="#176337" if status=="PASS" else "#b42318"
-            mo_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in b["components"] if q["role"]=="overturning") or "0"
-            mr_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in b["components"] if q["role"]=="resisting") or "0"
+            mo_parts=[q for q in b["components"] if q["role"]=="overturning"]
+            mr_parts=[q for q in b["components"] if q["role"]=="resisting"]
+            mo_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in mo_parts) or "0"
+            mr_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in mr_parts) or "0"
+            mo_detail="<br>".join(
+                f"• {q['name']} / {comp_thai(q['name'])}: {q['force']:.2f} N × {q['arm']:.3f} m = {q['moment']:.2f} N·m"
+                for q in mo_parts) or "• ไม่มีแรงที่อยู่ฝั่งทำให้คว่ำในกรณีนี้"
+            mr_detail="<br>".join(
+                f"• {q['name']} / {comp_thai(q['name'])}: {q['force']:.2f} N × {q['arm']:.3f} m = {q['moment']:.2f} N·m"
+                for q in mr_parts) or "• ไม่มีแรงที่อยู่ฝั่งต้านในกรณีนี้"
             sf_sub="∞ (ไม่มีโมเมนต์คว่ำ)" if b["mo"]<=1e-12 else f"{b['mr']:.2f}/{b['mo']:.2f} = {fmt(b['sf'])}"
             return f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
             <h3>{title}</h3>{geom}
@@ -8460,14 +8468,24 @@ void loop() {{
             <h4>ขั้นที่ 1: หาโมเมนต์คว่ำ M_O</h4>
             <p><b>กำลังหาอะไร:</b> โมเมนต์รวมของแรงที่พยายามทำให้รถคว่ำรอบแกน P<br>
             <b>สูตร:</b> M_O = Σ(F_i d_i)<br>
+            <b>อ่านสูตรแบบภาษาคน:</b> เอา <b>แรงของแต่ละส่วนที่พยายามทำให้รถคว่ำ</b> × <b>ระยะตั้งฉากจากแนวแรงนั้นถึงแกนคว่ำ P</b> แล้วนำทุกส่วนมาบวกกัน<br>
+            <b>ตัวแปรในสูตรนี้:</b> M_O = โมเมนต์คว่ำ, Σ = รวมทุกพจน์, F_i = แรงของชิ้นส่วนลำดับที่ i, d_i = ระยะแขนโมเมนต์ของแรงชิ้นนั้นถึงแกน P<br>
+            <b>แต่ละพจน์หมายถึง:</b><br>{mo_detail}<br>
             <b>แทนค่า:</b> M_O = {mo_terms} = <b>{b['mo']:.2f} N·m</b></p>
+
             <h4>ขั้นที่ 2: หาโมเมนต์ต้าน M_R</h4>
             <p><b>กำลังหาอะไร:</b> โมเมนต์รวมของแรงที่ช่วยต้านไม่ให้รถคว่ำ<br>
             <b>สูตร:</b> M_R = Σ(F_i d_i)<br>
+            <b>อ่านสูตรแบบภาษาคน:</b> เอา <b>แรงของแต่ละส่วนที่ช่วยพยุงรถไม่ให้คว่ำ</b> × <b>ระยะตั้งฉากจากแนวแรงนั้นถึงแกน P</b> แล้วบวกกันทั้งหมด<br>
+            <b>ตัวแปรในสูตรนี้:</b> M_R = โมเมนต์ต้าน, Σ = รวมทุกพจน์, F_i = แรงของแต่ละส่วน, d_i = แขนโมเมนต์ของแรงส่วนนั้นถึงแกน P<br>
+            <b>แต่ละพจน์หมายถึง:</b><br>{mr_detail}<br>
             <b>แทนค่า:</b> M_R = {mr_terms} = <b>{b['mr']:.2f} N·m</b></p>
+
             <h4>ขั้นที่ 3: หา Safety Factor</h4>
-            <p><b>กำลังหาอะไร:</b> เปรียบเทียบโมเมนต์ต้านกับโมเมนต์คว่ำ<br>
+            <p><b>กำลังหาอะไร:</b> เปรียบเทียบว่าแรงต้านการคว่ำมีมากกว่าแรงที่พยายามทำให้คว่ำกี่เท่า<br>
             <b>สูตร:</b> SF = M_R/M_O<br>
+            <b>อ่านสูตรแบบภาษาคน:</b> เอา <b>โมเมนต์ต้าน</b> ÷ <b>โมเมนต์คว่ำ</b><br>
+            <b>ตัวแปรในสูตรนี้:</b> SF = ค่าความปลอดภัยต่อการคว่ำ, M_R = โมเมนต์ต้าน, M_O = โมเมนต์คว่ำ<br>
             <b>แทนค่า:</b> SF = {sf_sub}<br>
             <b>เกณฑ์:</b> SF ต้อง ≥ {d['req']:.2f}<br>
             <b>ผล:</b> <span style='color:{status_color};font-weight:bold'>{status} / {status_th}</span></p>
@@ -9517,21 +9535,37 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
                 rows="".join(
                     f"<tr><td>{q['name']} / {name_th.get(q['name'],q['name'])}</td><td>{q['force']:.2f}</td><td>{q['arm']:.3f}</td><td>{q['moment']:.2f}</td><td>{q['role']} / {role_th.get(q['role'],q['role'])}</td></tr>"
                     for q in bal["components"])
-                mo_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in bal["components"] if q["role"]=="overturning") or "0"
-                mr_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in bal["components"] if q["role"]=="resisting") or "0"
+                mo_parts=[q for q in bal["components"] if q["role"]=="overturning"]
+                mr_parts=[q for q in bal["components"] if q["role"]=="resisting"]
+                mo_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in mo_parts) or "0"
+                mr_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in mr_parts) or "0"
+                mo_detail="<br>".join(
+                    f"• {q['name']} / {name_th.get(q['name'],q['name'])}: {q['force']:.2f} N × {q['arm']:.3f} m = {q['moment']:.2f} N·m"
+                    for q in mo_parts) or "• ไม่มีแรงที่อยู่ฝั่งทำให้คว่ำในกรณีนี้"
+                mr_detail="<br>".join(
+                    f"• {q['name']} / {name_th.get(q['name'],q['name'])}: {q['force']:.2f} N × {q['arm']:.3f} m = {q['moment']:.2f} N·m"
+                    for q in mr_parts) or "• ไม่มีแรงที่อยู่ฝั่งต้านในกรณีนี้"
                 sf_sub="∞ (ไม่มีโมเมนต์คว่ำ)" if bal["mo"]<=1e-12 else f"{bal['mr']:.2f}/{bal['mo']:.2f} = {sftext}"
                 detail=f"""<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
                 <tr><th>Component / ส่วน</th><th>Design force / แรงออกแบบ (N)</th><th>d⊥ / แขนโมเมนต์ (m)</th><th>Moment / โมเมนต์ (N·m)</th><th>Role / หน้าที่</th></tr>{rows}</table>
                 <h3>1) หาโมเมนต์คว่ำ M_O</h3>
                 <p><b>กำลังหาอะไร:</b> โมเมนต์รวมของแรงที่พยายามทำให้รถคว่ำรอบแกน P<br>
                 <b>สูตร:</b> M_O = Σ(F_i d_i)<br>
+                <b>อ่านสูตรแบบภาษาคน:</b> แรงแต่ละส่วนที่อยู่ฝั่งคว่ำ × ระยะตั้งฉากจากแรงนั้นถึงแกน P แล้วบวกทุกส่วนเข้าด้วยกัน<br>
+                <b>ตัวแปร:</b> M_O = โมเมนต์คว่ำ, Σ = บวกทุกพจน์, F_i = แรงของชิ้นส่วน, d_i = แขนโมเมนต์ถึงแกน P<br>
+                <b>ตัวเลขแต่ละพจน์:</b><br>{mo_detail}<br>
                 <b>แทนค่า:</b> M_O = {mo_terms} = <b>{bal['mo']:.2f} N·m</b></p>
                 <h3>2) หาโมเมนต์ต้าน M_R</h3>
                 <p><b>กำลังหาอะไร:</b> โมเมนต์รวมของแรงที่ช่วยต้านไม่ให้รถคว่ำ<br>
                 <b>สูตร:</b> M_R = Σ(F_i d_i)<br>
+                <b>อ่านสูตรแบบภาษาคน:</b> แรงแต่ละส่วนที่ช่วยพยุงรถ × ระยะตั้งฉากจากแรงนั้นถึงแกน P แล้วบวกทั้งหมด<br>
+                <b>ตัวแปร:</b> M_R = โมเมนต์ต้าน, Σ = บวกทุกพจน์, F_i = แรงของชิ้นส่วน, d_i = แขนโมเมนต์ถึงแกน P<br>
+                <b>ตัวเลขแต่ละพจน์:</b><br>{mr_detail}<br>
                 <b>แทนค่า:</b> M_R = {mr_terms} = <b>{bal['mr']:.2f} N·m</b></p>
                 <h3>3) หา Safety Factor</h3>
                 <p><b>สูตร:</b> SF = M_R/M_O<br>
+                <b>อ่านสูตรแบบภาษาคน:</b> โมเมนต์ต้าน ÷ โมเมนต์คว่ำ<br>
+                <b>ตัวแปร:</b> SF = ค่าความปลอดภัย, M_R = โมเมนต์ต้าน, M_O = โมเมนต์คว่ำ<br>
                 <b>แทนค่า:</b> SF = {sf_sub}<br>
                 <b>เกณฑ์:</b> SF ต้อง ≥ {d['req']:.2f}</p>"""
             else:
