@@ -7617,82 +7617,150 @@ void loop() {{
 
 
     def equation_html(self,q):
-        """Simple cycle-based battery calculation for presentation/report use."""
+        """Thai-first, step-by-step battery calculation with explicit substitution."""
         def box(title,body):
             return f"<div style='border:1px solid #d6e0ea;padding:12px 14px;margin:10px 0;background:#fbfdff'><h3 style='color:#17456b'>{title}</h3>{body}</div>"
-        h=f"""<h2>MAIN BATTERY 72 V — SIMPLE CYCLE CALCULATION</h2>
-        <p><b>แนวคิด:</b> คำนวณพลังงานทีละ 1 Cycle แล้วคูณจำนวน Cycle ที่ทำได้ในเวลาที่กำหนด
-        เพื่อให้ตรวจสอบและอธิบายได้ง่าย.</p>"""
-        h+=box("1. แบ่งเส้นทาง 1 Cycle",f"""
-        <p>ระยะเที่ยวเดียว = {q['one']:.2f} m<br>
-        ทางลาดต่อเที่ยว = {q['Ls']:.2f} m<br>
-        ทางราบต่อเที่ยว = d_flat = d_oneway - L_slope = {q['one']:.2f} - {q['Ls']:.2f}
+
+        h=f"""<h2>MAIN BATTERY 72 V — สูตร + แทนค่าแบบทีละขั้น</h2>
+        <p><b>จุดประสงค์:</b> คำนวณว่ารถใช้พลังงานกี่ Wh ต่อ 1 Cycle จากนั้นหาจำนวน Cycle ในเวลาทำงาน
+        แล้วแปลงพลังงานรวมเป็นความจุแบตเตอรี่ Ah ที่ควรใช้จริง.</p>
+
+        <table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
+        <tr><th>ตัวแปร</th><th>ความหมาย</th><th>ค่าที่ใช้</th><th>หน่วย</th></tr>
+        <tr><td>m</td><td>มวลรวมรถที่ใช้คำนวณ</td><td>{q['m']:.2f}</td><td>kg</td></tr>
+        <tr><td>V</td><td>แรงดันแบตเตอรี่หลัก</td><td>{q['V']:.1f}</td><td>V</td></tr>
+        <tr><td>v</td><td>ความเร็วรถ</td><td>{q['v']*3.6:.2f}</td><td>km/h</td></tr>
+        <tr><td>Crr</td><td>สัมประสิทธิ์แรงต้านการกลิ้ง</td><td>{q['crr']:.3f}</td><td>-</td></tr>
+        <tr><td>η</td><td>ประสิทธิภาพระบบขับโดยประมาณ</td><td>{q['eff']:.3f}</td><td>-</td></tr>
+        <tr><td>θ</td><td>มุมทางลาด</td><td>{math.degrees(q['theta']):.2f}</td><td>deg</td></tr>
+        <tr><td>DoD</td><td>สัดส่วนความจุแบตที่อนุญาตให้ใช้</td><td>{q['dod']*100:.1f}</td><td>%</td></tr>
+        <tr><td>Reserve</td><td>พลังงานสำรองเผื่อความคลาดเคลื่อน</td><td>{q['reserve']*100:.1f}</td><td>%</td></tr>
+        <tr><td>Kb</td><td>Battery Design Factor สำหรับแบบจำลองหยาบ</td><td>{q['Kb']:.2f}</td><td>-</td></tr>
+        </table>
+        """
+
+        h+=box("1) แบ่งเส้นทางของ 1 Cycle",f"""
+        <p><b>กำลังหาอะไร:</b> แยกระยะทาง 1 เที่ยวออกเป็นทางราบและทางลาด เพื่อคำนวณพลังงานแต่ละช่วงแยกกัน</p>
+        <p><b>สูตร:</b> d_flat = d_oneway - L_slope</p>
+        <p><b>แทนค่า:</b> d_flat = {q['one']:.2f} - {q['Ls']:.2f}
         = <b>{q['flat_oneway']:.2f} m</b></p>
-        <p>ดังนั้น 1 Cycle = ไป {q['one']:.2f} m + กลับ {q['one']:.2f} m
-        = <b>{q['cycle_distance']:.2f} m</b></p>""")
-        h+=box("2. ทางราบ",f"""
-        <p>F_flat = Crr m g = {q['crr']:.3f} × {q['m']:.1f} × 9.81
+        <p><b>1 Cycle:</b> ไป {q['one']:.2f} m + กลับ {q['one']:.2f} m
+        = <b>{q['cycle_distance']:.2f} m/Cycle</b></p>
+        <p><b>ความหมาย:</b> โปรแกรมถือว่า 1 Cycle คือไปหนึ่งเที่ยวและกลับหนึ่งเที่ยวบนเส้นทางเดียวกัน</p>""")
+
+        h+=box("2) ทางราบ — หาแรงต้านและพลังงาน",f"""
+        <p><b>กำลังหาอะไร:</b> หาแรงที่รถต้องเอาชนะแรงต้านการกลิ้งบนพื้นราบ และแปลงเป็นพลังงานไฟฟ้าจากแบต</p>
+        <p><b>สูตรแรง:</b> F_flat = Crr m g</p>
+        <p><b>แทนค่า:</b> F_flat = {q['crr']:.3f} × {q['m']:.2f} × 9.81
         = <b>{q['Fflat']:.2f} N</b></p>
-        <p>E_flat,oneway = F_flat d_flat /(η×3600)<br>
-        = {q['Fflat']:.2f} × {q['flat_oneway']:.2f} / ({q['eff']:.3f}×3600)
-        = <b>{q['Eflat_batt_oneway']:.3f} Wh</b></p>""")
-        h+=box("3. ช่วงขึ้นทางลาด",f"""
-        <p>F_up = mg sinθ + Crr mg cosθ<br>
-        = {q['Fgrade']:.2f} + {q['Frrs']:.2f}
+        <p><b>สูตรพลังงาน:</b> E_flat,oneway = F_flat d_flat /(η×3600)</p>
+        <p><b>แทนค่า:</b> E_flat,oneway =
+        {q['Fflat']:.2f} × {q['flat_oneway']:.2f} / ({q['eff']:.3f}×3600)
+        = <b>{q['Eflat_batt_oneway']:.3f} Wh</b></p>
+        <p><b>ความหมาย:</b> ค่านี้คือพลังงานแบตที่ใช้เฉพาะช่วงทางราบต่อ 1 เที่ยว</p>""")
+
+        h+=box("3) ช่วงขึ้นทางลาด",f"""
+        <p><b>กำลังหาอะไร:</b> หาแรงที่ต้องใช้เพื่อเอาชนะแรงโน้มถ่วงตามทางลาดรวมกับแรงต้านการกลิ้ง</p>
+        <p><b>สูตร:</b> F_up = mg sinθ + Crr mg cosθ</p>
+        <p><b>แทนค่า:</b> F_up = {q['Fgrade']:.2f} + {q['Frrs']:.2f}
         = <b>{q['Fup']:.2f} N</b></p>
-        <p>E_up,slope = F_up L_slope /(η×3600)
-        = <b>{q['Eup_batt_cycle']:.3f} Wh</b></p>""")
-        h+=box("4. ช่วงลงทางลาด",f"""
-        <p>F_down = max(0, Crr mg cosθ - mg sinθ)
+        <p><b>สูตรพลังงาน:</b> E_up = F_up L_slope /(η×3600)</p>
+        <p><b>แทนค่า:</b> E_up = {q['Fup']:.2f} × {q['Ls']:.2f} /
+        ({q['eff']:.3f}×3600) = <b>{q['Eup_batt_cycle']:.3f} Wh</b></p>
+        <p><b>ความหมาย:</b> ช่วงขึ้นลาดเป็นช่วงที่ต้องใช้แรงขับมากกว่าทางราบ เพราะต้องยกมวลรถขึ้นตามความชัน</p>""")
+
+        h+=box("4) ช่วงลงทางลาด",f"""
+        <p><b>กำลังหาอะไร:</b> หาพลังงานจากแบตที่ยังต้องใช้ขณะรถลงทางลาด โดยไม่นำ Regen มาหักออก</p>
+        <p><b>สูตร:</b> F_down = max(0, Crr mg cosθ - mg sinθ)</p>
+        <p><b>แทนค่า:</b> F_down = max(0, {q['Frrs']:.2f} - {q['Fgrade']:.2f})
         = <b>{q['Fdown']:.2f} N</b></p>
-        <p>E_down,slope = F_down L_slope /(η×3600)
-        = <b>{q['Edown_batt_cycle']:.3f} Wh</b></p>
-        <p>ถ้าแรงโน้มถ่วงพารถลงได้เอง ค่าช่วงลาดลงอาจเป็น 0 Wh
-        แต่ <b>เที่ยวกลับไม่ใช่ 0 Wh</b> เพราะยังมีทางราบ {q['flat_oneway']:.2f} m.</p>""")
-        h+=box("5. Differential / Pivot Turning Energy",f"""
-        <p>เปิดใช้งาน = <b>{"Yes" if q['turn_enabled'] else "No"}</b>,
-        จำนวนหมุน = {q['turn_events']} ครั้ง/Cycle, มุม = {q['turn_angle_deg']:.1f}°,
-        Track = {q['turn_track']:.3f} m</p>
-        <p>s_turn = (W/2)φ = <b>{q['turn_wheel_path']:.3f} m</b> ต่อฝั่ง/ครั้ง</p>
-        <p>F_turn = C_turn m g = {q['turn_coeff']:.3f}×{q['m']:.1f}×9.81
+        <p><b>สูตรพลังงาน:</b> E_down = F_down L_slope /(η×3600)</p>
+        <p><b>แทนค่า:</b> E_down = {q['Fdown']:.2f} × {q['Ls']:.2f} /
+        ({q['eff']:.3f}×3600) = <b>{q['Edown_batt_cycle']:.3f} Wh</b></p>
+        <p><b>อธิบาย:</b> ถ้าแรงโน้มถ่วงช่วยให้รถไหลลงได้เอง ค่า E_down อาจประมาณ 0 Wh
+        แต่ <b>เที่ยวกลับไม่เท่ากับ 0 Wh</b> เพราะยังมีทางราบ {q['flat_oneway']:.2f} m ที่ต้องใช้พลังงาน</p>""")
+
+        turn_state="รวมในการคำนวณ / INCLUDED" if q["turn_enabled"] else "ไม่รวมในการคำนวณ / NOT INCLUDED"
+        h+=box("5) Differential / Pivot Turning Energy",f"""
+        <p><b>สถานะ:</b> {turn_state}</p>
+        <p><b>กำลังหาอะไร:</b> ประมาณพลังงานที่เสียไปจากการหมุนรถแบบ Differential/Pivot ซึ่งมีการไถลของยางกับพื้น</p>
+        <p><b>สูตรระยะที่ล้อแต่ละฝั่งเคลื่อน:</b> s_turn = (W/2)φ</p>
+        <p><b>แทนค่า:</b> Track W = {q['turn_track']:.3f} m, มุมหมุน = {q['turn_angle_deg']:.1f}°
+        → s_turn = <b>{q['turn_wheel_path']:.3f} m/ฝั่ง/ครั้ง</b></p>
+        <p><b>สูตรแรงต้านหมุนโดยประมาณ:</b> F_turn = C_turn m g</p>
+        <p><b>แทนค่า:</b> F_turn = {q['turn_coeff']:.3f} × {q['m']:.2f} × 9.81
         = <b>{q['Fturn_effective']:.2f} N</b></p>
-        <p>E_turn,event = F_turn s_turn /(η×3600) = <b>{q['Eturn_event']:.4f} Wh</b><br>
-        E_turn,cycle = E_turn,event × N_turn = <b>{q['Eturn_cycle']:.4f} Wh</b></p>
-        <p><i>C_turn เป็นค่าประมาณของการไถล/ต้านการหมุน ควรปรับจากการวัดกระแสจริง โดยเฉพาะรถที่มีล้อพยุงไม่เลี้ยวตาม.</i></p>""")
-        h+=box("6. พลังงานเที่ยวไป / เที่ยวกลับ / 1 Cycle",f"""
-        <p>E_go = E_flat,oneway + E_up,slope
-        = {q['Eflat_batt_oneway']:.3f} + {q['Eup_batt_cycle']:.3f}
+        <p><b>สูตรพลังงานต่อการหมุน 1 ครั้ง:</b> E_turn,event = F_turn s_turn /(η×3600)</p>
+        <p><b>แทนค่า:</b> E_turn,event = <b>{q['Eturn_event']:.4f} Wh</b></p>
+        <p><b>พลังงานหมุนต่อ Cycle:</b> E_turn,cycle = E_turn,event × N_turn =
+        {q['Eturn_event']:.4f} × {q['turn_events']} = <b>{q['Eturn_cycle']:.4f} Wh/Cycle</b></p>
+        <p><b>หมายเหตุ:</b> C_turn เป็นค่าประมาณสำหรับ preliminary sizing ควรปรับจากการวัดกระแสจริง โดยเฉพาะรถที่มีล้อพยุงแบบไม่เลี้ยวตาม</p>""")
+
+        h+=box("6) รวมพลังงานเที่ยวไป เที่ยวกลับ และ 1 Cycle",f"""
+        <p><b>กำลังหาอะไร:</b> รวมพลังงานขับทั้งหมดที่เกิดขึ้นจริงใน 1 รอบไป-กลับ</p>
+        <p><b>เที่ยวไป:</b> E_go = E_flat,oneway + E_up</p>
+        <p><b>แทนค่า:</b> E_go = {q['Eflat_batt_oneway']:.3f} + {q['Eup_batt_cycle']:.3f}
         = <b>{q['Eout_drive']:.3f} Wh</b></p>
-        <p>E_return = E_down,slope + E_flat,oneway
-        = {q['Edown_batt_cycle']:.3f} + {q['Eflat_batt_oneway']:.3f}
+        <p><b>เที่ยวกลับ:</b> E_return = E_down + E_flat,oneway</p>
+        <p><b>แทนค่า:</b> E_return = {q['Edown_batt_cycle']:.3f} + {q['Eflat_batt_oneway']:.3f}
         = <b>{q['Ereturn_drive']:.3f} Wh</b></p>
-        <p>E_drive,cycle = E_go + E_return + E_turn,cycle = <b>{q['Edrive_cycle']:.3f} Wh</b></p>
-        <p>E_aux,cycle = P_aux × t_cycle = <b>{q['Eaux_cycle']:.3f} Wh</b></p>
-        <p><b>E_cycle = E_drive,cycle + E_aux,cycle = {q['Ecycle']:.3f} Wh/Cycle</b></p>""")
-        h+=box("7. จำนวน Cycle ในเวลาทำงาน",f"""
-        <p>t_drive = {q['drive_cycle_s']:.2f} s<br>
-        t_lift = {q['lift_round_s']:.2f} s<br>
-        t_other = {q['other_stop_s']:.2f} s</p>
-        <p>t_cycle = {q['cycle_total_s']:.2f} s</p>
-        <p>N_cycle = floor({q['runtime_s']:.1f}/{q['cycle_total_s']:.2f})
-        = <b>{q['cycles']} Cycle</b></p>""")
-        h+=box("8. พลังงานรวมและขนาดแบต",f"""
-        <p>E_total = E_cycle × N_cycle
-        = {q['Ecycle']:.3f} × {q['cycles']}
-        = <b>{q['Eload']:.2f} Wh</b></p>
-        <p>E_nominal = E_total / DoD
-        = {q['Eload']:.2f}/{q['dod']:.3f}
-        = {q['Enom']:.2f} Wh</p>
-        <p>E_design = E_nominal(1+Reserve)
-        = <b>{q['Edesign']:.2f} Wh</b></p>
-        <p>Ah_min = E_design / V = {q['Edesign']:.2f}/{q['V']:.1f}
+        <p><b>พลังงานขับต่อ Cycle:</b> E_drive,cycle = E_go + E_return + E_turn,cycle</p>
+        <p><b>แทนค่า:</b> {q['Eout_drive']:.3f} + {q['Ereturn_drive']:.3f} + {q['Eturn_cycle']:.3f}
+        = <b>{q['Edrive_cycle']:.3f} Wh/Cycle</b></p>
+        <p><b>พลังงาน Auxiliary:</b> E_aux,cycle = P_aux × t_cycle /3600
+        = <b>{q['Eaux_cycle']:.3f} Wh/Cycle</b></p>
+        <p><b>พลังงานรวมต่อ Cycle:</b> E_cycle = E_drive,cycle + E_aux,cycle =
+        {q['Edrive_cycle']:.3f} + {q['Eaux_cycle']:.3f}
+        = <b>{q['Ecycle']:.3f} Wh/Cycle</b></p>""")
+
+        h+=box("7) หาเวลาต่อ Cycle และจำนวน Cycle ในเวลาทำงาน",f"""
+        <p><b>กำลังหาอะไร:</b> หาว่าในเวลาทำงาน {q['runtime_h']:.2f} ชั่วโมง รถสามารถทำรอบเต็มได้กี่ Cycle</p>
+        <p>เวลาขับรถ = {q['drive_cycle_s']:.2f} s<br>
+        เวลางานยกที่นำมาคิดเวลา = {q['lift_round_s']:.2f} s<br>
+        เวลาหยุดอื่น = {q['other_stop_s']:.2f} s<br>
+        เวลาหมุน Pivot = {q['turn_time_cycle_s']:.2f} s</p>
+        <p><b>สูตร:</b> t_cycle = t_drive + t_lift + t_other + t_turn</p>
+        <p><b>แทนค่า:</b> t_cycle = {q['drive_cycle_s']:.2f} + {q['lift_round_s']:.2f} +
+        {q['other_stop_s']:.2f} + {q['turn_time_cycle_s']:.2f}
+        = <b>{q['cycle_total_s']:.2f} s/Cycle</b></p>
+        <p><b>สูตรจำนวน Cycle:</b> N_cycle = floor(t_runtime/t_cycle)</p>
+        <p><b>แทนค่า:</b> N_cycle = floor({q['runtime_s']:.1f}/{q['cycle_total_s']:.2f})
+        = <b>{q['cycles']} Cycle เต็ม</b></p>
+        <p><b>ความหมาย:</b> ใช้เฉพาะ Cycle ที่ทำครบ ไม่ปัดเศษรอบขึ้น</p>""")
+
+        h+=box("8) หาพลังงานรวมที่ต้องใช้ทั้งหมด",f"""
+        <p><b>กำลังหาอะไร:</b> หาพลังงานที่รถต้องใช้ตลอดจำนวน Cycle ที่ทำได้</p>
+        <p><b>สูตร:</b> E_total = E_cycle × N_cycle</p>
+        <p><b>แทนค่า:</b> E_total = {q['Ecycle']:.3f} × {q['cycles']}
+        = <b>{q['Eload']:.2f} Wh</b></p>""")
+
+        h+=box("9) เผื่อ DoD และ Reserve",f"""
+        <p><b>กำลังหาอะไร:</b> ปรับความจุแบตให้ไม่ใช้งานจนหมดและมีพลังงานสำรอง</p>
+        <p><b>ขั้นที่ 1 — DoD:</b> E_nominal = E_total / DoD</p>
+        <p><b>แทนค่า:</b> E_nominal = {q['Eload']:.2f}/{q['dod']:.3f}
+        = <b>{q['Enom']:.2f} Wh</b></p>
+        <p><b>ขั้นที่ 2 — Reserve:</b> E_design = E_nominal(1+Reserve)</p>
+        <p><b>แทนค่า:</b> E_design = {q['Enom']:.2f} × (1+{q['reserve']:.3f})
+        = <b>{q['Edesign']:.2f} Wh</b></p>""")
+
+        h+=box("10) แปลง Wh เป็น Ah และเลือกขนาดแบต",f"""
+        <p><b>กำลังหาอะไร:</b> แปลงพลังงานที่ต้องมีเป็นความจุ Ah สำหรับแบต {q['V']:.1f} V</p>
+        <p><b>สูตรความจุขั้นต่ำ:</b> Ah_min = E_design / V</p>
+        <p><b>แทนค่า:</b> Ah_min = {q['Edesign']:.2f}/{q['V']:.1f}
         = <b>{q['Ah']:.2f} Ah</b></p>
-        <p>Ah_practical = Ah_min × K_b = {q['Ah']:.2f} × {q['Kb']:.2f}
+        <p><b>Battery Design Factor:</b> เนื่องจากแบบจำลองนี้เป็นการคำนวณแบบหยาบ จึงเผื่อด้วย Kb = {q['Kb']:.2f}</p>
+        <p><b>สูตรความจุแนะนำ:</b> Ah_practical = Ah_min × Kb</p>
+        <p><b>แทนค่า:</b> Ah_practical = {q['Ah']:.2f} × {q['Kb']:.2f}
         = <b>{q['Ah_recommended']:.2f} Ah</b></p>
-        <p>ขนาดมาตรฐานที่ปัดขึ้น = <b>{q['recommended_standard']:.0f} Ah @ {q['V']:.1f} V</b></p>""")
-        h+="""<p><b>ขอบเขตของแบบจำลอง:</b> เป็นการประมาณแบบหยาบสำหรับเลือกความจุแบตเตอรี่
-        ไม่คิดพลังงานช่วงออกตัว และไม่นำพลังงานจากการลงทางลาดมาหักคืนแบตเตอรี่.
-        Winch 12 V คำนวณแยกจากแบตรถ 72 V.</p>"""
+        <p><b>คำตอบสำหรับเลือกซื้อเบื้องต้น:</b> ปัดขึ้นเป็นขนาดมาตรฐานประมาณ
+        <b style='color:#b42318'>{q['recommended_standard']:.0f} Ah @ {q['V']:.1f} V</b></p>
+        <p><b>ข้อควรจำ:</b> Ah ใช้ตรวจความจุพลังงานเท่านั้น ต้องตรวจ BMS, Continuous current, Peak current, สาย, Fuse และ VESC battery-current limit แยกอีกครั้ง</p>""")
+
+        h+="""<p style='background:#fff8e9;border:1px solid #ead39a;padding:10px'>
+        <b>ขอบเขตของแบบจำลอง:</b> เป็น Preliminary sizing แบบ 1 Cycle เพื่อให้อธิบายง่าย
+        ไม่คิดพลังงานช่วงออกตัวใน Energy sizing, ไม่ใช้กำลังมอเตอร์เต็มพิกัดเป็นพลังงานตลอดเวลา,
+        และไม่นำพลังงานจาก Regen มาหักคืน. Winch 12 V ใช้แบตแยก จึงไม่รวมพลังงานวินช์ในแบตหลัก 72 V
+        แต่สามารถนำเวลายกมารวมในเวลา Cycle ได้.</p>"""
         return h
 
 
