@@ -457,8 +457,12 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     ah_recommended = ah * battery_factor
 
     icalc_up = (pup_mech / eff) / voltage
-    cont_req = max(0.0, icalc_up, iturn_avg)
-    peak_req = cont_req
+    # Battery energy sizing remains the simple-cycle model, but BMS/current checks
+    # must also respect the Drive Torque design-current reference when the web UI
+    # supplies it. This prevents the web purchase checker from understating current.
+    drive_reference_current = max(0.0, _f(data, "drive_reference_current_a", 0.0))
+    cont_req = max(0.0, icalc_up, iturn_avg, drive_reference_current)
+    peak_req = max(cont_req, icalc_up, iturn_avg)
 
     ah_by_cont = cont_req / target_cont_c
     ah_by_peak = peak_req / target_peak_c
@@ -582,6 +586,7 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "accel_current_calc_a": icalc_up,
         "calculated_peak_current_a": icalc_up,
         "worst_current_reference_a": icalc_up,
+        "drive_reference_current_a": drive_reference_current,
         "continuous_current_required_a": cont_req,
         "peak_current_required_a": peak_req,
 
@@ -803,9 +808,13 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
         "slope": slope_case,
     }
 
-    current_candidates = [(k, v["sf"]) for k, v in current_cases.items()]
+    # Match Desktop: crane tipping governing case is Left/Right/Front/Rear.
+    # Uphill slope stability is a separate driving case and must not silently
+    # replace the crane critical case shown in the main Stability summary.
+    crane_keys = ("side_left", "side_right", "front", "rear")
+    current_candidates = [(k, current_cases[k]["sf"]) for k in crane_keys]
     current_governing_key, current_governing_sf = min(current_candidates, key=lambda item: item[1])
-    critical_candidates = [(k, v["sf"]) for k, v in critical_cases.items()]
+    critical_candidates = [(k, critical_cases[k]["sf"]) for k in crane_keys]
     critical_governing_key, critical_governing_sf = min(critical_candidates, key=lambda item: item[1])
 
     # Compatibility fields used by the existing web result card.
