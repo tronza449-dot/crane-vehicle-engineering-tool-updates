@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.11"
+APP_VERSION = "53.8.12"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -4748,6 +4748,7 @@ void loop() {{
             ("E_down,slope","พลังงานไฟช่วงลงลาด","Wh",f"{q['Edown_batt_cycle']:.3f}","ไม่หักพลังงานคืน"),
             ("E_go","พลังงานขับเที่ยวไป","Wh",f"{q['Eout_drive']:.3f}","ทางราบ + ขึ้นลาด"),
             ("E_return","พลังงานขับเที่ยวกลับ","Wh",f"{q['Ereturn_drive']:.3f}","ลงลาด + ทางราบ"),
+            ("TurnMode","สถานะการรวม Differential/Pivot Energy","Mode",("INCLUDED" if q["turn_enabled"] else "EXCLUDED"),"INCLUDED = บวก E_turn เข้า Wh/Cycle และ Ah"),
             ("W_track","Track width ที่ใช้คำนวณการหมุน","m",f"{q['turn_track']:.3f}","ดึงจาก Stability"),
             ("N_turn","จำนวน Differential/Pivot turn ต่อ Cycle","ครั้ง",str(q["turn_events"]),"0 เมื่อปิด Turning Energy"),
             ("φ_turn","มุมหมุนต่อครั้ง","deg",f"{q['turn_angle_deg']:.1f}","เช่น 90° หรือ 180°"),
@@ -5693,6 +5694,10 @@ void loop() {{
             finally:
                 try: obj.blockSignals(False)
                 except Exception: pass
+        if hasattr(self,"eTurnMode") and "eTurnMode" not in widgets and "eTurnEnable" in widgets:
+            legacy_on=bool(widgets.get("eTurnEnable",{}).get("value",False))
+            self.eTurnMode.blockSignals(True);self.eTurnMode.setCurrentIndex(1 if legacy_on else 0);self.eTurnMode.blockSignals(False)
+            self.update_turn_mode_ui()
         comps=state.get("components",[])
         if hasattr(self,"comp") and comps:
             for r,row in enumerate(comps[:self.comp.rowCount()]):
@@ -7108,8 +7113,11 @@ void loop() {{
         self.edriveEff=ds(60,1,100,1); self.eaux=ds(50,0,5000,1)
         self.edod=ds(80,1,100,1); self.ereserve=ds(20,0,200,1)
         self.ebatteryFactor=ds(3.0,1.0,10.0,2)
-        self.eTurnEnable=QCheckBox("รวมพลังงาน Differential / Pivot Turn")
-        self.eTurnEnable.setChecked(False)
+        self.eTurnEnable=QCheckBox("Legacy turn enable");self.eTurnEnable.setChecked(False);self.eTurnEnable.hide()
+        self.eTurnMode=QComboBox()
+        self.eTurnMode.addItem("ไม่รวม Differential/Pivot Energy ในการคำนวณแบต","exclude")
+        self.eTurnMode.addItem("รวม Differential/Pivot Energy ในการคำนวณแบต","include")
+        self.eTurnMode.setCurrentIndex(0)
         self.eTurnEvents=QSpinBox();self.eTurnEvents.setRange(0,20);self.eTurnEvents.setValue(2)
         self.eTurnAngle=ds(180,0,360,1);self.eTurnAngle.setSingleStep(15)
         self.eTurnTime=ds(5,0.1,120,2)
@@ -7128,12 +7136,16 @@ void loop() {{
             ("Battery reserve (%)",self.ereserve),
             ("Battery Design Factor Kb",self.ebatteryFactor)
         ]: form.addRow(lab,q)
-        form.addRow(self.eTurnEnable)
+        form.addRow("Differential/Pivot Energy",self.eTurnMode)
         form.addRow("จำนวนครั้งหมุน / Cycle",self.eTurnEvents)
         form.addRow("มุมหมุนต่อครั้ง (deg)",self.eTurnAngle)
         form.addRow("เวลาหมุนต่อครั้ง (s)",self.eTurnTime)
         form.addRow("Effective turn/scrub coefficient Cturn",self.eTurnCoeff)
-        turnNote=QLabel("Differential turn ใช้ Track width W จากหน้า Stability. Cturn เป็นค่าประมาณของการไถล/ต้านการหมุนบนพื้นจริง จึงควรปรับจากการวัดกระแสภายหลัง")
+        self.eTurnModeStatus=QLabel("Turning Energy = EXCLUDED / ไม่รวมในการคำนวณแบต")
+        self.eTurnModeStatus.setWordWrap(True)
+        self.eTurnModeStatus.setStyleSheet("background:#f3f4f6;color:#475569;padding:8px;border:1px solid #d7dde5;border-radius:8px;font-weight:700")
+        form.addRow(self.eTurnModeStatus)
+        turnNote=QLabel("เลือก INCLUDE เมื่อต้องการบวกพลังงานหมุน Differential/Pivot เข้า Wh/Cycle และ Ah. Cturn เป็นค่าประมาณของการไถล/ต้านการหมุนบนพื้นจริง จึงควรปรับจากการวัดกระแสภายหลัง")
         turnNote.setWordWrap(True);turnNote.setStyleSheet("color:#68420b;background:#fff8e9;padding:8px;border:1px solid #ead39a;border-radius:8px")
         form.addRow(turnNote)
         form.addRow(self.euseOperationCycle)
@@ -7283,11 +7295,29 @@ void loop() {{
                   self.ebatteryFactor,self.eTurnAngle,self.eTurnTime,self.eTurnCoeff]
         for q in controls:q.valueChanged.connect(self.calc_electrical)
         self.eTurnEvents.valueChanged.connect(self.calc_electrical)
+        self.eTurnMode.currentIndexChanged.connect(self.update_turn_mode_ui)
         self.eTurnEnable.toggled.connect(self.calc_electrical)
         self.ecalcRadio.toggled.connect(self.calc_electrical)
         self.euseTorqueMass.toggled.connect(self.calc_electrical)
         self.euseOperationCycle.toggled.connect(self.calc_electrical)
         self.tabs.addTab(w,"Electrical / Battery")
+        self.update_turn_mode_ui()
+
+    def update_turn_mode_ui(self,*_):
+        if not hasattr(self,"eTurnMode"):return
+        include=self.eTurnMode.currentData()=="include"
+        if hasattr(self,"eTurnEnable"):
+            old=self.eTurnEnable.blockSignals(True);self.eTurnEnable.setChecked(include);self.eTurnEnable.blockSignals(old)
+        for name in ("eTurnEvents","eTurnAngle","eTurnTime","eTurnCoeff"):
+            obj=getattr(self,name,None)
+            if obj is not None:obj.setEnabled(include)
+        if hasattr(self,"eTurnModeStatus"):
+            self.eTurnModeStatus.setText("Turning Energy = INCLUDED / รวมในการคำนวณแบต" if include else "Turning Energy = EXCLUDED / ไม่รวมในการคำนวณแบต")
+            self.eTurnModeStatus.setStyleSheet(
+                ("background:#eefaf4;color:#176337;padding:8px;border:1px solid #a9d7ba;border-radius:8px;font-weight:700")
+                if include else
+                ("background:#f3f4f6;color:#475569;padding:8px;border:1px solid #d7dde5;border-radius:8px;font-weight:700")
+            )
         self.calc_electrical()
 
     def electrical_results(self):
@@ -7321,7 +7351,10 @@ void loop() {{
         cycle_distance=2.0*one
         drive_cycle_s=cycle_distance/v if v>0 else 0.0
 
-        turn_enabled=bool(getattr(self,"eTurnEnable",None) and self.eTurnEnable.isChecked())
+        turn_enabled=bool(
+            (hasattr(self,"eTurnMode") and self.eTurnMode.currentData()=="include")
+            or (not hasattr(self,"eTurnMode") and getattr(self,"eTurnEnable",None) and self.eTurnEnable.isChecked())
+        )
         turn_events=int(self.eTurnEvents.value()) if turn_enabled and hasattr(self,"eTurnEvents") else 0
         turn_angle_deg=float(self.eTurnAngle.value()) if hasattr(self,"eTurnAngle") else 180.0
         turn_time_event_s=float(self.eTurnTime.value()) if hasattr(self,"eTurnTime") else 0.0
@@ -7727,7 +7760,7 @@ void loop() {{
             f"SIMPLE CYCLE MODEL\n"
             f"1 Cycle = ไป {q['one']:.1f} m + กลับ {q['one']:.1f} m | ทางลาด/เที่ยว {q['Ls']:.1f} m | ทางราบ/เที่ยว {q['flat_oneway']:.1f} m\n"
             f"เที่ยวไป = {q['Eout_drive']:.3f} Wh | เที่ยวกลับ = {q['Ereturn_drive']:.3f} Wh | Drive/Cycle = {q['Edrive_cycle']:.3f} Wh\n"
-            f"Turn/Cycle = {q['Eturn_cycle']:.3f} Wh | Aux/Cycle = {q['Eaux_cycle']:.3f} Wh | Total/Cycle = {q['Ecycle']:.3f} Wh\n"
+            f"Turning = {'INCLUDED' if q['turn_enabled'] else 'EXCLUDED'} | Turn/Cycle = {q['Eturn_cycle']:.3f} Wh | Aux/Cycle = {q['Eaux_cycle']:.3f} Wh | Total/Cycle = {q['Ecycle']:.3f} Wh\n"
             f"{q['cycles']} Cycle → Min {q['Ah']:.2f} Ah | Practical Kb={q['Kb']:.1f} → {q['Ah_recommended']:.2f} Ah → เลือกประมาณ {q['recommended_standard']:.0f} Ah"
         )
 
@@ -7749,7 +7782,8 @@ void loop() {{
         → <b>{q['Eout_drive']:.3f} Wh</b></p>
         <p><b>เที่ยวกลับ:</b> ลงลาด {q['Ls']:.1f} m + ทางราบ {q['flat_oneway']:.1f} m
         → <b>{q['Ereturn_drive']:.3f} Wh</b></p>
-        <p>พลังงานหมุน Differential/Pivot = <b>{q['Eturn_cycle']:.3f} Wh/Cycle</b>
+        <p><b>Turning mode = {'INCLUDED' if q['turn_enabled'] else 'EXCLUDED'}</b><br>
+        พลังงานหมุน Differential/Pivot = <b>{q['Eturn_cycle']:.3f} Wh/Cycle</b>
         ({q['turn_events']} ครั้ง × {q['turn_angle_deg']:.0f}°)</p>
         <p>ดังนั้น <b>พลังงานขับต่อรอบ</b> = เที่ยวไป + เที่ยวกลับ + Turning
         = <b>{q['Edrive_cycle']:.3f} Wh/รอบ</b></p>
