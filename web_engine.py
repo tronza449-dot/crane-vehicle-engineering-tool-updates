@@ -304,7 +304,7 @@ def calculate_drive_torque(data: Dict[str, Any]) -> Dict[str, Any]:
     m = max(0.0, _f(data, "mass_kg", 300.0))
     wheel_in = max(0.1, _f(data, "wheel_diameter_in", 16.0))
     r = wheel_in * 0.0254 / 2.0
-    deg = _f(data, "slope_deg", 19.0)
+    deg = _f(data, "slope_deg", 11.11)
     speed_kmh = max(0.0, _f(data, "speed_kmh", 1.0))
     v = speed_kmh / 3.6
     accel_time = max(0.01, _f(data, "accel_time_s", 5.0))
@@ -363,7 +363,7 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     one = max(0.01, _f(data, "one_way_m", 30.0))
     slope_len = _clamp(_f(data, "slope_length_m", 2.9), 0.0, one)
     flat_oneway = max(0.0, one - slope_len)
-    slope_deg = _f(data, "slope_deg", 12.0)
+    slope_deg = _f(data, "slope_deg", 11.11)
     theta = math.radians(slope_deg)
     runtime_h = max(0.001, _f(data, "runtime_h", 3.0))
 
@@ -702,7 +702,7 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
     vehicle_cg_x = _f(data, "vehicle_cg_x_from_center_m", 0.0)
     vehicle_cg_y = _f(data, "vehicle_cg_y_m", 0.0)
 
-    slope_deg = _f(data, "slope_deg", 19.0)
+    slope_deg = _f(data, "slope_deg", 11.11)
     slope_accel = max(0.0, _f(data, "slope_accel_mps2", 0.28))
     combined_cg_from_rear = max(0.0, _f(data, "combined_cg_from_rear_m", wb / 2.0))
     combined_cg_height = max(0.001, _f(data, "combined_cg_height_m", 0.55))
