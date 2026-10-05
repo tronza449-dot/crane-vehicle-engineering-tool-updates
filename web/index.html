@@ -212,6 +212,16 @@
           <label>Auxiliary power (W)<input name="aux_power_w" type="number" value="50" step="10"></label>
           <label>DoD (%)<input name="dod_pct" type="number" value="80" step="1"></label>
           <label>Reserve (%)<input name="reserve_pct" type="number" value="20" step="1"></label>
+          <label>Battery Design Factor Kb<input name="battery_design_factor" type="number" value="3.0" min="1" step="0.1"></label>
+
+          <h3 class="full section-label">Differential / Pivot Turn Energy</h3>
+          <label class="full"><input name="turn_enabled" type="checkbox"> รวมพลังงานการหมุนแบบ Differential/Pivot ในแต่ละ Cycle</label>
+          <label>จำนวนครั้งหมุน / Cycle<input name="turns_per_cycle" type="number" value="2" min="0" step="1"></label>
+          <label>มุมหมุนต่อครั้ง (deg)<input name="turn_angle_deg" type="number" value="180" min="0" step="15"></label>
+          <label>เวลาหมุนต่อครั้ง (s)<input name="turn_time_s" type="number" value="5" min="0.1" step="0.5"></label>
+          <label>Track width W (m)<input name="track_width_m" type="number" value="0.70" min="0.1" step="0.01"></label>
+          <label>Effective turn coefficient Cturn<input name="turn_coeff" type="number" value="0.20" min="0" step="0.01"></label>
+          <div class="full notice compact-note"><b>Turning model:</b> s_turn=(W/2)φ และ E_turn=Cturn·m·g·s_turn/(η×3600). Cturn เป็นค่าประมาณของการไถลยาง/ล้อพยุงบนพื้นจริง ควรปรับจากการวัดกระแสจริงภายหลัง</div>
           <div class="full notice compact-note"><b>Simple Cycle:</b> เที่ยวเดียว = ทางราบ + ทางลาด • เที่ยวไปคิดทางราบ + ขึ้นลาด • เที่ยวกลับคิดลงลาด + ทางราบ • ไม่คิดพลังงานช่วงออกตัว และไม่นำพลังงานจากทางลงมาหักคืนแบตเตอรี่</div>
 
           <h3 class="full section-label">Battery Purchase / Reverse Calculation</h3>
