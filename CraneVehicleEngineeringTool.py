@@ -9680,14 +9680,22 @@ class ForceDiagram(QWidget):
         p.setPen(QPen(QColor("#f59e0b"),7,Qt.SolidLine,Qt.RoundCap))
         p.drawLine(QPointF(xzero,deck_top),QPointF(xzero,boom_y))
         p.drawLine(QPointF(xzero,boom_y),QPointF(xload,boom_y))
-        self.marker(p,QPointF(xboom,boom_y),"CG_B","#a45108",8,-9)
-        self.marker(p,QPointF(xload,boom_y),"CG_L","#a45108",8,-9)
+        projected_coincident=abs(xboom-xload)<10
+        if projected_coincident:
+            self.marker(p,QPointF(xboom,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
+        else:
+            self.marker(p,QPointF(xboom,boom_y),"CG_B","#a45108",8,-9)
+            self.marker(p,QPointF(xload,boom_y),"CG_L","#a45108",8,-9)
         self.marker(p,QPointF(xveh,deck_top+deck_h/2),"CG_V","#334155",8,-8)
 
-        # Force arrows through the true lines of action.
+        # Force arrows through the true lines of action. Coincident projections are shown once, not overdrawn.
         self.arrow(p,QPointF(xveh,deck_top+deck_h/2),QPointF(xveh,ground-16),"W_V","#111827",QPointF(7,-5))
-        self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+100),"W_B","#111827",QPointF(7,-5))
-        self.arrow(p,QPointF(xload,boom_y+8),QPointF(xload,boom_y+115),"W_L","#111827",QPointF(7,-5))
+        if projected_coincident:
+            self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+115),"W_B + W_L","#111827",QPointF(7,-5))
+            self.txt(p,xboom+8,boom_y+132,"same projected line of action",7,False,"#52606d")
+        else:
+            self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+100),"W_B","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xload,boom_y+8),QPointF(xload,boom_y+115),"W_L","#111827",QPointF(7,-5))
 
         # Pivot / reactions are separated to prevent overlapping labels.
         self.pivot(p,QPointF(pivotx,ground),"Tipping axis P","right" if left else "left")
@@ -9738,13 +9746,21 @@ class ForceDiagram(QWidget):
         p.setPen(QPen(QColor("#f59e0b"),7,Qt.SolidLine,Qt.RoundCap))
         p.drawLine(QPointF(xm,deck_top),QPointF(xm,boom_y))
         p.drawLine(QPointF(xm,boom_y),QPointF(xl,boom_y))
-        self.marker(p,QPointF(xb,boom_y),"CG_B","#a45108",8,-9)
-        self.marker(p,QPointF(xl,boom_y),"CG_L","#a45108",8,-9)
+        projected_coincident=abs(xb-xl)<10
+        if projected_coincident:
+            self.marker(p,QPointF(xb,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
+        else:
+            self.marker(p,QPointF(xb,boom_y),"CG_B","#a45108",8,-9)
+            self.marker(p,QPointF(xl,boom_y),"CG_L","#a45108",8,-9)
         self.marker(p,QPointF(xv,deck_top+deck_h/2),"CG_V","#334155",8,-8)
 
         self.arrow(p,QPointF(xv,deck_top+deck_h/2),QPointF(xv,ground-16),"W_V","#111827",QPointF(7,-5))
-        self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+100),"W_B","#111827",QPointF(7,-5))
-        self.arrow(p,QPointF(xl,boom_y+8),QPointF(xl,boom_y+115),"W_L","#111827",QPointF(7,-5))
+        if projected_coincident:
+            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+115),"W_B + W_L","#111827",QPointF(7,-5))
+            self.txt(p,xb+8,boom_y+132,"same projected line of action",7,False,"#52606d")
+        else:
+            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+100),"W_B","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xl,boom_y+8),QPointF(xl,boom_y+115),"W_L","#111827",QPointF(7,-5))
 
         self.pivot(p,QPointF(pivotx,ground),"Tipping axis P","left" if frontcase else "right")
         react_start=QPointF(pivotx+(-18 if frontcase else 18),ground-4)
