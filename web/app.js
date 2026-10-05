@@ -154,8 +154,8 @@ function syncVehicleParameters(){
   const mass=formValue("batteryForm","mass_kg",formValue("driveForm","mass_kg",300));
   const payload=formValue("stabilityForm","payload_mass_kg",100);
   const mainV=formValue("batteryForm","voltage_v",72);
-  const motorW=formValue("batteryForm","motor_rated_w",1500);
-  const motors=formValue("batteryForm","motors",2);
+  const motorW=formValue("driveForm","motor_rated_w",1500);
+  const motors=formValue("driveForm","motors",2);
   const slope=formValue("batteryForm","slope_deg",19);
   const runtime=formValue("batteryForm","runtime_h",3);
   const arm=formValue("stabilityForm","boom_length_m",1.2);
@@ -507,7 +507,7 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
 
     out.innerHTML=
       '<h3>Main Battery 72 V — Simple Cycle</h3>'+
-      '<div class="notice"><b>Current check:</b> Battery model uphill = '+f(r.uphill_current_calc_a,2)+' A • Drive Torque reference = '+f(r.drive_reference_current_a,2)+' A • ใช้ค่าที่มากกว่าในการตรวจ BMS/C-rate</div>'+
+      '<div class="notice"><b>Current check:</b> Continuous = max(Uphill '+f(r.uphill_current_calc_a,2)+' A, Pivot '+f(r.turn_average_current_a,2)+' A) = <b>'+f(r.continuous_current_required_a,2)+' A</b> • Peak = max(Continuous, Drive Torque design reference '+f(r.drive_reference_current_a,2)+' A) = <b>'+f(r.peak_current_required_a,2)+' A</b></div>'+
       '<div class="notice"><b>1 Cycle</b> = ไป '+f(r.one_way_m,1)+' m + กลับ '+f(r.one_way_m,1)+' m • '+
       'แต่ละเที่ยว = ทางราบ '+f(r.flat_one_way_m,1)+' m + ทางลาด '+f(r.slope_length_m,1)+' m</div>'+
 
