@@ -110,3 +110,4 @@ Filename: "{app}\{#MyAppExeName}"; Flags: nowait runasoriginaluser
 
 
 
+
