@@ -294,9 +294,138 @@
       <div class="page-title"><h2>Crane Stability / Tipping + Web FBD</h2><p>Side Left / Side Right / Front / Rear / Slope — Current Angle และ Critical Case</p></div>
       <div class="layout">
         <form id="stabilityForm" class="panel form-grid" onsubmit="return false;">
-          <label>มวลรวมรถ (kg)<input name="total_mass_kg" type="number" value="300" step="1"></label>
-          <label>Payload (kg)<input name="payload_mass_kg" type="number" value="100" step="1"></label>
-          <label>มวล Boom/Crane ที่ใช้ในโมเดล (kg)<input name="boom_mass_kg" type="number" value="20" step="1"></label>
+          <div class="full stability-mode-block">
+            <div class="stability-input-step"><span>1</span><div><b>เลือกโหมดน้ำหนัก</b><small>เลือกแหล่งข้อมูลมวลก่อนคำนวณ Stability</small></div></div>
+            <div class="mass-mode-switch">
+              <label class="mass-mode-card">
+                <input type="radio" name="mass_mode" value="total" checked>
+                <span class="mode-letter">A</span>
+                <span><b>Total Mass</b><small>กรอกมวลรวม, Payload, Boom และ CG เอง</small></span>
+              </label>
+              <label class="mass-mode-card">
+                <input type="radio" name="mass_mode" value="components">
+                <span class="mode-letter">B</span>
+                <span><b>Component Mass</b><small>กรอกน้ำหนักแต่ละชิ้น แล้วรวมมวล + CG อัตโนมัติ</small></span>
+              </label>
+            </div>
+          </div>
+
+          <div id="stabilityTotalMassFields" class="full stability-mass-fields">
+            <div class="subgrid">
+              <label>มวลรวมทั้งระบบ m_total (kg)<input name="total_mass_kg" type="number" value="300" step="1"></label>
+              <label>Payload system m_L (kg)<input name="payload_mass_kg" type="number" value="100" step="1"></label>
+              <label>มวล Boom m_B (kg)<input name="boom_mass_kg" type="number" value="20" step="1"></label>
+              <label>Base vehicle CG x (m)<input name="vehicle_cg_x_from_center_m" type="number" value="0" step="0.05"></label>
+              <label>Base vehicle CG y (m)<input name="vehicle_cg_y_m" type="number" value="0" step="0.01"></label>
+              <label>Combined CG จากเพลาหลัง (m)<input name="combined_cg_from_rear_m" type="number" value="0.55" step="0.01"></label>
+              <label>Combined CG height (m)<input name="combined_cg_height_m" type="number" value="0.55" step="0.01"></label>
+            </div>
+            <div class="mode-help">Mode A ใช้ค่าที่กรอกชุดนี้โดยตรง เหมือน Total Mass Mode ในโปรแกรม Desktop</div>
+          </div>
+
+          <div id="stabilityComponentMassFields" class="full stability-component-panel hidden">
+            <div class="component-head">
+              <div><b>Component Mass & CG Table</b><small>พิกัดอ้างอิง: +x ไปด้านหน้ารถ, +y ไปด้านขวา, +z ขึ้นด้านบน</small></div>
+              <div id="componentMassPreview" class="component-preview">Σm = 300.00 kg</div>
+            </div>
+            <div class="component-table-scroll">
+              <table class="component-mass-table">
+                <thead><tr><th>Component / อุปกรณ์</th><th>Mass kg</th><th>x m</th><th>y m</th><th>z m</th></tr></thead>
+                <tbody id="stabilityComponentBody">
+            <tr>
+              <td><input data-comp="name" name="component_name_0" value="Frame / โครงรถ"></td>
+              <td><input data-comp="mass" name="component_mass_0" type="number" value="55" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_0" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_0" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_0" type="number" value="0.35" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_1" value="Battery / แบตเตอรี่"></td>
+              <td><input data-comp="mass" name="component_mass_1" type="number" value="35" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_1" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_1" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_1" type="number" value="0.25" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_2" value="Drive motors / มอเตอร์ขับ"></td>
+              <td><input data-comp="mass" name="component_mass_2" type="number" value="20" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_2" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_2" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_2" type="number" value="0.18" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_3" value="Support wheels / ล้อพยุง"></td>
+              <td><input data-comp="mass" name="component_mass_3" type="number" value="15" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_3" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_3" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_3" type="number" value="0.18" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_4" value="Crane column / เสาเครน"></td>
+              <td><input data-comp="mass" name="component_mass_4" type="number" value="30" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_4" type="number" value="-0.4" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_4" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_4" type="number" value="0.78" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_5" value="Slewing drive+bearing / ชุดหมุนเครน"></td>
+              <td><input data-comp="mass" name="component_mass_5" type="number" value="10" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_5" type="number" value="-0.4" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_5" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_5" type="number" value="0.82" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_6" value="Winch / วินช์"></td>
+              <td><input data-comp="mass" name="component_mass_6" type="number" value="15" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_6" type="number" value="-0.4" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_6" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_6" type="number" value="0.9" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_7" value="Boom / แขนเครน"></td>
+              <td><input data-comp="mass" name="component_mass_7" type="number" value="20" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_7" type="number" value="-0.1" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_7" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_7" type="number" value="1.28" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_8" value="Basket / ตะกร้า"></td>
+              <td><input data-comp="mass" name="component_mass_8" type="number" value="20" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_8" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_8" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_8" type="number" value="0.6" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_9" value="Payload / ซากสัตว์"></td>
+              <td><input data-comp="mass" name="component_mass_9" type="number" value="80" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_9" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_9" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_9" type="number" value="0.6" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_10" value="Counterweight / ตุ้มน้ำหนัก"></td>
+              <td><input data-comp="mass" name="component_mass_10" type="number" value="0" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_10" type="number" value="-0.45" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_10" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_10" type="number" value="0.25" step="0.01"></td>
+            </tr>
+            <tr>
+              <td><input data-comp="name" name="component_name_11" value="Other / อื่นๆ"></td>
+              <td><input data-comp="mass" name="component_mass_11" type="number" value="0" step="0.1"></td>
+              <td><input data-comp="x" name="component_x_11" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="y" name="component_y_11" type="number" value="0" step="0.01"></td>
+              <td><input data-comp="z" name="component_z_11" type="number" value="0.3" step="0.01"></td>
+            </tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="componentDerivedPreview" class="derived-strip">
+              Base 180.00 kg • Boom 20.00 kg • Basket+Payload 100.00 kg
+            </div>
+            <div class="mode-help">Mode B จะล็อกค่ามวล/CG หลักไว้ทางตรรกะ แล้วคำนวณจากตารางนี้อัตโนมัติ เหมือน Component Mass Mode ใน Desktop</div>
+          </div>
+
+          <div class="full stability-input-step"><span>2</span><div><b>กำหนด Geometry และเงื่อนไข</b><small>ค่าฐานล้อ แขนเครน มุมหมุน และ Safety Factor</small></div></div>
           <label>Track width (m)<input name="track_width_m" type="number" value="1.1" step="0.05"></label>
           <label>Wheelbase (m)<input name="wheelbase_m" type="number" value="1.1" step="0.05"></label>
           <label>ความยาวแขนเครน (m)<input name="boom_length_m" type="number" value="1.2" step="0.1"></label>
@@ -304,14 +433,10 @@
           <label>Dynamic Factor Kdyn<input name="dynamic_factor" type="number" value="1.2" step="0.1"></label>
           <label>SF ที่ต้องการ<input name="required_sf" type="number" value="1.5" step="0.1"></label>
           <label>ตำแหน่งเครนจากเพลาหลัง (m)<input name="crane_from_rear_m" type="number" value="0.15" step="0.05"></label>
-          <label>CG รถหลักจากกึ่งกลางรถ x (m)<input name="vehicle_cg_x_from_center_m" type="number" value="0" step="0.05"></label>
-          <label>CG รถหลักด้านข้าง y (m)<input name="vehicle_cg_y_m" type="number" value="0" step="0.01"></label>
 
           <h3 class="full section-label">Slope FBD / ทางลาด</h3>
           <label>มุมทางลาด α (deg)<input name="slope_deg" type="number" value="11.11" step="0.01"></label>
           <label>ความเร่งขึ้นทางลาด a (m/s²)<input name="slope_accel_mps2" type="number" value="0.28" step="0.01"></label>
-          <label>Combined CG จากเพลาหลัง (m)<input name="combined_cg_from_rear_m" type="number" value="0.55" step="0.01"></label>
-          <label>Combined CG height (m)<input name="combined_cg_height_m" type="number" value="0.55" step="0.01"></label>
 
           <button id="calcStability" class="primary full">คำนวณ Stability + FBD</button>
         </form>
