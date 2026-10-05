@@ -957,14 +957,14 @@ jobs:
           with tempfile.TemporaryDirectory() as fbd_td:
               fbd_td=Path(fbd_td)
               html=w.stability_fbd_report_html(fbd_td,w.inputs())
-              assert "สรุป FBD การคว่ำทุกด้าน" in html
-              assert "อ่านรูปนี้แค่ 4 อย่าง" in html
+              assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in html
+              assert "FBD reading guide" in html
               assert "FBD 1:" in html and "FBD 5:" in html
-              assert "ฝั่งพยายามทำให้คว่ำ" in html
-              assert "ฝั่งช่วยต้านการคว่ำ" in html
-              assert "Safety Factor" in html
-              assert "ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX" in html
-              assert "W_vehicle" in html and "W_boom" in html and "W_payload" in html
+              assert "Overturning side" in html
+              assert "Resisting side" in html
+              assert "Estimated minimum track" in html
+              assert "Estimated safe slew range" in html
+              assert "Critical-case FBDs" in html
               for key in ("side_left","side_right","front","rear","slope"):
                   img=fbd_td/f"fbd_{key}.png"
                   assert img.exists() and img.stat().st_size>1000, f"Missing FBD image {key}"
