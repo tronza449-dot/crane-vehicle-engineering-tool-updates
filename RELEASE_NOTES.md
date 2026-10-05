@@ -1,82 +1,30 @@
-# Crane Vehicle Engineering Tool V53.8.19
+# Crane Vehicle Engineering Tool V53.8.20
 
-## Live Web FBD
+## Updater Reliability Fix
 
-เพิ่ม Engineering FBD เข้าเวอร์ชันเว็บ โดยใช้ผลคำนวณสดจาก Web API ไม่ใช่รูปภาพสำเร็จ
+แก้ปัญหาเครื่องผู้ใช้บางเครื่องกดอัปเดตแล้วตรวจเวอร์ชันหรือดาวน์โหลดไม่สำเร็จ แม้ GitHub Release และ latest.json จะถูกต้อง
 
-### Web Stability FBD
-หน้า Stability บนเว็บเพิ่ม 5 Case:
-- Side Left / คว่ำซ้าย
-- Side Right / คว่ำขวา
-- Front / คว่ำหน้า
-- Rear / คว่ำหลัง
-- Slope / ทางลาด
+### Update check
+- อ่าน Update Source ที่ผู้ใช้ตั้งไว้ก่อน
+- ถ้าเป็น custom/stale source จะเทียบกับ official GitHub manifest อัตโนมัติ
+- เพิ่ม GitHub Contents API fallback เพื่อข้ามปัญหา raw.githubusercontent.com / CDN / cache
+- เลือก manifest ที่มีเวอร์ชันใหม่ที่สุดจาก source ที่อ่านได้
 
-เลือก View ได้:
-- Current Angle / มุมปัจจุบัน
-- Critical Case / มุมวิกฤตของ Case ที่เลือก
+### Download
+- เพิ่ม retry ดาวน์โหลด installer สูงสุด 3 ครั้ง
+- เพิ่ม timeout เป็น 120 วินาทีต่อ attempt
+- ลบไฟล์ดาวน์โหลดค้างก่อน retry
+- ยังตรวจ SHA256 ก่อนติดตั้งเหมือนเดิม
 
-### Diagram
-Web FBD แสดง:
-- Vehicle / Boom / Payload
-- Tipping axis P
-- R_P
-- R_opposite = 0
-- W_V / W_B / W_L
-- d_V / d_B / d_L
-- M_O
-- M_R
-- Safety Factor
-- PASS / FAIL
+### Repair Update
+- Repair Update ยังรีเซ็ต source กลับ official
+- หลังแก้รุ่นนี้ updater จะมี fallback เพิ่ม แม้ raw GitHub มีปัญหา
 
-Slope FBD แสดง:
-- Combined CG
-- W_parallel
-- W_normal
-- F_I = ma
-- N_R
-- N_F = 0
-- d_R
-- h_CG
+### Security
+- Remote update ยังบังคับ HTTPS
+- SHA256 validation ยังทำงานก่อนเปิด installer
+- ไม่ลดการตรวจสอบความถูกต้องของไฟล์
 
-### สูตรภาษาไทย
-ใต้ Web FBD แสดงสูตรและการแทนค่าแบบเดียวกับ Desktop:
-- M_O = Σ(F_i d_i)
-- อ่านสูตรแบบภาษาคน
-- อธิบายตัวแปร
-- แสดงว่าแรงแต่ละส่วน × แขนโมเมนต์ = โมเมนต์เท่าไร
-- M_R
-- SF
-- สูตรทางลาด
-
-### Web stability engine
-Web API เพิ่ม:
-- current_cases
-- critical_cases
-- current_governing
-- critical_governing
-- detailed Front/Rear components
-- slope case
-
-Critical Case scan มุมเครนตั้งแต่ -90° ถึง +90° ด้วย step 1° สำหรับ Side Left / Side Right / Front / Rear
-
-### Web input
-เพิ่ม Input สำหรับ Slope FBD:
-- slope angle
-- uphill acceleration
-- combined CG from rear axle
-- combined CG height
-
-Slope angle sync กับ Drive Torque และ Main Battery ผ่าน Shared Project Parameters
-
-### Regression
-GitHub Actions เพิ่ม:
-- node --check web/app.js
-- ตรวจ Web FBD HTML/JS
-- ตรวจ current_cases / critical_cases ครบ 5 case
-- ตรวจ slope output
-- ตรวจ Front/Rear component data
-
-### Calculation scope
-เป็น Preliminary rigid-body model เช่นเดียวกับ Desktop
-ต้องยืนยันน้ำหนักจริง ตำแหน่ง CG จริง และผลทดสอบจริงก่อน fabrication/use
+### Existing features
+- Live Web FBD จาก V53.8.19 คงอยู่ครบ
+- Desktop FBD / PDF / Battery / Stability ไม่มีการเปลี่ยนสูตรหลัก
