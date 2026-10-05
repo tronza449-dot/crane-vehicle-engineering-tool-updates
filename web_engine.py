@@ -599,9 +599,10 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _longitudinal_sf(total_mass: float, payload_mass: float, boom_mass: float,
-                     wheelbase: float, boom_length: float, angle_deg: float,
-                     crane_from_rear: float, vehicle_cg_x: float, dynamic_factor: float) -> Dict[str, float]:
+def _longitudinal_balance(total_mass: float, payload_mass: float, boom_mass: float,
+                          wheelbase: float, boom_length: float, angle_deg: float,
+                          crane_from_rear: float, vehicle_cg_x: float,
+                          dynamic_factor: float, case: str, required_sf: float) -> Dict[str, Any]:
     rear = -wheelbase / 2.0
     front = wheelbase / 2.0
     xc = rear + crane_from_rear
@@ -609,27 +610,73 @@ def _longitudinal_sf(total_mass: float, payload_mass: float, boom_mass: float,
     xboom = xc + (boom_length / 2.0) * math.cos(math.radians(angle_deg))
     mveh = max(0.0, total_mass - payload_mass - boom_mass)
 
-    def chk(pivot: float, direction: float) -> float:
-        mo = 0.0
-        mr = 0.0
-        for mass, x, is_payload in (
-            (mveh, vehicle_cg_x, False),
-            (payload_mass, xload, True),
-            (boom_mass, xboom, False),
-        ):
-            signed = direction * (x - pivot)
-            if signed > 0:
-                factor = dynamic_factor if is_payload else 1.0
-                mo += factor * mass * G * signed
-            elif signed < 0:
-                mr += mass * G * (-signed)
-        return mr / mo if mo > 1e-12 else 999.0
+    if case == "front":
+        pivot, direction = front, 1.0
+    else:
+        pivot, direction = rear, -1.0
 
+    mo = 0.0
+    mr = 0.0
+    components = []
+    for name, mass, x, is_payload in (
+        ("Vehicle", mveh, vehicle_cg_x, False),
+        ("Boom", boom_mass, xboom, False),
+        ("Payload", payload_mass, xload, True),
+    ):
+        signed = direction * (x - pivot)
+        role = "overturning" if signed > 1e-12 else "resisting" if signed < -1e-12 else "on_pivot"
+        factor = dynamic_factor if (is_payload and role == "overturning") else 1.0
+        force = mass * G * factor
+        arm = abs(signed)
+        moment = force * arm
+        if role == "overturning":
+            mo += moment
+        elif role == "resisting":
+            mr += moment
+        components.append({
+            "name": name, "mass_kg": mass, "x_m": x, "factor": factor,
+            "force_n": force, "arm_m": arm, "moment_nm": moment, "role": role,
+        })
+
+    sf = mr / mo if mo > 1e-12 else 999.0
     return {
-        "front_sf": chk(front, 1.0),
-        "rear_sf": chk(rear, -1.0),
-        "rear_x_m": rear, "front_x_m": front, "crane_x_m": xc,
-        "load_x_m": xload, "boom_x_m": xboom,
+        "case": case,
+        "angle_deg": angle_deg,
+        "pivot_m": pivot,
+        "rear_x_m": rear,
+        "front_x_m": front,
+        "crane_x_m": xc,
+        "load_x_m": xload,
+        "boom_x_m": xboom,
+        "vehicle_x_m": vehicle_cg_x,
+        "overturning_moment_nm": mo,
+        "resisting_moment_nm": mr,
+        "sf": sf,
+        "pass": sf >= required_sf,
+        "components": components,
+    }
+
+
+def _longitudinal_sf(total_mass: float, payload_mass: float, boom_mass: float,
+                     wheelbase: float, boom_length: float, angle_deg: float,
+                     crane_from_rear: float, vehicle_cg_x: float, dynamic_factor: float) -> Dict[str, float]:
+    """Compatibility wrapper retained for existing callers/tests."""
+    front = _longitudinal_balance(
+        total_mass, payload_mass, boom_mass, wheelbase, boom_length, angle_deg,
+        crane_from_rear, vehicle_cg_x, dynamic_factor, "front", 0.0
+    )
+    rear = _longitudinal_balance(
+        total_mass, payload_mass, boom_mass, wheelbase, boom_length, angle_deg,
+        crane_from_rear, vehicle_cg_x, dynamic_factor, "rear", 0.0
+    )
+    return {
+        "front_sf": front["sf"],
+        "rear_sf": rear["sf"],
+        "rear_x_m": rear["rear_x_m"],
+        "front_x_m": front["front_x_m"],
+        "crane_x_m": front["crane_x_m"],
+        "load_x_m": front["load_x_m"],
+        "boom_x_m": front["boom_x_m"],
     }
 
 
@@ -640,24 +687,30 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
     track = max(0.01, _f(data, "track_width_m", 0.7))
     wb = max(0.01, _f(data, "wheelbase_m", 1.1))
     boom = max(0.0, _f(data, "boom_length_m", 1.2))
-    angle = _f(data, "crane_angle_deg", 90.0)
+    angle = _clamp(_f(data, "crane_angle_deg", 90.0), -90.0, 90.0)
     kd = max(0.0, _f(data, "dynamic_factor", 1.0))
     req = max(0.0, _f(data, "required_sf", 1.5))
     crane_from_rear = _f(data, "crane_from_rear_m", 0.2)
     vehicle_cg_x = _f(data, "vehicle_cg_x_from_center_m", 0.0)
+    vehicle_cg_y = _f(data, "vehicle_cg_y_m", 0.0)
 
-    y_load = boom * math.sin(math.radians(angle))
-    y_boom = (boom / 2.0) * math.sin(math.radians(angle))
+    slope_deg = _f(data, "slope_deg", 19.0)
+    slope_accel = max(0.0, _f(data, "slope_accel_mps2", 0.28))
+    combined_cg_from_rear = max(0.0, _f(data, "combined_cg_from_rear_m", wb / 2.0))
+    combined_cg_height = max(0.001, _f(data, "combined_cg_height_m", 0.55))
+
     m_vehicle = max(0.0, mt - ml - mb)
 
-    def side_balance(side: str) -> Dict[str, Any]:
+    def side_balance(side: str, angle_deg: float) -> Dict[str, Any]:
+        y_load = boom * math.sin(math.radians(angle_deg))
+        y_boom = (boom / 2.0) * math.sin(math.radians(angle_deg))
         direction = 1.0 if side == "right" else -1.0
         pivot = direction * track / 2.0
         mo = 0.0
         mr = 0.0
         components = []
         for name, mass, y, is_payload in (
-            ("Vehicle", m_vehicle, 0.0, False),
+            ("Vehicle", m_vehicle, vehicle_cg_y, False),
             ("Boom", mb, y_boom, False),
             ("Payload", ml, y_load, True),
         ):
@@ -676,15 +729,89 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
                 "force_n": force, "arm_m": arm, "moment_nm": moment, "role": role,
             })
         sf = mr / mo if mo > 1e-12 else 999.0
-        return {"pivot_m": pivot, "overturning_moment_nm": mo, "resisting_moment_nm": mr,
-                "sf": sf, "pass": sf >= req, "components": components}
+        return {
+            "case": f"side_{side}", "side": side, "angle_deg": angle_deg,
+            "pivot_m": pivot, "load_lateral_m": y_load, "boom_lateral_m": y_boom,
+            "overturning_moment_nm": mo, "resisting_moment_nm": mr,
+            "sf": sf, "pass": sf >= req, "components": components,
+        }
 
-    left = side_balance("left")
-    right = side_balance("right")
-    critical_direction = "left" if left["sf"] <= right["sf"] else "right"
-    critical_side = left if critical_direction == "left" else right
+    current_left = side_balance("left", angle)
+    current_right = side_balance("right", angle)
+    current_front = _longitudinal_balance(
+        mt, ml, mb, wb, boom, angle, crane_from_rear, vehicle_cg_x, kd, "front", req
+    )
+    current_rear = _longitudinal_balance(
+        mt, ml, mb, wb, boom, angle, crane_from_rear, vehicle_cg_x, kd, "rear", req
+    )
 
-    longi = _longitudinal_sf(mt, ml, mb, wb, boom, angle, crane_from_rear, vehicle_cg_x, kd)
+    alpha = math.radians(slope_deg)
+    w_parallel = mt * G * math.sin(alpha)
+    w_normal = mt * G * math.cos(alpha)
+    inertia = mt * slope_accel
+    slope_mo = (w_parallel + inertia) * combined_cg_height
+    slope_mr = w_normal * combined_cg_from_rear
+    slope_sf = slope_mr / slope_mo if slope_mo > 1e-12 else 999.0
+    slope_case = {
+        "case": "slope",
+        "angle_deg": None,
+        "slope_deg": slope_deg,
+        "accel_mps2": slope_accel,
+        "combined_cg_from_rear_m": combined_cg_from_rear,
+        "combined_cg_height_m": combined_cg_height,
+        "w_parallel_n": w_parallel,
+        "w_normal_n": w_normal,
+        "inertia_n": inertia,
+        "overturning_moment_nm": slope_mo,
+        "resisting_moment_nm": slope_mr,
+        "sf": slope_sf,
+        "pass": slope_sf >= req,
+    }
+
+    def critical_for(key: str) -> Dict[str, Any]:
+        best = None
+        for deg in range(-90, 91):
+            if key == "side_left":
+                bal = side_balance("left", float(deg))
+            elif key == "side_right":
+                bal = side_balance("right", float(deg))
+            elif key == "front":
+                bal = _longitudinal_balance(
+                    mt, ml, mb, wb, boom, float(deg), crane_from_rear, vehicle_cg_x, kd, "front", req
+                )
+            else:
+                bal = _longitudinal_balance(
+                    mt, ml, mb, wb, boom, float(deg), crane_from_rear, vehicle_cg_x, kd, "rear", req
+                )
+            if best is None or bal["sf"] < best["sf"]:
+                best = bal
+        return best or {}
+
+    critical_cases = {
+        "side_left": critical_for("side_left"),
+        "side_right": critical_for("side_right"),
+        "front": critical_for("front"),
+        "rear": critical_for("rear"),
+        "slope": dict(slope_case),
+    }
+
+    current_cases = {
+        "side_left": current_left,
+        "side_right": current_right,
+        "front": current_front,
+        "rear": current_rear,
+        "slope": slope_case,
+    }
+
+    current_candidates = [(k, v["sf"]) for k, v in current_cases.items()]
+    current_governing_key, current_governing_sf = min(current_candidates, key=lambda item: item[1])
+    critical_candidates = [(k, v["sf"]) for k, v in critical_cases.items()]
+    critical_governing_key, critical_governing_sf = min(critical_candidates, key=lambda item: item[1])
+
+    # Compatibility fields used by the existing web result card.
+    critical_direction = "left" if current_left["sf"] <= current_right["sf"] else "right"
+    critical_side = current_left if critical_direction == "left" else current_right
+
     return {
         "total_mass_kg": mt, "payload_mass_kg": ml, "boom_mass_kg": mb,
         "track_width_m": track, "wheelbase_m": wb, "boom_length_m": boom,
@@ -693,15 +820,30 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
             "x": "+x forward", "y": "+y right", "z": "+z up",
             "crane_angle": "-90 left, 0 forward, +90 right",
         },
-        "side": {
-            **critical_side, "critical_direction": critical_direction,
-            "load_lateral_m": y_load, "boom_lateral_m": y_boom,
+        "side": {**critical_side, "critical_direction": critical_direction},
+        "side_left": current_left,
+        "side_right": current_right,
+        "front": current_front,
+        "rear": current_rear,
+        "slope": slope_case,
+        "current_cases": current_cases,
+        "critical_cases": critical_cases,
+        "current_governing": {
+            "key": current_governing_key, "sf": current_governing_sf,
+            "pass": current_governing_sf >= req,
         },
-        "side_left": left,
-        "side_right": right,
-        "front": {"sf": longi["front_sf"], "pass": longi["front_sf"] >= req},
-        "rear": {"sf": longi["rear_sf"], "pass": longi["rear_sf"] >= req},
-        "geometry": {k: v for k, v in longi.items() if k not in {"front_sf", "rear_sf"}},
-        "note": "Formal preliminary rigid-body model; left/right/front/rear are checked separately. Confirm real CG/masses before fabrication.",
+        "critical_governing": {
+            "key": critical_governing_key, "sf": critical_governing_sf,
+            "pass": critical_governing_sf >= req,
+            "angle_deg": critical_cases[critical_governing_key].get("angle_deg"),
+        },
+        "geometry": {
+            "rear_x_m": current_front["rear_x_m"],
+            "front_x_m": current_front["front_x_m"],
+            "crane_x_m": current_front["crane_x_m"],
+            "load_x_m": current_front["load_x_m"],
+            "boom_x_m": current_front["boom_x_m"],
+        },
+        "note": "Formal preliminary rigid-body model; web FBD uses the same returned force/moment data. Confirm real CG/masses before fabrication.",
     }
 
