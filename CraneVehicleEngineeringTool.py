@@ -4795,40 +4795,108 @@ void loop() {{
         slope=self.slope_stability_results(d)
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
         yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
-        FLd=d["kd"]*d["ml"]*G
+        xrear=-d["WB"]/2;xfront=d["WB"]/2;xc=xrear+d["xC"]
+        xL=xc+d["L"]*math.cos(math.radians(th));xB=xc+(d["L"]/2)*math.cos(math.radians(th))
+        Wv=mveh*G;Wb=d["mb"]*G;Wl=d["ml"]*G;FLd=d["kd"]*Wl
+        mode_text="Component Mass / ใส่น้ำหนักแต่ละส่วน" if d.get("massMode")=="components" else "Total Mass / กรอกมวลรวม"
+
+        def comp_by_name(balance,name):
+            return next((q for q in balance["components"] if q["name"]==name),dict(arm=0.0,moment=0.0,force=0.0,role="-"))
+        slv,slb,sll=(comp_by_name(sl,n) for n in ("Vehicle","Boom","Payload"))
+        srv,srb,srl=(comp_by_name(sr,n) for n in ("Vehicle","Boom","Payload"))
+        fbv,fbb,fbl=(comp_by_name(fb,n) for n in ("Vehicle","Boom","Payload"))
+        rbv,rbb,rbl=(comp_by_name(rb0,n) for n in ("Vehicle","Boom","Payload"))
+
         rows=[
-            ("m_total","มวลรวมทั้งระบบใน Crane Mode","kg",f"{d['mt']:.2f}","รวมรถ+เครน+Payload โดยไม่ซ้ำมวล"),
-            ("m_V","มวลรถส่วนหลัก = m_total-m_L-m_B","kg",f"{mveh:.2f}","ใช้เป็นน้ำหนักรถส่วนหลักใน moment balance"),
-            ("m_L","มวล Payload","kg",f"{d['ml']:.2f}","โหลดที่ปลายเครน"),
-            ("m_B","มวล Boom","kg",f"{d['mb']:.2f}","CG ของ Boom สมมติที่ L/2"),
-            ("W","Track width ศูนย์กลางล้อซ้าย-ขวา","m",f"{d['W']:.3f}","Pivot ซ้าย=-W/2, Pivot ขวา=+W/2"),
-            ("WB","Wheelbase ศูนย์กลางแนวล้อหน้า-หลัง","m",f"{d['WB']:.3f}","Pivot หน้า=+WB/2, Pivot หลัง=-WB/2"),
-            ("L","Boom radius ถึง Payload","m",f"{d['L']:.3f}","ใช้หา x/y ของ Payload"),
-            ("H","ความสูงเสาเครน","m",f"{d['H']:.3f}","ใช้ใน geometry/3D"),
-            ("x_C","ตำแหน่งแกนเครนจากเพลาหลัง","m",f"{d['xC']:.3f}","x_crane=x_rear+x_C"),
-            ("x_CG,V","CG รถส่วนหลัก","m",f"{d['xCG']:.3f}","ใช้ Front/Rear tipping"),
-            ("x_CG,drive","CG รวมตอนวิ่ง","m",f"{d['driveXCG']:.3f}","ใช้ Slope mode"),
-            ("h_CG","ความสูง Combined CG","m",f"{slope['h']:.3f}","ใช้ Slope rear-tipping"),
-            ("θ","มุม Slew เครน","deg",f"{th:.1f}","-90°=ซ้าย, 0°=หน้า, +90°=ขวา"),
-            ("y_L","ตำแหน่งด้านข้าง Payload = L sinθ","m",f"{yL:.3f}","+y = ขวารถ"),
-            ("y_B","ตำแหน่งด้านข้าง Boom CG = (L/2)sinθ","m",f"{yB:.3f}","+y = ขวารถ"),
-            ("Kdyn","Payload dynamic design factor","-",f"{d['kd']:.2f}","ใช้เฉพาะ Payload เมื่อสร้าง overturning moment"),
-            ("F_L,d","Equivalent adverse payload design force","N",f"{FLd:.2f}","Kdyn × m_L × g; ไม่ใช่น้ำหนักจริงเพิ่ม"),
-            ("M_O,L","Overturning moment รอบ Pivot ซ้าย","N·m",f"{sl['mo']:.2f}","Σ(Fd) ฝั่งคว่ำ"),
-            ("M_R,L","Resisting moment รอบ Pivot ซ้าย","N·m",f"{sl['mr']:.2f}","Σ(Fd) ฝั่งต้าน"),
-            ("SF_left","Safety Factor คว่ำซ้าย","-",("∞" if sl['sf']>=999 else f"{sl['sf']:.3f}"),"M_R,L ÷ M_O,L"),
-            ("M_O,R","Overturning moment รอบ Pivot ขวา","N·m",f"{sr['mo']:.2f}","Σ(Fd) ฝั่งคว่ำ"),
-            ("M_R,R","Resisting moment รอบ Pivot ขวา","N·m",f"{sr['mr']:.2f}","Σ(Fd) ฝั่งต้าน"),
-            ("SF_right","Safety Factor คว่ำขวา","-",("∞" if sr['sf']>=999 else f"{sr['sf']:.3f}"),"M_R,R ÷ M_O,R"),
-            ("SF_front","Safety Factor คว่ำหน้า","-",("∞" if fb['sf']>=999 else f"{fb['sf']:.3f}"),"Moment balance รอบแนวล้อหน้า"),
-            ("SF_rear","Safety Factor คว่ำหลัง","-",("∞" if rb0['sf']>=999 else f"{rb0['sf']:.3f}"),"Moment balance รอบแนวล้อหลัง"),
-            ("W_parallel","องค์ประกอบน้ำหนักตามทางลาด = mg sinα","N",f"{slope['w_parallel']:.2f}","ไม่บวก W=mg ซ้ำ"),
-            ("W_normal","องค์ประกอบน้ำหนักตั้งฉากทางลาด = mg cosα","N",f"{slope['w_normal']:.2f}","ใช้หา resisting moment"),
-            ("F_I","แรงเฉื่อย D'Alembert = ma","N",f"{slope['inertia']:.2f}","ทิศตรงข้ามความเร่งขึ้นลาด"),
-            ("SF_slope","Safety Factor คว่ำหลังบนทางลาด","-",("∞" if slope['sf']>=999 else f"{slope['sf']:.3f}"),"M_R,slope ÷ M_O,slope"),
-            ("SF_req","Safety Factor เป้าหมาย","-",f"{d['req']:.2f}","ใช้เทียบ PASS/FAIL เชิงแบบจำลอง"),
+            ("MassMode","แหล่งข้อมูลมวลที่ใช้คำนวณ","Mode",mode_text,"Mode A = กรอกเอง, Mode B = รวมจาก Component table"),
+            ("g","ความเร่งโน้มถ่วง","m/s²",f"{G:.2f}","ค่าคงที่ที่ใช้ทั้งระบบ"),
+            ("m_total","มวลรวมทั้งระบบ","kg",f"{d['mt']:.2f}","m_V + m_B + m_L"),
+            ("m_V","มวลรถส่วนหลัก ไม่รวม Boom และ Payload system","kg",f"{mveh:.2f}","m_total - m_B - m_L"),
+            ("m_B","มวล Boom","kg",f"{d['mb']:.2f}","Component Mode ดึงจากแถว Boom"),
+            ("m_L","มวล Basket + Payload system","kg",f"{d['ml']:.2f}","Component Mode รวม Basket + Payload"),
+            ("W_V","น้ำหนักรถส่วนหลัก = m_V g","N",f"{Wv:.2f}","แรงลงที่ Base vehicle CG"),
+            ("W_B","น้ำหนัก Boom = m_B g","N",f"{Wb:.2f}","แรงลงที่ Boom CG"),
+            ("W_L","น้ำหนัก Payload system = m_L g","N",f"{Wl:.2f}","แรงลงที่ปลายแขน"),
+            ("Kdyn","Payload dynamic design factor","-",f"{d['kd']:.3f}","ใช้เฉพาะ Payload เมื่อเป็น overturning contribution"),
+            ("F_L,d","Equivalent adverse payload design force = Kdyn m_L g","N",f"{FLd:.2f}","ไม่ใช่น้ำหนักจริงเพิ่ม"),
+            ("SF_req","Safety Factor ที่กำหนด","-",f"{d['req']:.3f}","PASS เมื่อ SF ≥ SF_req"),
+
+            ("W","Track width","m",f"{d['W']:.3f}","ระยะศูนย์กลางแนวล้อซ้าย-ขวา"),
+            ("WB","Wheelbase","m",f"{d['WB']:.3f}","ระยะศูนย์กลางแนวล้อหลัง-หน้า"),
+            ("L","Boom radius ถึง Payload","m",f"{d['L']:.3f}","ระยะจากแกนหมุนถึง Payload"),
+            ("H","Column height","m",f"{d['H']:.3f}","ใช้ใน geometry/3D"),
+            ("θ","Crane slew angle","deg",f"{th:.1f}","-90°=ซ้าย, 0°=หน้า, +90°=ขวา"),
+            ("x_rear","พิกัดแนวล้อหลัง","m",f"{xrear:.3f}","x_rear = -WB/2"),
+            ("x_front","พิกัดแนวล้อหน้า","m",f"{xfront:.3f}","x_front = +WB/2"),
+            ("y_P,L","พิกัด Tipping axis ซ้าย","m",f"{-d['W']/2:.3f}","y_P,L = -W/2"),
+            ("y_P,R","พิกัด Tipping axis ขวา","m",f"{d['W']/2:.3f}","y_P,R = +W/2"),
+            ("x_C","ตำแหน่งแกนเครนจากเพลาหลัง","m",f"{d['xC']:.3f}","Input อ้างอิงจาก rear axle"),
+            ("x_crane","พิกัดแกนเครนใน vehicle coordinate","m",f"{xc:.3f}","x_rear + x_C"),
+            ("x_CG,V","Base vehicle CG ตามยาว","m",f"{d['xCG']:.3f}","ใช้ Front/Rear tipping"),
+            ("y_CG,V","Base vehicle CG ด้านข้าง","m",f"{d.get('yCG',0.0):.3f}","ใช้ Left/Right tipping"),
+            ("x_CG,drive","Combined driving CG ตามยาว","m",f"{d['driveXCG']:.3f}","ใช้ Slope mode"),
+            ("h_CG","Combined driving CG height","m",f"{slope['h']:.3f}","ใช้ Slope mode"),
+            ("y_L","พิกัด Payload ด้านข้าง = L sinθ","m",f"{yL:.3f}","+y = ขวารถ"),
+            ("y_B","พิกัด Boom CG ด้านข้าง = (L/2)sinθ","m",f"{yB:.3f}","+y = ขวารถ"),
+            ("x_L","พิกัด Payload ตามยาว = x_crane + L cosθ","m",f"{xL:.3f}","+x = หน้ารถ"),
+            ("x_B","พิกัด Boom CG ตามยาว = x_crane + (L/2)cosθ","m",f"{xB:.3f}","+x = หน้ารถ"),
+
+            ("d_V,L","Moment arm รถส่วนหลักรอบ Pivot ซ้าย","m",f"{slv['arm']:.3f}",f"Role={slv['role']}"),
+            ("d_B,L","Moment arm Boom รอบ Pivot ซ้าย","m",f"{slb['arm']:.3f}",f"Role={slb['role']}"),
+            ("d_L,L","Moment arm Payload รอบ Pivot ซ้าย","m",f"{sll['arm']:.3f}",f"Role={sll['role']}"),
+            ("M_O,L","Overturning moment — Left","N·m",f"{sl['mo']:.2f}","Σ(F_i d_i) ฝั่งคว่ำ"),
+            ("M_R,L","Resisting moment — Left","N·m",f"{sl['mr']:.2f}","Σ(F_i d_i) ฝั่งต้าน"),
+            ("SF_left","Safety Factor — Left","-",("∞" if sl['sf']>=999 else f"{sl['sf']:.3f}"),"M_R,L / M_O,L"),
+
+            ("d_V,R","Moment arm รถส่วนหลักรอบ Pivot ขวา","m",f"{srv['arm']:.3f}",f"Role={srv['role']}"),
+            ("d_B,R","Moment arm Boom รอบ Pivot ขวา","m",f"{srb['arm']:.3f}",f"Role={srb['role']}"),
+            ("d_L,R","Moment arm Payload รอบ Pivot ขวา","m",f"{srl['arm']:.3f}",f"Role={srl['role']}"),
+            ("M_O,R","Overturning moment — Right","N·m",f"{sr['mo']:.2f}","Σ(F_i d_i) ฝั่งคว่ำ"),
+            ("M_R,R","Resisting moment — Right","N·m",f"{sr['mr']:.2f}","Σ(F_i d_i) ฝั่งต้าน"),
+            ("SF_right","Safety Factor — Right","-",("∞" if sr['sf']>=999 else f"{sr['sf']:.3f}"),"M_R,R / M_O,R"),
+
+            ("d_V,F","Moment arm รถส่วนหลักรอบ Pivot หน้า","m",f"{fbv['arm']:.3f}",f"Role={fbv['role']}"),
+            ("d_B,F","Moment arm Boom รอบ Pivot หน้า","m",f"{fbb['arm']:.3f}",f"Role={fbb['role']}"),
+            ("d_L,F","Moment arm Payload รอบ Pivot หน้า","m",f"{fbl['arm']:.3f}",f"Role={fbl['role']}"),
+            ("M_O,F","Overturning moment — Front","N·m",f"{fb['mo']:.2f}","Σ(F_i d_i) ฝั่งคว่ำ"),
+            ("M_R,F","Resisting moment — Front","N·m",f"{fb['mr']:.2f}","Σ(F_i d_i) ฝั่งต้าน"),
+            ("SF_front","Safety Factor — Front","-",("∞" if fb['sf']>=999 else f"{fb['sf']:.3f}"),"M_R,F / M_O,F"),
+
+            ("d_V,Rr","Moment arm รถส่วนหลักรอบ Pivot หลัง","m",f"{rbv['arm']:.3f}",f"Role={rbv['role']}"),
+            ("d_B,Rr","Moment arm Boom รอบ Pivot หลัง","m",f"{rbb['arm']:.3f}",f"Role={rbb['role']}"),
+            ("d_L,Rr","Moment arm Payload รอบ Pivot หลัง","m",f"{rbl['arm']:.3f}",f"Role={rbl['role']}"),
+            ("M_O,Rr","Overturning moment — Rear","N·m",f"{rb0['mo']:.2f}","Σ(F_i d_i) ฝั่งคว่ำ"),
+            ("M_R,Rr","Resisting moment — Rear","N·m",f"{rb0['mr']:.2f}","Σ(F_i d_i) ฝั่งต้าน"),
+            ("SF_rear","Safety Factor — Rear","-",("∞" if rb0['sf']>=999 else f"{rb0['sf']:.3f}"),"M_R,Rr / M_O,Rr"),
+
+            ("α","Slope angle","deg",f"{math.degrees(slope['alpha']):.3f}","มุมทางลาด"),
+            ("a","Acceleration uphill","m/s²",f"{slope['acc']:.3f}","ความเร่งตามทางลาด"),
+            ("d_rear","ระยะ Combined CG ถึง rear tipping axis","m",f"{slope['rear_arm']:.3f}","x_CG,drive - x_rear"),
+            ("W","น้ำหนักรวมระบบ = m_total g","N",f"{slope['weight']:.2f}","Slope mode"),
+            ("W_parallel","องค์ประกอบน้ำหนักตามลาด = mg sinα","N",f"{slope['w_parallel']:.2f}","แรงลงทางลาด"),
+            ("W_normal","องค์ประกอบน้ำหนักตั้งฉากลาด = mg cosα","N",f"{slope['w_normal']:.2f}","แรงตั้งฉากลาด"),
+            ("F_I","D'Alembert inertial force = ma","N",f"{slope['inertia']:.2f}","ทิศตรงข้ามความเร่ง"),
+            ("T_req","Traction required = W_parallel + F_I","N",f"{slope['traction']:.2f}","แรงฉุดเชิง quasi-static"),
+            ("Δx_slope","CG line shift from slope = h_CG tanα","m",f"{slope['shift_slope']:.3f}","ใช้ตรวจ geometric margin"),
+            ("Δx_acc","CG line shift from acceleration","m",f"{slope['shift_acc']:.3f}","h_CG a/(g cosα)"),
+            ("Δx_total","Total equivalent shift","m",f"{slope['shift_total']:.3f}","Δx_slope + Δx_acc"),
+            ("Margin_slope","ระยะเสถียรภาพเหลือถึง rear axis","m",f"{slope['margin']:.3f}","d_rear - Δx_total"),
+            ("M_O,slope","Overturning moment บนทางลาด","N·m",f"{slope['mo']:.2f}","(W_parallel + F_I)h_CG"),
+            ("M_R,slope","Resisting moment บนทางลาด","N·m",f"{slope['mr']:.2f}","W_normal d_rear"),
+            ("SF_slope","Safety Factor ทางลาด","-",("∞" if slope['sf']>=999 else f"{slope['sf']:.3f}"),"M_R,slope / M_O,slope"),
         ]
-        return self._variable_table_html("STABILITY — ตารางตัวแปร Formal FBD","ตัวแปร แกนอ้างอิง แรง โมเมนต์ และ Safety Factor ที่ใช้ตรงกับ PDF Export",rows)
+        html=self._variable_table_html("STABILITY — COMPLETE VARIABLE DICTIONARY",
+                                      "ตัวแปรทั้งหมดที่ใช้ใน Total Mass / Component Mass, FBD, Moment Balance และ Slope",rows)
+        if d.get("massMode")=="components" and hasattr(self,"comp"):
+            b=self.component_mass_breakdown()
+            crow=[(name,f"{m:.2f}",f"{x:.3f}",f"{y:.3f}",f"{z:.3f}") for name,m,x,y,z in b["rows"]]
+            body="".join(f"<tr><td>{name}</td><td>{m}</td><td>{x}</td><td>{y}</td><td>{z}</td></tr>" for name,m,x,y,z in crow)
+            html+=f"""<h3>Component Mass Source Table</h3>
+            <table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
+            <tr><th>Component</th><th>Mass kg</th><th>x m</th><th>y m</th><th>z m</th></tr>{body}</table>
+            <p>Σm={b['total']:.2f} kg | Base={b['base']['m']:.2f} kg | Boom={b['boom']['m']:.2f} kg | Basket+Payload={b['payload']['m']:.2f} kg</p>"""
+        return html
+
 
     def safety_variables_html(self):
         if not hasattr(self,"safetyEStop"):
@@ -8132,6 +8200,7 @@ void loop() {{
             </div>"""
 
         html=f"""<h1>STABILITY ANALYSIS — FORMAL VARIABLES, EQUATIONS & SUBSTITUTION</h1>
+        <p><b>Mass calculation mode:</b> {"Component Mass / Sum Components" if d.get("massMode")=="components" else "Total Mass / Manual Total"}.</p>
         <p><b>Coordinate convention:</b> +x = vehicle forward, +y = vehicle right, +z = upward.
         Crane angle θ: -90° = left, 0° = forward, +90° = right.</p>
         <p><b>Tipping criterion:</b> at impending tipping, the support reaction on the wheel line opposite the selected tipping axis approaches 0.
@@ -8149,13 +8218,15 @@ void loop() {{
         <tr><td>Kdyn</td><td>Payload dynamic design factor; adverse payload moment only</td><td>{d['kd']:.2f}</td><td>-</td></tr>
         <tr><td>x_C</td><td>Crane axis measured forward from rear axle</td><td>{d['xC']:.3f}</td><td>m</td></tr>
         <tr><td>x_CG,V</td><td>Base vehicle longitudinal CG</td><td>{d['xCG']:.3f}</td><td>m</td></tr>
+        <tr><td>y_CG,V</td><td>Base vehicle lateral CG (+right)</td><td>{d.get('yCG',0.0):.3f}</td><td>m</td></tr>
         <tr><td>x_CG,drive</td><td>Combined CG used in driving/slope mode</td><td>{d['driveXCG']:.3f}</td><td>m</td></tr>
         <tr><td>h_CG</td><td>Combined CG height in slope mode</td><td>{slope['h']:.3f}</td><td>m</td></tr>
         <tr><td>g</td><td>Gravitational acceleration</td><td>9.81</td><td>m/s²</td></tr>
         </table>
 
         <h2>1. Side geometry</h2>
-        <p>y_L = L sinθ = {d['L']:.3f} sin({th:.1f}°) = <b>{yL:.3f} m</b><br>
+        <p>y_CG,V = <b>{d.get('yCG',0.0):.3f} m</b><br>
+        y_L = L sinθ = {d['L']:.3f} sin({th:.1f}°) = <b>{yL:.3f} m</b><br>
         y_B = (L/2) sinθ = ({d['L']:.3f}/2) sin({th:.1f}°) = <b>{yB:.3f} m</b><br>
         Left pivot: y_P,L = -W/2 = {-d['W']/2:.3f} m &nbsp; | &nbsp;
         Right pivot: y_P,R = +W/2 = {d['W']/2:.3f} m</p>
@@ -8442,7 +8513,13 @@ void loop() {{
         self.fbdSimple.setChecked(True)
         self.fbdCriticalLabel=QLabel("Critical direction: -")
         self.fbdCriticalLabel.setStyleSheet("font-weight:700;color:#6542a5")
-        top.addWidget(self.fbdModeCombo);top.addWidget(self.fbdAuto);top.addWidget(self.fbdSimple);top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
+        exportCurrentFBD=QPushButton("Export Current Mode PDF")
+        exportCurrentFBD.setObjectName("primaryButton")
+        exportCurrentFBD.clicked.connect(lambda:self.export_stability_mode_pdf(self.current_fbd_export_key()))
+        exportAllFBD=QPushButton("Export All Modes")
+        exportAllFBD.clicked.connect(self.export_pdf_report)
+        top.addWidget(self.fbdModeCombo);top.addWidget(self.fbdAuto);top.addWidget(self.fbdSimple)
+        top.addWidget(exportCurrentFBD);top.addWidget(exportAllFBD);top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
         self.forceDiagram=ForceDiagram(self);self.forceDiagram.setSimpleMode(True);l.addWidget(self.forceDiagram)
         t=QPlainTextEdit(); t.setReadOnly(True); t.setMaximumHeight(220)
         t.setPlainText("""FORMAL FBD CONVENTION / หลักการแผนภาพแรง
@@ -8694,13 +8771,115 @@ m_Base + m_B + m_L = {b['base']['m']:.2f} + {b['boom']['m']:.2f} + {b['payload']
 
     def make_report(self):
         w=QWidget();self.reportPage=w;l=QVBoxLayout(w)
-        top=QHBoxLayout()
         title=QLabel("REPORT / รายงานสรุป")
-        btn=QPushButton("Export PDF / ส่งออกรายงาน PDF")
-        btn.setMinimumHeight(38); btn.clicked.connect(self.export_pdf_report)
-        top.addWidget(title); top.addStretch(); top.addWidget(btn); l.addLayout(top)
+        tf=title.font();tf.setBold(True);tf.setPointSize(13);title.setFont(tf);l.addWidget(title)
+
+        controls=QGroupBox("STABILITY PDF EXPORT / เลือกสิ่งที่ต้องการส่งออก")
+        cg=QGridLayout(controls)
+        self.stabilityExportMode=QComboBox()
+        for label,key in [
+            ("Geometry + Tipping Axes","geometry"),
+            ("Side Left / คว่ำซ้าย","side_left"),
+            ("Side Right / คว่ำขวา","side_right"),
+            ("Front / คว่ำหน้า","front"),
+            ("Rear / คว่ำหลัง","rear"),
+            ("Slope / ทางลาด","slope"),
+        ]:self.stabilityExportMode.addItem(label,key)
+        one=QPushButton("Export Selected Mode PDF")
+        one.setObjectName("primaryButton");one.setMinimumHeight(40)
+        one.clicked.connect(lambda:self.export_stability_mode_pdf(self.stabilityExportMode.currentData()))
+        allbtn=QPushButton("Export ALL Stability Modes PDF")
+        allbtn.setObjectName("primaryButton");allbtn.setMinimumHeight(40)
+        allbtn.clicked.connect(self.export_pdf_report)
+        cg.addWidget(QLabel("Export mode:"),0,0);cg.addWidget(self.stabilityExportMode,0,1)
+        cg.addWidget(one,1,0,1,2);cg.addWidget(allbtn,2,0,1,2)
+        l.addWidget(controls)
+
+        info=QLabel("Selected Mode = ส่งออกเฉพาะ Geometry / Left / Right / Front / Rear / Slope ตามที่เลือก\n"
+                    "ALL Modes = รวม Geometry + FBD ทุกด้าน + Slope + Variables + Formula/Substitution + Worst Case")
+        info.setWordWrap(True);info.setStyleSheet("color:#52606d");l.addWidget(info)
         self.report=QPlainTextEdit();self.report.setReadOnly(True);self.report.setStyleSheet("font-size:12px");l.addWidget(self.report)
         self.tabs.addTab(w,"Report / รายงานสรุป")
+
+    def current_fbd_export_key(self):
+        keys=("side_left","side_right","front","rear","slope")
+        idx=self.fbdModeCombo.currentIndex() if hasattr(self,"fbdModeCombo") else 0
+        return keys[max(0,min(len(keys)-1,idx))]
+
+    def _write_html_pdf(self,path,html):
+        doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
+        printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
+        printer.setOutputFileName(path);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
+        if not Path(path).exists() or Path(path).stat().st_size<1000:
+            raise RuntimeError("PDF file was not created correctly")
+
+    def stability_mode_export_html(self,key,tmpdir,d=None):
+        d=d or self.inputs();key=str(key or "geometry")
+        mode_map={"geometry":0,"side_left":1,"side_right":2,"front":3,"rear":4,"slope":5}
+        if key not in mode_map:raise ValueError("Unknown stability export mode: "+key)
+        angle=None if key=="slope" else d["th"]
+        fp=Path(tmpdir)/f"export_{key}.png";self._render_stability_fbd_png(mode_map[key],fp,angle)
+        mode_name={
+            "geometry":"GEOMETRY & TIPPING-AXIS DEFINITION",
+            "side_left":"LEFT SIDE TIPPING",
+            "side_right":"RIGHT SIDE TIPPING",
+            "front":"FRONT TIPPING",
+            "rear":"REAR TIPPING",
+            "slope":"UPHILL / SLOPE STABILITY",
+        }[key]
+        mode_label="Component Mass" if d.get("massMode")=="components" else "Total Mass"
+        header=f"""<h1>{mode_name}</h1>
+        <p>CVET V{APP_VERSION} | Mass Mode: <b>{mode_label}</b> | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+        <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>"""
+        if key=="geometry":
+            detail=f"""<h2>Geometry variables</h2>
+            <p>W={d['W']:.3f} m | WB={d['WB']:.3f} m | L={d['L']:.3f} m | θ={d['th']:.1f}°<br>
+            x_C={d['xC']:.3f} m | x_CG,V={d['xCG']:.3f} m | y_CG,V={d.get('yCG',0.0):.3f} m</p>"""
+        elif key in ("side_left","side_right"):
+            side="left" if key=="side_left" else "right";bal=self.side_moment_balance(d,d["th"],side)
+            rows="".join(f"<tr><td>{q['name']}</td><td>{q['mass']:.2f}</td><td>{q['force']:.2f}</td><td>{q['y']:.3f}</td><td>{q['arm']:.3f}</td><td>{q['moment']:.2f}</td><td>{q['role']}</td></tr>" for q in bal["components"])
+            detail=f"""<h2>Equation + substitution</h2>
+            <p>Pivot y_P={bal['pivot']:.3f} m | θ={d['th']:.1f}°</p>
+            <table border='1' cellspacing='0' cellpadding='5'><tr><th>Component</th><th>m kg</th><th>F N</th><th>y m</th><th>d m</th><th>M N·m</th><th>Role</th></tr>{rows}</table>
+            <p>M_O={bal['mo']:.2f} N·m | M_R={bal['mr']:.2f} N·m | <b>SF={'∞' if bal['sf']>=999 else f"{bal['sf']:.3f}"}</b> | Required={d['req']:.2f}</p>"""
+        elif key in ("front","rear"):
+            case=key;bal=self.longitudinal_moment_balance(d,d["th"],case)
+            rows="".join(f"<tr><td>{q['name']}</td><td>{q['mass']:.2f}</td><td>{q['force']:.2f}</td><td>{q['x']:.3f}</td><td>{q['arm']:.3f}</td><td>{q['moment']:.2f}</td><td>{q['role']}</td></tr>" for q in bal["components"])
+            detail=f"""<h2>Equation + substitution</h2>
+            <p>Pivot x_P={bal['pivot']:.3f} m | θ={d['th']:.1f}°</p>
+            <table border='1' cellspacing='0' cellpadding='5'><tr><th>Component</th><th>m kg</th><th>F N</th><th>x m</th><th>d m</th><th>M N·m</th><th>Role</th></tr>{rows}</table>
+            <p>M_O={bal['mo']:.2f} N·m | M_R={bal['mr']:.2f} N·m | <b>SF={'∞' if bal['sf']>=999 else f"{bal['sf']:.3f}"}</b> | Required={d['req']:.2f}</p>"""
+        else:
+            bal=self.slope_stability_results(d)
+            detail=f"""<h2>Equation + substitution</h2>
+            <p>α={math.degrees(bal['alpha']):.3f}° | a={bal['acc']:.3f} m/s² | h_CG={bal['h']:.3f} m | d_rear={bal['rear_arm']:.3f} m</p>
+            <p>W_parallel = mg sinα = {bal['w_parallel']:.2f} N<br>
+            W_normal = mg cosα = {bal['w_normal']:.2f} N<br>
+            F_I = ma = {bal['inertia']:.2f} N<br>
+            M_O = (W_parallel + F_I)h_CG = {bal['mo']:.2f} N·m<br>
+            M_R = W_normal d_rear = {bal['mr']:.2f} N·m<br>
+            <b>SF_slope = {'∞' if bal['sf']>=999 else f"{bal['sf']:.3f}"}</b> | Required={d['req']:.2f}</p>"""
+        return "<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"+header+detail+"<div style='page-break-before:always'></div>"+self.stability_variables_html()+"</body></html>"
+
+    def export_stability_mode_pdf(self,key=None):
+        key=str(key or (self.stabilityExportMode.currentData() if hasattr(self,"stabilityExportMode") else "geometry"))
+        names={"geometry":"Geometry","side_left":"Side_Left","side_right":"Side_Right","front":"Front","rear":"Rear","slope":"Slope"}
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        default_path=str(Path(docs)/f"CVET_Stability_{names.get(key,key)}_V{APP_VERSION}.pdf")
+        path,_=QFileDialog.getSaveFileName(self,"Export Stability Mode PDF",default_path,"PDF (*.pdf)")
+        if not path:return
+        if not path.lower().endswith(".pdf"):path+=".pdf"
+        tmp=Path(tempfile.mkdtemp(prefix="cvet_mode_"))
+        try:
+            self.apply_mass_mode()
+            html=self.stability_mode_export_html(key,tmp,self.inputs())
+            self._write_html_pdf(path,html)
+            QMessageBox.information(self,"PDF Export","สร้าง PDF สำเร็จแล้ว:\n"+path)
+        except Exception as ex:
+            QMessageBox.critical(self,"PDF Export Error","สร้าง PDF ไม่สำเร็จ\n"+str(ex))
+        finally:
+            shutil.rmtree(tmp,ignore_errors=True)
+
 
 
     def stability_fbd_cases(self,d=None):
