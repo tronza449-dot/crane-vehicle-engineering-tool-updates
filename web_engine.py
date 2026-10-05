@@ -688,17 +688,78 @@ def _longitudinal_sf(total_mass: float, payload_mass: float, boom_mass: float,
     }
 
 
+def _component_mass_summary(raw: Any) -> Dict[str, Any]:
+    """Mirror the Desktop Component Mass grouping and weighted-CG rules."""
+    rows = []
+    if isinstance(raw, list):
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            try:
+                name = str(item.get("name", "")).strip()
+                mass = max(0.0, float(item.get("mass_kg", 0.0)))
+                x = float(item.get("x_m", 0.0))
+                y = float(item.get("y_m", 0.0))
+                z = float(item.get("z_m", 0.0))
+            except (TypeError, ValueError):
+                continue
+            rows.append({"name": name, "mass_kg": mass, "x_m": x, "y_m": y, "z_m": z})
+
+    def group_stats(items):
+        mass = sum(r["mass_kg"] for r in items)
+        if mass <= 0:
+            return {"mass_kg": 0.0, "x_m": 0.0, "y_m": 0.0, "z_m": 0.0}
+        return {
+            "mass_kg": mass,
+            "x_m": sum(r["mass_kg"] * r["x_m"] for r in items) / mass,
+            "y_m": sum(r["mass_kg"] * r["y_m"] for r in items) / mass,
+            "z_m": sum(r["mass_kg"] * r["z_m"] for r in items) / mass,
+        }
+
+    base, boom, payload = [], [], []
+    for row in rows:
+        name = row["name"].lower()
+        if ("boom" in name) or ("แขนเครน" in name):
+            boom.append(row)
+        elif (
+            ("basket" in name) or ("ตะกร้า" in name)
+            or ("payload" in name) or ("ซากสัตว์" in name)
+        ):
+            payload.append(row)
+        else:
+            base.append(row)
+
+    total = group_stats(rows)
+    return {
+        "rows": rows,
+        "total_mass_kg": total["mass_kg"],
+        "total_x_m": total["x_m"],
+        "total_y_m": total["y_m"],
+        "total_z_m": total["z_m"],
+        "base": group_stats(base),
+        "boom": group_stats(boom),
+        "payload": group_stats(payload),
+    }
+
+
 def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
-    mt = max(0.0, _f(data, "total_mass_kg", 300.0))
-    ml = max(0.0, _f(data, "payload_mass_kg", 100.0))
-    mb = max(0.0, _f(data, "boom_mass_kg", 80.0))
+    mass_mode = str(data.get("mass_mode", "total")).strip().lower()
+    if mass_mode not in {"total", "components"}:
+        mass_mode = "total"
+
     track = max(0.01, _f(data, "track_width_m", 0.7))
     wb = max(0.01, _f(data, "wheelbase_m", 1.1))
     boom = max(0.0, _f(data, "boom_length_m", 1.2))
     angle = _clamp(_f(data, "crane_angle_deg", 90.0), -90.0, 90.0)
     kd = max(0.0, _f(data, "dynamic_factor", 1.0))
     req = max(0.0, _f(data, "required_sf", 1.5))
-    crane_from_rear = _f(data, "crane_from_rear_m", 0.2)
+    crane_from_rear = _f(data, "crane_from_rear_m", 0.15)
+
+    component_summary = _component_mass_summary(data.get("components", []))
+
+    mt = max(0.0, _f(data, "total_mass_kg", 300.0))
+    ml = max(0.0, _f(data, "payload_mass_kg", 100.0))
+    mb = max(0.0, _f(data, "boom_mass_kg", 20.0))
     vehicle_cg_x = _f(data, "vehicle_cg_x_from_center_m", 0.0)
     vehicle_cg_y = _f(data, "vehicle_cg_y_m", 0.0)
 
@@ -706,6 +767,15 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
     slope_accel = max(0.0, _f(data, "slope_accel_mps2", 0.28))
     combined_cg_from_rear = max(0.0, _f(data, "combined_cg_from_rear_m", wb / 2.0))
     combined_cg_height = max(0.001, _f(data, "combined_cg_height_m", 0.55))
+
+    if mass_mode == "components" and component_summary["total_mass_kg"] > 0:
+        mt = component_summary["total_mass_kg"]
+        ml = component_summary["payload"]["mass_kg"]
+        mb = component_summary["boom"]["mass_kg"]
+        vehicle_cg_x = component_summary["base"]["x_m"]
+        vehicle_cg_y = component_summary["base"]["y_m"]
+        combined_cg_from_rear = max(0.0, component_summary["total_x_m"] + wb / 2.0)
+        combined_cg_height = max(0.001, component_summary["total_z_m"])
 
     m_vehicle = max(0.0, mt - ml - mb)
 
@@ -825,6 +895,12 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
     critical_side = current_left if critical_direction == "left" else current_right
 
     return {
+        "mass_mode": mass_mode,
+        "mass_mode_label": "Component Mass / Sum Components" if mass_mode == "components" else "Total Mass / Manual Total",
+        "component_summary": component_summary,
+        "base_vehicle_mass_kg": m_vehicle,
+        "vehicle_cg_x_m": vehicle_cg_x,
+        "vehicle_cg_y_m": vehicle_cg_y,
         "total_mass_kg": mt, "payload_mass_kg": ml, "boom_mass_kg": mb,
         "track_width_m": track, "wheelbase_m": wb, "boom_length_m": boom,
         "crane_angle_deg": angle, "dynamic_factor": kd, "required_sf": req,
