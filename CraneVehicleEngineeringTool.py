@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.10"
+APP_VERSION = "53.8.11"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -7093,6 +7093,13 @@ void loop() {{
         self.eOperationTimeNote.setStyleSheet("background:#eef8ff;color:#294d6b;padding:8px;border:1px solid #d3e6f5;border-radius:8px")
         self.edriveEff=ds(60,1,100,1); self.eaux=ds(50,0,5000,1)
         self.edod=ds(80,1,100,1); self.ereserve=ds(20,0,200,1)
+        self.ebatteryFactor=ds(3.0,1.0,10.0,2)
+        self.eTurnEnable=QCheckBox("รวมพลังงาน Differential / Pivot Turn")
+        self.eTurnEnable.setChecked(False)
+        self.eTurnEvents=QSpinBox();self.eTurnEvents.setRange(0,20);self.eTurnEvents.setValue(2)
+        self.eTurnAngle=ds(180,0,360,1);self.eTurnAngle.setSingleStep(15)
+        self.eTurnTime=ds(5,0.1,120,2)
+        self.eTurnCoeff=ds(0.20,0.0,2.0,3)
         # Compatibility-only references for older project files / regression checks.
         self.emotorRated=ds(1500,1,50000,0); self.enmot=QSpinBox();self.enmot.setRange(1,8);self.enmot.setValue(2)
         self.eupEff=ds(60,1,100,1)
@@ -7104,8 +7111,17 @@ void loop() {{
             ("เวลาทำงาน (h)",self.eruntime),("Rolling resistance Crr",self.err),
             ("เวลาหยุดอื่นต่อ Cycle (s)",self.estopTime),("ประสิทธิภาพระบบขับโดยประมาณ (%)",self.edriveEff),
             ("Auxiliary average power (W)",self.eaux),("Usable DoD (%)",self.edod),
-            ("Battery reserve (%)",self.ereserve)
+            ("Battery reserve (%)",self.ereserve),
+            ("Battery Design Factor Kb",self.ebatteryFactor)
         ]: form.addRow(lab,q)
+        form.addRow(self.eTurnEnable)
+        form.addRow("จำนวนครั้งหมุน / Cycle",self.eTurnEvents)
+        form.addRow("มุมหมุนต่อครั้ง (deg)",self.eTurnAngle)
+        form.addRow("เวลาหมุนต่อครั้ง (s)",self.eTurnTime)
+        form.addRow("Effective turn/scrub coefficient Cturn",self.eTurnCoeff)
+        turnNote=QLabel("Differential turn ใช้ Track width W จากหน้า Stability. Cturn เป็นค่าประมาณของการไถล/ต้านการหมุนบนพื้นจริง จึงควรปรับจากการวัดกระแสภายหลัง")
+        turnNote.setWordWrap(True);turnNote.setStyleSheet("color:#68420b;background:#fff8e9;padding:8px;border:1px solid #ead39a;border-radius:8px")
+        form.addRow(turnNote)
         form.addRow(self.euseOperationCycle)
         form.addRow(self.eOperationTimeNote)
         form.addRow(self.euseTorqueMass);left.setMinimumWidth(410);hl.addWidget(left,1)
@@ -7185,7 +7201,7 @@ void loop() {{
             v=QLabel("—");v.setWordWrap(True);v.setStyleSheet("color:#17324d;font-size:15pt;font-weight:900;")
             lay.addWidget(t);lay.addWidget(v);lay.addStretch(1)
             return box,v
-        c,self.bselMinAhLabel=bmetric("ขั้นต่ำจากพลังงาน");metricGrid.addWidget(c,0,0)
+        c,self.bselMinAhLabel=bmetric("ขั้นต่ำ / Practical recommendation");metricGrid.addWidget(c,0,0)
         c,self.bselContLabel=bmetric("กระแสต่อเนื่องที่ต้องรองรับ");metricGrid.addWidget(c,0,1)
         c,self.bselPeakLabel=bmetric("กระแส Peak ที่คำนวณ");metricGrid.addWidget(c,0,2)
         c,self.bselSuggestedLabel=bmetric("ขนาดมาตรฐานที่แนะนำให้ตรวจ");metricGrid.addWidget(c,0,3)
@@ -7249,8 +7265,11 @@ void loop() {{
         self.eTabs.addTab(res,"Battery Result")
 
         controls=[self.emass,self.evolt,self.espeed,self.eoneway,self.eslopeLen,self.eslopeDeg,self.eruntime,
-                  self.err,self.estopTime,self.edriveEff,self.eaux,self.edod,self.ereserve]
+                  self.err,self.estopTime,self.edriveEff,self.eaux,self.edod,self.ereserve,
+                  self.ebatteryFactor,self.eTurnAngle,self.eTurnTime,self.eTurnCoeff]
         for q in controls:q.valueChanged.connect(self.calc_electrical)
+        self.eTurnEvents.valueChanged.connect(self.calc_electrical)
+        self.eTurnEnable.toggled.connect(self.calc_electrical)
         self.ecalcRadio.toggled.connect(self.calc_electrical)
         self.euseTorqueMass.toggled.connect(self.calc_electrical)
         self.euseOperationCycle.toggled.connect(self.calc_electrical)
@@ -7287,7 +7306,13 @@ void loop() {{
 
         cycle_distance=2.0*one
         drive_cycle_s=cycle_distance/v if v>0 else 0.0
-        stop_s=lift_round_s+other_stop_s
+
+        turn_enabled=bool(getattr(self,"eTurnEnable",None) and self.eTurnEnable.isChecked())
+        turn_events=int(self.eTurnEvents.value()) if turn_enabled and hasattr(self,"eTurnEvents") else 0
+        turn_angle_deg=float(self.eTurnAngle.value()) if hasattr(self,"eTurnAngle") else 180.0
+        turn_time_event_s=float(self.eTurnTime.value()) if hasattr(self,"eTurnTime") else 0.0
+        turn_time_cycle_s=turn_events*turn_time_event_s
+        stop_s=lift_round_s+other_stop_s+turn_time_cycle_s
         cycle_total_s=drive_cycle_s+stop_s
         cycles_theoretical=runtime_s/cycle_total_s if cycle_total_s>0 else 0.0
         cycles=int(math.floor(cycles_theoretical+1e-12))
@@ -7334,7 +7359,21 @@ void loop() {{
         # Outbound = flat + uphill slope. Return = downhill slope + flat.
         Eout_drive=Eflat_batt_oneway+Eup_batt_cycle
         Ereturn_drive=Edown_batt_cycle+Eflat_batt_oneway
-        Edrive_cycle=Eout_drive+Ereturn_drive
+
+        # Rough differential/pivot-turn energy.
+        # For an in-place turn, each wheel side travels s=(W/2)*phi.
+        # Cturn is an effective empirical scrub/turning-resistance coefficient.
+        turn_track=float(self.W.value()) if hasattr(self,"W") else 0.70
+        turn_coeff=max(0.0,float(self.eTurnCoeff.value())) if hasattr(self,"eTurnCoeff") else 0.0
+        turn_phi=abs(math.radians(turn_angle_deg))
+        turn_wheel_path=(turn_track/2.0)*turn_phi
+        Fturn_effective=turn_coeff*m*g
+        Eturn_event=(Fturn_effective*turn_wheel_path)/(eff*3600.0) if turn_events>0 else 0.0
+        Eturn_cycle=Eturn_event*turn_events
+        Pturn_avg=(Eturn_event*3600.0/turn_time_event_s) if turn_events>0 and turn_time_event_s>0 else 0.0
+        Iturn_avg=Pturn_avg/V if V>0 else 0.0
+
+        Edrive_cycle=Eout_drive+Ereturn_drive+Eturn_cycle
 
         # Auxiliary energy is also expressed per completed cycle, matching the teacher's cycle method.
         Eaux_cycle=self.eaux.value()*(cycle_total_s/3600.0) if cycle_total_s>0 else 0.0
@@ -7351,7 +7390,16 @@ void loop() {{
         Edesign=Enom*(1.0+reserve)
         Ah=Edesign/V if V>0 else 0.0
 
-        # Simple continuous-current reference from the uphill segment.
+        # Practical design allowance for this intentionally rough energy model.
+        Kb=max(1.0,float(self.ebatteryFactor.value())) if hasattr(self,"ebatteryFactor") else 1.0
+        Erecommended=Edesign*Kb
+        Ah_recommended=Ah*Kb
+        standard_sizes=[5,10,15,20,25,30,40,50,60,80,100,120,150,200]
+        recommended_standard=next((x for x in standard_sizes if x+1e-9>=Ah_recommended),None)
+        if recommended_standard is None:
+            recommended_standard=math.ceil(Ah_recommended/10.0)*10.0
+
+        # Simple current references.
         Icalc_up=(Pup_mech/eff)/V if V>0 else 0.0
 
         # Compatibility-only peak indicator: retained for old BMS regression/project files,
@@ -7361,7 +7409,7 @@ void loop() {{
         Facc_peak=m*accel_a
         Pacc_peak_mech=(Fup+Facc_peak)*v
         Icalc_accel=(Pacc_peak_mech/eff)/V if V>0 else 0.0
-        Icalc_peak=max(Icalc_up,Icalc_accel)
+        Icalc_peak=max(Icalc_up,Icalc_accel,Iturn_avg)
 
         # Legacy aliases kept so Battery Selection / older project files keep working.
         starts=0;Eacc_mech_cycle=0.0
@@ -7369,7 +7417,7 @@ void loop() {{
         up_eff=eff;rated_total=getattr(self,"emotorRated",None).value()*getattr(self,"enmot",None).value() if hasattr(self,"emotorRated") and hasattr(self,"enmot") else 0.0
         Pworst_batt=Pup_mech/eff;Eworst_up_cycle=Eup_batt_cycle
         Eworst_drive_cycle=Edrive_cycle;Eworst_drive=Edrive
-        Iworst=Icalc_up;use_worst=False
+        Iworst=max(Icalc_up,Iturn_avg);use_worst=False
 
         return locals()
 
@@ -7485,7 +7533,7 @@ void loop() {{
         full_rounds=int(math.floor(runtime_h/cycle_h+1e-12)) if cycle_h>0 else 0
         used_full_rounds_wh=full_rounds*load_per_cycle
         remaining_after_full_rounds_wh=max(0.0,load_budget_wh-used_full_rounds_wh)
-        target_margin_wh=rated_wh-e["Edesign"]
+        target_margin_wh=rated_wh-e.get("Erecommended",e["Edesign"])
         target_margin_pct=(100.0*target_margin_wh/rated_wh) if rated_wh>0 else -100.0
         return dict(
             capacity_ah=ah,rated_wh=rated_wh,load_budget_wh=load_budget_wh,
@@ -7494,14 +7542,14 @@ void loop() {{
             runtime_h=runtime_h,full_rounds=full_rounds,
             remaining_after_full_rounds_wh=remaining_after_full_rounds_wh,
             target_margin_wh=target_margin_wh,target_margin_pct=target_margin_pct,
-            target_energy_ok=(ah+1e-9>=e["Ah"])
+            target_energy_ok=(ah+1e-9>=e.get("Ah_recommended",e["Ah"]))
         )
 
     def battery_selection_results(self):
         e=self.electrical_results();t=self.torque_results()
-        energy_min=max(0.0,e["Ah"])
+        energy_min=max(0.0,e.get("Ah_recommended",e["Ah"]))
         cont_req=max(0.0,t["Ibatt"],e["Icalc_up"])
-        peak_calc=max(0.0,e["Icalc_up"])
+        peak_calc=max(0.0,e["Icalc_up"],e.get("Iturn_avg",0.0))
         controller_indicator=self.controllerCurrent.value()*max(1,t["n"]) if hasattr(self,"controllerCurrent") else 0.0
         target_cont=max(0.1,self.bselTargetContC.value()) if hasattr(self,"bselTargetContC") else 3.0
         target_peak=max(0.1,self.bselTargetPeakC.value()) if hasattr(self,"bselTargetPeakC") else 5.0
@@ -7560,7 +7608,7 @@ void loop() {{
     def update_battery_selection(self,*_):
         if not hasattr(self,"batterySelectionView"):return
         r=self.battery_selection_results();e=r["e"]
-        self.bselMinAhLabel.setText(f"{r['energy_min']:.2f} Ah\n({e['Edesign']:.0f} Wh @ {e['V']:.0f} V)")
+        self.bselMinAhLabel.setText(f"Min {e['Ah']:.2f} Ah\nPractical {e.get('Ah_recommended',e['Ah']):.2f} Ah")
         self.bselContLabel.setText(f"{r['cont_req']:.1f} A\nBMS ≥ {r['bms_cont']:.0f} A")
         self.bselPeakLabel.setText(f"{r['peak_calc']:.1f} A\nBMS peak ≥ {r['bms_peak']:.0f} A")
         self.bselSuggestedLabel.setText(f"{r['suggested']:.0f} Ah\n≈ {r['design_runtime']:.2f} h")
