@@ -181,6 +181,13 @@ jobs:
           assert "Engineering FBD / แผนภาพแรงบนเว็บ" in web_html
           assert 'id="webFbdCase"' in web_html and 'id="webFbdView"' in web_html
           assert "function renderWebFbd" in web_js
+          assert "function buttonBusy" in web_js
+          assert "function buttonSuccess" in web_js
+          assert "function actionToast" in web_js
+          web_css = Path("web/style.css").read_text(encoding="utf-8-sig")
+          assert "button.btn-busy" in web_css
+          assert "button.btn-success" in web_css
+          assert "@keyframes cvetButtonAck" in web_css
           assert "function renderSlopeFbd" in web_js
           assert "M_O = Σ(F_i d_i)" in web_js
           assert "critical_cases" in web_js and "current_cases" in web_js
@@ -939,6 +946,10 @@ jobs:
 
           # ---------- Local updater / SHA regression ----------
           assert "OFFICIAL_UPDATE_MANIFEST_API_URL" in source
+          assert "def setup_button_feedback" in source
+          assert "feedbackState" in source
+          assert "def _run_button_action" in source
+          assert "rampApplyAngleButton" in source
           assert "def _read_official_manifest_api" in source
           assert "ดาวน์โหลด installer ไม่สำเร็จหลังลอง 3 ครั้ง" in source
           assert "GitHub Contents API fallback" in source
