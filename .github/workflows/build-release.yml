@@ -161,6 +161,13 @@ jobs:
           assert "ฝั่งช่วยต้านการคว่ำ" in source
           assert "ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX" in source
           assert "FBD แบบเข้าใจง่าย / BEGINNER FBD" in source
+          assert "CURRENT-ANGLE SNAPSHOT" in source
+          assert "CRITICAL-CASE SECTION" in source
+          assert "d_V" in source and "d_B" in source and "d_L" in source
+          assert "N_R is drawn outward normal to the road" in source
+          assert "W_parallel and W_normal are components of the same weight W=mg" in source
+          assert "graphic offset only — acts through CG" in source
+          assert "NO OVERTURNING GRAVITY MOMENT" in source
 
           for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
               assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
