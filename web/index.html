@@ -154,6 +154,7 @@
           <label>เวลาเร่งถึงความเร็วเป้าหมาย (s)<input name="accel_time_s" type="number" value="5" step="0.1"></label>
           <label>Crr แรงต้านการกลิ้ง<input name="rolling_coeff" type="number" value="0.02" step="0.001"></label>
           <label>จำนวนมอเตอร์<input name="motors" type="number" value="2" step="1"></label>
+          <label>กำลังมอเตอร์ / ตัว (W)<input name="motor_rated_w" type="number" value="1500" step="100"></label>
           <label>Safety Factor<input name="safety_factor" type="number" value="1.5" step="0.1"></label>
           <label>ประสิทธิภาพระบบขับ (%)<input name="drive_eff_pct" type="number" value="85" step="1"></label>
           <label>แรงดันแบต (V)<input name="voltage_v" type="number" value="72" step="1"></label>
@@ -392,7 +393,7 @@
         <article class="parameter-panel">
           <div class="parameter-k">Drive Motors</div>
           <div id="paramDriveMotors" class="parameter-v">2 × 1500 W</div>
-          <div class="parameter-note">จาก Main Battery Input</div>
+          <div class="parameter-note">จาก Drive Torque Input</div>
         </article>
         <article class="parameter-panel">
           <div class="parameter-k">Drive Control</div>
