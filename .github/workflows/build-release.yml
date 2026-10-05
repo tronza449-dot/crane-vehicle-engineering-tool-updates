@@ -180,6 +180,12 @@ jobs:
           assert "CVET_Screenshots" in source
           assert "📸 Capture All FBD" in source
           assert "Current-angle governing case" in source
+          assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in source
+          assert "stability_design_guidance" in source
+          assert "physical +y is drawn upward" in source
+          assert "x_crane(global)" in source
+          assert "reportMode=True" in source
+          assert "724 directional moment-balance evaluations" in source
           assert "724 directional moment-balance evaluations" in source
           assert "Current θ=" in source
           assert "Inertia F_I" in source
