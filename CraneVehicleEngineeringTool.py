@@ -8912,6 +8912,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
                 shutil.copyfile(src,dst)
         intro="""<h1>สรุป FBD การคว่ำทุกด้าน</h1>
         <p><b>อ่านรูปนี้แค่ 4 อย่าง:</b> Tipping Axis, แรงภายนอก, Reaction และ moment arm.</p>
+        <p><b>Safety Factor:</b> SF = M_R / M_O โดยใช้โมเมนต์ต้านหารด้วยโมเมนต์คว่ำ</p>
         <p><b>ฝั่งพยายามทำให้คว่ำ</b> = Overturning side &nbsp; | &nbsp;
         <b>ฝั่งช่วยต้านการคว่ำ</b> = Resisting side</p>
         <p>Notation: W_vehicle, W_boom, W_payload.</p>
