@@ -4785,30 +4785,46 @@ void loop() {{
         return self._variable_table_html("WINCH — ตารางตัวแปร","รวมตัวแปรแบตเตอรี่ เวลา ความเร็ว แรง และแรงบิดของวินช์",rows)
 
     def stability_variables_html(self):
-        d=self.inputs();sf,MO,MR=self.calc_side(d);sfF,sfR=self.longitudinal_sf_at(d,d["th"])
-        FL=d["kd"]*d["ml"]*G
+        d=self.inputs();th=float(d["th"])
+        sl=self.side_moment_balance(d,th,"left");sr=self.side_moment_balance(d,th,"right")
+        fb=self.longitudinal_moment_balance(d,th,"front");rb0=self.longitudinal_moment_balance(d,th,"rear")
+        slope=self.slope_stability_results(d)
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
+        FLd=d["kd"]*d["ml"]*G
         rows=[
-            ("m_total","มวลรวมทั้งระบบ","kg",f"{d['mt']:.2f}","ควรรวมทุกชิ้นโดยไม่ซ้ำมวล"),
-            ("m_L","มวล Payload / สิ่งที่ยก","kg",f"{d['ml']:.2f}","โหลดที่ปลายเครน"),
-            ("m_B","มวลแขนเครน","kg",f"{d['mb']:.2f}","ใช้คำนวณโมเมนต์ของ Boom"),
-            ("W","Track width ระยะศูนย์กลางล้อซ้าย-ขวา","m",f"{d['W']:.3f}","มีผลโดยตรงต่อ Side tipping"),
-            ("WB","Wheelbase ระยะฐานล้อหน้า-หลัง","m",f"{d['WB']:.3f}","ใช้คำนวณ Front/Rear tipping"),
-            ("L","ความยาวแขนเครน","m",f"{d['L']:.3f}","ระยะจากแกนหมุนถึงปลายแขน"),
-            ("H","ความสูงเสาเครน","m",f"{d['H']:.3f}","ใช้ในโมเดล/ภาพ 3D และการจัดวาง"),
-            ("x_C","ตำแหน่งแกนเครนจากเพลาหลัง","m",f"{d['xC']:.3f}","ใช้หาโมเมนต์หน้า/หลัง"),
-            ("x_CG,base","ตำแหน่ง CG ของรถส่วนหลักที่ไม่รวม Payload+Boom","m",f"{d['xCG']:.3f}","ใช้ใน Front/Rear crane tipping"),
-            ("x_CG,drive","ตำแหน่ง CG รวมตอนรถวิ่ง","m",f"{d['driveXCG']:.3f}","ใช้ใน Slope driving stability"),
-            ("θ","มุมหมุนเครน","deg",f"{d['th']:.1f}","ช่วงใช้งาน -90° ถึง +90°"),
-            ("Kdyn","Dynamic factor ของ Payload","-",f"{d['kd']:.2f}","เผื่อแรงกระชากในการวิเคราะห์เบื้องต้น"),
+            ("m_total","มวลรวมทั้งระบบใน Crane Mode","kg",f"{d['mt']:.2f}","รวมรถ+เครน+Payload โดยไม่ซ้ำมวล"),
+            ("m_V","มวลรถส่วนหลัก = m_total-m_L-m_B","kg",f"{mveh:.2f}","ใช้เป็นน้ำหนักรถส่วนหลักใน moment balance"),
+            ("m_L","มวล Payload","kg",f"{d['ml']:.2f}","โหลดที่ปลายเครน"),
+            ("m_B","มวล Boom","kg",f"{d['mb']:.2f}","CG ของ Boom สมมติที่ L/2"),
+            ("W","Track width ศูนย์กลางล้อซ้าย-ขวา","m",f"{d['W']:.3f}","Pivot ซ้าย=-W/2, Pivot ขวา=+W/2"),
+            ("WB","Wheelbase ศูนย์กลางแนวล้อหน้า-หลัง","m",f"{d['WB']:.3f}","Pivot หน้า=+WB/2, Pivot หลัง=-WB/2"),
+            ("L","Boom radius ถึง Payload","m",f"{d['L']:.3f}","ใช้หา x/y ของ Payload"),
+            ("H","ความสูงเสาเครน","m",f"{d['H']:.3f}","ใช้ใน geometry/3D"),
+            ("x_C","ตำแหน่งแกนเครนจากเพลาหลัง","m",f"{d['xC']:.3f}","x_crane=x_rear+x_C"),
+            ("x_CG,V","CG รถส่วนหลัก","m",f"{d['xCG']:.3f}","ใช้ Front/Rear tipping"),
+            ("x_CG,drive","CG รวมตอนวิ่ง","m",f"{d['driveXCG']:.3f}","ใช้ Slope mode"),
+            ("h_CG","ความสูง Combined CG","m",f"{slope['h']:.3f}","ใช้ Slope rear-tipping"),
+            ("θ","มุม Slew เครน","deg",f"{th:.1f}","-90°=ซ้าย, 0°=หน้า, +90°=ขวา"),
+            ("y_L","ตำแหน่งด้านข้าง Payload = L sinθ","m",f"{yL:.3f}","+y = ขวารถ"),
+            ("y_B","ตำแหน่งด้านข้าง Boom CG = (L/2)sinθ","m",f"{yB:.3f}","+y = ขวารถ"),
+            ("Kdyn","Payload dynamic design factor","-",f"{d['kd']:.2f}","ใช้เฉพาะ Payload เมื่อสร้าง overturning moment"),
+            ("F_L,d","Equivalent adverse payload design force","N",f"{FLd:.2f}","Kdyn × m_L × g; ไม่ใช่น้ำหนักจริงเพิ่ม"),
+            ("M_O,L","Overturning moment รอบ Pivot ซ้าย","N·m",f"{sl['mo']:.2f}","Σ(Fd) ฝั่งคว่ำ"),
+            ("M_R,L","Resisting moment รอบ Pivot ซ้าย","N·m",f"{sl['mr']:.2f}","Σ(Fd) ฝั่งต้าน"),
+            ("SF_left","Safety Factor คว่ำซ้าย","-",("∞" if sl['sf']>=999 else f"{sl['sf']:.3f}"),"M_R,L ÷ M_O,L"),
+            ("M_O,R","Overturning moment รอบ Pivot ขวา","N·m",f"{sr['mo']:.2f}","Σ(Fd) ฝั่งคว่ำ"),
+            ("M_R,R","Resisting moment รอบ Pivot ขวา","N·m",f"{sr['mr']:.2f}","Σ(Fd) ฝั่งต้าน"),
+            ("SF_right","Safety Factor คว่ำขวา","-",("∞" if sr['sf']>=999 else f"{sr['sf']:.3f}"),"M_R,R ÷ M_O,R"),
+            ("SF_front","Safety Factor คว่ำหน้า","-",("∞" if fb['sf']>=999 else f"{fb['sf']:.3f}"),"Moment balance รอบแนวล้อหน้า"),
+            ("SF_rear","Safety Factor คว่ำหลัง","-",("∞" if rb0['sf']>=999 else f"{rb0['sf']:.3f}"),"Moment balance รอบแนวล้อหลัง"),
+            ("W_parallel","องค์ประกอบน้ำหนักตามทางลาด = mg sinα","N",f"{slope['w_parallel']:.2f}","ไม่บวก W=mg ซ้ำ"),
+            ("W_normal","องค์ประกอบน้ำหนักตั้งฉากทางลาด = mg cosα","N",f"{slope['w_normal']:.2f}","ใช้หา resisting moment"),
+            ("F_I","แรงเฉื่อย D'Alembert = ma","N",f"{slope['inertia']:.2f}","ทิศตรงข้ามความเร่งขึ้นลาด"),
+            ("SF_slope","Safety Factor คว่ำหลังบนทางลาด","-",("∞" if slope['sf']>=999 else f"{slope['sf']:.3f}"),"M_R,slope ÷ M_O,slope"),
             ("SF_req","Safety Factor เป้าหมาย","-",f"{d['req']:.2f}","ใช้เทียบ PASS/FAIL เชิงแบบจำลอง"),
-            ("F_L","แรงโหลดออกแบบ","N",f"{FL:.2f}","Kdyn × mL × g"),
-            ("M_O","โมเมนต์ทำให้คว่ำด้านข้าง","N·m",f"{MO:.2f}","รวม Payload + Boom ตามโมเดล"),
-            ("M_R","โมเมนต์ต้านการคว่ำด้านข้าง","N·m",f"{MR:.2f}","จากมวลต้านและฐานล้อ"),
-            ("SF_side","Safety Factor ด้านข้าง","-",("∞" if sf>=999 else f"{sf:.3f}"),"MR ÷ MO"),
-            ("SF_front","Safety Factor คว่ำด้านหน้า","-",("∞" if sfF>=999 else f"{sfF:.3f}"),"คำนวณรอบแนวเพลาหน้า"),
-            ("SF_rear","Safety Factor คว่ำด้านหลัง","-",("∞" if sfR>=999 else f"{sfR:.3f}"),"คำนวณรอบแนวเพลาหลัง"),
         ]
-        return self._variable_table_html("STABILITY — ตารางตัวแปร","ตัวแปรเรขาคณิต มวล โมเมนต์ และ Safety Factor ของรถเครน",rows)
+        return self._variable_table_html("STABILITY — ตารางตัวแปร Formal FBD","ตัวแปร แกนอ้างอิง แรง โมเมนต์ และ Safety Factor ที่ใช้ตรงกับ PDF Export",rows)
 
     def safety_variables_html(self):
         if not hasattr(self,"safetyEStop"):
@@ -8673,110 +8689,98 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
         self.tabs.addTab(w,"6. วิธีคำนวณ / Calculation Steps")
 
     def update_calc_steps(self,d,sf,MO,MR,sfF,sfR):
-        th=math.radians(d["th"]);g=G
-        pivot=d["W"]/2
-        FL=d["kd"]*d["ml"]*g
-        yL=abs(d["L"]*math.sin(th));yB=abs((d["L"]/2)*math.sin(th))
-        dL=max(0.0,yL-pivot);rL=max(0.0,pivot-yL)
-        dB=max(0.0,yB-pivot);rB=max(0.0,pivot-yB)
+        th=float(d["th"])
+        sl=self.side_moment_balance(d,th,"left");sr=self.side_moment_balance(d,th,"right")
+        fb=self.longitudinal_moment_balance(d,th,"front");rb0=self.longitudinal_moment_balance(d,th,"rear")
+        slope=self.slope_stability_results(d)
+        yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
         mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        MOL=FL*dL
-        MOB=d["mb"]*g*dB
-        MRveh=mveh*g*pivot
-        MRL=d["ml"]*g*rL
-        MRB=d["mb"]*g*rB
-        rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
-        xload=xc+d["L"]*math.cos(th);xboom=xc+(d["L"]/2)*math.cos(th)
-        sr=self.slope_stability_results(d)
-        sf_text="∞" if sf>=999 else f"{sf:.3f}"
-        sfF_text="∞" if sfF>=999 else f"{sfF:.3f}"
-        sfR_text="∞" if sfR>=999 else f"{sfR:.3f}"
-        slope_text="∞" if sr["sf"]>=999 else f"{sr['sf']:.3f}"
+        def fmt(v):return "∞" if v>=999 else f"{v:.3f}"
+        def lines(b,coord):
+            out=[]
+            for q in b["components"]:
+                out.append(f"{q['name']}: {coord}={q[coord]:+.3f} m, F={q['force']:.2f} N, "
+                           f"d={q['arm']:.3f} m, M={q['moment']:.2f} N·m, {q['role']}")
+            return "\n".join(out)
+        self.steps.setPlainText(f"""FORMAL STABILITY CALCULATION / สูตร + แทนค่า
 
-        self.steps.setPlainText(f"""A) SIDE TIPPING / การคว่ำด้านข้าง
+CONVENTION
++x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
+θ = -90° ซ้าย, 0° หน้า, +90° ขวา
+ที่ impending tipping: Reaction ฝั่งตรงข้าม Tipping Axis → 0
 
-1) แรง Payload สำหรับด้านที่ทำให้คว่ำ
-F_L,design = Kdyn × m_L × g
-           = {d['kd']:.2f} × {d['ml']:.2f} × 9.81
-           = {FL:.2f} N
+A) SIDE GEOMETRY
+m_V = m_total - m_L - m_B
+    = {d['mt']:.2f} - {d['ml']:.2f} - {d['mb']:.2f}
+    = {mveh:.2f} kg
 
-หมายเหตุ: Kdyn ใช้เพิ่มเฉพาะโมเมนต์ด้านที่เป็นผลเสีย
-ถ้า Payload ยังอยู่ด้านใน Pivot จะใช้มวลจริง m_L ในโมเมนต์ต้าน
-เพื่อไม่ให้ Dynamic Factor สร้างความเสถียรเพิ่มแบบไม่สมเหตุผล
+y_L = L sinθ
+    = {d['L']:.3f} sin({th:.1f}°)
+    = {yL:.3f} m
 
-2) ตำแหน่งด้านข้าง
-y_L = |L sinθ| = {yL:.3f} m
-y_B = |(L/2) sinθ| = {yB:.3f} m
-Pivot = W/2 = {d['W']:.3f}/2 = {pivot:.3f} m
+y_B = (L/2) sinθ
+    = ({d['L']:.3f}/2) sin({th:.1f}°)
+    = {yB:.3f} m
 
-3) แขนโมเมนต์คว่ำ
-d_L = max(0, y_L-Pivot) = {dL:.3f} m
-d_B = max(0, y_B-Pivot) = {dB:.3f} m
+Left pivot  y_P,L = -W/2 = {-d['W']/2:.3f} m
+Right pivot y_P,R = +W/2 = { d['W']/2:.3f} m
 
-4) โมเมนต์คว่ำ
-M_OL = F_L,design × d_L = {FL:.2f} × {dL:.3f} = {MOL:.2f} N·m
-M_OB = m_B × g × d_B = {d['mb']:.2f} × 9.81 × {dB:.3f} = {MOB:.2f} N·m
-M_O = M_OL + M_OB = {MO:.2f} N·m
+Equivalent adverse Payload design load:
+F_L,d = Kdyn m_L g
+      = {d['kd']:.2f} × {d['ml']:.2f} × 9.81
+      = {d['kd']*d['ml']*G:.2f} N
+หมายเหตุ: ใช้ Kdyn เฉพาะเมื่อ Payload สร้าง M_O
 
-5) โมเมนต์ต้าน
-m_vehicle = m_total - m_L - m_B
-          = {d['mt']:.2f} - {d['ml']:.2f} - {d['mb']:.2f}
-          = {mveh:.2f} kg
+B) LEFT SIDE TIPPING
+{lines(sl,'y')}
+M_O,L = {sl['mo']:.2f} N·m
+M_R,L = {sl['mr']:.2f} N·m
+SF_left = M_R,L / M_O,L = {fmt(sl['sf'])}
 
-M_R,vehicle = m_vehicle × g × Pivot = {MRveh:.2f} N·m
-M_R,payload = m_L × g × max(0,Pivot-y_L) = {MRL:.2f} N·m
-M_R,boom    = m_B × g × max(0,Pivot-y_B) = {MRB:.2f} N·m
-M_R,total   = {MR:.2f} N·m
+C) RIGHT SIDE TIPPING
+{lines(sr,'y')}
+M_O,R = {sr['mo']:.2f} N·m
+M_R,R = {sr['mr']:.2f} N·m
+SF_right = M_R,R / M_O,R = {fmt(sr['sf'])}
 
-6) Safety Factor
-SF_side = M_R / M_O = {sf_text}
-Target SF = {d['req']:.2f}
-Result = {'PASS / ผ่านเกณฑ์เบื้องต้น' if sf>=d['req'] else 'FAIL / ต้องปรับแบบ'}
+Side SF ที่การ์ด = min(SF_left, SF_right) = {fmt(min(sl['sf'],sr['sf']))}
 
-------------------------------------------------------------
+D) FRONT TIPPING
+Pivot x_P = x_front = {fb['pivot']:.3f} m
+x_crane={fb['xc']:.3f} m, x_B={fb['xboom']:.3f} m, x_L={fb['xload']:.3f} m
+{lines(fb,'x')}
+M_O,F = {fb['mo']:.2f} N·m
+M_R,F = {fb['mr']:.2f} N·m
+SF_front = {fmt(fb['sf'])}
 
-B) FRONT / REAR TIPPING / การคว่ำหน้า-หลัง
+E) REAR TIPPING
+Pivot x_P = x_rear = {rb0['pivot']:.3f} m
+x_crane={rb0['xc']:.3f} m, x_B={rb0['xboom']:.3f} m, x_L={rb0['xload']:.3f} m
+{lines(rb0,'x')}
+M_O,Rr = {rb0['mo']:.2f} N·m
+M_R,Rr = {rb0['mr']:.2f} N·m
+SF_rear = {fmt(rb0['sf'])}
 
-x_rear  = -WB/2 = {rear:.3f} m
-x_front = +WB/2 = {front:.3f} m
-x_crane = x_rear + x_C = {xc:.3f} m
-x_load  = x_crane + L cosθ = {xload:.3f} m
-x_boom  = x_crane + (L/2)cosθ = {xboom:.3f} m
+F) UPHILL REAR-TIPPING
+α = {math.degrees(slope['alpha']):.2f}°
+W_parallel = mg sinα = {slope['w_parallel']:.2f} N
+W_normal   = mg cosα = {slope['w_normal']:.2f} N
+F_I = ma = {slope['inertia']:.2f} N
+d_R = x_CG,drive - x_rear = {slope['rear_arm']:.3f} m
+h_CG = {slope['h']:.3f} m
 
-หลักการ:
-- แต่ละมวลถูกจัดเป็นโมเมนต์คว่ำหรือโมเมนต์ต้านตามด้านของ Pivot
-- Payload ใช้ Kdyn เฉพาะเมื่อเป็นโมเมนต์คว่ำ
-- ถ้า Payload เป็นโมเมนต์ต้าน ใช้น้ำหนักจริงของ Payload
+M_O,slope = (W_parallel + F_I) h_CG
+          = ({slope['w_parallel']:.2f} + {slope['inertia']:.2f}) × {slope['h']:.3f}
+          = {slope['mo']:.2f} N·m
 
-SF_front = {sfF_text}
-SF_rear  = {sfR_text}
+M_R,slope = W_normal d_R
+          = {slope['w_normal']:.2f} × {max(0.0,slope['rear_arm']):.3f}
+          = {slope['mr']:.2f} N·m
 
-------------------------------------------------------------
+SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
 
-C) UPHILL DRIVING STABILITY / รถวิ่งขึ้นทางลาด
-
-ใช้ Combined driving CG เพราะในโหมดวิ่ง โหลดวางอยู่บนรถ ไม่ได้แขวนที่ปลายเครน
-
-x_CG,drive = {sr['xcg']:.3f} m
-x_rear     = {sr['rear']:.3f} m
-d_rear     = x_CG,drive - x_rear = {sr['rear_arm']:.3f} m
-
-d_slope = h_CG tanα
-        = {sr['h']:.3f} × tan({self.slope.value():.1f}°)
-        = {sr['shift_slope']:.3f} m
-
-d_acc = h_CG × a/(g cosα)
-      = {sr['shift_acc']:.3f} m
-
-d_total = {sr['shift_total']:.3f} m
-Margin to rear pivot = {sr['margin']:.3f} m
-
-SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
-         = {slope_text}
-
-หมายเหตุ:
-ผลทั้งหมดเป็น Preliminary Engineering Calculation
-ต้องยืนยันมวล/CG จริง, การถ่ายน้ำหนัก, ยาง/พื้น, โครงสร้าง และแรงกระแทกก่อนผลิตจริง
+เกณฑ์ที่ตั้งไว้ SF_required = {d['req']:.2f}
+ผลทั้งหมดเป็น Preliminary rigid-body stability calculation.
 """)
 
     def make_design(self):
@@ -9067,67 +9071,45 @@ WIDTH / COUNTERWEIGHT
             self.update_auto_fbd()
             self.forceDiagram.update()
         if hasattr(self,'steps'): self.update_calc_steps(d,sf,MO,MR,sfF,sfR)
-        self.craneout.setPlainText(f"""การคำนวณการคว่ำรถเครน / CRANE TIPPING CALCULATION
+        sl_now=self.side_moment_balance(d,d["th"],"left")
+        sr_now=self.side_moment_balance(d,d["th"],"right")
+        fb_now=self.longitudinal_moment_balance(d,d["th"],"front")
+        rb_now=self.longitudinal_moment_balance(d,d["th"],"rear")
+        yL_signed=d["L"]*math.sin(math.radians(d["th"]))
+        yB_signed=(d["L"]/2)*math.sin(math.radians(d["th"]))
+        self.craneout.setPlainText(f"""CRANE TIPPING CALCULATION — FORMAL SUMMARY
 
-1) คำนวณแรงโหลดออกแบบ (Design Load Force)
-   ความหมาย: แรงโหลด = ตัวประกอบไดนามิก × มวลโหลด × ความเร่งโน้มถ่วง\n   สูตร: F_L = Kdyn × m_L × g
-   แทนค่า: F_L = {d['kd']:.2f} × {d['ml']:.1f} × 9.81
-   ผลลัพธ์: F_L = {d['kd']*d['ml']*G:.2f} N
-   อธิบาย: เป็นแรงจากโหลดที่รวม Dynamic Factor เพื่อเผื่อแรงกระชากแล้ว
+Coordinate convention:
++x forward, +y right, +z up
+θ=-90° left, 0° forward, +90° right
 
-2) หาระยะโหลดในแนวด้านข้าง (Lateral Load Position)
-   ความหมาย: ระยะด้านข้าง = ความยาวแขน × sin(มุมหมุน)\n   สูตร: y_L = |L × sin(theta)|
-   แทนค่า: y_L = |{d['L']:.2f} × sin({d['th']:.0f}°)|
-   ผลลัพธ์: y_L = {abs(d['L']*math.sin(math.radians(d['th']))):.3f} m
-   อธิบาย: เมื่อเครนหมุนออกด้านข้าง ระยะ y_L จะเพิ่มและมีผลต่อการคว่ำด้านข้าง
+Side positions:
+y_L = L sinθ = {d['L']:.3f} sin({d['th']:.1f}°) = {yL_signed:.3f} m
+y_B = (L/2) sinθ = {yB_signed:.3f} m
+Left pivot = {-d['W']/2:.3f} m
+Right pivot = {d['W']/2:.3f} m
 
-3) โมเมนต์ทำให้คว่ำด้านข้าง (Overturning Moment)
-   ผลลัพธ์: M_O = {MO:.2f} N·m
-   อธิบาย: M_O คือโมเมนต์จากโหลดและแขนเครนที่พยายามหมุนรถรอบแนวล้อด้านนอก
+Equivalent adverse Payload design force:
+F_L,d = Kdyn m_L g = {d['kd']:.2f}×{d['ml']:.2f}×9.81 = {d['kd']*d['ml']*G:.2f} N
+(Kdyn ใช้เฉพาะเมื่อ Payload อยู่ฝั่ง overturning)
 
-4) โมเมนต์ต้านการคว่ำ (Resisting Moment)
-   ผลลัพธ์: M_R = {MR:.2f} N·m
-   อธิบาย: M_R รวมรถส่วนหลัก และ Payload/Boom ที่ยังอยู่ด้านในแนว Pivot
+LEFT:
+M_O={sl_now['mo']:.2f} N·m, M_R={sl_now['mr']:.2f} N·m, SF_left={'∞' if sl_now['sf']>=999 else f"{sl_now['sf']:.3f}"}
 
-5) Safety Factor ด้านข้าง
-   ความหมาย: SF = โมเมนต์ต้าน ÷ โมเมนต์ทำให้คว่ำ\n   สูตร: SF_side = M_R / M_O
-   ผลลัพธ์: SF_side = {'∞' if sf>=999 else f'{sf:.3f}'}
-   เกณฑ์ที่กำหนด: SF >= {d['req']:.2f}
-   สถานะ: {'PASS / ผ่านเกณฑ์เบื้องต้น' if sf>=d['req'] else 'FAIL / ไม่ผ่านเกณฑ์'}
+RIGHT:
+M_O={sr_now['mo']:.2f} N·m, M_R={sr_now['mr']:.2f} N·m, SF_right={'∞' if sr_now['sf']>=999 else f"{sr_now['sf']:.3f}"}
 
-6) การคว่ำหน้า-หลัง (Longitudinal Tipping)
-   แนวเพลาหลัง = {rear:.3f} m
-   แนวเพลาหน้า = {front:.3f} m
+FRONT:
+M_O={fb_now['mo']:.2f} N·m, M_R={fb_now['mr']:.2f} N·m, SF_front={'∞' if fb_now['sf']>=999 else f"{fb_now['sf']:.3f}"}
 
-   ตำแหน่งโหลด:
-   x_load = x_crane + L cos(theta)
-          = {xload:.3f} m
+REAR:
+M_O={rb_now['mo']:.2f} N·m, M_R={rb_now['mr']:.2f} N·m, SF_rear={'∞' if rb_now['sf']>=999 else f"{rb_now['sf']:.3f}"}
 
-   ตำแหน่ง CG ของแขน:
-   x_boom = x_crane + (L/2) cos(theta)
-          = {xboom:.3f} m
+Side card = min(SF_left,SF_right)
+At impending tipping, reaction on the wheel line opposite the selected tipping axis approaches 0 N.
+Required SF = {d['req']:.2f}
 
-   SF_front = {'∞' if sfF>=999 else f'{sfF:.3f}'}
-   SF_rear  = {'∞' if sfR>=999 else f'{sfR:.3f}'}
-
-   อธิบาย:
-   - SF_front ใช้ตรวจแนวโน้มคว่ำผ่านแนวล้อหน้า
-   - SF_rear ใช้ตรวจแนวโน้มคว่ำผ่านแนวล้อหลัง
-   - เพราะเครนติดท้ายรถ ตำแหน่งเครนและ CG ตามแนวยาวมีผลโดยตรง
-
-7) แรงปฏิกิริยาที่แนวล้อด้านข้าง / Side Support Reactions
-   สำหรับโมเดลกึ่งกลางแบบเบื้องต้น:
-   R_left + R_right = น้ำหนักรวม
-   ใช้สมดุลแรง: ΣF_z = 0
-   ใช้สมดุลโมเมนต์: ΣM = 0
-
-   แนวคิดสำคัญ:
-   ถ้า Reaction ที่ล้อด้านใดลดลงเข้าใกล้ 0 N
-   หมายถึงล้อด้านนั้นกำลังเริ่มยกจากพื้น และเข้าใกล้สภาวะคว่ำ
-
-หมายเหตุทางวิศวกรรม:
-ผลนี้เป็นการคำนวณเบื้องต้น ต้องใช้ตำแหน่ง CG และน้ำหนักจริงของชุดประกอบ
-ก่อนนำไปยืนยันความปลอดภัยของรถที่ผลิตจริง
+ดูรายละเอียดเต็ม: FBD / สูตร + แทนค่า / PDF Export
 """)
         # Uphill driving stability — single source of truth.
         sr=self.slope_stability_results(d)
