@@ -1,54 +1,56 @@
-# Crane Vehicle Engineering Tool V53.8.15
+# Crane Vehicle Engineering Tool V53.8.16
 
-## One-click Screenshot Tools
+## Final FBD Geometry + Design Guidance Update
 
-เพิ่มระบบแคปหน้าจอในโปรแกรมเพื่อลดการแคปเองทีละหน้า
+อัปเดตต่อจาก V53.8.15 หลังตรวจภาพ FBD แยกและ PDF จริงครบทุกหน้า
 
-### Global Capture
-เพิ่มปุ่ม:
-- 📸 Capture
+### Geometry top view
+- แก้ screen-coordinate mapping ให้ +y physical ถูกวาดขึ้นบนจอ
+- θ<0 จึงไปฝั่ง -y ตาม convention จริง
+- แก้กรณี Current θ=-66° ที่ภาพเดิมดูเหมือนชี้ไป +y
 
-ตำแหน่ง:
-- Status bar ด้านล่างของโปรแกรม
+### FBD layout
+- ย้าย legend ลงคนละระดับกับ Overturning / Resisting labels
+- ขยับ Tipping axis label ออกจาก wheel/pivot
+- Front / Rear note เปลี่ยน x_C ที่เป็นพิกัด global เป็น x_crane(global)
+  เพื่อไม่ให้สับสนกับ input x_C ที่วัดจาก rear axle
+- Slope: แยก label W_parallel กับ F_I ออกจากกัน
+- Slope pivot label จัดตำแหน่งเฉพาะ
 
-การทำงาน:
-- แคปหน้าต่าง CVET ที่กำลังเปิดอยู่เป็น PNG
-- ไม่เปิด Save As ทุกครั้ง
-- ตั้งชื่อไฟล์อัตโนมัติจากวันเวลา + หน้าที่กำลังเปิด
-- บันทึกที่:
-  Documents/CVET_Screenshots
+### PDF pagination
+หน้า 2 เดิมมีเพียง row ที่ 5 ของ Critical Case Summary เพราะตารางล้นหน้า
+รุ่นนี้เปลี่ยนหน้า 2 เป็น:
+DESIGN GUIDANCE & CRITICAL-CASE SUMMARY
 
-ตัวอย่างชื่อไฟล์:
-- 20261005_234501_Stability_Engineering_FBD.png
-- 20261005_234530_Battery_Electrical.png
+ทำให้ page break มีความหมายและไม่มี orphan row
 
-### Capture All FBD
-เพิ่มปุ่มในหน้า Engineering FBD:
-- 📸 Capture All FBD
+### Automatic preliminary design guidance
+เพิ่ม stability_design_guidance() ใช้ calculation model เดียวกับ FBD เพื่อหา:
+- Minimum track width ที่ทำให้ full -90°...+90° slew ผ่าน Required SF
+- Contiguous safe slew range รอบ 0° สำหรับ track ปัจจุบัน
+- Margin ของ current angle ถึง safe range boundary
 
-กดครั้งเดียว โปรแกรมจะสร้างรูปอัตโนมัติ 6 รูป:
-1. Geometry / Tipping-axis definition
-2. Left Side critical FBD
-3. Right Side critical FBD
-4. Front critical FBD
-5. Rear critical FBD
-6. Uphill rear-tipping FBD
+สำหรับค่าตัวอย่างปัจจุบัน W=1.10 m, m_total=300 kg, payload=100 kg,
+boom=20 kg, L=1.20 m, Kdyn=1.20 และ Required SF=1.50:
+- Full ±90° ยังไม่ผ่าน
+- Current -66° ผ่านแบบมี margin เล็กมาก
+- โปรแกรมจะคำนวณค่าคำแนะนำจริงจาก input ทุกครั้ง ไม่ hard-code ตัวเลข
 
-ไฟล์ถูกเก็บใน subfolder:
-- Documents/CVET_Screenshots/<timestamp>_FBD_All
+### 3D figure in report
+- เพิ่ม reportMode
+- ตัด interactive mouse instructions, in-scene current label และ bottom badge ออกจาก PDF
+- คง CRANE LIVE DATA เป็นแหล่งแสดง current angle หลัก
 
-ชื่อไฟล์ระบุ case และ critical angle ให้อัตโนมัติ
+### Worst Case wording
+แก้ UI และ report เป็น:
+181 angles × 4 directions = 724 directional moment-balance evaluations
 
-### Workflow
-- ไม่เปลี่ยน view ที่ผู้ใช้กำลังดู
-- ไม่ต้องกดเปลี่ยน case ทีละหน้า
-- เหมาะสำหรับส่งรูปตรวจงานหรือแนบรายงาน
+### Calculation scope
+สูตรหลัก stability ไม่เปลี่ยน
+ค่าทั้งหมดอ้างอิง:
+- side_moment_balance(...)
+- longitudinal_moment_balance(...)
+- slope_stability_results(...)
 
-### Regression
-GitHub Actions ตรวจเพิ่ม:
-- Capture Current Page สร้าง PNG ได้จริง
-- Capture All FBD สร้างครบ 6 รูป
-- ทุกไฟล์มีขนาดข้อมูลมากกว่า minimum regression threshold
-
-### Stability calculation
-ไม่มีการเปลี่ยนสูตร Stability / FBD calculation ในรุ่นนี้
+Design guidance เป็น preliminary sizing เท่านั้น ต้องตรวจ measured CG, ground/tire compliance,
+dynamic shock, structural strength, bearing/brake limits และ manufacturer limits ก่อน fabrication/use.
