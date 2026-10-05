@@ -1,0 +1,98 @@
+name: Validate V53.7.1 Formal FBD
+
+on:
+  push:
+    branches:
+      - v53.7.1-formal-fbd
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install PySide6 pyserial
+      - name: Syntax check
+        run: |
+          python -m py_compile CraneVehicleEngineeringTool.py web_engine.py web_server.py web_launcher.py
+      - name: Formal FBD regression
+        run: |
+          python - <<'PY'
+          import tempfile
+          from pathlib import Path
+          from PySide6.QtWidgets import QApplication
+          from PySide6.QtGui import QPixmap
+          import CraneVehicleEngineeringTool as cvet
+          import web_engine
+
+          app=QApplication([])
+          w=cvet.App()
+          d=w.inputs()
+
+          # Direction convention and side symmetry checks
+          lm=w.side_moment_balance(d,-90,"left")
+          rm=w.side_moment_balance(d,90,"right")
+          assert lm["sf"] < 999 and rm["sf"] < 999
+          assert abs(lm["sf"]-rm["sf"]) < 1e-9
+
+          # Opposite side at pure side reach should be less critical.
+          assert w.side_moment_balance(d,-90,"right")["sf"] >= lm["sf"]
+          assert w.side_moment_balance(d,90,"left")["sf"] >= rm["sf"]
+
+          # Front/rear calculation source of truth
+          fb=w.longitudinal_moment_balance(d,d["th"],"front")
+          rb=w.longitudinal_moment_balance(d,d["th"],"rear")
+          sfF,sfR=w.longitudinal_sf_at(d,d["th"])
+          assert abs(fb["sf"]-sfF) < 1e-12
+          assert abs(rb["sf"]-sfR) < 1e-12
+
+          # Worst case now checks four tipping directions per angle.
+          rec=w.stability_worst_scan()
+          assert len(rec)==181*4
+
+          # Slope force decomposition and moment equation consistency.
+          sr=w.slope_stability_results(d)
+          assert abs(sr["mo"]-(sr["w_parallel"]+sr["inertia"])*sr["h"]) < 1e-7
+          assert abs(sr["mr"]-sr["w_normal"]*max(0.0,sr["rear_arm"])) < 1e-7
+
+          # Render all formal diagram modes.
+          for mode in range(6):
+              fd=cvet.ForceDiagram(w)
+              fd.resize(1180,760)
+              fd.setMode(mode)
+              px=QPixmap(fd.size())
+              px.fill()
+              fd.render(px)
+              assert not px.isNull()
+
+          # PDF HTML has all formal cases and formula/substitution content.
+          with tempfile.TemporaryDirectory() as td:
+              html=w.formal_fbd_report_html(Path(td),d)
+              for token in ["LEFT SIDE TIPPING","RIGHT SIDE TIPPING","FRONT TIPPING","REAR TIPPING","UPHILL REAR-TIPPING","Equation and substitution"]:
+                  assert token in html
+          fh=w.stability_formula_html()
+          assert "724 cases" in fh
+          assert "F_L,d" in fh
+          assert "W_parallel" in fh
+
+          # Web keeps compatibility while adding left/right detail.
+          wr=web_engine.calculate_stability({
+              "total_mass_kg":300,"payload_mass_kg":100,"boom_mass_kg":20,
+              "track_width_m":1.0,"wheelbase_m":1.1,"boom_length_m":1.2,
+              "crane_angle_deg":90,"dynamic_factor":1.2,"required_sf":1.5,
+              "crane_from_rear_m":0.15,"vehicle_cg_x_from_center_m":0.0
+          })
+          assert "side_left" in wr and "side_right" in wr
+          assert wr["side"]["critical_direction"]=="right"
+          print("V53.7.1 Formal FBD regression PASS")
+          PY
