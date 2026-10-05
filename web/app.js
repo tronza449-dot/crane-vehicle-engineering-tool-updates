@@ -390,8 +390,8 @@ $("#calcBattery").addEventListener("click",async()=>{
       '<div class="metric"><div class="k">Total / Cycle</div><div class="v">'+f(r.total_energy_per_cycle_wh,3)+' Wh</div></div>'+
       '<div class="metric"><div class="k">Cycle เต็ม</div><div class="v">'+r.completed_round_trips+' รอบ</div></div>'+
       '<div class="metric"><div class="k">Energy รวม</div><div class="v">'+f(r.load_energy_wh,1)+' Wh</div></div>'+
-      '<div class="metric"><div class="k">Design capacity</div><div class="v">'+f(r.design_ah,2)+' Ah</div></div>'+
-      '<div class="metric"><div class="k">Suggested standard</div><div class="v">'+f(r.suggested_ah,0)+' Ah</div></div></div>'+
+      '<div class="metric"><div class="k">Calculated minimum</div><div class="v">'+f(r.design_ah,2)+' Ah</div></div>'+
+      '<div class="metric"><div class="k">Practical recommendation</div><div class="v">'+f(r.recommended_ah,2)+' Ah → '+f(r.suggested_ah,0)+' Ah</div></div></div>'+
 
       '<h3>1) แบ่งเส้นทาง</h3>'+
       '<div class="formula">d_flat = d_oneway − L_slope = '+f(r.one_way_m,2)+' − '+f(r.slope_length_m,2)+
@@ -407,21 +407,29 @@ $("#calcBattery").addEventListener("click",async()=>{
       'Edown = <b>'+f(r.downhill_slope_energy_wh,3)+' Wh</b><br>'+
       'ถ้าช่วงลาดลงใช้ 0 Wh เที่ยวกลับยังไม่เป็น 0 เพราะมีทางราบ '+f(r.flat_one_way_m,1)+' m</div>'+
 
-      '<h3>3) รวมเป็น 1 Cycle</h3>'+
+      '<h3>3) Differential / Pivot Turn</h3>'+
+      '<div class="formula">เปิดใช้ = <b>'+(r.turn_enabled?'Yes':'No')+'</b> • '+r.turns_per_cycle+' ครั้ง/Cycle × '+f(r.turn_angle_deg,0)+'°<br>'+
+      's_turn = (W/2)φ = <b>'+f(r.turn_wheel_path_m,3)+' m</b><br>'+
+      'F_turn = Cturn·m·g = <b>'+f(r.turn_force_n,2)+' N</b><br>'+
+      'E_turn/event = <b>'+f(r.turn_energy_per_event_wh,4)+' Wh</b> • E_turn/Cycle = <b>'+f(r.turn_energy_per_cycle_wh,4)+' Wh</b><br>'+
+      'ค่า Cturn เป็นค่าประมาณของการไถลบนพื้นจริง</div>'+
+      '<h3>4) รวมเป็น 1 Cycle</h3>'+
       '<div class="formula">Ego = Eflat + Eup = <b>'+f(r.outbound_drive_energy_wh,3)+' Wh</b><br>'+
       'Ereturn = Edown + Eflat = <b>'+f(r.return_drive_energy_wh,3)+' Wh</b><br>'+
-      'Edrive,cycle = <b>'+f(r.trip_drive_energy_wh,3)+' Wh</b><br>'+
+      'Edrive,cycle = Ego + Ereturn + Eturn = <b>'+f(r.trip_drive_energy_wh,3)+' Wh</b><br>'+
       'Eaux,cycle = <b>'+f(r.aux_energy_per_cycle_wh,3)+' Wh</b><br>'+
       'Ecycle = <b>'+f(r.total_energy_per_cycle_wh,3)+' Wh/Cycle</b></div>'+
 
-      '<h3>4) จำนวน Cycle และขนาดแบต</h3>'+
-      '<div class="formula"><b>t_cycle = t_drive + t_lift + t_other</b><br>'+
-      f(r.drive_time_per_round_s,2)+' + '+f(r.lift_time_per_round_s,2)+' + '+f(r.other_stop_time_per_round_s,2)+
+      '<h3>5) จำนวน Cycle และขนาดแบต</h3>'+
+      '<div class="formula"><b>t_cycle = t_drive + t_lift + t_other + t_turn</b><br>'+
+      f(r.drive_time_per_round_s,2)+' + '+f(r.lift_time_per_round_s,2)+' + '+f(r.other_stop_time_per_round_s,2)+' + '+f(r.turn_time_per_round_s,2)+
       ' = <b>'+f(r.round_time_s,2)+' s</b><br>'+
       'N = floor(runtime/t_cycle) = <b>'+r.completed_round_trips+' Cycle</b><br>'+
       'Etotal = Ecycle × N = <b>'+f(r.load_energy_wh,2)+' Wh</b><br>'+
       'Edesign = (Etotal/DoD)×(1+Reserve) = <b>'+f(r.design_energy_wh,2)+' Wh</b><br>'+
-      'Ah = Edesign/V = <b>'+f(r.design_ah,2)+' Ah @ '+f(r.voltage_v,0)+' V</b></div>'+
+      'Ah_min = Edesign/V = <b>'+f(r.design_ah,2)+' Ah</b><br>'+
+      'Ah_practical = Ah_min × Kb = '+f(r.design_ah,2)+' × '+f(r.battery_design_factor,2)+
+      ' = <b>'+f(r.recommended_ah,2)+' Ah</b> → ปัดเป็น <b>'+f(r.suggested_ah,0)+' Ah</b></div>'+
 
       '<div class="notice"><b>แบบจำลองนี้ตั้งใจให้หยาบและอธิบายง่าย:</b> ไม่คิดพลังงานช่วงออกตัว '+
       'และไม่นำพลังงานจากช่วงลงลาดมาหักคืนแบตเตอรี่ • Winch 12 V คำนวณแยก</div>'+
@@ -433,7 +441,7 @@ $("#calcBattery").addEventListener("click",async()=>{
       '<div class="metric"><div class="k">Full Cycles*</div><div class="v">'+c.full_rounds+' รอบ</div></div>'+
       '<div class="metric"><div class="k">Margin vs target</div><div class="v">'+(c.target_margin_pct>=0?'+':'')+f(c.target_margin_pct,1)+'%</div></div></div>'+
       '<table><tr><th>Candidate check</th><th>Required</th><th>Candidate</th><th>Status</th></tr>'+
-      '<tr><td>Energy / Capacity</td><td>≥ '+f(r.design_ah,2)+' Ah</td><td>'+f(c.capacity_ah,1)+' Ah</td><td>'+statusSpan(c.energy_ok)+'</td></tr>'+
+      '<tr><td>Energy / Practical capacity</td><td>≥ '+f(r.recommended_ah,2)+' Ah</td><td>'+f(c.capacity_ah,1)+' Ah</td><td>'+statusSpan(c.energy_ok)+'</td></tr>'+
       '<tr><td>BMS Continuous</td><td>≥ '+f(r.continuous_current_required_a,1)+' A</td><td>'+f(c.bms_cont_a,1)+' A</td><td>'+bmsCont+'</td></tr>'+
       '<tr><td>BMS Peak (simple reference)</td><td>≥ '+f(r.peak_current_required_a,1)+' A</td><td>'+f(c.bms_peak_a,1)+' A</td><td>'+bmsPeak+'</td></tr></table>'+
       '<p class="check">*Runtime/Cycle เป็นค่าประมาณจาก Cycle ปัจจุบัน + DoD + Reserve; พลังงานวินช์ 12 V ไม่รวม</p>'+
