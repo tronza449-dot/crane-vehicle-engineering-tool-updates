@@ -101,7 +101,11 @@ QPushButton {
     color:#183a57; font-size:10.3pt; font-weight:750;
 }
 QPushButton:hover { background:#f2f7fc; border-color:#84a9ce; }
-QPushButton:pressed { background:#e4edf7; }
+QPushButton:pressed { background:#dbeafe; border:2px solid #2f6fd1; padding:6px 14px; }
+QPushButton[feedbackState="pressed"] { background:#dbeafe; border:2px solid #2f6fd1; color:#17456b; }
+QPushButton[feedbackState="busy"] { background:#fff4d6; border:2px solid #d69e00; color:#7a5200; font-weight:900; }
+QPushButton[feedbackState="success"] { background:#e7f8ee; border:2px solid #22a05a; color:#176337; font-weight:900; }
+QPushButton[feedbackState="error"] { background:#fff0f0; border:2px solid #d64545; color:#a12620; font-weight:900; }
 QPushButton:disabled { background:#f2f4f6; color:#9ba6b2; border-color:#dce2e8; }
 
 QPushButton#primaryButton {
@@ -1116,6 +1120,7 @@ class App(QMainWindow):
         # Automatically restore the most recently entered values.
         self.restore_last_values(silent=True)
         self.setup_easy_autosave()
+        self.setup_button_feedback()
 
         # Built-in updater: all network/file work happens in a background thread.
         self.updateTaskFinished.connect(self._handle_update_task_result)
@@ -1125,6 +1130,102 @@ class App(QMainWindow):
         self._update_auto_requested=False
         QTimer.singleShot(1800,self.auto_check_for_update)
 
+
+    def _repolish_feedback_button(self, button):
+        if button is None:
+            return
+        try:
+            button.style().unpolish(button)
+            button.style().polish(button)
+            button.update()
+        except Exception:
+            pass
+
+    def _set_button_feedback_state(self, button, state=""):
+        if button is None:
+            return
+        button.setProperty("feedbackState", state)
+        self._repolish_feedback_button(button)
+
+    def _button_press_feedback(self, button):
+        if button is None or not button.isEnabled():
+            return
+        self._set_button_feedback_state(button, "pressed")
+
+    def _button_release_feedback(self, button):
+        if button is None:
+            return
+        if button.property("feedbackState") == "pressed":
+            self._set_button_feedback_state(button, "")
+
+    def _button_clicked_feedback(self, button):
+        if button is None:
+            return
+        # Dedicated action wrappers may already be showing Busy/Success/Error.
+        if str(button.property("feedbackState") or "") in ("busy", "success", "error"):
+            return
+        self._set_button_feedback_state(button, "success")
+        label=button.text().strip()
+        if label and hasattr(self, "statusBar"):
+            self.statusBar().showMessage(f"รับคำสั่งแล้ว ✓  {label}", 1400)
+        QTimer.singleShot(420, lambda b=button: self._set_button_feedback_state(b, "")
+                          if str(b.property("feedbackState") or "")=="success" else None)
+
+    def setup_button_feedback(self):
+        """Give every desktop button immediate press/click feedback."""
+        for button in self.findChildren(QPushButton):
+            if button.property("_cvetFeedbackWired"):
+                continue
+            button.setProperty("_cvetFeedbackWired", True)
+            try:
+                button.setCursor(Qt.PointingHandCursor)
+            except Exception:
+                pass
+            button.pressed.connect(lambda b=button: self._button_press_feedback(b))
+            button.released.connect(lambda b=button: self._button_release_feedback(b))
+            button.clicked.connect(lambda _checked=False,b=button: self._button_clicked_feedback(b))
+
+    def _restore_action_button(self, button):
+        if button is None:
+            return
+        original=getattr(button, "_cvetOriginalText", None)
+        if original is not None:
+            button.setText(original)
+        button.setEnabled(True)
+        self._set_button_feedback_state(button, "")
+
+    def _finish_action_button(self, button, text="เสร็จแล้ว ✓", ms=1200):
+        if button is None:
+            return
+        button.setText(text)
+        button.setEnabled(False)
+        self._set_button_feedback_state(button, "success")
+        QTimer.singleShot(ms, lambda b=button: self._restore_action_button(b))
+
+    def _fail_action_button(self, button, text="เกิดข้อผิดพลาด", ms=1600):
+        if button is None:
+            return
+        button.setText(text)
+        button.setEnabled(False)
+        self._set_button_feedback_state(button, "error")
+        QTimer.singleShot(ms, lambda b=button: self._restore_action_button(b))
+
+    def _run_button_action(self, button, callback, busy_text="กำลังทำงาน...", success_text="เสร็จแล้ว ✓"):
+        """Run a short synchronous action with visible Busy -> Success feedback."""
+        if button is None:
+            return callback()
+        button._cvetOriginalText=button.text()
+        button.setText(busy_text)
+        button.setEnabled(False)
+        self._set_button_feedback_state(button, "busy")
+        QApplication.processEvents()
+        try:
+            result=callback()
+        except Exception:
+            self._fail_action_button(button)
+            raise
+        self._finish_action_button(button, success_text)
+        return result
 
     def _thai_formula_text(self, title):
         """Return a plain-Thai equation before the engineering-symbol equation."""
@@ -8783,14 +8884,29 @@ void loop() {{
         l.addWidget(geom)
 
         btnrow=QHBoxLayout()
-        calcRamp=QPushButton("คำนวณ Ramp Geometry")
-        calcRamp.setObjectName("primaryButton")
-        calcRamp.clicked.connect(self.update_ramp_geometry)
-        applyAngle=QPushButton("ใช้มุมนี้กับ Torque + Main Battery + Stability")
-        applyAngle.clicked.connect(self.apply_ramp_angle_to_project)
-        applyLength=QPushButton("ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery")
-        applyLength.clicked.connect(self.apply_ramp_length_to_battery)
-        btnrow.addWidget(calcRamp);btnrow.addWidget(applyAngle);btnrow.addWidget(applyLength)
+        self.rampCalcButton=QPushButton("คำนวณ Ramp Geometry")
+        self.rampCalcButton.setObjectName("primaryButton")
+        self.rampCalcButton.clicked.connect(
+            lambda:self._run_button_action(
+                self.rampCalcButton,self.update_ramp_geometry,
+                "กำลังคำนวณ...","คำนวณเสร็จ ✓"
+            )
+        )
+        self.rampApplyAngleButton=QPushButton("ใช้มุมนี้กับ Torque + Main Battery + Stability")
+        self.rampApplyAngleButton.clicked.connect(
+            lambda:self._run_button_action(
+                self.rampApplyAngleButton,self.apply_ramp_angle_to_project,
+                "กำลังใช้ค่า...","ใช้มุมแล้ว ✓"
+            )
+        )
+        self.rampApplyLengthButton=QPushButton("ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery")
+        self.rampApplyLengthButton.clicked.connect(
+            lambda:self._run_button_action(
+                self.rampApplyLengthButton,self.apply_ramp_length_to_battery,
+                "กำลังใช้ค่า...","ใช้ระยะแล้ว ✓"
+            )
+        )
+        btnrow.addWidget(self.rampCalcButton);btnrow.addWidget(self.rampApplyAngleButton);btnrow.addWidget(self.rampApplyLengthButton)
         exportSlope=QPushButton("Export Slope PDF / ส่งออกทางลาด")
         exportSlope.setObjectName("primaryButton")
         exportSlope.clicked.connect(lambda:self.export_stability_mode_pdf("slope"))
