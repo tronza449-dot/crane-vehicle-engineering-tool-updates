@@ -401,14 +401,16 @@ class Model3D(QWidget):
         cuboid((bx,0,base_z),(0.38,0.38,.16),"#273444","#111827")
         ring3((bx,0,0),.26,base_z+.09,"#3b82f6",3,Qt.SolidLine,220)
 
-        # permitted rotation arc + end stops
+        # permitted rotation arc + end stops.
+        # Use LIMIT labels instead of angle numbers so report screenshots cannot be
+        # mistaken for the active crane angle shown in CRANE LIVE DATA.
         ring3((bx,0,0),max(.48,L*.58),base_z+.13,"#60a5fa",2,Qt.DashLine,145,-90,90)
-        for deg,label in [(-90,"-90°"),(0,"0°"),(90,"+90°")]:
+        for deg,label in [(-90,"LEFT LIMIT"),(0,"CENTER"),(90,"RIGHT LIMIT")]:
             a=math.radians(deg)
             rr=max(.48,L*.58)
             pt=(bx+rr*math.cos(a),rr*math.sin(a),base_z+.13)
             q,_=project(pt)
-            p.setPen(QColor("#2c5d96"));p.setFont(QFont("",8,QFont.Bold))
+            p.setPen(QColor("#6d86a0"));p.setFont(QFont("",7,QFont.Bold))
             p.drawText(q+QPointF(4,-4),label)
 
         # column
@@ -449,6 +451,8 @@ class Model3D(QWidget):
         marker=(bx+arm_r*math.cos(th),arm_r*math.sin(th),base_z+.13)
         mq,_=project(marker)
         p.setBrush(QColor("#2463eb"));p.setPen(QPen(QColor("white"),2));p.drawEllipse(mq,6,6)
+        p.setPen(QColor("#174a74"));p.setFont(QFont("",8,QFont.Bold))
+        p.drawText(mq+QPointF(10,-8),f"CURRENT θ = {self._display_angle:+.1f}°")
 
         # labels / HUD
         p.setPen(QColor("#102a43"))
@@ -8512,8 +8516,9 @@ void loop() {{
 
 
     def make_fbd(self):
-        w=QWidget();self.fbdPage=w; l=QVBoxLayout(w)
-        top=QHBoxLayout()
+        w=QWidget();self.fbdPage=w; l=QVBoxLayout(w);l.setSpacing(8)
+        top=QHBoxLayout();top.setSpacing(7)
+
         self.fbdModeCombo=QComboBox()
         self.fbdModeCombo.addItems([
             "Side Left / คว่ำซ้าย",
@@ -8522,72 +8527,146 @@ void loop() {{
             "Rear / คว่ำหลัง",
             "Slope / ทางลาด",
         ])
+
+        self.fbdViewMode=QComboBox()
+        self.fbdViewMode.addItem("Current Angle Snapshot / มุมปัจจุบัน","current")
+        self.fbdViewMode.addItem("Critical Case / มุมวิกฤตของด้านที่เลือก","critical")
+        self.fbdViewMode.addItem("Auto Current Worst / ด้านแย่สุด ณ มุมปัจจุบัน","auto")
+        self.fbdViewMode.setCurrentIndex(0)
+        self.fbdViewMode.setToolTip(
+            "Current Angle = ใช้มุม θ ปัจจุบันจาก Input\n"
+            "Critical Case = ใช้มุมวิกฤตที่โปรแกรมค้นหาให้สำหรับด้านที่เลือก\n"
+            "Auto Current Worst = เลือกด้านที่มี SF ต่ำสุด ณ มุมปัจจุบัน"
+        )
+
+        # Kept for backward compatibility with old project state/regression checks.
         self.fbdAuto=QCheckBox("Auto FBD: แสดงทิศทางวิกฤตตามมุมเครนปัจจุบัน")
-        self.fbdAuto.setChecked(True)
+        self.fbdAuto.setChecked(False);self.fbdAuto.setVisible(False)
+
         self.fbdSimple=QCheckBox("โหมดง่ายมาก (แนะนำสำหรับนำเสนอ)")
         self.fbdSimple.setChecked(True)
-        self.fbdCriticalLabel=QLabel("Critical direction: -")
-        self.fbdCriticalLabel.setStyleSheet("font-weight:700;color:#6542a5")
-        exportCurrentFBD=QPushButton("Export Current Mode PDF")
+
+        self.fbdCriticalLabel=QLabel("CURRENT ANGLE")
+        self.fbdCriticalLabel.setStyleSheet(
+            "font-weight:800;color:#174a74;background:#eef6ff;"
+            "border:1px solid #cfe2f5;border-radius:8px;padding:6px 10px"
+        )
+
+        exportCurrentFBD=QPushButton("Export Selected Critical FBD")
         exportCurrentFBD.setObjectName("primaryButton")
+        exportCurrentFBD.setToolTip("PDF แบบเลือก 1 case จะใช้ critical case ของด้านนั้น")
         exportCurrentFBD.clicked.connect(lambda:self.export_stability_mode_pdf(self.current_fbd_export_key()))
-        exportAllFBD=QPushButton("Export All Modes")
+        exportAllFBD=QPushButton("Export Full Engineering Report")
         exportAllFBD.clicked.connect(self.export_pdf_report)
-        top.addWidget(self.fbdModeCombo);top.addWidget(self.fbdAuto);top.addWidget(self.fbdSimple)
-        top.addWidget(exportCurrentFBD);top.addWidget(exportAllFBD);top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
-        self.forceDiagram=ForceDiagram(self);self.forceDiagram.setSimpleMode(True);l.addWidget(self.forceDiagram)
-        t=QPlainTextEdit(); t.setReadOnly(True); t.setMaximumHeight(220)
+
+        top.addWidget(QLabel("Case:"));top.addWidget(self.fbdModeCombo)
+        top.addWidget(QLabel("View:"));top.addWidget(self.fbdViewMode)
+        top.addWidget(self.fbdSimple)
+        top.addWidget(exportCurrentFBD);top.addWidget(exportAllFBD)
+        top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
+
+        self.forceDiagram=ForceDiagram(self);self.forceDiagram.setSimpleMode(True)
+        l.addWidget(self.forceDiagram,1)
+
+        self.fbdContextNote=QLabel()
+        self.fbdContextNote.setWordWrap(True)
+        self.fbdContextNote.setStyleSheet(
+            "background:#fff8e8;color:#6b4f16;border:1px solid #ead8a8;"
+            "border-radius:8px;padding:7px 10px;font-size:9.5pt"
+        )
+        l.addWidget(self.fbdContextNote)
+
+        t=QPlainTextEdit(); t.setReadOnly(True); t.setMaximumHeight(135)
         t.setPlainText("""FORMAL FBD CONVENTION / หลักการแผนภาพแรง
 
-แกนอ้างอิงรถ:
-+x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
+แกนอ้างอิงรถ: +x = ด้านหน้ารถ, +y = ด้านขวารถ, +z = ด้านบน
 มุมเครน: -90° = ซ้าย, 0° = หน้า, +90° = ขวา
-
-FBD ต้องแยกตัวรถออกจากพื้น แล้วแสดงแรงภายนอกและแรงปฏิกิริยา
-W_V = น้ำหนักรถส่วนหลัก, W_B = น้ำหนักแขน, W_L = น้ำหนัก Payload
-R_L/R_R = แรงปฏิกิริยาพื้นด้านซ้าย/ขวา
-R_F/R_Rr = แรงปฏิกิริยาแนวล้อหน้า/หลัง
-
 ที่จุดเริ่มคว่ำ Reaction ฝั่งตรงข้าม Tipping Axis → 0
-โมเมนต์: M = F × d_perpendicular
-Safety Factor: SF = M_R / M_O
+โมเมนต์: M = F × d_perpendicular     Safety Factor: SF = M_R / M_O
 
-หมายเหตุ Dynamic Factor:
-F_L,d = Kdyn × m_L × g เป็น Equivalent Design Load ใช้เฉพาะเมื่อ Payload
-สร้างโมเมนต์คว่ำ ไม่ใช่น้ำหนักจริงเพิ่มขึ้นทางกายภาพ
+สีในรูป:
+ดำ = Weight   เขียว = Reaction / Resisting arm
+แดง = Overturning arm / Tipping information   ส้ม = Crane structure
+ม่วง (Slope) = D'Alembert inertia / pseudo-force
 
-Slope FBD ใช้ weight components mg sin(alpha), mg cos(alpha)
-โดยไม่วาด W=mg ซ้ำในชุดแรงเดียวกัน และใช้ F_I = ma ตรงข้ามความเร่ง
-สำหรับ quasi-static tipping calculation.
+Slope FBD ใช้ mg sin(alpha), mg cos(alpha) และ F_I = ma โดยไม่วาด W=mg ซ้ำ.
 """)
         l.addWidget(t)
-        self.fbdExplain=QPlainTextEdit();self.fbdExplain.setReadOnly(True);self.fbdExplain.setMaximumHeight(120)
+
+        self.fbdExplain=QPlainTextEdit();self.fbdExplain.setReadOnly(True);self.fbdExplain.setMaximumHeight(88)
         self.fbdExplain.setPlainText("""FBD แบบเข้าใจง่าย / BEGINNER FBD
 ดูรูปนี้แค่ 4 อย่าง: Tipping Axis, แรงน้ำหนัก, Reaction และระยะแขนโมเมนต์
-ฝั่งพยายามทำให้คว่ำ = Overturning side
-ฝั่งช่วยต้านการคว่ำ = Resisting side
-โหมดง่ายลดข้อความบนรูป แต่สมการและค่าคำนวณยังเป็น Formal model เดียวกัน""")
+Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงกันเฉพาะเมื่อมุมปัจจุบันตรงกับมุมวิกฤตของ case นั้น""")
         l.addWidget(self.fbdExplain)
-        self.fbdModeCombo.currentIndexChanged.connect(lambda i: self.forceDiagram.setMode(i+1) if not self.fbdAuto.isChecked() else None)
-        self.fbdAuto.toggled.connect(self.update_auto_fbd)
+
+        self.fbdModeCombo.currentIndexChanged.connect(lambda _i:self.update_auto_fbd())
+        self.fbdViewMode.currentIndexChanged.connect(lambda _i:self.update_auto_fbd())
         self.fbdSimple.toggled.connect(self.forceDiagram.setSimpleMode)
         self.tabs.addTab(w,"3. FBD / แผนภาพแรง")
+        self.update_auto_fbd()
 
     def update_auto_fbd(self):
-        if not hasattr(self,"fbdAuto") or not hasattr(self,"forceDiagram"): return
-        if not self.fbdAuto.isChecked():
-            self.forceDiagram.setMode(self.fbdModeCombo.currentIndex()+1)
-            self.fbdCriticalLabel.setText("Manual FBD")
-            return
+        if not hasattr(self,"forceDiagram") or not hasattr(self,"fbdModeCombo"): return
         d=self.inputs()
-        sl=self.side_moment_balance(d,d["th"],"left")["sf"]
-        sr=self.side_moment_balance(d,d["th"],"right")["sf"]
-        front,rear=self.longitudinal_sf_at(d,d["th"])
-        vals=[("Side Left",sl,1),("Side Right",sr,2),("Front",front,3),("Rear",rear,4)]
-        typ,val,mode=min(vals,key=lambda x:x[1])
-        self.fbdModeCombo.blockSignals(True);self.fbdModeCombo.setCurrentIndex(mode-1);self.fbdModeCombo.blockSignals(False)
+        view=(self.fbdViewMode.currentData() if hasattr(self,"fbdViewMode") else "current") or "current"
+
+        # Legacy hidden checkbox follows the new Auto view for old state/check compatibility.
+        if hasattr(self,"fbdAuto"):
+            old=self.fbdAuto.blockSignals(True)
+            self.fbdAuto.setChecked(view=="auto")
+            self.fbdAuto.blockSignals(old)
+
+        if view=="auto":
+            sl=self.side_moment_balance(d,d["th"],"left")["sf"]
+            sr=self.side_moment_balance(d,d["th"],"right")["sf"]
+            front,rear=self.longitudinal_sf_at(d,d["th"])
+            vals=[("Side Left",sl,1),("Side Right",sr,2),("Front",front,3),("Rear",rear,4)]
+            typ,val,mode=min(vals,key=lambda x:x[1])
+            self.fbdModeCombo.blockSignals(True);self.fbdModeCombo.setCurrentIndex(mode-1);self.fbdModeCombo.blockSignals(False)
+            self.forceDiagram.setCaseAngle(None);self.forceDiagram.setMode(mode)
+            sftext="∞" if val>=999 else f"{val:.3f}"
+            self.fbdCriticalLabel.setText(f"AUTO CURRENT WORST • θ={d['th']:.1f}° • {typ} • SF {sftext}")
+            if hasattr(self,"fbdContextNote"):
+                self.fbdContextNote.setText(
+                    "กำลังแสดงด้านที่มี Safety Factor ต่ำสุด ณ มุมเครนปัจจุบัน "
+                    "นี่ไม่ใช่การค้นหา Critical Case ตลอดช่วง -90° ถึง +90°"
+                )
+            return
+
+        mode=self.fbdModeCombo.currentIndex()+1
         self.forceDiagram.setMode(mode)
-        self.fbdCriticalLabel.setText(f"Critical @ θ={d['th']:.0f}°: {typ} | SF={'∞' if val>=999 else f'{val:.3f}'}")
+
+        if view=="critical":
+            cases=self.stability_fbd_cases(d)
+            case=cases[min(max(mode-1,0),len(cases)-1)]
+            self.forceDiagram.setCaseAngle(case["angle"])
+            sftext="∞" if case["sf"]>=999 else f"{case['sf']:.3f}"
+            if case["angle"] is None:
+                angle_text=f"α={math.degrees(self.slope_stability_results(d)['alpha']):.2f}°"
+            else:
+                angle_text=f"θ={case['angle']:.1f}°"
+            self.fbdCriticalLabel.setText(f"CRITICAL CASE • {angle_text} • SF {sftext}")
+            if hasattr(self,"fbdContextNote"):
+                self.fbdContextNote.setText(
+                    "Critical Case View: รูปนี้ใช้มุมวิกฤตที่ค้นหาสำหรับ case ที่เลือก "
+                    "จึงอาจไม่เท่ากับมุม θ ปัจจุบันในหน้า Stability Input"
+                )
+        else:
+            self.forceDiagram.setCaseAngle(None)
+            labels=["Side Left","Side Right","Front","Rear","Slope"]
+            if mode==1: val=self.side_moment_balance(d,d["th"],"left")["sf"]
+            elif mode==2: val=self.side_moment_balance(d,d["th"],"right")["sf"]
+            elif mode==3: val=self.longitudinal_moment_balance(d,d["th"],"front")["sf"]
+            elif mode==4: val=self.longitudinal_moment_balance(d,d["th"],"rear")["sf"]
+            else: val=self.slope_stability_results(d)["sf"]
+            sftext="∞" if val>=999 else f"{val:.3f}"
+            angle_text=f"θ={d['th']:.1f}°" if mode!=5 else f"α={math.degrees(self.slope_stability_results(d)['alpha']):.2f}°"
+            self.fbdCriticalLabel.setText(f"CURRENT ANGLE • {angle_text} • {labels[mode-1]} • SF {sftext}")
+            if hasattr(self,"fbdContextNote"):
+                self.fbdContextNote.setText(
+                    "Current Angle Snapshot: ใช้ค่ามุมปัจจุบันจาก Input เพื่อดูสภาพตอนนี้ "
+                    "ผลอาจต่างจากหน้า Critical Case และจาก PDF critical-case summary"
+                )
 
     def make_components(self):
         w=QWidget();self.componentsPage=w; l=QVBoxLayout(w)
@@ -9176,8 +9255,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>
             <h2>Equation and substitution</h2>{detail}
             <p><b>Required:</b> SF ≥ {d['req']:.2f} &nbsp; | &nbsp; <b>Result:</b> SF = {sftext} → {status}</p>
-            <p style='font-size:9pt;color:#52606d'>At impending tipping, the support reaction opposite the selected tipping axis tends to zero.
-            Payload Kdyn is used only as an equivalent adverse design load in the overturning moment.</p>""")
+            <p style='font-size:9pt;color:#52606d'>{"Slope case uses the combined driving mass/CG with the payload stowed on the vehicle; Kdyn is not applied in this slope equation." if case["key"]=="slope" else "At impending tipping, the support reaction opposite the selected tipping axis tends to zero. Payload Kdyn is used only as an equivalent adverse design load when the payload contributes to overturning."}</p>""")
             summary.append(f"<tr><td>{i}</td><td>{case['title']}</td><td>{'-' if case['angle'] is None else f'{case['angle']:.1f}°'}</td><td>{sftext}</td><td>{status}</td></tr>")
         head=f"""<h2>FORMAL FBD CASE SUMMARY — CRITICAL-CASE SECTION</h2>
         <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
@@ -9230,8 +9308,10 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             <tr><td>Total mass</td><td>{d['mt']:.2f} kg</td></tr>
             <tr><td>Payload / Boom</td><td>{d['ml']:.2f} / {d['mb']:.2f} kg</td></tr>
             <tr><td>Track / Wheelbase</td><td>{d['W']:.3f} / {d['WB']:.3f} m</td></tr>
-            <tr><td>Worst crane-mode stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
-            <tr><td>Uphill stability</td><td>{'∞' if slope['sf']>=999 else f"{slope['sf']:.3f}"}</td></tr></table>
+            <tr><td>Current crane input angle</td><td>θ = {d['th']:.1f}°</td></tr>
+            <tr><td>Worst critical-case stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
+            <tr><td>Uphill rear-tipping stability</td><td>{'∞' if slope['sf']>=999 else f"{slope['sf']:.3f}"}</td></tr>
+            <tr><td>Overall preliminary status</td><td><b>{'PASS' if worst[0]>=d['req'] and slope['sf']>=d['req'] else 'FAIL / revise geometry or operating limits'}</b></td></tr></table>
             <p><b>Method:</b> rigid-body moment balance about each tipping axis. FBDs show external weights/reactions and the selected tipping axis.
             Dynamic factor is an equivalent design multiplier on adverse payload moment only.</p>"""
             html=("<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
@@ -9898,6 +9978,9 @@ class GraphWidget(QWidget):
         for lab,col in zip(labels,colors):
             p.setPen(QPen(col,3));p.drawLine(x,44,x+24,44);p.setPen(col);p.drawText(x+30,48,lab);x+=118
         p.setPen(QColor("#475569"));p.drawText(L,B+49,"Crane rotation angle θ (deg)")
+        if any(v>ymax for row in data for v in row[1:] if v<999):
+            p.setPen(QColor("#7a5a12"));p.setFont(QFont("Arial",7,QFont.Bold))
+            p.drawText(R-220,28,f"DISPLAY NOTE: SF > {ymax:.1f} is clipped for readability")
 
 class MotorOperatingGraphWidget(QWidget):
     """Shows required operating point against user-entered limits; deliberately not a fabricated torque-speed curve."""
