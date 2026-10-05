@@ -163,6 +163,49 @@ jobs:
           assert web_stability["slope"]["sf"]>=0
           assert web_stability["front"]["components"] and web_stability["rear"]["components"]
 
+          # Web Component Mass mode must mirror the Desktop grouping rules.
+          component_rows=[
+              {"name":"Frame / โครงรถ","mass_kg":55,"x_m":0.00,"y_m":0.00,"z_m":0.35},
+              {"name":"Battery / แบตเตอรี่","mass_kg":35,"x_m":0.00,"y_m":0.00,"z_m":0.25},
+              {"name":"Drive motors / มอเตอร์ขับ","mass_kg":20,"x_m":0.00,"y_m":0.00,"z_m":0.18},
+              {"name":"Support wheels / ล้อพยุง","mass_kg":15,"x_m":0.00,"y_m":0.00,"z_m":0.18},
+              {"name":"Crane column / เสาเครน","mass_kg":30,"x_m":-0.40,"y_m":0.00,"z_m":0.78},
+              {"name":"Slewing drive+bearing / ชุดหมุนเครน","mass_kg":10,"x_m":-0.40,"y_m":0.00,"z_m":0.82},
+              {"name":"Winch / วินช์","mass_kg":15,"x_m":-0.40,"y_m":0.00,"z_m":0.90},
+              {"name":"Boom / แขนเครน","mass_kg":20,"x_m":-0.10,"y_m":0.00,"z_m":1.28},
+              {"name":"Basket / ตะกร้า","mass_kg":20,"x_m":0.00,"y_m":0.00,"z_m":0.60},
+              {"name":"Payload / ซากสัตว์","mass_kg":80,"x_m":0.00,"y_m":0.00,"z_m":0.60},
+              {"name":"Counterweight / ตุ้มน้ำหนัก","mass_kg":0,"x_m":-0.45,"y_m":0.00,"z_m":0.25},
+              {"name":"Other / อื่นๆ","mass_kg":0,"x_m":0.00,"y_m":0.00,"z_m":0.30},
+          ]
+          web_component=webcalc.calculate_stability({
+              "mass_mode":"components","components":component_rows,
+              "track_width_m":1.1,"wheelbase_m":1.1,"boom_length_m":1.2,
+              "crane_angle_deg":-66.0,"dynamic_factor":1.2,"required_sf":1.5,
+              "crane_from_rear_m":0.15,"slope_deg":11.11,"slope_accel_mps2":0.28
+          })
+          assert web_component["mass_mode"]=="components"
+          assert abs(web_component["total_mass_kg"]-300.0)<1e-9
+          assert abs(web_component["base_vehicle_mass_kg"]-180.0)<1e-9
+          assert abs(web_component["boom_mass_kg"]-20.0)<1e-9
+          assert abs(web_component["payload_mass_kg"]-100.0)<1e-9
+          assert abs(web_component["component_summary"]["total_mass_kg"]-300.0)<1e-9
+          web_component_equiv=webcalc.calculate_stability({
+              "mass_mode":"total",
+              "total_mass_kg":web_component["total_mass_kg"],
+              "payload_mass_kg":web_component["payload_mass_kg"],
+              "boom_mass_kg":web_component["boom_mass_kg"],
+              "vehicle_cg_x_from_center_m":web_component["vehicle_cg_x_m"],
+              "vehicle_cg_y_m":web_component["vehicle_cg_y_m"],
+              "track_width_m":1.1,"wheelbase_m":1.1,"boom_length_m":1.2,
+              "crane_angle_deg":-66.0,"dynamic_factor":1.2,"required_sf":1.5,
+              "crane_from_rear_m":0.15,"slope_deg":11.11,"slope_accel_mps2":0.28,
+              "combined_cg_from_rear_m":web_component["slope"]["combined_cg_from_rear_m"],
+              "combined_cg_height_m":web_component["slope"]["combined_cg_height_m"],
+          })
+          for key in ("side_left","side_right","front","rear","slope"):
+              assert abs(web_component["current_cases"][key]["sf"]-web_component_equiv["current_cases"][key]["sf"])<1e-9
+
           # Desktop PDF/FBD source must expose all 5 engineering cases.
           assert "def stability_fbd_cases" in source
           assert "def stability_fbd_report_html" in source
@@ -194,6 +237,12 @@ jobs:
           assert "Engineering FBD / แผนภาพแรงบนเว็บ" in web_html
           assert 'id="webFbdCase"' in web_html and 'id="webFbdView"' in web_html
           assert "function renderWebFbd" in web_js
+          assert "function stabilityPayload" in web_js
+          assert "function stabilityComponentRows" in web_js
+          assert "calc-flow-strip" in web_js and "calc-step-card" in web_js
+          assert 'name="mass_mode"' in web_html
+          assert 'id="stabilityComponentBody"' in web_html
+          assert "Component Mass & CG Table" in web_html
           assert "function buttonBusy" in web_js
           assert "function buttonSuccess" in web_js
           assert "function actionToast" in web_js
