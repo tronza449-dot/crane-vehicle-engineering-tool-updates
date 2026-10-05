@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.9"
+APP_VERSION = "53.8.10"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 
 def resource_path(relative_path):
@@ -4728,35 +4728,41 @@ void loop() {{
     def electrical_variables_html(self):
         q=self.electrical_results()
         rows=[
-            ("m","มวลรวมรถที่ใช้คำนวณพลังงาน","kg",f"{q['m']:.1f}","ควรรวมรถ เครน แบตเตอรี่ และ Payload โดยไม่ซ้ำ"),
-            ("V","แรงดันแบตเตอรี่หลัก","V",f"{q['V']:.1f}","ระบบขับ 72 V ในแบบปัจจุบัน"),
+            ("m","มวลรวมรถพร้อมโหลด","kg",f"{q['m']:.1f}","ใช้ทุกช่วงของ Cycle"),
+            ("V","แรงดันแบตเตอรี่หลัก","V",f"{q['V']:.1f}","ระบบขับ 72 V"),
             ("v","ความเร็วรถ","m/s",f"{q['v']:.5f}",f"{self.espeed.value():.2f} km/h"),
-            ("d_oneway","ระยะทางเที่ยวเดียว","m",f"{q['one']:.2f}","ไป-กลับต่อรอบ = 2 × d_oneway"),
-            ("L_slope","ความยาวช่วงทางลาดต่อเที่ยว","m",f"{q['Ls']:.2f}","ใช้หาพลังงานช่วงขึ้นลาด"),
-            ("θ","มุมทางลาด","deg",f"{self.eslopeDeg.value():.1f}","ใช้หาแรงโน้มถ่วงตามทางลาด"),
-            ("t_runtime","เวลาทำงานรวม","h",f"{q['runtime_h']:.2f}","ใช้คำนวณจำนวนรอบและ Aux energy"),
-            ("Crr","สัมประสิทธิ์แรงต้านการกลิ้ง","-",f"{q['crr']:.3f}","แรงสูญเสียจากยาง/พื้น"),
-            ("t_acc","เวลาเร่ง","s",f"{self.eaccel.value():.2f}","พลังงานจลน์ไม่ขึ้นกับเวลา แต่เวลานี้ใช้ตรวจ Peak force/current"),
-            ("a_acc","ความเร่งช่วงออกตัว","m/s²",f"{q['accel_a']:.4f}","v ÷ t_acc"),
-            ("P_down","กำลังขับขาลงแบบ No Regen","W",f"{q['Pdown_mech']:.2f}","เป็น 0 เมื่อแรงโน้มถ่วงพอให้รถไหลลงเอง"),
-            ("I_peak,calc","กระแสคำนวณสูงสุดจากขึ้นลาด/เร่ง","A",f"{q['Icalc_peak']:.2f}","ใช้ประกอบการเลือก BMS/สาย"),
-            ("N_start","จำนวนครั้งออกตัวต่อรอบ","ครั้ง",str(self.estops.value()),"พลังงานจลน์ถูกคิดตามจำนวนครั้งนี้"),
-            ("t_stop","เวลาหยุดต่อรอบ","s",f"{q['stop_s']:.1f}","มีผลต่อจำนวนรอบในเวลาทำงาน"),
-            ("η_drive","ประสิทธิภาพระบบขับสมมติ","%",f"{self.edriveEff.value():.1f}","ใช้แปลง Mechanical → Electrical"),
-            ("P_aux","กำลังอุปกรณ์เสริมเฉลี่ย","W",f"{self.eaux.value():.1f}","เช่น ESP32, Relay, Display, Buzzer"),
-            ("DoD","สัดส่วนความจุแบตเตอรี่ที่อนุญาตให้ใช้","%",f"{self.edod.value():.1f}","ไม่ควรตีความเป็นความจุรวมทั้งหมด"),
-            ("Reserve","พลังงานสำรองที่เผื่อ","%",f"{self.ereserve.value():.1f}","เพิ่มความจุเพื่อเผื่อความคลาดเคลื่อน"),
-            ("P_rated","กำลังพิกัดมอเตอร์ต่อหนึ่งตัว","W",f"{self.emotorRated.value():.0f}","ใช้ใน Worst-case model"),
-            ("n_motor","จำนวนมอเตอร์ขับ","ตัว",str(self.enmot.value()),"ปัจจุบัน 2 Hub Motors"),
-            ("η_up","ประสิทธิภาพกรณี Worst-case ขึ้นลาด","%",f"{self.eupEff.value():.1f}","ใช้ประเมินกระแส/พลังงานหนักสุด"),
-            ("Emech","พลังงานกลรวม","Wh",f"{q['Emech_total']:.1f}","พลังงานเชิงกลก่อนความสูญเสีย"),
-            ("Edrive","พลังงานไฟฟ้าขับเคลื่อนที่เลือกใช้","Wh",f"{q['Edrive']:.1f}","ขึ้นกับ Calculated/Worst-case mode"),
-            ("Eaux","พลังงานอุปกรณ์เสริม","Wh",f"{q['Eaux']:.1f}","Paux × runtime"),
-            ("Edesign","พลังงานแบตเตอรี่หลัง DoD + Reserve","Wh",f"{q['Edesign']:.1f}","ใช้แปลงเป็น Ah"),
-            ("Ah","ความจุแบตเตอรี่ที่คำนวณได้","Ah",f"{q['Ah']:.2f}","ยังต้องตรวจกระแสและ BMS แยก"),
-            ("Iworst","กระแส Worst-case indicator","A",f"{q['Iworst']:.1f}","ใช้เป็นตัวชี้เบื้องต้น ไม่ใช่กระแส Peak ที่ยืนยัน"),
+            ("d_oneway","ระยะเที่ยวเดียวทั้งหมด","m",f"{q['one']:.2f}","ทางราบ + ทางลาด"),
+            ("L_slope","ระยะทางลาดต่อเที่ยว","m",f"{q['Ls']:.2f}","ค่าปัจจุบันจากเส้นทาง"),
+            ("d_flat","ระยะทางราบต่อเที่ยว","m",f"{q['flat_oneway']:.2f}","d_oneway - L_slope"),
+            ("d_cycle","ระยะรวม 1 Cycle","m",f"{q['cycle_distance']:.2f}","2 × d_oneway"),
+            ("θ","มุมทางลาด","deg",f"{self.eslopeDeg.value():.2f}","ใช้ sinθ และ cosθ"),
+            ("Crr","สัมประสิทธิ์แรงต้านการกลิ้ง","-",f"{q['crr']:.3f}","แบบประมาณ"),
+            ("η","ประสิทธิภาพระบบขับโดยประมาณ","%",f"{self.edriveEff.value():.1f}","แปลงงานกลเป็นไฟจากแบต"),
+            ("F_flat","แรงต้านบนทางราบ","N",f"{q['Fflat']:.2f}","Crr m g"),
+            ("F_grade","แรงจากความชัน","N",f"{q['Fgrade']:.2f}","m g sinθ"),
+            ("F_rr,slope","แรงต้านกลิ้งบนทางลาด","N",f"{q['Frrs']:.2f}","Crr m g cosθ"),
+            ("F_up","แรงขับช่วงขึ้นลาด","N",f"{q['Fup']:.2f}","F_grade + F_rr,slope"),
+            ("F_down","แรงขับที่ยังต้องใช้ช่วงลงลาด","N",f"{q['Fdown']:.2f}","max(0,F_rr,slope-F_grade)"),
+            ("E_flat,oneway","พลังงานไฟทางราบต่อเที่ยว","Wh",f"{q['Eflat_batt_oneway']:.3f}","F d /(η×3600)"),
+            ("E_up,slope","พลังงานไฟช่วงขึ้นลาด","Wh",f"{q['Eup_batt_cycle']:.3f}","ช่วงลาดขาไป"),
+            ("E_down,slope","พลังงานไฟช่วงลงลาด","Wh",f"{q['Edown_batt_cycle']:.3f}","ไม่หักพลังงานคืน"),
+            ("E_go","พลังงานขับเที่ยวไป","Wh",f"{q['Eout_drive']:.3f}","ทางราบ + ขึ้นลาด"),
+            ("E_return","พลังงานขับเที่ยวกลับ","Wh",f"{q['Ereturn_drive']:.3f}","ลงลาด + ทางราบ"),
+            ("E_drive,cycle","พลังงานขับ 1 Cycle","Wh",f"{q['Edrive_cycle']:.3f}","E_go + E_return"),
+            ("P_aux","กำลังอุปกรณ์เสริมเฉลี่ย","W",f"{self.eaux.value():.1f}","ESP32/จอ/รีเลย์ ฯลฯ"),
+            ("E_aux,cycle","พลังงานอุปกรณ์เสริมต่อ Cycle","Wh",f"{q['Eaux_cycle']:.3f}","P_aux × t_cycle"),
+            ("E_cycle","พลังงานรวมต่อ Cycle","Wh",f"{q['Ecycle']:.3f}","E_drive,cycle + E_aux,cycle"),
+            ("N_cycle","จำนวน Cycle เต็ม","Cycle",str(q["cycles"]),"floor(t_runtime/t_cycle)"),
+            ("E_total","พลังงานรวมทุก Cycle","Wh",f"{q['Eload']:.2f}","E_cycle × N_cycle"),
+            ("DoD","สัดส่วนความจุที่ใช้ได้","%",f"{q['dod']*100:.1f}","เผื่อไม่ใช้แบตจนหมด"),
+            ("Reserve","พลังงานสำรอง","%",f"{q['reserve']*100:.1f}","เผื่อความคลาดเคลื่อน"),
+            ("E_design","พลังงานแบตที่ควรมี","Wh",f"{q['Edesign']:.2f}","หลัง DoD + Reserve"),
+            ("Ah","ความจุแบตที่คำนวณได้","Ah",f"{q['Ah']:.2f}","E_design / V"),
+            ("I_up","กระแสช่วงขึ้นลาดโดยประมาณ","A",f"{q['Icalc_up']:.2f}","ใช้ตรวจ BMS เบื้องต้น แยกจากการคำนวณ Ah"),
         ]
-        return self._variable_table_html("ELECTRICAL / BATTERY — ตารางตัวแปร","ตัวแปรเส้นทาง พลังงาน ความจุ และกระแสของแบตเตอรี่หลัก",rows)
+        return self._variable_table_html("MAIN BATTERY 72 V — SIMPLE CYCLE VARIABLES",
+                                         "ตัวแปรแบบย่อสำหรับคำนวณพลังงานต่อ Cycle แล้วหา Wh/Ah",rows)
+
 
     def winch_variables_html(self):
         q=self.winch_results();b=self.winch_battery_results() if hasattr(self,"wbVoltage") else None;sp=self.winch_speed_results()
@@ -5894,7 +5900,7 @@ void loop() {{
 
     def bms_check_html(self):
         t=self.torque_results();e=self.electrical_results();w=self.winch_results()
-        main_cont_req=max(t['Ibatt'],e['Icalc_up']);main_peak_ind=max(e['Iworst'],e.get('Icalc_peak',0),self.controllerCurrent.value()*t['n'])
+        main_cont_req=max(t['Ibatt'],e['Icalc_up']);main_peak_ind=max(e['Icalc_up'],self.controllerCurrent.value()*t['n'])
         br=self.battery_selection_results() if hasattr(self,"bselTargetContC") else None
         winch_cont_req=w['iup'];label_current=self.wrated.value()/max(self.wvolt.value(),.1);winch_peak_ind=max(w['iup'],w.get("max_spec_current",140.0))
         def st(sel,req):
@@ -5907,7 +5913,7 @@ void loop() {{
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Required design capacity</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td><td>Selected {self.mainSelectedAh.value():.1f} Ah → {st(self.mainSelectedAh.value(),e['Ah'])}</td></tr>
         <tr><td>Continuous-current indicator</td><td>max(Torque model {t['Ibatt']:.1f}, Calculated uphill {e['Icalc_up']:.1f}) = {main_cont_req:.1f} A</td><td>BMS {self.mainBMSCont.value():.1f} A → {st(self.mainBMSCont.value(),main_cont_req)}</td></tr>
-        <tr><td>Peak/conservative indicator</td><td>max(Worst battery {e['Iworst']:.1f}, calculated accel {e.get('Icalc_peak',0):.1f}, controller-limit indicator {self.controllerCurrent.value()*t['n']:.1f}) = {main_peak_ind:.1f} A</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → {st(self.mainBMSPeak.value(),main_peak_ind)}</td></tr></table>
+        <tr><td>Peak/conservative indicator</td><td>max(Simple-cycle uphill {e['Icalc_up']:.1f}, controller-limit indicator {self.controllerCurrent.value()*t['n']:.1f}) = {main_peak_ind:.1f} A</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → {st(self.mainBMSPeak.value(),main_peak_ind)}</td></tr></table>
         <h3>Winch 12 V Separate Battery</h3>
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Required design capacity</td><td>{w['ah']:.2f} Ah @ {w['v']:.1f} V</td><td>Selected {self.winchSelectedAh.value():.1f} Ah → {st(self.winchSelectedAh.value(),w['ah'])}</td></tr>
@@ -5944,7 +5950,7 @@ void loop() {{
         main_cont=max(t['Ibatt'],e['Icalc_up'])
         if self.mainBMSCont.value()>0:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A",f"{self.mainBMSCont.value():.1f} A",self.mainBMSCont.value()>=main_cont)
         else:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A","Not set",False,"กรอกพิกัด BMS",True)
-        peak_calc=max(e['Iworst'],e.get('Icalc_peak',0))
+        peak_calc=max(e['Icalc_up'],0.0)
         if self.mainBMSPeak.value()>0:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A",f"{self.mainBMSPeak.value():.1f} A",self.mainBMSPeak.value()>=peak_calc,"VESC battery-current limit ต้องตรวจแยกจาก phase/motor current")
         else:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A","Not set",False,"กรอกพิกัด Peak ของ Pack/BMS",True)
         if self.winchSelectedAh.value()>0:add("Winch Battery","Energy capacity",f"≥ {w['ah']:.2f} Ah",f"{self.winchSelectedAh.value():.1f} Ah",self.winchSelectedAh.value()>=w['ah'])
@@ -7077,7 +7083,8 @@ void loop() {{
         self.espeed=ds(1,.05,50,2); self.eoneway=ds(30,.1,10000,2)
         self.eslopeLen=ds(2.9,0,1000,3); self.eslopeDeg=ds(12,0,45,2)
         self.eruntime=ds(3,.01,48,2); self.err=ds(.02,0,1,3)
-        self.eaccel=ds(5,.1,120,2); self.estops=QSpinBox();self.estops.setRange(0,20);self.estops.setValue(2);self.estops.setMinimumWidth(150);self.estops.setMaximumWidth(250)
+        # Compatibility-only controls retained internally; acceleration/start energy is NOT used by the simple cycle energy model.
+        self.eaccel=ds(5,.1,120,2); self.estops=QSpinBox();self.estops.setRange(0,20);self.estops.setValue(0)
         self.estopTime=ds(0,0,3600,1)
         self.euseOperationCycle=QCheckBox("รวมเวลายกจาก Winch Operating Cycles อัตโนมัติ")
         self.euseOperationCycle.setChecked(True)
@@ -7086,30 +7093,32 @@ void loop() {{
         self.eOperationTimeNote.setStyleSheet("background:#eef8ff;color:#294d6b;padding:8px;border:1px solid #d3e6f5;border-radius:8px")
         self.edriveEff=ds(60,1,100,1); self.eaux=ds(50,0,5000,1)
         self.edod=ds(80,1,100,1); self.ereserve=ds(20,0,200,1)
-        self.emotorRated=ds(1500,1,50000,0); self.enmot=QSpinBox();self.enmot.setRange(1,8);self.enmot.setValue(2);self.enmot.setMinimumWidth(150);self.enmot.setMaximumWidth(250)
-        self.eupEff=ds(80,1,100,1)
+        # Compatibility-only references for older project files / regression checks.
+        self.emotorRated=ds(1500,1,50000,0); self.enmot=QSpinBox();self.enmot.setRange(1,8);self.enmot.setValue(2)
+        self.eupEff=ds(60,1,100,1)
         self.euseTorqueMass=QCheckBox("ใช้ Total mass จาก Stability / Mass & CG");self.euseTorqueMass.setChecked(False)
         for lab,q in [
             ("มวลรวมรถ m (kg)",self.emass),("Battery voltage (V)",self.evolt),
-            ("ความเร็ว (km/h)",self.espeed),("ระยะเที่ยวเดียว (m)",self.eoneway),
-            ("ความยาวทางลาดต่อเที่ยว (m)",self.eslopeLen),("มุมทางลาด (deg)",self.eslopeDeg),
+            ("ความเร็ว (km/h)",self.espeed),("ระยะเที่ยวเดียวทั้งหมด (m)",self.eoneway),
+            ("ระยะทางลาดต่อเที่ยว (m)",self.eslopeLen),("มุมทางลาด (deg)",self.eslopeDeg),
             ("เวลาทำงาน (h)",self.eruntime),("Rolling resistance Crr",self.err),
-            ("เวลาเร่ง 0→v (s)",self.eaccel),("จำนวนครั้งออกตัวต่อรอบ",self.estops),
-            ("เวลาหยุดอื่นต่อรอบ (s)",self.estopTime),("Estimated drive efficiency (%)",self.edriveEff),
+            ("เวลาหยุดอื่นต่อ Cycle (s)",self.estopTime),("ประสิทธิภาพระบบขับโดยประมาณ (%)",self.edriveEff),
             ("Auxiliary average power (W)",self.eaux),("Usable DoD (%)",self.edod),
-            ("Battery reserve (%)",self.ereserve),("Motor rated power / motor (W)",self.emotorRated),
-            ("จำนวนมอเตอร์",self.enmot),("Worst-case slope efficiency (%)",self.eupEff)
+            ("Battery reserve (%)",self.ereserve)
         ]: form.addRow(lab,q)
         form.addRow(self.euseOperationCycle)
         form.addRow(self.eOperationTimeNote)
         form.addRow(self.euseTorqueMass);left.setMinimumWidth(410);hl.addWidget(left,1)
 
         right=QWidget();right.setMinimumWidth(340);rv=QVBoxLayout(right)
-        modeBox=QGroupBox("Slope Energy Model / วิธีคิดช่วงขึ้นทางลาด");mb=QVBoxLayout(modeBox)
-        self.ecalcRadio=QRadioButton("Calculated model: F = mg sinθ + Crr·mg cosθ (+ acceleration)")
-        self.eworstRadio=QRadioButton("Worst-case model: ใช้ Rated Power ของมอเตอร์เต็มช่วงขึ้นลาด")
-        self.ecalcRadio.setChecked(True);mb.addWidget(self.ecalcRadio);mb.addWidget(self.eworstRadio)
-        rv.addWidget(modeBox)
+        modeBox=QGroupBox("SIMPLE CYCLE ENERGY MODEL / คำนวณแบบ 1 Cycle");mb=QVBoxLayout(modeBox)
+        self.ecalcRadio=QRadioButton("Simple Cycle model");self.ecalcRadio.setChecked(True)
+        self.eworstRadio=QRadioButton("Legacy compatibility");self.eworstRadio.setChecked(False)
+        cycleNote=QLabel("1 Cycle = ไป 30 m + กลับ 30 m\n"
+                         "แต่ละเที่ยวแยกเป็น: ทางราบ + ทางลาด\n"
+                         "คิดพลังงานจาก F × s แบบหยาบ ไม่คิดพลังงานช่วงออกตัว และไม่หักพลังงานคืนจากทางลง")
+        cycleNote.setWordWrap(True);cycleNote.setStyleSheet("background:#eef8ff;color:#294d6b;padding:10px;border:1px solid #d3e6f5;border-radius:8px")
+        mb.addWidget(cycleNote);rv.addWidget(modeBox)
         self.eSummary=QLabel();self.eSummary.setWordWrap(True)
         self.eSummary.setStyleSheet("font-size:11pt;font-weight:700;background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #eefaf4,stop:1 #f8fffb);color:#155b2a;padding:15px;border:1px solid #a9d7ba;border-radius:11px")
         rv.addWidget(self.eSummary)
@@ -7148,9 +7157,9 @@ void loop() {{
         c,self.tripTimeLabel=energy_card("เวลา 1 รอบ","#245fbb");grid.addWidget(c,0,1)
         c,self.tripCountLabel=energy_card("จำนวนรอบในเวลาที่กำหนด","#7c3aed");grid.addWidget(c,1,0)
         c,self.tripEnergyLabel=energy_card("พลังงานขับ / 1 รอบ","#0f8a73");grid.addWidget(c,1,1)
-        c,self.tripDriveTotalLabel=energy_card("พลังงานขับรวมทุก รอบ","#0f8a73");grid.addWidget(c,2,0)
-        c,self.tripAuxLabel=energy_card("ไฟอุปกรณ์เสริมรวม","#d97706");grid.addWidget(c,2,1)
-        c,self.tripLoadTotalLabel=energy_card("พลังงานรวมก่อนเผื่อแบต","#c45114");grid.addWidget(c,3,0)
+        c,self.tripDriveTotalLabel=energy_card("พลังงานเที่ยวไป","#0f8a73");grid.addWidget(c,2,0)
+        c,self.tripAuxLabel=energy_card("พลังงานเที่ยวกลับ","#d97706");grid.addWidget(c,2,1)
+        c,self.tripLoadTotalLabel=energy_card("พลังงานรวมทุก Cycle","#c45114");grid.addWidget(c,3,0)
         c,self.tripBatteryLabel=energy_card("แบตที่ต้องการหลัง DoD + Reserve","#b42318");grid.addWidget(c,3,1)
         grid.setColumnStretch(0,1);grid.setColumnStretch(1,1)
         tripOuter.addLayout(grid)
@@ -7240,35 +7249,36 @@ void loop() {{
         self.eTabs.addTab(res,"Battery Result")
 
         controls=[self.emass,self.evolt,self.espeed,self.eoneway,self.eslopeLen,self.eslopeDeg,self.eruntime,
-                  self.err,self.eaccel,self.estopTime,self.edriveEff,self.eaux,self.edod,self.ereserve,
-                  self.emotorRated,self.eupEff]
+                  self.err,self.estopTime,self.edriveEff,self.eaux,self.edod,self.ereserve]
         for q in controls:q.valueChanged.connect(self.calc_electrical)
-        self.estops.valueChanged.connect(self.calc_electrical);self.enmot.valueChanged.connect(self.calc_electrical)
-        self.ecalcRadio.toggled.connect(self.calc_electrical);self.eworstRadio.toggled.connect(self.calc_electrical)
+        self.ecalcRadio.toggled.connect(self.calc_electrical)
         self.euseTorqueMass.toggled.connect(self.calc_electrical)
         self.euseOperationCycle.toggled.connect(self.calc_electrical)
         self.tabs.addTab(w,"Electrical / Battery")
         self.calc_electrical()
 
     def electrical_results(self):
-        m=self.mt.value() if self.euseTorqueMass.isChecked() and hasattr(self,"mt") else self.emass.value()
-        g=G; V=self.evolt.value(); v=self.espeed.value()/3.6
-        one=self.eoneway.value(); Ls=min(self.eslopeLen.value(),one); theta=math.radians(self.eslopeDeg.value())
-        runtime_h=self.eruntime.value(); runtime_s=runtime_h*3600.0
+        """Simple route-cycle energy model for the 72 V traction battery.
 
-        # 1 operating round = drive out/back + lifting time + other stop.
-        # Winch energy is excluded from the 72 V main battery because the project
-        # uses a separate 12 V winch battery; only the lifting TIME affects how
-        # many complete driving rounds fit inside the operating window.
-        other_stop_s=self.estopTime.value()
+        1 Cycle = outbound one-way route + return one-way route.
+        Each one-way route is split into flat distance and slope distance.
+        Start/acceleration energy and energy recovery are intentionally excluded
+        from the sizing energy model for a simple preliminary estimate.
+        """
+        m=self.mt.value() if self.euseTorqueMass.isChecked() and hasattr(self,"mt") else self.emass.value()
+        g=G;V=self.evolt.value();v=self.espeed.value()/3.6
+        one=max(0.0,self.eoneway.value());Ls=min(max(0.0,self.eslopeLen.value()),one)
+        flat_oneway=max(0.0,one-Ls)
+        theta=math.radians(self.eslopeDeg.value())
+        runtime_h=max(0.0,self.eruntime.value());runtime_s=runtime_h*3600.0
+
+        other_stop_s=max(0.0,self.estopTime.value())
         use_operation_cycle=bool(
             getattr(self,"euseOperationCycle",None)
             and self.euseOperationCycle.isChecked()
             and hasattr(self,"wopEvents")
         )
-        lift_event_s=0.0
-        lift_events_per_round=0
-        lift_round_s=0.0
+        lift_event_s=0.0;lift_events_per_round=0;lift_round_s=0.0
         if use_operation_cycle:
             op=self.winch_operation_results()
             lift_event_s=float(op["t_event"])
@@ -7288,156 +7298,148 @@ void loop() {{
         operation_time_used_s=cycles*cycle_total_s
         remaining_time_s=max(0.0,runtime_s-operation_time_used_s)
 
-        flat_cycle=max(0.0,cycle_distance-2.0*Ls)
-        flat_time_h=(flat_cycle/v)/3600.0 if v>0 else 0
-        up_time_h=(Ls/v)/3600.0 if v>0 else 0
+        flat_cycle=2.0*flat_oneway
+        flat_time_oneway_h=(flat_oneway/v)/3600.0 if v>0 else 0.0
+        flat_time_h=2.0*flat_time_oneway_h
+        up_time_h=(Ls/v)/3600.0 if v>0 else 0.0
         down_time_h=up_time_h
 
-        crr=self.err.value()
+        crr=max(0.0,self.err.value())
+        eff=max(self.edriveEff.value()/100.0,.01)
+
+        # Forces
         Fflat=crr*m*g
-        Pflat_mech=Fflat*v
         Fgrade=m*g*math.sin(theta)
         Frrs=crr*m*g*math.cos(theta)
         Fup=Fgrade+Frrs
-        Pup_mech=Fup*v
+        # On the downhill slope, gravity can provide all propulsion. Any excess is dissipated
+        # by rolling/braking losses; it is not credited back to the battery.
         Fdown=max(0.0,Frrs-Fgrade)
+
+        Pflat_mech=Fflat*v
+        Pup_mech=Fup*v
         Pdown_mech=Fdown*v
 
-        eff=max(self.edriveEff.value()/100.0,.01)
-        up_eff=max(self.eupEff.value()/100.0,.01)
-        Eflat_mech_cycle=Pflat_mech*flat_time_h
-        Eup_mech_cycle=Pup_mech*up_time_h
-        Edown_mech_cycle=Pdown_mech*down_time_h
+        # Mechanical energy per segment, then convert to estimated battery energy.
+        Eflat_mech_oneway=Fflat*flat_oneway/3600.0
+        Eup_mech_cycle=Fup*Ls/3600.0
+        Edown_mech_cycle=Fdown*Ls/3600.0
+        Eflat_mech_cycle=2.0*Eflat_mech_oneway
+        Emech_cycle=Eflat_mech_cycle+Eup_mech_cycle+Edown_mech_cycle
 
-        starts=self.estops.value()
-        accel_time=max(self.eaccel.value(),.01)
+        Eflat_batt_oneway=Eflat_mech_oneway/eff
+        Eup_batt_cycle=Eup_mech_cycle/eff
+        Edown_batt_cycle=Edown_mech_cycle/eff
+
+        # Outbound = flat + uphill slope. Return = downhill slope + flat.
+        Eout_drive=Eflat_batt_oneway+Eup_batt_cycle
+        Ereturn_drive=Edown_batt_cycle+Eflat_batt_oneway
+        Edrive_cycle=Eout_drive+Ereturn_drive
+
+        # Auxiliary energy is also expressed per completed cycle, matching the teacher's cycle method.
+        Eaux_cycle=self.eaux.value()*(cycle_total_s/3600.0) if cycle_total_s>0 else 0.0
+        Ecycle=Edrive_cycle+Eaux_cycle
+
+        Emech_total=Emech_cycle*cycles
+        Edrive=Edrive_cycle*cycles
+        Eaux=Eaux_cycle*cycles
+        Eload=Ecycle*cycles
+
+        dod=max(self.edod.value()/100.0,.01)
+        reserve=max(0.0,self.ereserve.value()/100.0)
+        Enom=Eload/dod
+        Edesign=Enom*(1.0+reserve)
+        Ah=Edesign/V if V>0 else 0.0
+
+        # Simple continuous-current reference from the uphill segment.
+        Icalc_up=(Pup_mech/eff)/V if V>0 else 0.0
+
+        # Compatibility-only peak indicator: retained for old BMS regression/project files,
+        # but it is not included in the cycle ENERGY sizing shown to the user.
+        accel_time=max(getattr(self,"eaccel",None).value() if hasattr(self,"eaccel") else 5.0,.01)
         accel_a=v/accel_time
         Facc_peak=m*accel_a
         Pacc_peak_mech=(Fup+Facc_peak)*v
-        Eacc_mech_cycle=(0.5*m*v*v/3600.0)*starts
-
-        Emech_cycle=Eflat_mech_cycle+Eup_mech_cycle+Edown_mech_cycle+Eacc_mech_cycle
-        Emech_total=Emech_cycle*cycles
-        Ecalc_drive_cycle=Emech_cycle/eff
-        Ecalc_drive=Ecalc_drive_cycle*cycles
-
-        rated_total=self.emotorRated.value()*self.enmot.value()
-        Pworst_batt=rated_total/up_eff
-        Eworst_up_cycle=Pworst_batt*up_time_h
-        Eflat_batt_cycle=Eflat_mech_cycle/eff
-        Edown_batt_cycle=Edown_mech_cycle/eff
-        Eacc_batt_cycle=Eacc_mech_cycle/eff
-        Eworst_drive_cycle=Eflat_batt_cycle+Edown_batt_cycle+Eacc_batt_cycle+Eworst_up_cycle
-        Eworst_drive=Eworst_drive_cycle*cycles
-
-        use_worst=self.eworstRadio.isChecked()
-        Edrive_cycle=Eworst_drive_cycle if use_worst else Ecalc_drive_cycle
-        Edrive=Edrive_cycle*cycles
-
-        # Auxiliary electronics are assumed ON for the full requested runtime.
-        Eaux=self.eaux.value()*runtime_h
-        Eload=Edrive+Eaux
-        dod=max(self.edod.value()/100.0,.01)
-        reserve=self.ereserve.value()/100.0
-        Enom=Eload/dod
-        Edesign=Enom*(1.0+reserve)
-        Ah=Edesign/V if V>0 else 0
-
-        Icalc_up=(Pup_mech/eff)/V if V>0 else 0
-        Icalc_accel=(Pacc_peak_mech/eff)/V if V>0 else 0
+        Icalc_accel=(Pacc_peak_mech/eff)/V if V>0 else 0.0
         Icalc_peak=max(Icalc_up,Icalc_accel)
-        Iworst=Pworst_batt/V if V>0 else 0
+
+        # Legacy aliases kept so Battery Selection / older project files keep working.
+        starts=0;Eacc_mech_cycle=0.0
+        Ecalc_drive_cycle=Edrive_cycle;Ecalc_drive=Edrive
+        up_eff=eff;rated_total=getattr(self,"emotorRated",None).value()*getattr(self,"enmot",None).value() if hasattr(self,"emotorRated") and hasattr(self,"enmot") else 0.0
+        Pworst_batt=Pup_mech/eff;Eworst_up_cycle=Eup_batt_cycle
+        Eworst_drive_cycle=Edrive_cycle;Eworst_drive=Edrive
+        Iworst=Icalc_up;use_worst=False
 
         return locals()
 
-    def equation_html(self, q):
-        """Qt rich text fraction layout; numerator is above denominator, not slash notation."""
-        from html import escape
-        def frac(top,bottom):
-            return (f"<table cellspacing='0' cellpadding='2' style='margin:3px 0'>"
-                    f"<tr><td align='center' style='border-bottom:1px solid #243b53'><b>{top}</b></td></tr>"
-                    f"<tr><td align='center'><b>{bottom}</b></td></tr></table>")
-        def section(title,description,formula,substitution,result):
-            return (f"<h3 style='color:#17456b'>{title}</h3>"
-                    f"<p><b>คำอธิบายภาษาไทย:</b> {description}</p>"
-                    f"<p><b>สูตรภาษาไทย</b></p><div style='margin-left:18px;font-size:12pt;color:#17324d'><b>{self._thai_formula_text(title)}</b></div>"
-                    f"<p><b>สูตรตัวแปร</b></p><div style='margin-left:18px;font-size:12pt'>{formula}</div>"
-                    f"<p><b>แทนค่า</b></p><div style='margin-left:18px'>{substitution}</div>"
-                    f"<p style='color:#176337'><b>คำตอบ: {result}</b></p><hr/>")
-        v=q['v']; m=q['m']; V=q['V']
-        h="<h2>ELECTRICAL / BATTERY — สูตรครบ + แทนค่า</h2>"
-        h+="<p>ตัวเลขในหน้านี้ปรับอัตโนมัติตามข้อมูลที่กรอก และแสดงตัวเศษไว้เหนือเส้น ตัวส่วนอยู่ด้านล่าง</p>"
-        h+=("<h3>ตัวแปรและหน่วย</h3><table cellpadding='5' cellspacing='0' border='1'>"
-            f"<tr><td>m</td><td>มวลรวมรถ</td><td>{m:.1f} kg</td></tr>"
-            f"<tr><td>V</td><td>แรงดันแบตเตอรี่</td><td>{V:.1f} V</td></tr>"
-            f"<tr><td>v</td><td>ความเร็วรถ</td><td>{self.espeed.value():.2f} km/h = {v:.5f} m/s</td></tr>"
-            f"<tr><td>Crr</td><td>สัมประสิทธิ์แรงต้านการกลิ้ง</td><td>{q['crr']:.3f}</td></tr>"
-            f"<tr><td>ηdrive</td><td>ประสิทธิภาพระบบขับสมมติ</td><td>{q['eff']:.3f}</td></tr>"
-            f"<tr><td>DoD</td><td>สัดส่วนความจุที่อนุญาตให้ใช้</td><td>{q['dod']:.3f}</td></tr>"
-            f"<tr><td>Reserve</td><td>พลังงานสำรอง</td><td>{q['reserve']:.3f}</td></tr></table>")
-        h+=section("1. แปลงความเร็ว","เปลี่ยนหน่วยจากกิโลเมตรต่อชั่วโมงเป็นเมตรต่อวินาที",
-                   frac("ความเร็ว (km/h)","3.6"),
-                   frac(f"{self.espeed.value():.2f}","3.6"),f"{v:.5f} m/s")
-        h+=section("2. เวลาและจำนวนรอบ","รวมระยะไปและกลับ และนับเวลาหยุดต่อรอบด้วย",
-                   "ระยะต่อรอบ = 2 × ระยะเที่ยวเดียว<br/>เวลาวิ่ง = "+frac("ระยะต่อรอบ","ความเร็ว")+
-                   "จำนวนรอบ = "+frac("เวลาทำงานทั้งหมด","เวลาวิ่งต่อรอบ + เวลาหยุดต่อรอบ"),
-                   f"ระยะต่อรอบ = 2 × {q['one']:.2f} = {q['cycle_distance']:.2f} m; ทางราบต่อรอบ = {q['flat_cycle']:.2f} m; ทางลาดขึ้น = {q['Ls']:.2f} m<br/>"+
-                   frac(f"{q['cycle_distance']:.2f} m",f"{v:.5f} m/s")+
-                   frac(f"{q['runtime_s']:.2f} s",f"{q['drive_cycle_s']:.2f} + {q['stop_s']:.2f} s"),
-                   f"{q['cycles']:.2f} รอบ (เวลาวิ่ง {q['drive_cycle_s']:.2f} s/รอบ)")
-        h+=section("3. แรงต้านและกำลังบนทางราบ","แรงต้านการกลิ้งขึ้นกับมวลรวมและค่าสัมประสิทธิ์ Crr; กำลังกลเท่ากับแรงคูณความเร็ว",
-                   "Frr = Crr × m × g<br/>Pflat = Frr × v",
-                   f"Frr = {q['crr']:.3f} × {m:.1f} × 9.81 = {q['Fflat']:.2f} N<br/>"
-                   f"Pflat = {q['Fflat']:.2f} × {v:.5f} = {q['Pflat_mech']:.2f} W",
-                   f"พลังงานกลทางราบ {q['Eflat_mech_cycle']:.4f} Wh/รอบ")
-        h+=section("4. แรงและกำลังขึ้นทางลาด","แรงที่ต้องเอาชนะคือแรงโน้มถ่วงตามแนวลาดบวกแรงต้านการกลิ้งบนทางลาด",
-                   "Fgrade = m × g × sin(θ)<br/>Frr,slope = Crr × m × g × cos(θ)<br/>"
-                   "Fup = Fgrade + Frr,slope<br/>Pup = Fup × v",
-                   f"Fgrade = {m:.1f} × 9.81 × sin({self.eslopeDeg.value():.1f}°) = {q['Fgrade']:.2f} N<br/>"
-                   f"Frr,slope = {q['crr']:.3f} × {m:.1f} × 9.81 × cos({self.eslopeDeg.value():.1f}°) = {q['Frrs']:.2f} N<br/>"
-                   f"Pup = ({q['Fgrade']:.2f} + {q['Frrs']:.2f}) × {v:.5f}",
-                   f"{q['Pup_mech']:.2f} W; พลังงานกลขึ้นลาด {q['Eup_mech_cycle']:.4f} Wh/รอบ")
-        h+=section("5. พลังงานขาลงแบบ No Regen","ขาลงไม่หักพลังงานคืนแบตเตอรี่ หากแรงโน้มถ่วงมากกว่าแรงต้านการกลิ้งให้ถือว่ากำลังขับเป็นศูนย์และระบบเบรก/การไหลเป็นผู้รับพลังงานส่วนเกิน",
-                   "Fdown = max(0, Frr,slope - Fgrade)<br>Pdown = Fdown × v",
-                   f"Fdown = max(0,{q['Frrs']:.2f}-{q['Fgrade']:.2f}) = {q['Fdown']:.2f} N<br>Pdown = {q['Fdown']:.2f} × {v:.5f} = {q['Pdown_mech']:.2f} W",
-                   f"พลังงานกลขาลงที่ต้องขับ = {q['Edown_mech_cycle']:.4f} Wh/รอบ")
-        h+=section("6. พลังงานออกตัว","คิดพลังงานจลน์เมื่อรถเร่งจากหยุดนิ่งถึงความเร็วเป้าหมาย (ยังไม่รวม loss ช่วงกระแสกระชาก)",
-                   "Ek = ½ × m × v²<br/>Eacc/cycle = "+frac("Ek × จำนวนครั้งออกตัว","3600 J/Wh"),
-                   f"Ek = ½ × {m:.1f} × {v:.5f}² = {0.5*m*v*v:.4f} J<br/>"+
-                   frac(f"{0.5*m*v*v:.4f} × {q['starts']}","3600"),
-                   f"{q['Eacc_mech_cycle']:.6f} Wh/รอบ")
-        h+=section("7. พลังงานกลรวมและไฟฟ้าประมาณ","รวมพลังงานกลทุกช่วงที่คิดเป็นงานบวกแล้วหารด้วยประสิทธิภาพโดยประมาณ",
-                   "Emech = (Eflat + Eup + Edown + Eacc) × จำนวนรอบ<br/>Edrive = "+
-                   frac("Emech","ηdrive"),
-                   f"Emech = ({q['Eflat_mech_cycle']:.4f} + {q['Eup_mech_cycle']:.4f} + {q['Edown_mech_cycle']:.4f} + "
-                   f"{q['Eacc_mech_cycle']:.6f}) × {q['cycles']:.2f} = {q['Emech_total']:.2f} Wh<br/>"+
-                   frac(f"{q['Emech_total']:.2f} Wh",f"{q['eff']:.3f}"),
-                   f"Calculated Drive = {q['Ecalc_drive']:.2f} Wh")
-        h+=section("8. กรณี Worst-case ตอนขึ้นลาด","สมมติให้มอเตอร์ใช้กำลังกลพิกัดเต็มเฉพาะช่วงขึ้นทางลาด ไม่ใช่การใช้ไฟจริงที่ยืนยันแล้ว",
-                   "Pworst,battery = "+frac("กำลังพิกัดต่อมอเตอร์ × จำนวนมอเตอร์","ηup"),
-                   frac(f"{self.emotorRated.value():.0f} × {self.enmot.value()}",f"{q['up_eff']:.3f}"),
-                   f"{q['Pworst_batt']:.2f} W; Worst-case Drive = {q['Eworst_drive']:.2f} Wh")
-        h+=section("9. พลังงานโหลดทั้งหมด","เพิ่มพลังงานไฟเลี้ยงอุปกรณ์อื่นตลอดเวลาที่เปิดระบบ",
-                   "Eaux = Paux × T<br/>Eload = Edrive + Eaux",
-                   f"Eaux = {self.eaux.value():.1f} × {q['runtime_h']:.2f} = {q['Eaux']:.2f} Wh<br/>"
-                   f"Eload = {q['Edrive']:.2f} + {q['Eaux']:.2f}",
-                   f"{q['Eload']:.2f} Wh ({'Worst-case' if q['use_worst'] else 'Calculated'})")
-        h+=section("10. ความจุแบตเตอรี่หลังเผื่อ DoD และ Reserve","หารด้วย DoD เพื่อให้เหลือความจุสำรอง และคูณเผื่อ Reserve เพิ่ม",
-                   "Enominal = "+frac("Eload","DoD")+"Edesign = Enominal × (1 + Reserve)<br/>Ah = "+
-                   frac("Edesign","แรงดันแบตเตอรี่"),
-                   frac(f"{q['Eload']:.2f}",f"{q['dod']:.3f}")+
-                   f"Edesign = {q['Enom']:.2f} × (1 + {q['reserve']:.3f}) = {q['Edesign']:.2f} Wh<br/>"+
-                   frac(f"{q['Edesign']:.2f} Wh",f"{V:.1f} V"),
-                   f"{q['Ah']:.2f} Ah")
-        h+=section("11. กระแสและ BMS","Ah คือความจุพลังงาน ส่วน A คือกระแสที่แบตเตอรี่/BMS ต้องจ่าย ต้องตรวจแยกกัน",
-                   "Iup = "+frac("Pup / ηup","Vbattery")+"Iworst = "+frac("Pworst,battery","Vbattery"),
-                   frac(f"{q['Pup_mech']:.2f} / {q['up_eff']:.3f}",f"{V:.1f}")+
-                   frac(f"{q['Pworst_batt']:.2f}",f"{V:.1f}"),
-                   f"กระแสขึ้นลาดประมาณ {q['Icalc_up']:.2f} A; Worst-case {q['Iworst']:.2f} A")
-        h+=("<p><b>ข้อจำกัด:</b> ไม่มีการหักพลังงาน Regen; "
-            "แบบจำลองยังไม่รวมกำลังไฟเบรกขณะลงลาดและพลังงานวินช์/เครนที่แยกแบต "
-            "ประสิทธิภาพมอเตอร์ความเร็วต่ำเป็นสมมติฐาน ควรตรวจจากค่ากระแสที่วัดจริงก่อนเลือกแบต</p>")
+
+    def equation_html(self,q):
+        """Simple cycle-based battery calculation for presentation/report use."""
+        def box(title,body):
+            return f"<div style='border:1px solid #d6e0ea;padding:12px 14px;margin:10px 0;background:#fbfdff'><h3 style='color:#17456b'>{title}</h3>{body}</div>"
+        h=f"""<h2>MAIN BATTERY 72 V — SIMPLE CYCLE CALCULATION</h2>
+        <p><b>แนวคิด:</b> คำนวณพลังงานทีละ 1 Cycle แล้วคูณจำนวน Cycle ที่ทำได้ในเวลาที่กำหนด
+        เพื่อให้ตรวจสอบและอธิบายได้ง่าย.</p>"""
+        h+=box("1. แบ่งเส้นทาง 1 Cycle",f"""
+        <p>ระยะเที่ยวเดียว = {q['one']:.2f} m<br>
+        ทางลาดต่อเที่ยว = {q['Ls']:.2f} m<br>
+        ทางราบต่อเที่ยว = d_flat = d_oneway - L_slope = {q['one']:.2f} - {q['Ls']:.2f}
+        = <b>{q['flat_oneway']:.2f} m</b></p>
+        <p>ดังนั้น 1 Cycle = ไป {q['one']:.2f} m + กลับ {q['one']:.2f} m
+        = <b>{q['cycle_distance']:.2f} m</b></p>""")
+        h+=box("2. ทางราบ",f"""
+        <p>F_flat = Crr m g = {q['crr']:.3f} × {q['m']:.1f} × 9.81
+        = <b>{q['Fflat']:.2f} N</b></p>
+        <p>E_flat,oneway = F_flat d_flat /(η×3600)<br>
+        = {q['Fflat']:.2f} × {q['flat_oneway']:.2f} / ({q['eff']:.3f}×3600)
+        = <b>{q['Eflat_batt_oneway']:.3f} Wh</b></p>""")
+        h+=box("3. ช่วงขึ้นทางลาด",f"""
+        <p>F_up = mg sinθ + Crr mg cosθ<br>
+        = {q['Fgrade']:.2f} + {q['Frrs']:.2f}
+        = <b>{q['Fup']:.2f} N</b></p>
+        <p>E_up,slope = F_up L_slope /(η×3600)
+        = <b>{q['Eup_batt_cycle']:.3f} Wh</b></p>""")
+        h+=box("4. ช่วงลงทางลาด",f"""
+        <p>F_down = max(0, Crr mg cosθ - mg sinθ)
+        = <b>{q['Fdown']:.2f} N</b></p>
+        <p>E_down,slope = F_down L_slope /(η×3600)
+        = <b>{q['Edown_batt_cycle']:.3f} Wh</b></p>
+        <p>ถ้าแรงโน้มถ่วงพารถลงได้เอง ค่าช่วงลาดลงอาจเป็น 0 Wh
+        แต่ <b>เที่ยวกลับไม่ใช่ 0 Wh</b> เพราะยังมีทางราบ {q['flat_oneway']:.2f} m.</p>""")
+        h+=box("5. พลังงานเที่ยวไป / เที่ยวกลับ / 1 Cycle",f"""
+        <p>E_go = E_flat,oneway + E_up,slope
+        = {q['Eflat_batt_oneway']:.3f} + {q['Eup_batt_cycle']:.3f}
+        = <b>{q['Eout_drive']:.3f} Wh</b></p>
+        <p>E_return = E_down,slope + E_flat,oneway
+        = {q['Edown_batt_cycle']:.3f} + {q['Eflat_batt_oneway']:.3f}
+        = <b>{q['Ereturn_drive']:.3f} Wh</b></p>
+        <p>E_drive,cycle = E_go + E_return = <b>{q['Edrive_cycle']:.3f} Wh</b></p>
+        <p>E_aux,cycle = P_aux × t_cycle = <b>{q['Eaux_cycle']:.3f} Wh</b></p>
+        <p><b>E_cycle = E_drive,cycle + E_aux,cycle = {q['Ecycle']:.3f} Wh/Cycle</b></p>""")
+        h+=box("6. จำนวน Cycle ในเวลาทำงาน",f"""
+        <p>t_drive = {q['drive_cycle_s']:.2f} s<br>
+        t_lift = {q['lift_round_s']:.2f} s<br>
+        t_other = {q['other_stop_s']:.2f} s</p>
+        <p>t_cycle = {q['cycle_total_s']:.2f} s</p>
+        <p>N_cycle = floor({q['runtime_s']:.1f}/{q['cycle_total_s']:.2f})
+        = <b>{q['cycles']} Cycle</b></p>""")
+        h+=box("7. พลังงานรวมและขนาดแบต",f"""
+        <p>E_total = E_cycle × N_cycle
+        = {q['Ecycle']:.3f} × {q['cycles']}
+        = <b>{q['Eload']:.2f} Wh</b></p>
+        <p>E_nominal = E_total / DoD
+        = {q['Eload']:.2f}/{q['dod']:.3f}
+        = {q['Enom']:.2f} Wh</p>
+        <p>E_design = E_nominal(1+Reserve)
+        = <b>{q['Edesign']:.2f} Wh</b></p>
+        <p>Ah = E_design / V = {q['Edesign']:.2f}/{q['V']:.1f}
+        = <b>{q['Ah']:.2f} Ah @ {q['V']:.1f} V</b></p>""")
+        h+="""<p><b>ขอบเขตของแบบจำลอง:</b> เป็นการประมาณแบบหยาบสำหรับเลือกความจุแบตเตอรี่
+        ไม่คิดพลังงานช่วงออกตัว และไม่นำพลังงานจากการลงทางลาดมาหักคืนแบตเตอรี่.
+        Winch 12 V คำนวณแยกจากแบตรถ 72 V.</p>"""
         return h
+
 
     def export_electrical_pdf(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -7451,9 +7453,8 @@ void loop() {{
             q=self.electrical_results()
             document=QTextDocument()
             document.setDefaultFont(QFont("Noto Sans Thai",10))
-            summary=(f"<h1>Electrical / Battery Engineering Report</h1>"
-                     f"<p>Model: {'Worst-case' if q['use_worst'] else 'Calculated'}; "
-                     f"Total mass {q['m']:.1f} kg; Battery {q['V']:.1f} V; "
+            summary=(f"<h1>Main Battery 72 V — Simple Cycle Report</h1>"
+                     f"<p>Method: energy per Cycle; Total mass {q['m']:.1f} kg; Battery {q['V']:.1f} V; "
                      f"Target runtime {q['runtime_h']:.2f} h</p>")
             document.setHtml(summary+self.equation_html(q)+
                 "<hr/><h2>คำอธิบายภาษาไทยเพิ่มเติม</h2>"+
@@ -7500,7 +7501,7 @@ void loop() {{
         e=self.electrical_results();t=self.torque_results()
         energy_min=max(0.0,e["Ah"])
         cont_req=max(0.0,t["Ibatt"],e["Icalc_up"])
-        peak_calc=max(0.0,e["Iworst"],e.get("Icalc_peak",0.0))
+        peak_calc=max(0.0,e["Icalc_up"])
         controller_indicator=self.controllerCurrent.value()*max(1,t["n"]) if hasattr(self,"controllerCurrent") else 0.0
         target_cont=max(0.1,self.bselTargetContC.value()) if hasattr(self,"bselTargetContC") else 3.0
         target_peak=max(0.1,self.bselTargetPeakC.value()) if hasattr(self,"bselTargetPeakC") else 5.0
@@ -7645,174 +7646,92 @@ void loop() {{
         self._sync_battery_candidate_to_project_tools()
 
     def calc_electrical(self):
-        if not hasattr(self,"eSummary"): return
+        if not hasattr(self,"eSummary"):return
         q=self.electrical_results()
-        mode="WORST-CASE FULL RATED POWER" if q["use_worst"] else "CALCULATED LOAD MODEL"
         self.eSummary.setText(
-            f"{mode}\\n"
-            f"Completed rounds in {q['runtime_h']:.2f} h = {q['cycles']} (theory {q['cycles_theoretical']:.2f}) | Total travel ≈ {q['cycles']*q['cycle_distance']/1000:.3f} km\\n"
-            f"Time/round: Drive {q['drive_cycle_s']:.1f} s + Lift {q['lift_round_s']:.1f} s + Other {q['other_stop_s']:.1f} s = {q['cycle_total_s']:.1f} s\\n"
-            f"Mechanical energy = {q['Emech_total']:.1f} Wh | Estimated drive energy = {q['Edrive']:.1f} Wh\\n"
-            f"Auxiliary = {q['Eaux']:.1f} Wh | Load total = {q['Eload']:.1f} Wh\\n"
-            f"Battery design = {q['Edesign']:.1f} Wh → {q['Ah']:.2f} Ah @ {q['V']:.1f} V"
+            f"SIMPLE CYCLE MODEL\n"
+            f"1 Cycle = ไป {q['one']:.1f} m + กลับ {q['one']:.1f} m | ทางลาด/เที่ยว {q['Ls']:.1f} m | ทางราบ/เที่ยว {q['flat_oneway']:.1f} m\n"
+            f"เที่ยวไป = {q['Eout_drive']:.3f} Wh | เที่ยวกลับ = {q['Ereturn_drive']:.3f} Wh | Drive/Cycle = {q['Edrive_cycle']:.3f} Wh\n"
+            f"Aux/Cycle = {q['Eaux_cycle']:.3f} Wh | Total/Cycle = {q['Ecycle']:.3f} Wh\n"
+            f"{q['cycles']} Cycle ใน {q['runtime_h']:.2f} h → {q['Eload']:.1f} Wh ก่อนเผื่อ → {q['Ah']:.2f} Ah @ {q['V']:.1f} V"
         )
 
         cycles=max(q["cycles"],1)
         drive_per_trip=q["Edrive_cycle"]
-        load_per_trip=q["Eload"]/cycles if q["cycles"]>0 else 0.0
-        self.tripDistanceLabel.setText(f"{q['cycle_distance']:.1f} m")
+        self.tripDistanceLabel.setText(f"{q['cycle_distance']:.1f} m\nราบ {q['flat_cycle']:.1f} + ลาด {2*q['Ls']:.1f}")
         self.tripTimeLabel.setText(f"{q['cycle_total_s']/60.0:.2f} min")
-        self.tripCountLabel.setText(f"{q['cycles']} รอบเต็ม\\n(theory {q['cycles_theoretical']:.2f})")
+        self.tripCountLabel.setText(f"{q['cycles']} รอบเต็ม\n(theory {q['cycles_theoretical']:.2f})")
         self.tripEnergyLabel.setText(f"{drive_per_trip:.2f} Wh / รอบ")
-        self.tripDriveTotalLabel.setText(f"{q['Edrive']:.1f} Wh")
-        self.tripAuxLabel.setText(f"{q['Eaux']:.1f} Wh")
+        self.tripDriveTotalLabel.setText(f"{q['Eout_drive']:.3f} Wh")
+        self.tripAuxLabel.setText(f"{q['Ereturn_drive']:.3f} Wh")
         self.tripLoadTotalLabel.setText(f"{q['Eload']:.1f} Wh")
-        self.tripBatteryLabel.setText(f"{q['Edesign']:.0f} Wh\\n= {q['Ah']:.2f} Ah @ {q['V']:.0f} V")
+        self.tripBatteryLabel.setText(f"{q['Edesign']:.0f} Wh\n= {q['Ah']:.2f} Ah @ {q['V']:.0f} V")
         self.tripEnergyExplain.setHtml(f"""
-        <h3 style='color:#17324d'>อ่านหน้านี้แบบง่าย</h3>
-        <p><b>1 รอบไป-กลับ</b> = {q['cycle_distance']:.1f} m</p>
-        <p>เวลารถวิ่ง <b>{q['drive_cycle_s']:.2f} s</b> + เวลางานยก <b>{q['lift_round_s']:.2f} s</b> + เวลาหยุดอื่น <b>{q['other_stop_s']:.2f} s</b>
-        = <b>{q['cycle_total_s']/60.0:.2f} นาที/รอบ</b></p>
-        <p>จำนวนรอบเชิงทฤษฎี = {q['cycles_theoretical']:.2f} รอบ → นับเฉพาะรอบที่ทำครบ = <b>{q['cycles']} รอบเต็ม</b></p>
-        <p><b>พลังงานขับต่อรอบ</b> = {drive_per_trip:.2f} Wh จากโมเดล <b>{'Worst-case' if q['use_worst'] else 'Calculated'}</b></p>
-        <p><b>{q['cycles']} รอบเต็ม</b> ใช้พลังงานขับรถ 72 V รวม = {q['Edrive']:.1f} Wh</p>
-        <p><b>หมายเหตุ:</b> เวลายกถูกนำมาคิดเพื่อหาจำนวนรอบ แต่พลังงานวินช์ไม่รวมใน Main Battery เพราะวินช์ใช้แบต 12 V แยก</p>
-        <p>บวก Auxiliary {q['Eaux']:.1f} Wh → <b>พลังงานรวมก่อนเผื่อแบต = {q['Eload']:.1f} Wh</b></p>
-        <p>หลังเผื่อ DoD {q['dod']*100:.0f}% และ Reserve {q['reserve']*100:.0f}% →
-        <b style='color:#b42318'>ต้องการประมาณ {q['Edesign']:.0f} Wh = {q['Ah']:.2f} Ah @ {q['V']:.0f} V</b></p>
+        <h3 style='color:#17324d'>คำนวณแบบ 1 Cycle</h3>
+        <p><b>1 Cycle</b> = ไป {q['one']:.1f} m + กลับ {q['one']:.1f} m = {q['cycle_distance']:.1f} m</p>
+        <p>แต่ละเที่ยวมีทางลาด <b>{q['Ls']:.1f} m</b> และทางราบ <b>{q['flat_oneway']:.1f} m</b>.</p>
+        <p><b>เที่ยวไป:</b> ทางราบ {q['flat_oneway']:.1f} m + ขึ้นลาด {q['Ls']:.1f} m
+        → <b>{q['Eout_drive']:.3f} Wh</b></p>
+        <p><b>เที่ยวกลับ:</b> ลงลาด {q['Ls']:.1f} m + ทางราบ {q['flat_oneway']:.1f} m
+        → <b>{q['Ereturn_drive']:.3f} Wh</b></p>
+        <p>ดังนั้น <b>พลังงานขับต่อรอบ</b> = {q['Eout_drive']:.3f} + {q['Ereturn_drive']:.3f}
+        = <b>{q['Edrive_cycle']:.3f} Wh/รอบ</b></p>
+        <p>Auxiliary ต่อรอบ = {q['Eaux_cycle']:.3f} Wh → พลังงานรวมต่อ Cycle = <b>{q['Ecycle']:.3f} Wh</b></p>
+        <p>เวลา 1 Cycle = รถวิ่ง {q['drive_cycle_s']:.1f} s + งานยก {q['lift_round_s']:.1f} s + หยุดอื่น {q['other_stop_s']:.1f} s
+        = <b>{q['cycle_total_s']:.1f} s</b></p>
+        <p>ใน {q['runtime_h']:.2f} h ทำได้ <b>{q['cycles']} Cycle เต็ม</b> → E_total = {q['Ecycle']:.3f} × {q['cycles']}
+        = <b>{q['Eload']:.1f} Wh</b></p>
+        <p>หลัง DoD {q['dod']*100:.0f}% + Reserve {q['reserve']*100:.0f}% →
+        <b style='color:#b42318'>{q['Edesign']:.0f} Wh = {q['Ah']:.2f} Ah @ {q['V']:.0f} V</b></p>
         <p style='background:#fff8e9;padding:10px;border:1px solid #ead39a'>
-        ถ้าต้องการดูเฉพาะ “รถวิ่งไป-กลับกินไฟเท่าไร” ให้ดูช่อง <b>พลังงานขับ / 1 รอบ</b>.
-        ค่าเฉลี่ยรวม Auxiliary ต่อรอบเทียบเท่า ≈ {load_per_trip:.2f} Wh/รอบ แต่ Auxiliary เป็นโหลดตามเวลา ไม่ใช่โหลดตามระยะทางโดยตรง.
+        ช่วงลาดลงอาจใช้พลังงานขับประมาณ 0 Wh ถ้าแรงโน้มถ่วงช่วยมากพอ
+        แต่ <b>เที่ยวกลับไม่เป็น 0 Wh</b> เพราะยังต้องวิ่งทางราบ {q['flat_oneway']:.1f} m.
         </p>
         """)
+
         self.eSteps.setHtml(self.equation_html(q))
         if hasattr(self,"eVars"):self.eVars.setHtml(self.electrical_variables_html())
         if hasattr(self,"allEVars"):self.allEVars.setHtml(self.electrical_variables_html())
         self.eThaiExplain.setHtml(f"""
-        <h2>คู่มืออธิบายการคำนวณแบตเตอรี่ (ภาษาไทย)</h2>
-        <p><b>จุดประสงค์:</b> ประมาณพลังงานที่รถต้องใช้ตลอด {q['runtime_h']:.2f} ชั่วโมง
-        แล้วแปลงเป็นความจุแบตเตอรี่ Wh และ Ah โดยแยกการตรวจความสามารถจ่ายกระแสของ BMS ออกต่างหาก
-        ทุกตัวเลขในหน้านี้เปลี่ยนตามข้อมูล Input โดยอัตโนมัติ</p>
-        <h3>1. กำหนดมวลและเส้นทาง</h3>
-        <p>ใช้มวลรวมรถพร้อมบรรทุก <b>{q['m']:.1f} kg</b> (ห้ามนับน้ำหนักเครนหรือสิ่งบรรทุกซ้ำ)
-        ความเร็ว {self.espeed.value():.2f} km/h หรือ {q['v']:.5f} m/s
-        ระยะไป-กลับ {q['cycle_distance']:.2f} m ต่อรอบ โดยมีทางลาดขาขึ้นและขาลงด้านละ {q['Ls']:.2f} m
-        และทางราบรวม {q['flat_cycle']:.2f} m ต่อรอบ</p>
-        <p><b>สูตร:</b> เวลาวิ่งต่อรอบ = ระยะไป-กลับ ÷ ความเร็ว;
-        เวลารวมต่อรอบ = เวลาวิ่ง + เวลางานยก + เวลาหยุดอื่น;
-        จำนวนรอบเต็ม = floor(เวลาทำงานทั้งหมด ÷ เวลารวมต่อรอบ)</p>
-        <p><b>แทนค่า:</b> รถวิ่ง {q['drive_cycle_s']:.2f} s
-        + งานยก {q['lift_round_s']:.2f} s
-        + หยุดอื่น {q['other_stop_s']:.2f} s
-        = <b>{q['cycle_total_s']:.2f} s/รอบ</b>.
-        จำนวนรอบเชิงทฤษฎี = {q['cycles_theoretical']:.2f} รอบ
-        และนับเฉพาะงานที่ทำครบ = <b>{q['cycles']} รอบ</b></p>
-        <p>เวลายกมีผลต่อจำนวนรอบของรถ แต่พลังงานวินช์ 12 V คำนวณแยก ไม่ถูกนำมาบวกกับ Main Battery 72 V</p>
-        <h3>2. แรงต้านบนทางราบ</h3>
-        <p>รถต้องออกแรงเอาชนะแรงต้านการกลิ้ง แม้ทางราบไม่มีแรงโน้มถ่วงตามแนวการเคลื่อนที่</p>
-        <p><b>สูตร:</b> Frr = Crr × m × g</p>
-        <p><b>แทนค่า:</b> {q['crr']:.3f} × {q['m']:.1f} × 9.81
-        = <b>{q['Fflat']:.2f} N</b></p>
-        <p>กำลังกล = แรง × ความเร็ว = {q['Fflat']:.2f} × {q['v']:.5f}
-        = <b>{q['Pflat_mech']:.2f} W</b> ซึ่งเป็นกำลังที่ล้อต้องใช้ตามแบบจำลอง
-        ไม่ใช่กำลังไฟที่แบตเตอรี่จ่ายจริง</p>
-        <h3>3. แรงและกำลังขณะขึ้นทางลาด</h3>
-        <p>ทางลาดมีแรงโน้มถ่วงดึงรถลงตามแนวลาดเพิ่มจากแรงต้านการกลิ้ง
-        จึงต้องนำแรงทั้งสองมารวมกัน</p>
-        <p><b>สูตร:</b> Fgrade = m × g × sin(มุมลาด);
-        Frr,slope = Crr × m × g × cos(มุมลาด);
-        Fup = Fgrade + Frr,slope</p>
-        <p><b>แทนค่า:</b> Fgrade = {q['m']:.1f} × 9.81 × sin({self.eslopeDeg.value():.1f}°)
-        = {q['Fgrade']:.2f} N;
-        Frr,slope = {q['crr']:.3f} × {q['m']:.1f} × 9.81 × cos({self.eslopeDeg.value():.1f}°)
-        = {q['Frrs']:.2f} N</p>
-        <p>แรงรวม = {q['Fgrade']:.2f} + {q['Frrs']:.2f}
-        = <b>{q['Fup']:.2f} N</b>;
-        กำลังกลขณะขึ้นลาด = {q['Fup']:.2f} × {q['v']:.5f}
-        = <b>{q['Pup_mech']:.2f} W</b></p>
-        <h3>4. พลังงานจากการเร่งความเร็ว</h3>
-        <p>ใช้พลังงานจลน์เพิ่มขึ้นเมื่อรถออกตัวจากหยุดนิ่งจนถึงความเร็วเป้าหมาย
-        โดยสมมติว่าออกตัว {q['starts']} ครั้งต่อรอบ</p>
-        <p><b>สูตร:</b> Ekinetic = ½ × m × v²;
-        แปลงจูลเป็น Wh โดยหาร 3600</p>
-        <p><b>แทนค่า:</b> ½ × {q['m']:.1f} × {q['v']:.5f}²
-        = {0.5*q['m']*q['v']**2:.3f} J ต่อครั้ง;
-        พลังงานเร่งต่อรอบ = <b>{q['Eacc_mech_cycle']:.6f} Wh</b></p>
-        <p>วิธีนี้นับเฉพาะพลังงานจลน์ ไม่รวมกระแสกระชากหรือการสูญเสียเฉพาะช่วงออกตัว
-        จึงต้องตรวจมอเตอร์และ BMS แยก</p>
-        <h3>5. รวมพลังงานกลและแปลงเป็นพลังงานไฟฟ้า</h3>
-        <p>นำพลังงานทางราบ ขึ้นลาด และเร่งความเร็วมารวมกัน
-        จากนั้นคูณจำนวนรอบ ได้พลังงานกล <b>{q['Emech_total']:.2f} Wh</b></p>
-        <p><b>สูตรประมาณ:</b> Edrive = Emech ÷ ηdrive</p>
-        <p><b>แทนค่า:</b> {q['Emech_total']:.2f} ÷ {q['eff']:.3f}
-        = <b>{q['Ecalc_drive']:.2f} Wh</b> (Calculated Model)</p>
-        <p>ηdrive = {self.edriveEff.value():.1f}% เป็นค่า <b>สมมติ</b> สำหรับประเมิน
-        ไม่ใช่ประสิทธิภาพที่ยืนยันแล้วของ QS Hub Motor ณ 1 km/h</p>
-        <h3>6. เปรียบเทียบกรณีเผื่อกำลังสูงสุด</h3>
-        <p>Worst-case สมมติให้มอเตอร์ทุกตัวใช้กำลังพิกัดเต็มตลอดช่วงขึ้นทางลาด
-        โดยกำลังพิกัดรวม = {self.emotorRated.value():.0f} × {self.enmot.value()}
-        = {q['rated_total']:.0f} W (กำลังกล)</p>
-        <p><b>สูตร:</b> กำลังไฟจากแบตช่วงขึ้นลาด = กำลังกลพิกัดรวม ÷ ηup</p>
-        <p><b>แทนค่า:</b> {q['rated_total']:.0f} ÷ {q['up_eff']:.3f}
-        = <b>{q['Pworst_batt']:.2f} W</b>;
-        พลังงานขับเคลื่อนรวมแบบ Worst-case = <b>{q['Eworst_drive']:.2f} Wh</b></p>
-        <p>กรณีนี้เป็นสมมติฐานเพื่อเผื่อขนาด ไม่ได้หมายความว่ามอเตอร์กินไฟเต็มพิกัดจริงตลอดช่วงขึ้นเนิน</p>
-        <h3>7. เพิ่มไฟเลี้ยงอุปกรณ์อื่น</h3>
-        <p>อุปกรณ์ควบคุม เซนเซอร์ จอ และระบบช่วยต่าง ๆ ใช้ไฟระหว่างทำงาน
-        จึงเพิ่มพลังงาน Auxiliary ตลอดเวลาที่เปิดใช้งาน</p>
-        <p><b>สูตร:</b> Eaux = Paux × เวลา</p>
-        <p><b>แทนค่า:</b> {self.eaux.value():.1f} × {q['runtime_h']:.2f}
-        = <b>{q['Eaux']:.2f} Wh</b></p>
-        <h3>8. เลือกแบบจำลองและหาพลังงานรวม</h3>
-        <p>ตอนนี้เลือก <b>{"Worst-case" if q['use_worst'] else "Calculated"}</b>
-        พลังงานขับเคลื่อน = {q['Edrive']:.2f} Wh</p>
-        <p><b>สูตร:</b> Eload = Edrive + Eaux</p>
-        <p><b>แทนค่า:</b> {q['Edrive']:.2f} + {q['Eaux']:.2f}
-        = <b>{q['Eload']:.2f} Wh</b></p>
-        <h3>9. เผื่อความจุใช้งาน (DoD) และสำรอง (Reserve)</h3>
-        <p>DoD คือสัดส่วนความจุแบตเตอรี่ที่อนุญาตให้ใช้ เช่น 80% หมายถึงไม่วางแผนใช้เต็ม 100%
-        ส่วน Reserve คือพลังงานสำรองเพิ่มสำหรับความไม่แน่นอน</p>
-        <p><b>สูตร:</b> Enominal = Eload ÷ DoD;
-        Edesign = Enominal × (1 + Reserve)</p>
-        <p><b>แทนค่า:</b> {q['Eload']:.2f} ÷ {q['dod']:.3f}
-        = {q['Enom']:.2f} Wh;
-        {q['Enom']:.2f} × (1 + {q['reserve']:.3f})
-        = <b>{q['Edesign']:.2f} Wh</b></p>
-        <h3>10. คำนวณ Ah และตรวจ BMS</h3>
-        <p><b>สูตร:</b> Ah = Edesign ÷ Vbattery</p>
-        <p><b>แทนค่า:</b> {q['Edesign']:.2f} ÷ {q['V']:.1f}
-        = <b>{q['Ah']:.2f} Ah</b></p>
-        <p>กระแสขึ้นลาดจากการประมาณ = {q['Icalc_up']:.2f} A;
-        กระแส Worst-case = {q['Iworst']:.2f} A
-        ต้องตรวจทั้งกระแสต่อเนื่อง กระแสสูงสุดของเซลล์และ BMS
-        รวมถึงข้อจำกัดของ Controller ก่อนเลือกแบตจริง</p>
-        <h3>ข้อจำกัดที่ต้องระบุในรายงาน</h3>
-        <p>ผลนี้เป็นการประมาณเบื้องต้น: แบบจำลองยังไม่คิดพลังงานไฟฟ้าขณะลงลาดหรือการเบรกแบบละเอียด
-        (ไม่มีการหักพลังงานคืนจาก Regen), ยังไม่รวมพลังงานวินช์/หมุนเครนแยกต่างหาก
-        หากอุปกรณ์เหล่านั้นใช้แบตอีกลูกต้องคำนวณแยก และประสิทธิภาพมอเตอร์ที่ความเร็วต่ำยังไม่ทราบ
-        ควรทดสอบแรงดันและกระแสจริงเพื่อปรับผลลัพธ์ก่อนซื้อแบตเตอรี่</p>
+        <h2>คำอธิบายแบบง่าย — แบตเตอรี่รถ 72 V</h2>
+        <p><b>หลักคิดมีแค่ 4 ขั้น:</b> แบ่งเส้นทาง → หา Wh ต่อช่วง → รวมเป็น Wh/Cycle → คูณจำนวน Cycle แล้วแปลงเป็น Ah.</p>
+        <h3>1) แบ่งเส้นทาง</h3>
+        <p>เที่ยวเดียว {q['one']:.1f} m = ทางราบ {q['flat_oneway']:.1f} m + ทางลาด {q['Ls']:.1f} m.</p>
+        <h3>2) หา Energy ของแต่ละช่วง</h3>
+        <p>ใช้สูตรพื้นฐาน <b>E = F×s /(η×3600)</b>. ทางราบใช้ F=Crr·mg,
+        ขึ้นลาดใช้ F=mg sinθ + Crr·mg cosθ,
+        ลงลาดใช้ F=max(0,Crr·mg cosθ - mg sinθ).</p>
+        <h3>3) รวมเป็น 1 Cycle</h3>
+        <p>เที่ยวไป {q['Eout_drive']:.3f} Wh + เที่ยวกลับ {q['Ereturn_drive']:.3f} Wh
+        + Auxiliary {q['Eaux_cycle']:.3f} Wh = <b>{q['Ecycle']:.3f} Wh/Cycle</b>.</p>
+        <h3>4) หาแบต</h3>
+        <p>{q['cycles']} Cycle ใช้ {q['Eload']:.1f} Wh.
+        หลังเผื่อ DoD + Reserve ต้องมี {q['Edesign']:.1f} Wh
+        หรือ <b>{q['Ah']:.2f} Ah @ {q['V']:.1f} V</b>.</p>
+        <p><b>สิ่งที่ตัดออกจากการคำนวณหลัก:</b> พลังงานช่วงออกตัว, การคิดกำลังมอเตอร์เต็มพิกัด,
+        และการนำพลังงานจากช่วงลงลาดมาหักคืนแบตเตอรี่. จุดประสงค์คือให้เป็น Preliminary sizing ที่อธิบายง่าย.</p>
+        <p>Winch ใช้แบต 12 V แยก จึงใช้เฉพาะ <b>เวลายก</b> เพื่อหาจำนวน Cycle แต่ไม่เอาพลังงานวินช์มาบวกในแบต 72 V.</p>
         """)
+
         self.eResults.setHtml(f"""
-        <h2>Battery Sizing Result</h2>
+        <h2>Main Battery Sizing — Simple Cycle</h2>
         <table cellpadding='7'>
-        <tr><td>Selected model</td><td><b>{mode}</b></td></tr>
-        <tr><td>Completed rounds</td><td><b>{q['cycles']}</b> (theory {q['cycles_theoretical']:.2f})</td></tr>
-        <tr><td>Drive / Lift / Other per round</td><td>{q['drive_cycle_s']:.1f} / {q['lift_round_s']:.1f} / {q['other_stop_s']:.1f} s</td></tr>
-        <tr><td>Total round time</td><td>{q['cycle_total_s']:.1f} s = {q['cycle_total_s']/60.0:.2f} min</td></tr>
-        <tr><td>Theoretical mechanical energy</td><td>{q['Emech_total']:.1f} Wh</td></tr>
-        <tr><td>Calculated drive estimate</td><td>{q['Ecalc_drive']:.1f} Wh</td></tr>
-        <tr><td>Worst-case drive estimate</td><td>{q['Eworst_drive']:.1f} Wh</td></tr>
-        <tr><td>Selected drive energy</td><td><b>{q['Edrive']:.1f} Wh</b></td></tr>
-        <tr><td>Auxiliary energy</td><td>{q['Eaux']:.1f} Wh</td></tr>
-        <tr><td>Load energy total</td><td>{q['Eload']:.1f} Wh</td></tr>
-        <tr><td>After DoD + reserve</td><td><b>{q['Edesign']:.1f} Wh</b></td></tr>
+        <tr><td>Route / one way</td><td>{q['one']:.1f} m = flat {q['flat_oneway']:.1f} + slope {q['Ls']:.1f} m</td></tr>
+        <tr><td>Outbound energy</td><td><b>{q['Eout_drive']:.3f} Wh</b></td></tr>
+        <tr><td>Return energy</td><td><b>{q['Ereturn_drive']:.3f} Wh</b></td></tr>
+        <tr><td>Drive energy / Cycle</td><td><b>{q['Edrive_cycle']:.3f} Wh</b></td></tr>
+        <tr><td>Auxiliary / Cycle</td><td>{q['Eaux_cycle']:.3f} Wh</td></tr>
+        <tr><td>Total energy / Cycle</td><td><b>{q['Ecycle']:.3f} Wh</b></td></tr>
+        <tr><td>Completed Cycles</td><td>{q['cycles']}</td></tr>
+        <tr><td>Total load energy</td><td>{q['Eload']:.1f} Wh</td></tr>
+        <tr><td>After DoD + reserve</td><td>{q['Edesign']:.1f} Wh</td></tr>
         <tr><td>Required battery capacity</td><td><b>{q['Ah']:.2f} Ah @ {q['V']:.1f} V</b></td></tr>
-        <tr><td>Calculated uphill current indicator</td><td>{q['Icalc_up']:.1f} A</td></tr>
-        <tr><td>Worst-case current indicator</td><td><b>{q['Iworst']:.1f} A</b></td></tr>
+        <tr><td>Uphill current reference</td><td>{q['Icalc_up']:.1f} A</td></tr>
         </table>
-        <p><b>อย่าเลือกแบตจาก Ah อย่างเดียว:</b> ต้องตรวจ BMS continuous/peak current และความสามารถจ่ายกระแสของเซลล์ด้วย</p>
+        <p>Ah ใช้เลือกความจุพลังงาน; BMS/สาย/Controller ยังต้องตรวจกระแสแยกอีกครั้ง.</p>
         """)
         if hasattr(self,"batterySelectionView"):self.update_battery_selection()
+
 
     def make_torque(self):
         w=QWidget();self.torquePage=w
