@@ -461,8 +461,11 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     # must also respect the Drive Torque design-current reference when the web UI
     # supplies it. This prevents the web purchase checker from understating current.
     drive_reference_current = max(0.0, _f(data, "drive_reference_current_a", 0.0))
-    cont_req = max(0.0, icalc_up, iturn_avg, drive_reference_current)
-    peak_req = max(cont_req, icalc_up, iturn_avg)
+    # Continuous current represents steady operating demand only.
+    # The Drive Torque reference includes acceleration/design allowance, so it
+    # belongs in the peak/design check instead of inflating continuous current.
+    cont_req = max(0.0, icalc_up, iturn_avg)
+    peak_req = max(cont_req, drive_reference_current)
 
     ah_by_cont = cont_req / target_cont_c
     ah_by_peak = peak_req / target_peak_c
