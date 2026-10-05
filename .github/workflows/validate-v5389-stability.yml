@@ -1,0 +1,115 @@
+name: Validate V53.8.9 Stability Mass Export
+
+on:
+  push:
+    branches:
+      - v53.8.9-stability-mass-export
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Qt libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install PySide6 pyserial
+      - name: Syntax and stability regression
+        run: |
+          python -m py_compile CraneVehicleEngineeringTool.py web_engine.py web_server.py web_launcher.py
+          python - <<'PY'
+          import tempfile
+          from pathlib import Path
+          from PySide6.QtWidgets import QApplication
+          import CraneVehicleEngineeringTool as cvet
+
+          app=QApplication([])
+          w=cvet.App()
+
+          assert w.massCalcMode.count()==2
+          assert w.massCalcMode.currentData()=="total"
+          assert w.stabilityExportMode.count()==6
+
+          # Total Mass mode uses manual values.
+          w.massCalcMode.setCurrentIndex(0)
+          w.mt.setValue(300);w.ml.setValue(100);w.mb.setValue(20)
+          w.xCG.setValue(0.02);w.yCG.setValue(0.03);w.driveXCG.setValue(0.01)
+          d=w.inputs()
+          assert d["massMode"]=="total"
+          assert abs(d["mt"]-300)<1e-9 and abs(d["yCG"]-0.03)<1e-9
+
+          # Component mode is a single source of truth.
+          w.massCalcMode.setCurrentIndex(1)
+          w.apply_mass_mode()
+          d=w.inputs()
+          assert d["massMode"]=="components"
+          assert abs(d["mt"]-300.0)<1e-8, d
+          assert abs(d["mb"]-20.0)<1e-8, d
+          assert abs(d["ml"]-100.0)<1e-8, d
+          assert not w.mt.isEnabled() and not w.ml.isEnabled() and not w.mb.isEnabled()
+          assert not w.xCG.isEnabled() and not w.yCG.isEnabled() and not w.driveXCG.isEnabled()
+          assert not w.hcg.isEnabled()
+
+          # Change Payload row: m_total and m_L must both follow table.
+          payload_row=next(r for r in range(w.comp.rowCount()) if "Payload" in w.comp.item(r,0).text())
+          w.comp.item(payload_row,1).setText("90")
+          QApplication.processEvents()
+          d=w.inputs()
+          assert abs(d["mt"]-310.0)<1e-8, d["mt"]
+          assert abs(d["ml"]-110.0)<1e-8, d["ml"]
+          assert abs(d["mb"]-20.0)<1e-8
+
+          # Change Boom row: m_total and m_B must both follow table.
+          boom_row=next(r for r in range(w.comp.rowCount()) if "Boom" in w.comp.item(r,0).text())
+          w.comp.item(boom_row,1).setText("25")
+          QApplication.processEvents()
+          d=w.inputs()
+          assert abs(d["mt"]-315.0)<1e-8
+          assert abs(d["mb"]-25.0)<1e-8
+
+          # Base y CG must enter side moment model.
+          frame_row=next(r for r in range(w.comp.rowCount()) if "Frame" in w.comp.item(r,0).text())
+          w.comp.item(frame_row,3).setText("0.10")
+          QApplication.processEvents()
+          d=w.inputs()
+          left=w.side_moment_balance(d,d["th"],"left")
+          veh=next(q for q in left["components"] if q["name"]=="Vehicle")
+          assert abs(veh["y"]-d["yCG"])<1e-12
+
+          # Variable dictionary must expose the full formal set.
+          vh=w.stability_variables_html()
+          for token in ("MassMode","y_CG,V","x_rear","x_front","d_V,L","d_B,R","d_L,F","M_O,Rr",
+                        "W_parallel","F_I","T_req","Δx_total","SF_slope","Component Mass Source Table"):
+              assert token in vh, token
+
+          # Every selectable export mode must render a complete HTML report.
+          with tempfile.TemporaryDirectory() as td:
+              td=Path(td)
+              for key in ("geometry","side_left","side_right","front","rear","slope"):
+                  html=w.stability_mode_export_html(key,td,w.inputs())
+                  assert "CVET V53.8.9" in html
+                  assert "COMPLETE VARIABLE DICTIONARY" in html
+                  img=td/f"export_{key}.png"
+                  assert img.exists() and img.stat().st_size>1000, key
+
+          # Full report still includes slope and all 5 FBD calculation cases.
+          with tempfile.TemporaryDirectory() as td:
+              td=Path(td)
+              html=w.stability_fbd_report_html(td,w.inputs())
+              for token in ("LEFT SIDE TIPPING","RIGHT SIDE TIPPING","FRONT TIPPING","REAR TIPPING","UPHILL REAR-TIPPING"):
+                  assert token in html
+
+          print("V53.8.9 stability mass/export regression PASS")
+          PY
