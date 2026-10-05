@@ -2483,6 +2483,95 @@ void loop() {{
             self.navDock.setVisible(not self.navDock.isVisible())
             self.save_ui_preferences()
 
+    def _screenshot_folder(self):
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        folder=Path(docs)/"CVET_Screenshots"
+        folder.mkdir(parents=True,exist_ok=True)
+        return folder
+
+    def _safe_capture_name(self,text):
+        raw=str(text or "Page").strip()
+        out=[]
+        for ch in raw:
+            if ch.isalnum() or ch in ("-","_"):
+                out.append(ch)
+            elif ch in (" ","/","\\","|",":"):
+                out.append("_")
+        name="".join(out).strip("_")
+        while "__" in name:name=name.replace("__","_")
+        return name[:70] or "Page"
+
+    def _current_capture_label(self):
+        page=self.tabs.currentWidget() if hasattr(self,"tabs") else None
+        if page is getattr(self,"stabilityHubPage",None) and hasattr(self,"stabilityTabs"):
+            idx=self.stabilityTabs.currentIndex()
+            label=self.stabilityTabs.tabText(idx) if idx>=0 else "Stability"
+            return "Stability_"+self._safe_capture_name(label)
+
+        pages=[
+            ("Home","homePage"),("Drive_Torque","torquePage"),("Battery_Electrical","electricalPage"),
+            ("Winch","winchPage"),("Stability","stabilityHubPage"),("Project_Report","projectToolsPage"),
+            ("Control_Logic","safetyPage"),("Hardware_IO","hardwarePage"),("WiFi_Telemetry","telemetryPage"),
+            ("Engineering_Suite","integrationPage"),("Variables","variableDictionaryPage"),
+        ]
+        for label,attr in pages:
+            if page is getattr(self,attr,None):
+                return label
+        return "Current_Page"
+
+    def capture_current_page(self):
+        """One-click PNG capture of the currently visible CVET window; no Save As dialog."""
+        try:
+            QApplication.processEvents()
+            folder=self._screenshot_folder()
+            stamp=datetime.now().strftime("%Y%m%d_%H%M%S")
+            label=self._current_capture_label()
+            path=folder/f"{stamp}_{label}.png"
+            pix=self.grab()
+            if pix.isNull() or not pix.save(str(path),"PNG"):
+                raise RuntimeError("Could not save screenshot")
+            self.statusBar().showMessage(f"📸 บันทึกภาพแล้ว: {path}",8000)
+            return str(path)
+        except Exception as ex:
+            QMessageBox.critical(self,"Screenshot",f"แคปหน้าจอไม่สำเร็จ\n{ex}")
+            return ""
+
+    def capture_all_fbd(self):
+        """Save geometry + all five critical-case FBDs without changing the user's current UI."""
+        try:
+            self.calc_all();self.calc_worst();QApplication.processEvents()
+            root=self._screenshot_folder()
+            stamp=datetime.now().strftime("%Y%m%d_%H%M%S")
+            folder=root/f"{stamp}_FBD_All"
+            folder.mkdir(parents=True,exist_ok=True)
+            d=self.inputs()
+
+            files=[]
+            geom=folder/"00_Geometry_Current_Angle.png"
+            self._render_stability_fbd_png(0,geom,d["th"]);files.append(geom)
+
+            cases=self.stability_fbd_cases(d)
+            for i,case in enumerate(cases,1):
+                clean=self._safe_capture_name(case["title"])
+                if case["angle"] is None:
+                    suffix=f"Slope_{math.degrees(self.slope_stability_results(d)['alpha']):.1f}deg"
+                else:
+                    suffix=f"Critical_{case['angle']:+.1f}deg"
+                fp=folder/f"{i:02d}_{clean}_{suffix}.png"
+                self._render_stability_fbd_png(case["mode"],fp,case["angle"])
+                files.append(fp)
+
+            self.statusBar().showMessage(f"📸 แคป FBD ครบ {len(files)} รูปแล้ว: {folder}",10000)
+            QMessageBox.information(
+                self,"Capture All FBD",
+                f"บันทึกภาพครบแล้ว {len(files)} รูป\n\nโฟลเดอร์:\n{folder}\n\n"
+                "ประกอบด้วย Geometry 1 รูป + Critical FBD 5 case"
+            )
+            return [str(x) for x in files]
+        except Exception as ex:
+            QMessageBox.critical(self,"Capture All FBD",f"แคป FBD ไม่สำเร็จ\n{ex}")
+            return []
+
     def setup_status_bar_ui(self):
         bar=QStatusBar(self);self.setStatusBar(bar)
         bar.setSizeGripEnabled(False)
@@ -2492,6 +2581,13 @@ void loop() {{
         nav=QPushButton("เมนู");nav.setObjectName("secondaryButton")
         nav.setFixedSize(62,30);nav.clicked.connect(self.toggle_navigation)
         bar.addWidget(nav)
+
+        capture=QPushButton("📸 Capture")
+        capture.setObjectName("primaryButton")
+        capture.setToolTip("แคปหน้าต่างโปรแกรมปัจจุบันเป็น PNG อัตโนมัติ\nบันทึกที่ Documents/CVET_Screenshots")
+        capture.setFixedSize(104,30)
+        capture.clicked.connect(self.capture_current_page)
+        bar.addWidget(capture)
 
         # Keep font controls inside one fixed panel so QStatusBar cannot squeeze
         # individual buttons into unreadable symbols on smaller Windows displays.
@@ -8561,10 +8657,14 @@ void loop() {{
         exportCurrentFBD.clicked.connect(lambda:self.export_stability_mode_pdf(self.current_fbd_export_key()))
         exportAllFBD=QPushButton("Export Full Engineering Report")
         exportAllFBD.clicked.connect(self.export_pdf_report)
+        captureAllFBD=QPushButton("📸 Capture All FBD")
+        captureAllFBD.setToolTip("บันทึก Geometry + Critical FBD ทั้ง 5 case เป็น PNG อัตโนมัติ")
+        captureAllFBD.clicked.connect(self.capture_all_fbd)
 
         top.addWidget(QLabel("Case:"));top.addWidget(self.fbdModeCombo)
         top.addWidget(QLabel("View:"));top.addWidget(self.fbdViewMode)
         top.addWidget(self.fbdSimple)
+        top.addWidget(captureAllFBD)
         top.addWidget(exportCurrentFBD);top.addWidget(exportAllFBD)
         top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
 
