@@ -222,7 +222,7 @@ function setupDynamicProjectParameters(){
   const eventMode=$("#eventMode");
   if(eventMode) $("#manualEventsWrap").classList.toggle("hidden",eventMode.value!=="manual");
   const downMode=$("#downMode");
-  if(downMode) $(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
+  if(downMode) $$(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
 
   const turnEnable=getField("batteryForm","turn_enabled");
   if(turnEnable){
