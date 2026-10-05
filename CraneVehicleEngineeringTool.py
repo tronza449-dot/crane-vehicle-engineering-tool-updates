@@ -203,6 +203,7 @@ class Model3D(QWidget):
         self._target_angle=0.0
         self._display_angle=0.0
         self._angle_ready=False
+        self.reportMode=False
         self._anim=QTimer(self)
         self._anim.setInterval(16)
         self._anim.timeout.connect(self._animate_angle)
@@ -451,16 +452,18 @@ class Model3D(QWidget):
         marker=(bx+arm_r*math.cos(th),arm_r*math.sin(th),base_z+.13)
         mq,_=project(marker)
         p.setBrush(QColor("#2463eb"));p.setPen(QPen(QColor("white"),2));p.drawEllipse(mq,6,6)
-        p.setPen(QColor("#174a74"));p.setFont(QFont("",8,QFont.Bold))
-        p.drawText(mq+QPointF(10,-8),f"CURRENT θ = {self._display_angle:+.1f}°")
+        if not self.reportMode:
+            p.setPen(QColor("#174a74"));p.setFont(QFont("",8,QFont.Bold))
+            p.drawText(mq+QPointF(10,-8),f"CURRENT θ = {self._display_angle:+.1f}°")
 
         # labels / HUD
         p.setPen(QColor("#102a43"))
         p.setFont(QFont("",11,QFont.Bold))
-        p.drawText(18,29,"INTERACTIVE 3D CRANE VIEW")
-        p.setFont(QFont("",8))
-        p.setPen(QColor("#60758b"))
-        p.drawText(18,49,"ลากเมาส์ = หมุนมุมมอง  •  Scroll = Zoom  •  Double-click = Reset")
+        p.drawText(18,29,"CRANE GEOMETRY VIEW" if self.reportMode else "INTERACTIVE 3D CRANE VIEW")
+        if not self.reportMode:
+            p.setFont(QFont("",8))
+            p.setPen(QColor("#60758b"))
+            p.drawText(18,49,"ลากเมาส์ = หมุนมุมมอง  •  Scroll = Zoom  •  Double-click = Reset")
 
         # top-right info panel
         panel=QRectF(self.width()-245,16,226,124)
@@ -483,11 +486,12 @@ class Model3D(QWidget):
             p.drawText(QRectF(panel.x()+105,yy-13,105,18),Qt.AlignRight|Qt.AlignVCenter,val)
             p.setFont(QFont("",8));yy+=20
 
-        # current angle badge
-        badge=QRectF(18,self.height()-52,142,34)
-        p.setPen(Qt.NoPen);p.setBrush(QColor("#2463eb"));p.drawRoundedRect(badge,10,10)
-        p.setPen(QColor("white"));p.setFont(QFont("",10,QFont.Bold))
-        p.drawText(badge,Qt.AlignCenter,f"CRANE  {self._display_angle:+.1f}°")
+        # current angle badge (interactive only; report already has CRANE LIVE DATA)
+        if not self.reportMode:
+            badge=QRectF(18,self.height()-52,142,34)
+            p.setPen(Qt.NoPen);p.setBrush(QColor("#2463eb"));p.drawRoundedRect(badge,10,10)
+            p.setPen(QColor("white"));p.setFont(QFont("",10,QFont.Bold))
+            p.drawText(badge,Qt.AlignCenter,f"CRANE  {self._display_angle:+.1f}°")
 
 def spin(v,a,b,s=.1,d=2):
     x=QDoubleSpinBox();x.setRange(a,b);x.setValue(v);x.setSingleStep(s);x.setDecimals(d);return x
@@ -5930,6 +5934,72 @@ void loop() {{
         records=self.stability_worst_scan()
         return records[0] if records else (999,None,None)
 
+    def stability_design_guidance(self,d=None):
+        """Preliminary geometry guidance using the same rigid-body balance model.
+
+        Returns the minimum track width that satisfies the requested SF over the
+        full -90..+90 slew range (if track width alone can solve it), plus the
+        contiguous safe slew range around 0° for the current track.
+        """
+        d=dict(d or self.inputs());req=float(d["req"])
+
+        def min_sf_at(dd,ang):
+            vals=[
+                self.side_moment_balance(dd,ang,"left")["sf"],
+                self.side_moment_balance(dd,ang,"right")["sf"],
+                self.longitudinal_moment_balance(dd,ang,"front")["sf"],
+                self.longitudinal_moment_balance(dd,ang,"rear")["sf"],
+            ]
+            return min(vals)
+
+        def full_slew_min_sf(track):
+            dd=dict(d);dd["W"]=float(track)
+            best=999.0
+            for ang in range(-90,91):
+                best=min(best,
+                         self.side_moment_balance(dd,ang,"left")["sf"],
+                         self.side_moment_balance(dd,ang,"right")["sf"],
+                         self.longitudinal_moment_balance(dd,ang,"front")["sf"],
+                         self.longitudinal_moment_balance(dd,ang,"rear")["sf"])
+            return best
+
+        # Minimum track width for the requested full slew range.
+        lo=0.10;hi=max(float(d["W"]),0.10)
+        while hi<5.0 and full_slew_min_sf(hi)<req:
+            hi=min(5.0,hi*1.25+0.02)
+        required_track=None
+        if full_slew_min_sf(hi)>=req:
+            for _ in range(28):
+                mid=(lo+hi)/2
+                if full_slew_min_sf(mid)>=req:hi=mid
+                else:lo=mid
+            required_track=hi
+
+        # Contiguous safe range around 0° for the current track.
+        def boundary(sign):
+            if min_sf_at(d,0.0)<req:return 0.0
+            prev=0.0
+            fail=None
+            for a in range(1,91):
+                ang=sign*float(a)
+                if min_sf_at(d,ang)<req:
+                    fail=float(a);break
+                prev=float(a)
+            if fail is None:return 90.0
+            low=prev;high=fail
+            for _ in range(24):
+                mid=(low+high)/2
+                if min_sf_at(d,sign*mid)>=req:low=mid
+                else:high=mid
+            return low
+
+        left_limit=-boundary(-1.0)
+        right_limit=boundary(1.0)
+        current=float(d["th"])
+        slew_margin=min(current-left_limit,right_limit-current) if left_limit<=current<=right_limit else -min(abs(current-left_limit),abs(current-right_limit))
+        return dict(required_track=required_track,left_limit=left_limit,right_limit=right_limit,
+                    current=current,slew_margin=slew_margin,req=req)
+
     def apply_scenario_preset(self,key):
         if key=="baseline":
             self.tm.setValue(300);self.emass.setValue(290);self.mt.setValue(300);self.ml.setValue(100);self.mb.setValue(20)
@@ -9040,7 +9110,7 @@ m_Base + m_B + m_L = {b['base']['m']:.2f} + {b['boom']['m']:.2f} + {b['payload']
               <p><b>สูตรตัวแปร</b></p>
               <p style='margin-left:18px'>{formula_text}<br>θ = -90°, -89°, ..., +90°</p>
               <p><b>แทนค่า</b></p>
-              <p style='margin-left:18px'>181 มุม × 3 records = 543 records (Side เปรียบเทียบ Left/Right ภายใน)</p>
+              <p style='margin-left:18px'>181 มุม × 4 ทิศทาง (Left / Right / Front / Rear) = 724 directional moment-balance evaluations</p>
               <p style='color:#176337'><b>คำตอบ: ตรวจครบ 724 กรณี</b></p>
             </div>
 
@@ -9376,13 +9446,27 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             dst=td/f"fbd_{key}.png"
             if src.exists() and not dst.exists():
                 shutil.copyfile(src,dst)
-        intro="""<h1>สรุป FBD การคว่ำทุกด้าน</h1>
-        <p><b>อ่านรูปนี้แค่ 4 อย่าง:</b> Tipping Axis, แรงภายนอก, Reaction และ moment arm.</p>
-        <p><b>Safety Factor:</b> SF = M_R / M_O โดยใช้โมเมนต์ต้านหารด้วยโมเมนต์คว่ำ</p>
-        <p><b>ฝั่งพยายามทำให้คว่ำ</b> = Overturning side &nbsp; | &nbsp;
-        <b>ฝั่งช่วยต้านการคว่ำ</b> = Resisting side</p>
-        <p>Notation: W_vehicle, W_boom, W_payload.</p>
-        <h2>ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX</h2>\n        <p><b>Critical-case FBDs:</b> รูป FBD แต่ละหน้าด้านล่างใช้มุมวิกฤตของ case นั้นเอง ส่วนภาค Current-angle Snapshot ที่ตามหลังใช้มุม θ ปัจจุบันจาก Input.</p>
+        guide=self.stability_design_guidance(d)
+        track_text="No track-width-only solution within 5.0 m" if guide["required_track"] is None else f"{guide['required_track']:.3f} m"
+        margin_note=(f"Current θ={d['th']:.1f}° is inside the preliminary safe range by about {guide['slew_margin']:.1f}°."
+                     if guide["slew_margin"]>=0 else
+                     f"Current θ={d['th']:.1f}° is outside the preliminary safe range by about {abs(guide['slew_margin']):.1f}°.")
+        intro=f"""<div style='page-break-before:always'></div>
+        <h1>DESIGN GUIDANCE & CRITICAL-CASE SUMMARY</h1>
+        <p><b>FBD reading guide:</b> ดู 4 อย่าง — Tipping Axis, external forces, Reaction และ perpendicular moment arm.
+        &nbsp; SF = M_R / M_O.</p>
+        <p><b>Overturning side</b> = ฝั่งพยายามทำให้คว่ำ &nbsp; | &nbsp;
+        <b>Resisting side</b> = ฝั่งช่วยต้านการคว่ำ.</p>
+        <div style='background:#eef6ff;border:1px solid #cfe2f5;padding:9px'>
+        <b>Preliminary design guidance from the same rigid-body model:</b><br>
+        • Current track W = {d['W']:.3f} m<br>
+        • Estimated minimum track for full -90°...+90° slew at SF ≥ {d['req']:.2f}: <b>{track_text}</b><br>
+        • Estimated safe slew range at current track: <b>{guide['left_limit']:.1f}° to +{guide['right_limit']:.1f}°</b><br>
+        • {margin_note}<br>
+        <i>Guidance is preliminary; verify measured CG, compliance, dynamic shock and structural limits before fabrication/use.</i>
+        </div>
+        <p><b>Critical-case FBDs:</b> each FBD page uses its own searched critical angle.
+        The Current-angle Snapshot later in the report uses the present θ input.</p>
         <!-- SIDE TIPPING - LEFT | SIDE TIPPING - RIGHT | FRONT TIPPING | REAR TIPPING | SLOPE STABILITY -->
         """
         return intro+html
@@ -9405,10 +9489,15 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             current_name,current_sf=min(current_cases,key=lambda q:q[1])
             current_sf_text="∞" if current_sf>=999 else f"{current_sf:.3f}"
             current_status="PASS" if current_sf>=d["req"] else "FAIL"
+            guidance=self.stability_design_guidance(d)
+            track_req=guidance["required_track"]
+            track_req_text="No track-only solution" if track_req is None else f"{track_req:.3f} m"
+            safe_range_text=f"{guidance['left_limit']:.1f}° to +{guidance['right_limit']:.1f}°"
+            margin_text=f"{guidance['slew_margin']:.1f}°" if guidance["slew_margin"]>=0 else f"OUTSIDE by {abs(guidance['slew_margin']):.1f}°"
 
             # Render report figures at fixed size instead of grabbing the current UI widget size.
             figures=[]
-            report_vehicle=Model3D();report_vehicle.resize(980,430);report_vehicle.setD(d);report_vehicle.setCamera(38,24,1.0)
+            report_vehicle=Model3D();report_vehicle.reportMode=True;report_vehicle.resize(980,430);report_vehicle.setD(d);report_vehicle.setCamera(38,24,1.0)
             QApplication.processEvents()
             fp=tmpdir/"vehicle.png";pix=QPixmap(report_vehicle.size());pix.fill(QColor("white"));report_vehicle.render(pix)
             if pix.save(str(fp),"PNG"):figures.append(("vehicle",fp.as_uri()))
@@ -9433,6 +9522,9 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             <tr><td>Worst critical-case stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
             <tr><td>Uphill rear-tipping stability</td><td>{'∞' if slope['sf']>=999 else f"{slope['sf']:.3f}"}</td></tr>
             <tr><td>Overall preliminary status</td><td><b>{'PASS' if worst[0]>=d['req'] and slope['sf']>=d['req'] else 'FAIL / revise geometry or operating limits'}</b></td></tr></table>
+            <p style='background:#fff7e6;border:1px solid #ead7a3;padding:7px'><b>Operating interpretation:</b>
+            Current angle {d['th']:.1f}° = {current_status}, but the full -90°...+90° slew range = {'PASS' if worst[0]>=d['req'] else 'FAIL'} for required SF {d['req']:.2f}.
+            See Design Guidance on the next page.</p>
             <p><b>Method:</b> rigid-body moment balance about each tipping axis. FBDs show external weights/reactions and the selected tipping axis.
             Dynamic factor is an equivalent design multiplier on adverse payload moment only.</p>"""
             html=("<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
@@ -9816,10 +9908,10 @@ class ForceDiagram(QWidget):
         self.arrow(p,origin,origin+ux*55,xlabel,"#334155",QPointF(6,0),1.8)
         self.arrow(p,origin,origin+uy*55,ylabel,"#334155",QPointF(6,0),1.8)
 
-    def pivot(self,p,pt,label,side="right"):
+    def pivot(self,p,pt,label,side="right",dy=-28):
         p.setPen(QPen(QColor("#b42318"),2));p.setBrush(QColor("#ffffff"));p.drawEllipse(pt,7,7)
         dx=12 if side=="right" else -132
-        self.txt(p,pt.x()+dx,pt.y()-13,label,9,True,"#b42318")
+        self.txt(p,pt.x()+dx,pt.y()+dy,label,9,True,"#b42318")
 
     def legend(self,p,include_inertia=False):
         """Compact color legend used on both interactive and exported FBDs."""
@@ -9827,7 +9919,7 @@ class ForceDiagram(QWidget):
         if include_inertia:items.append(("#7c3aed","Inertia F_I"))
         step=104 if include_inertia else 120
         total=step*len(items)
-        x=max(500,self.width()-total-24);y=78
+        x=max(500,self.width()-total-24);y=108 if self.height()>=680 else 102
         for color,label in items:
             p.setPen(QPen(QColor(color),3));p.drawLine(QPointF(x,y),QPointF(x+18,y))
             self.txt(p,x+23,y+4,label,6.5 if include_inertia else 7,True,color);x+=step
@@ -9868,7 +9960,8 @@ class ForceDiagram(QWidget):
         self.txt(p,rearx-35,y0-42,"Rear axis",8,True,"#7c3aed");self.txt(p,frontx-35,y0-42,"Front axis",8,True,"#7c3aed")
         crane_x=rearx+(d["xC"]/max(d["WB"],1e-9))*(frontx-rearx);crane_y=cy
         p.setBrush(QColor("#f59e0b"));p.setPen(QPen(QColor("#a45108"),2));p.drawEllipse(QPointF(crane_x,crane_y),10,10)
-        th=math.radians(self._angle(d));r=min(210,ww*.27);tip=QPointF(crane_x+r*math.cos(th),crane_y+r*math.sin(th))
+        # QPainter screen y grows downward; physical +y is drawn upward.
+        th=math.radians(self._angle(d));r=min(210,ww*.27);tip=QPointF(crane_x+r*math.cos(th),crane_y-r*math.sin(th))
         p.setPen(QPen(QColor("#f59e0b"),9,Qt.SolidLine,Qt.RoundCap));p.drawLine(QPointF(crane_x,crane_y),tip)
         p.setBrush(QColor("#cbd5e1"));p.setPen(QPen(QColor("#475569"),1.5));p.drawRect(QRectF(tip.x()-15,tip.y()-12,30,24))
         self.dim(p,QPointF(rearx,y1+56),QPointF(frontx,y1+56),f"WB = {d['WB']:.3f} m")
@@ -10007,7 +10100,7 @@ class ForceDiagram(QWidget):
 
         self.axes(p,QPointF(78,axis_y),"+x forward","+z up")
         if not compact:
-            self.txt(p,20,626,f"x_C={xc:.3f} m | x_V={xveh:.3f} m | x_B={xboom:.3f} m | x_L={xload:.3f} m | x_P={xp:.3f} m",8)
+            self.txt(p,20,626,f"x_crane(global)={xc:.3f} m (rear-axle input={d['xC']:.3f} m) | x_V={xveh:.3f} m | x_B={xboom:.3f} m | x_L={xload:.3f} m | x_P={xp:.3f} m",8)
             if bal["mo"]<=1e-12:self.txt(p,20,646,"NO OVERTURNING GRAVITY MOMENT in this case: all shown vertical loads remain on the resisting side of P.",8,True,"#176337")
             else:self.txt(p,20,646,"Payload Kdyn is applied only when Payload lies beyond P on the overturning side.",8,False,"#52606d")
         self.result_box(p,bal["sf"],bal["mo"],bal["mr"],d["req"])
@@ -10041,18 +10134,18 @@ class ForceDiagram(QWidget):
         p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawPolygon(body)
         self.marker(p,cg,"Combined CG","#334155",8,-10)
 
-        self.pivot(p,rear,"Rear tipping axis P","right")
+        self.pivot(p,rear,"Rear tipping axis P","right",24)
         nr0=rear+n*8;self.arrow(p,nr0,nr0+n*(76 if compact else 105),"N_R","#16803a",QPointF(8,-2))
         p.setPen(QPen(QColor("#b42318"),2));p.drawLine(front+QPointF(-6,-6),front+QPointF(6,6));p.drawLine(front+QPointF(-6,6),front+QPointF(6,-6))
         self.txt(p,front.x()+12,front.y()+22,"N_F = 0",8 if compact else 9,True,"#b42318")
 
         wp=105 if compact else 135;wn=90 if compact else 122
-        self.arrow(p,cg,cg-u*wp,"W_parallel","#b42318",QPointF(-82,-8))
+        self.arrow(p,cg,cg-u*wp,"W_parallel","#b42318",QPointF(-16,24))
         self.arrow(p,cg,cg-n*wn,"W_normal","#111827",QPointF(8,0))
         if sr["acc"]>1e-9:
             fi0=cg+n*(14 if compact else 17)
             p.setPen(QPen(QColor("#a78bfa"),1,Qt.DashLine));p.drawLine(cg,fi0)
-            self.arrow(p,fi0,fi0-u*(78 if compact else 102),"F_I = ma","#7c3aed",QPointF(-64,17))
+            self.arrow(p,fi0,fi0-u*(78 if compact else 102),"F_I = ma","#7c3aed",QPointF(-18,-14))
             if not compact:self.txt(p,fi0.x()+8,fi0.y()-10,"graphic offset only — acts through CG",7,False,"#7c3aed")
 
         dr0=rear-n*(28 if compact else 36);dr1=proj-n*(28 if compact else 36)
