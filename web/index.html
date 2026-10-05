@@ -290,23 +290,60 @@
     </section>
 
     <section id="stability" class="page">
-      <div class="page-title"><h2>Crane Stability / Tipping</h2><p>Side + Front + Rear Safety Factor</p></div>
+      <div class="page-title"><h2>Crane Stability / Tipping + Web FBD</h2><p>Side Left / Side Right / Front / Rear / Slope — Current Angle และ Critical Case</p></div>
       <div class="layout">
         <form id="stabilityForm" class="panel form-grid" onsubmit="return false;">
           <label>มวลรวมรถ (kg)<input name="total_mass_kg" type="number" value="300" step="1"></label>
           <label>Payload (kg)<input name="payload_mass_kg" type="number" value="100" step="1"></label>
           <label>มวล Boom/Crane ที่ใช้ในโมเดล (kg)<input name="boom_mass_kg" type="number" value="80" step="1"></label>
-          <label>Track width (m)<input name="track_width_m" type="number" value="0.7" step="0.05"></label>
+          <label>Track width (m)<input name="track_width_m" type="number" value="1.1" step="0.05"></label>
           <label>Wheelbase (m)<input name="wheelbase_m" type="number" value="1.1" step="0.05"></label>
           <label>ความยาวแขนเครน (m)<input name="boom_length_m" type="number" value="1.2" step="0.1"></label>
-          <label>มุมเครน (deg)<input name="crane_angle_deg" type="number" value="90" step="1"></label>
-          <label>Dynamic Factor<input name="dynamic_factor" type="number" value="1" step="0.1"></label>
+          <label>มุมเครนปัจจุบัน θ (deg)<input name="crane_angle_deg" type="number" value="-66" min="-90" max="90" step="1"></label>
+          <label>Dynamic Factor Kdyn<input name="dynamic_factor" type="number" value="1.2" step="0.1"></label>
           <label>SF ที่ต้องการ<input name="required_sf" type="number" value="1.5" step="0.1"></label>
           <label>ตำแหน่งเครนจากเพลาหลัง (m)<input name="crane_from_rear_m" type="number" value="0.2" step="0.05"></label>
-          <label>CG รถหลักจากกึ่งกลางรถ (m)<input name="vehicle_cg_x_from_center_m" type="number" value="0" step="0.05"></label>
-          <button id="calcStability" class="primary full">คำนวณ Stability</button>
+          <label>CG รถหลักจากกึ่งกลางรถ x (m)<input name="vehicle_cg_x_from_center_m" type="number" value="0" step="0.05"></label>
+          <label>CG รถหลักด้านข้าง y (m)<input name="vehicle_cg_y_m" type="number" value="0" step="0.01"></label>
+
+          <h3 class="full section-label">Slope FBD / ทางลาด</h3>
+          <label>มุมทางลาด α (deg)<input name="slope_deg" type="number" value="19" step="0.1"></label>
+          <label>ความเร่งขึ้นทางลาด a (m/s²)<input name="slope_accel_mps2" type="number" value="0.28" step="0.01"></label>
+          <label>Combined CG จากเพลาหลัง (m)<input name="combined_cg_from_rear_m" type="number" value="0.55" step="0.01"></label>
+          <label>Combined CG height (m)<input name="combined_cg_height_m" type="number" value="0.55" step="0.01"></label>
+
+          <button id="calcStability" class="primary full">คำนวณ Stability + FBD</button>
         </form>
         <div id="stabilityResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
+      </div>
+
+      <div class="panel web-fbd-panel">
+        <div class="web-fbd-head">
+          <div>
+            <h3>Engineering FBD / แผนภาพแรงบนเว็บ</h3>
+            <p>รูปวาดจากค่าคำนวณสด ไม่ใช่รูปภาพสำเร็จ — เปลี่ยน Input แล้วกดคำนวณ รูปและสูตรจะเปลี่ยนตาม</p>
+          </div>
+          <div class="web-fbd-controls">
+            <label>Case
+              <select id="webFbdCase">
+                <option value="side_left">Side Left / คว่ำซ้าย</option>
+                <option value="side_right">Side Right / คว่ำขวา</option>
+                <option value="front">Front / คว่ำหน้า</option>
+                <option value="rear">Rear / คว่ำหลัง</option>
+                <option value="slope">Slope / ทางลาด</option>
+              </select>
+            </label>
+            <label>View
+              <select id="webFbdView">
+                <option value="current">Current Angle / มุมปัจจุบัน</option>
+                <option value="critical">Critical Case / มุมวิกฤต</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="webFbdContext" class="web-fbd-context">คำนวณ Stability ก่อนเพื่อสร้าง FBD</div>
+        <div id="webFbdCanvas" class="web-fbd-canvas empty">FBD จะปรากฏตรงนี้</div>
+        <div id="webFbdFormula" class="web-fbd-formula"></div>
       </div>
     </section>
     <section id="parameters" class="page">
