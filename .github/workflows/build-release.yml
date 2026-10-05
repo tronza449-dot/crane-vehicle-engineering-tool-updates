@@ -968,12 +968,14 @@ jobs:
               shot_td=Path(shot_td)
               original_shot_folder=w._screenshot_folder
               w._screenshot_folder=lambda: shot_td
-              current=w.capture_current_page()
-              assert current and Path(current).exists() and Path(current).stat().st_size>1000
-              batch=w.capture_all_fbd()
-              assert len(batch)==6
-              for fp in batch:
-                  assert Path(fp).exists() and Path(fp).stat().st_size>1000
+              with patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok), \
+                   patch.object(cvet.QMessageBox,"critical",return_value=cvet.QMessageBox.Ok):
+                  current=w.capture_current_page()
+                  assert current and Path(current).exists() and Path(current).stat().st_size>1000
+                  batch=w.capture_all_fbd()
+                  assert len(batch)==6
+                  for fp in batch:
+                      assert Path(fp).exists() and Path(fp).stat().st_size>1000
               w._screenshot_folder=original_shot_folder
 
           # ---------- PDF regression ----------
