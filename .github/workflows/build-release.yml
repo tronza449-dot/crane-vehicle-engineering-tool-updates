@@ -159,7 +159,7 @@ jobs:
           assert "ดูรูปนี้แค่ 4 อย่าง" in source
           assert "ฝั่งพยายามทำให้คว่ำ" in source
           assert "ฝั่งช่วยต้านการคว่ำ" in source
-          assert "ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX" in source
+          assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in source
           assert "FBD แบบเข้าใจง่าย / BEGINNER FBD" in source
           assert "CURRENT-ANGLE SNAPSHOT" in source
           assert "CRITICAL-CASE SECTION" in source
