@@ -1,51 +1,75 @@
-# Crane Vehicle Engineering Tool V53.8.8
+# Crane Vehicle Engineering Tool V53.8.9
 
-## Formal Engineering FBD + Stability Report Upgrade
+## Stability Mass Modes + Complete Variables + Per-Mode PDF Export
 
-อัปเดตต่อจาก V53.8.7 โดยนำระบบ Formal FBD ที่ตรวจสอบใหม่มาใช้กับสายเวอร์ชันล่าสุด เพื่อให้ Auto Update อัปเดตขึ้นตามลำดับเวอร์ชันได้ตามปกติ
+อัปเดตต่อจาก V53.8.8 เพื่อแก้การป้อนมวลและการ Export Stability ให้ชัดเจนขึ้น
 
-### Formal FBD
-- Geometry Top View ใช้สำหรับนิยาม Support Polygon และ Tipping Axis
-- Side Left / Side Right ใช้ Front Elevation
-- Front / Rear ใช้ Side Elevation
-- Slope FBD ใช้ resolved weight components โดยไม่วาด W=mg ซ้ำกับ mg sin(alpha), mg cos(alpha)
-- แสดง coordinate axes, tipping axis, support reactions, weights และ moment arms
-- ที่ impending tipping ระบุ reaction ฝั่งตรงข้าม tipping axis -> 0
+### 1) Mass Calculation Mode แยกเป็น 2 โหมด
+- Mode A — Total Mass
+  - ผู้ใช้กรอก m_total, m_L, m_B, Base CG และ Driving CG เอง
+- Mode B — Component Mass
+  - ผู้ใช้กรอกน้ำหนักแต่ละส่วนในตาราง
+  - โปรแกรมรวม m_total อัตโนมัติ
+  - Boom ถูกส่งไป m_B
+  - Basket + Payload ถูกส่งไป m_L
+  - ชิ้นส่วนที่เหลือรวมเป็น Base vehicle
+  - คำนวณ x_CG,V, y_CG,V, x_CG,drive และ h_CG จากตาราง
+  - ช่องค่าที่เป็นผลลัพธ์จะถูกล็อกเพื่อป้องกันการกรอกซ้ำ/ค่าขัดกัน
 
-### Calculation convention
-- +x = ด้านหน้ารถ
-- +y = ด้านขวารถ
-- +z = ด้านบน
-- crane theta: -90 deg = left, 0 deg = forward, +90 deg = right
-- Left/Right/Front/Rear moment balance แยกกัน
-- Payload dynamic factor ใช้เฉพาะ adverse overturning payload moment
-- Worst-case scan รายงาน Side critical + Front + Rear ต่อมุม และภายในเปรียบเทียบ Left/Right ครบ
+### 2) Component Mass table
+เพิ่มรายการแยก:
+- Frame
+- Battery
+- Drive motors
+- Support wheels
+- Crane column
+- Slewing drive + bearing
+- Winch
+- Boom
+- Basket
+- Payload
+- Counterweight
+- Other
 
-### PDF Export
-Stability PDF และ Final Engineering PDF มี:
-- Geometry & Tipping-Axis Definition
-- FBD Left
-- FBD Right
-- FBD Front
-- FBD Rear
-- FBD Uphill Slope
-- Variable table
-- Formula
-- Numeric substitution
-- M_O / M_R / SF
-- PASS / FAIL
+### 3) Stability variables
+Variable Dictionary เพิ่มตัวแปรที่ใช้จริงให้ครบมากขึ้น:
+- Mass source / mass mode
+- m_total, m_V, m_B, m_L
+- W_V, W_B, W_L, F_L,d
+- x/y tipping axes
+- x/y CG
+- Boom/Payload positions
+- Moment arms ของ Left / Right / Front / Rear
+- M_O, M_R และ SF ของทุกทิศ
+- Slope variables: alpha, a, d_rear, W_parallel, W_normal, F_I, traction,
+  CG shift, stability margin, M_O,slope, M_R,slope, SF_slope
+- Component source table แสดงในรายงานเมื่อใช้ Component Mass Mode
 
-### Slope
-- W_parallel = m g sin(alpha)
-- W_normal = m g cos(alpha)
-- F_I = m a opposite acceleration for quasi-static check
-- M_O = (W_parallel + F_I) h_CG
-- M_R = W_normal d_rear
-- SF_slope = M_R / M_O
+### 4) PDF Export
+เพิ่มการส่งออกแยก:
+- Geometry + Tipping Axes
+- Side Left
+- Side Right
+- Front
+- Rear
+- Slope
 
-### Compatibility
-- รุ่นนี้ต่อเลขจาก V53.8.7 โดยตรง
-- Auto Updater จะมอง V53.8.8 เป็นเวอร์ชันใหม่กว่าและอัปเดตได้ตามปกติ
+เพิ่มปุ่ม:
+- Export Current Mode PDF ที่หน้า FBD
+- Export Slope PDF ที่หน้า Slope
+- Export Selected Mode PDF ที่หน้า Report
+- Export ALL Stability Modes PDF
+- Export All Stability Modes ที่หน้า Mass & CG
+
+### 5) Side CG
+เพิ่ม y_CG,V และใช้จริงใน Left/Right moment balance
+Component Mass Mode จะคำนวณ y_CG,V จากตารางอัตโนมัติ
+
+### Validation
+ทดสอบ syntax, Total/Component mode, automatic Boom/Payload sync,
+base lateral CG, complete variables และการ render Export ครบทุกโหมดแล้ว
 
 ### Scope
-Preliminary rigid-body engineering calculation. Actual mass/CG, structure, wheel/ground behavior, brakes, bearing, shock/dynamic loads and manufacturer limits still require validation.
+ยังเป็น Preliminary rigid-body engineering calculation.
+ควรยืนยันมวล/CG จริง, โครงสร้าง, wheel-ground interaction, braking,
+slewing bearing และ dynamic/shock load ก่อนใช้งานจริง.
