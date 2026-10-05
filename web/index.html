@@ -149,7 +149,7 @@
         <form id="driveForm" class="panel form-grid" onsubmit="return false;">
           <label>มวลรวมรถ (kg)<input name="mass_kg" type="number" value="300" step="1"></label>
           <label>เส้นผ่านศูนย์กลางล้อ (inch)<input name="wheel_diameter_in" type="number" value="16" step="0.1"></label>
-          <label>มุมทางลาด (deg)<input name="slope_deg" type="number" value="19" step="0.1"></label>
+          <label>มุมทางลาด (deg)<input name="slope_deg" type="number" value="11.11" step="0.01"></label>
           <label>ความเร็วรถ (km/h)<input name="speed_kmh" type="number" value="1" step="0.1"></label>
           <label>เวลาเร่งถึงความเร็วเป้าหมาย (s)<input name="accel_time_s" type="number" value="5" step="0.1"></label>
           <label>Crr แรงต้านการกลิ้ง<input name="rolling_coeff" type="number" value="0.02" step="0.001"></label>
@@ -202,7 +202,7 @@
           <label>ความเร็วรถ (km/h)<input name="speed_kmh" type="number" value="1" step="0.1"></label>
           <label>ระยะเที่ยวเดียว (m)<input name="one_way_m" type="number" value="30" step="1"></label>
           <label>ระยะทางลาดต่อเที่ยว (m)<input name="slope_length_m" type="number" value="2.9" step="0.1"></label>
-          <label>มุมทางลาด (deg)<input name="slope_deg" type="number" value="19" step="0.1"></label>
+          <label>มุมทางลาด (deg)<input name="slope_deg" type="number" value="11.11" step="0.01"></label>
           <label>เวลาทำงานรวม (h)<input name="runtime_h" type="number" value="3" step="0.1"></label>
           <label>เวลา 1 งานยก (s)<input id="batteryLiftEventTime" name="lift_time_per_event_s" type="number" value="57.62" step="0.01"></label>
           <label>งานยกต่อรอบ<input id="batteryLiftEvents" name="lift_events_per_round" type="number" value="2" step="1"></label>
@@ -308,7 +308,7 @@
           <label>CG รถหลักด้านข้าง y (m)<input name="vehicle_cg_y_m" type="number" value="0" step="0.01"></label>
 
           <h3 class="full section-label">Slope FBD / ทางลาด</h3>
-          <label>มุมทางลาด α (deg)<input name="slope_deg" type="number" value="19" step="0.1"></label>
+          <label>มุมทางลาด α (deg)<input name="slope_deg" type="number" value="11.11" step="0.01"></label>
           <label>ความเร่งขึ้นทางลาด a (m/s²)<input name="slope_accel_mps2" type="number" value="0.28" step="0.01"></label>
           <label>Combined CG จากเพลาหลัง (m)<input name="combined_cg_from_rear_m" type="number" value="0.55" step="0.01"></label>
           <label>Combined CG height (m)<input name="combined_cg_height_m" type="number" value="0.55" step="0.01"></label>
@@ -402,7 +402,7 @@
         </article>
         <article class="parameter-panel">
           <div class="parameter-k">Main Slope</div>
-          <div id="paramSlope" class="parameter-v">19°</div>
+          <div id="paramSlope" class="parameter-v">11.11°</div>
           <div class="parameter-note">จาก Main Battery Input</div>
         </article>
         <article class="parameter-panel">
