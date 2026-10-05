@@ -8072,76 +8072,96 @@ void loop() {{
 
 
     def stability_formula_html(self):
-        d=self.inputs();g=G;th=math.radians(d["th"])
-        sf,MO,MR=self.calc_side(d)
-        pivot=d["W"]/2
-        yL=abs(d["L"]*math.sin(th));yB=abs((d["L"]/2)*math.sin(th))
-        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
-        FL=d["kd"]*d["ml"]*g
-        dL=max(0.0,yL-pivot);rL=max(0.0,pivot-yL)
-        dB=max(0.0,yB-pivot);rB=max(0.0,pivot-yB)
-        MOL=FL*dL;MRL=d["ml"]*g*rL;MOB=d["mb"]*g*dB;MRB=d["mb"]*g*rB;MRV=mveh*g*pivot
-        rear=-d["WB"]/2;front=d["WB"]/2;xc=rear+d["xC"]
-        xload=xc+d["L"]*math.cos(th);xboom=xc+(d["L"]/2)*math.cos(th)
-        sfF,sfR=self.longitudinal_sf_at(d,d["th"])
+        d=self.inputs();th=float(d["th"]);g=G
+        sl=self.side_moment_balance(d,th,"left");sr=self.side_moment_balance(d,th,"right")
+        fb=self.longitudinal_moment_balance(d,th,"front");rb0=self.longitudinal_moment_balance(d,th,"rear")
         slope=self.slope_stability_results(d)
-        rows,sm,xg,yg,zg=self.component_values() if hasattr(self,"comp") else ([],0,0,0,0)
-
-        def frac(a,b):
-            return ("<table cellspacing='0' cellpadding='2' style='display:inline-table;margin:3px 8px;vertical-align:middle'>"
-                    f"<tr><td align='center' style='border-bottom:1px solid #243b53;padding:2px 8px'><b>{a}</b></td></tr>"
-                    f"<tr><td align='center' style='padding:2px 8px'><b>{b}</b></td></tr></table>")
-        def sec(n,title,meaning,thai_formula,var_formula,sub,result):
-            return (f"<div style='border:1px solid #d6e0ea;padding:14px 16px;margin:12px 0;background:#fbfdff'>"
-                    f"<h3 style='color:#17456b'>{n}. {title}</h3><p><b>คำอธิบายภาษาไทย:</b> {meaning}</p>"
-                    f"<p><b>สูตรภาษาไทย</b></p><div style='margin-left:18px;font-size:12pt'><b>{thai_formula}</b></div>"
-                    f"<p><b>สูตรตัวแปร</b></p><div style='margin-left:18px;font-size:12pt'>{var_formula}</div>"
-                    f"<p><b>แทนค่า</b></p><div style='margin-left:18px'>{sub}</div>"
-                    f"<p style='color:#176337'><b>คำตอบ: {result}</b></p></div>")
-
-        html="<h2>STABILITY ANALYSIS — สูตรครบ + แทนค่า</h2>"
-        html+="<p><b>หลักสำคัญ:</b> มวลทุกก้อนต้องถูกนับเป็น Overturning หรือ Resisting รอบแนว Pivot เพียงครั้งเดียว และ Total mass ต้องไม่บวก Payload ซ้ำ</p>"
-        html+=sec(1,"แรงโหลดออกแบบ","ใช้ Dynamic Factor กับ Payload เฉพาะเมื่อแรงนั้นทำให้คว่ำ; ด้านต้านใช้ Payload จริง",
-                  "แรงโหลดออกแบบ = Dynamic Factor × มวลโหลด × g","F_L = Kdyn × m_L × g",
-                  f"F_L = {d['kd']:.2f} × {d['ml']:.2f} × 9.81 = {FL:.2f} N",f"{FL:.2f} N")
-        html+=sec(2,"ตำแหน่งด้านข้างและ Pivot","หาระยะ Payload/Boom จากกึ่งกลางรถและเทียบกับ W/2",
-                  "ตำแหน่งด้านข้าง = |ระยะแขน × sinθ|; Pivot = W/2",
-                  "y_L=|Lsinθ|, y_B=|(L/2)sinθ|, p=W/2",
-                  f"y_L={yL:.3f} m, y_B={yB:.3f} m, p={pivot:.3f} m",
-                  f"Payload {'เลย' if yL>pivot else 'ยังอยู่ใน'} แนวรองรับ")
-        html+=sec(3,"โมเมนต์คว่ำด้านข้าง","มวลที่อยู่นอก Pivot เท่านั้นที่สร้างโมเมนต์คว่ำ",
-                  "โมเมนต์คว่ำ = ผลรวม(น้ำหนัก × ระยะที่เลย Pivot)",
-                  "M_O = F_L max(0,y_L-p) + m_B g max(0,y_B-p)",
-                  f"M_OL={FL:.2f}×{dL:.3f}={MOL:.2f}<br>M_OB={d['mb']:.2f}×9.81×{dB:.3f}={MOB:.2f}",
-                  f"M_O={MO:.2f} N·m")
-        html+=sec(4,"โมเมนต์ต้านด้านข้าง","มวลส่วนรถ รวมถึง Payload/Boom ที่ยังอยู่ด้านใน Pivot ต้องช่วยต้าน ไม่ควรถูกละทิ้ง",
-                  "โมเมนต์ต้าน = รถส่วนหลัก + Payload ที่อยู่ด้านใน + Boom ที่อยู่ด้านใน",
-                  "M_R = m_vehicle g p + m_L g max(0,p-y_L) + m_B g max(0,p-y_B)",
-                  f"M_vehicle={mveh:.2f}×9.81×{pivot:.3f}={MRV:.2f}<br>M_payload,res={d['ml']:.2f}×9.81×{rL:.3f}={MRL:.2f}<br>M_boom,res={d['mb']:.2f}×9.81×{rB:.3f}={MRB:.2f}",
-                  f"M_R={MR:.2f} N·m; SF_side={'∞' if sf>=999 else f'{sf:.3f}'}")
-        html+=sec(5,"การคว่ำหน้า-หลัง","ใช้เพลาหน้า/หลังเป็น Pivot และรวมโมเมนต์ทุกมวลตามตำแหน่งจริงในแนวยาว",
-                  "Safety Factor = ผลรวมโมเมนต์ต้าน ÷ ผลรวมโมเมนต์คว่ำ",
-                  "SF_front=ΣM_R/ΣM_O; SF_rear=ΣM_R/ΣM_O",
-                  f"x_rear={rear:.3f}, x_front={front:.3f}, x_crane={xc:.3f}, x_load={xload:.3f}, x_boom={xboom:.3f}",
-                  f"SF_front={'∞' if sfF>=999 else f'{sfF:.3f}'}, SF_rear={'∞' if sfR>=999 else f'{sfR:.3f}'}")
-        html+=sec(6,"เสถียรภาพขณะวิ่งขึ้นทางลาด","ใช้ CG รวมตอนวิ่ง, ความสูง CG, ความชัน และความเร่ง ตรวจโมเมนต์รอบเพลาหลัง",
-                  "ระยะจาก CG ถึงเพลาหลัง = x_CG,drive - x_rear; การเลื่อนแนวแรง = h[tanα + a/(g cosα)]",
-                  "d_shift=h tanα + h a/(g cosα); SF_slope=[g cosα·d_rear]/[h(g sinα+a)]",
-                  f"d_rear={slope['rear_arm']:.3f} m<br>d_slope={slope['shift_slope']:.3f} m<br>d_acc={slope['shift_acc']:.3f} m<br>margin={slope['margin']:.3f} m",
-                  ("SF_slope=∞" if slope["sf"]>=999 else f"SF_slope={slope['sf']:.3f}"))
-        if sm>0:
-            contrib="<br>".join([f"{name}: m={m:.2f} kg, x={x:.3f}, y={y:.3f}, z={z:.3f}" for name,m,x,y,z in rows])
-            html+=sec(7,"Combined CG จากตารางมวล","ใช้ค่าเฉลี่ยถ่วงน้ำหนักของมวลรายชิ้นสำหรับ Driving CG และ CG height",
-                      "CG รวม = Σ(m_i × ตำแหน่ง_i) ÷ Σm_i",
-                      "x_CG=Σ(m_i x_i)/Σm_i; y_CG=Σ(m_i y_i)/Σm_i; z_CG=Σ(m_i z_i)/Σm_i",
-                      contrib+f"<br>Σm={sm:.2f} kg",f"x={xg:.3f}, y={yg:.3f}, z={zg:.3f} m")
+        mveh=max(0.0,d["mt"]-d["ml"]-d["mb"])
+        yL=d["L"]*math.sin(math.radians(th));yB=(d["L"]/2)*math.sin(math.radians(th))
         best=self.stability_worst_record()
-        html+=sec(8,"Worst Case","สแกนมุมเครน -90° ถึง +90° ทีละ 1° และตรวจ Side/Front/Rear",
-                  "Safety Factor วิกฤต = ค่าต่ำสุดจากทุกมุมและทุกทิศ",
-                  "SF_worst=min(SF_side(θ),SF_front(θ),SF_rear(θ))",
-                  f"181 มุม × 3 ทิศ = 543 กรณี; วิกฤตที่ θ={best[1]}° {best[2]}",
-                  f"SF_worst={best[0]:.3f}")
-        html+="<p><b>ข้อจำกัด:</b> เป็น Preliminary rigid-body model; ต้องยืนยัน CG จริง, load transfer, tire/ground compliance, โครงสร้าง, bearing, brake และ dynamic shock ก่อนใช้งานจริง</p>"
+
+        def fmt(v):return "∞" if v>=999 else f"{v:.3f}"
+        def comp_table(b,coord):
+            rows=[]
+            for q in b["components"]:
+                pos=q[coord]
+                rows.append(f"<tr><td>{q['name']}</td><td>{q['mass']:.2f}</td><td>{q['factor']:.2f}</td>"
+                            f"<td>{q['force']:.2f}</td><td>{pos:.3f}</td><td>{q['arm']:.3f}</td>"
+                            f"<td>{q['moment']:.2f}</td><td>{q['role']}</td></tr>")
+            return ("<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>"
+                    "<tr><th>Component</th><th>m (kg)</th><th>Factor</th><th>Design force (N)</th>"
+                    f"<th>{coord} (m)</th><th>d⊥ (m)</th><th>M (N·m)</th><th>Role</th></tr>"
+                    +"".join(rows)+"</table>")
+        def case(title,b,coord,geom):
+            return f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
+            <h3>{title}</h3>{geom}
+            {comp_table(b,coord)}
+            <p><b>Overturning moment:</b> M_O = Σ(F_i d_i) on overturning side = {b['mo']:.2f} N·m<br>
+            <b>Resisting moment:</b> M_R = Σ(F_i d_i) on resisting side = {b['mr']:.2f} N·m<br>
+            <b>Safety factor:</b> SF = M_R/M_O = {fmt(b['sf'])} &nbsp; | &nbsp; Required SF = {d['req']:.2f}</p>
+            </div>"""
+
+        html=f"""<h1>STABILITY ANALYSIS — FORMAL VARIABLES, EQUATIONS & SUBSTITUTION</h1>
+        <p><b>Coordinate convention:</b> +x = vehicle forward, +y = vehicle right, +z = upward.
+        Crane angle θ: -90° = left, 0° = forward, +90° = right.</p>
+        <p><b>Tipping criterion:</b> at impending tipping, the support reaction on the wheel line opposite the selected tipping axis approaches 0.
+        Moment balance is therefore taken about the tipping axis P.</p>
+        <table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
+        <tr><th>Symbol</th><th>Definition</th><th>Value</th><th>Unit</th></tr>
+        <tr><td>m_total</td><td>Total vehicle system mass during crane mode</td><td>{d['mt']:.2f}</td><td>kg</td></tr>
+        <tr><td>m_V</td><td>Base vehicle mass = m_total - m_L - m_B</td><td>{mveh:.2f}</td><td>kg</td></tr>
+        <tr><td>m_L</td><td>Payload mass</td><td>{d['ml']:.2f}</td><td>kg</td></tr>
+        <tr><td>m_B</td><td>Boom mass</td><td>{d['mb']:.2f}</td><td>kg</td></tr>
+        <tr><td>W</td><td>Track width, wheel-center to wheel-center</td><td>{d['W']:.3f}</td><td>m</td></tr>
+        <tr><td>WB</td><td>Wheelbase, axle-center to axle-center</td><td>{d['WB']:.3f}</td><td>m</td></tr>
+        <tr><td>L</td><td>Boom radius to payload</td><td>{d['L']:.3f}</td><td>m</td></tr>
+        <tr><td>θ</td><td>Crane slew angle</td><td>{th:.1f}</td><td>deg</td></tr>
+        <tr><td>Kdyn</td><td>Payload dynamic design factor; adverse payload moment only</td><td>{d['kd']:.2f}</td><td>-</td></tr>
+        <tr><td>x_C</td><td>Crane axis measured forward from rear axle</td><td>{d['xC']:.3f}</td><td>m</td></tr>
+        <tr><td>x_CG,V</td><td>Base vehicle longitudinal CG</td><td>{d['xCG']:.3f}</td><td>m</td></tr>
+        <tr><td>x_CG,drive</td><td>Combined CG used in driving/slope mode</td><td>{d['driveXCG']:.3f}</td><td>m</td></tr>
+        <tr><td>h_CG</td><td>Combined CG height in slope mode</td><td>{slope['h']:.3f}</td><td>m</td></tr>
+        <tr><td>g</td><td>Gravitational acceleration</td><td>9.81</td><td>m/s²</td></tr>
+        </table>
+
+        <h2>1. Side geometry</h2>
+        <p>y_L = L sinθ = {d['L']:.3f} sin({th:.1f}°) = <b>{yL:.3f} m</b><br>
+        y_B = (L/2) sinθ = ({d['L']:.3f}/2) sin({th:.1f}°) = <b>{yB:.3f} m</b><br>
+        Left pivot: y_P,L = -W/2 = {-d['W']/2:.3f} m &nbsp; | &nbsp;
+        Right pivot: y_P,R = +W/2 = {d['W']/2:.3f} m</p>
+        <p>For each component: d⊥ = |y_i-y_P|. If the component is beyond P in the tipping direction it contributes to M_O;
+        otherwise it contributes to M_R. For an adverse payload only, F_L,d = Kdyn m_L g.</p>
+        """
+        html+=case("2. LEFT SIDE TIPPING",sl,"y",
+                   f"<p>Pivot P = {sl['pivot']:.3f} m; opposite reaction R_right → 0.</p>")
+        html+=case("3. RIGHT SIDE TIPPING",sr,"y",
+                   f"<p>Pivot P = {sr['pivot']:.3f} m; opposite reaction R_left → 0.</p>")
+        html+=case("4. FRONT TIPPING",fb,"x",
+                   f"<p>x_rear={fb['rear']:.3f}, x_front={fb['front']:.3f}, x_crane={fb['xc']:.3f}, "
+                   f"x_B={fb['xboom']:.3f}, x_L={fb['xload']:.3f}; rear reaction → 0.</p>")
+        html+=case("5. REAR TIPPING",rb0,"x",
+                   f"<p>x_rear={rb0['rear']:.3f}, x_front={rb0['front']:.3f}, x_crane={rb0['xc']:.3f}, "
+                   f"x_B={rb0['xboom']:.3f}, x_L={rb0['xload']:.3f}; front reaction → 0.</p>")
+        html+=f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
+        <h3>6. UPHILL REAR-TIPPING CHECK</h3>
+        <p>Use a coordinate system fixed to the slope. The weight is resolved into components; do not add W=mg again as another force.</p>
+        <p>W_parallel = mg sinα = {d['mt']:.2f}×9.81×sin({math.degrees(slope['alpha']):.2f}°) = <b>{slope['w_parallel']:.2f} N</b><br>
+        W_normal = mg cosα = {d['mt']:.2f}×9.81×cos({math.degrees(slope['alpha']):.2f}°) = <b>{slope['w_normal']:.2f} N</b><br>
+        F_I = ma = {d['mt']:.2f}×{slope['acc']:.3f} = <b>{slope['inertia']:.2f} N</b> (opposite uphill acceleration)<br>
+        d_R = x_CG,drive - x_rear = {slope['xcg']:.3f} - ({slope['rear']:.3f}) = <b>{slope['rear_arm']:.3f} m</b></p>
+        <p>M_O = (W_parallel + F_I)h_CG = ({slope['w_parallel']:.2f}+{slope['inertia']:.2f})×{slope['h']:.3f}
+        = <b>{slope['mo']:.2f} N·m</b><br>
+        M_R = W_normal d_R = {slope['w_normal']:.2f}×{max(0.0,slope['rear_arm']):.3f}
+        = <b>{slope['mr']:.2f} N·m</b><br>
+        SF_slope = M_R/M_O = <b>{fmt(slope['sf'])}</b></p></div>
+
+        <h2>7. Worst-case search</h2>
+        <p>SF_worst = min[SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ)] for θ=-90°...+90° in 1° increments.<br>
+        181 angles × 4 tipping directions = <b>724 cases</b>.<br>
+        Critical result: θ={best[1]}°, {best[2]}, SF_worst={fmt(best[0])}.</p>
+
+        <p><b>Engineering limitation:</b> preliminary rigid-body stability analysis only. Verify measured mass/CG, actual support geometry,
+        tire/ground compliance, structural strength, slewing bearing, brakes, dynamic shock and manufacturer limits before fabrication/use.</p>"""
         return html
 
     def make_crane(self):
