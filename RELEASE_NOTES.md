@@ -1,30 +1,55 @@
-# Crane Vehicle Engineering Tool V53.8.20
+# Crane Vehicle Engineering Tool V53.8.21
 
-## Updater Reliability Fix
+## Button Feedback / Animation Upgrade
 
-แก้ปัญหาเครื่องผู้ใช้บางเครื่องกดอัปเดตแล้วตรวจเวอร์ชันหรือดาวน์โหลดไม่สำเร็จ แม้ GitHub Release และ latest.json จะถูกต้อง
+แก้ปัญหากดปุ่มแล้วไม่รู้ว่าคำสั่งถูกกดหรือทำงานเสร็จหรือยัง ทั้ง Desktop และ Web
 
-### Update check
-- อ่าน Update Source ที่ผู้ใช้ตั้งไว้ก่อน
-- ถ้าเป็น custom/stale source จะเทียบกับ official GitHub manifest อัตโนมัติ
-- เพิ่ม GitHub Contents API fallback เพื่อข้ามปัญหา raw.githubusercontent.com / CDN / cache
-- เลือก manifest ที่มีเวอร์ชันใหม่ที่สุดจาก source ที่อ่านได้
+### Desktop
+ปุ่มทุกปุ่มมี visual feedback ทันทีเมื่อกด:
+- Pressed state ชัดขึ้น
+- ขอบ/พื้นหลังเปลี่ยนทันที
+- Status bar แสดง “รับคำสั่งแล้ว ✓” สำหรับปุ่มทั่วไป
 
-### Download
-- เพิ่ม retry ดาวน์โหลด installer สูงสุด 3 ครั้ง
-- เพิ่ม timeout เป็น 120 วินาทีต่อ attempt
-- ลบไฟล์ดาวน์โหลดค้างก่อน retry
-- ยังตรวจ SHA256 ก่อนติดตั้งเหมือนเดิม
+ปุ่ม Ramp Geometry มีสถานะแบบเต็ม:
+- กำลังคำนวณ...
+- คำนวณเสร็จ ✓
+- กำลังใช้ค่า...
+- ใช้มุมแล้ว ✓
+- ใช้ระยะแล้ว ✓
+- Error state สีแดงเมื่อเกิดข้อผิดพลาด
 
-### Repair Update
-- Repair Update ยังรีเซ็ต source กลับ official
-- หลังแก้รุ่นนี้ updater จะมี fallback เพิ่ม แม้ raw GitHub มีปัญหา
+ปุ่ม Apply ที่ปรับ:
+- ใช้มุมกับ Torque + Main Battery + Stability
+- ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery
 
-### Security
-- Remote update ยังบังคับ HTTPS
-- SHA256 validation ยังทำงานก่อนเปิด installer
-- ไม่ลดการตรวจสอบความถูกต้องของไฟล์
+### Web
+เพิ่ม feedback animation สำหรับปุ่มทั่วทั้งเว็บ:
+- กดยุบ/scale ลงเล็กน้อย
+- pulse เมื่อรับ click
+- Busy state สีเหลืองพร้อม spinner
+- Success state สีเขียว
+- Error state สีแดง
+- Toast ยืนยันผลด้านล่างหน้าจอ
 
-### Existing features
-- Live Web FBD จาก V53.8.19 คงอยู่ครบ
-- Desktop FBD / PDF / Battery / Stability ไม่มีการเปลี่ยนสูตรหลัก
+ปุ่มคำนวณหลักแสดง Busy → Success/Error:
+- Drive Torque
+- Ramp Geometry
+- Main Battery
+- Winch
+- Stability + FBD
+
+ปุ่ม Ramp Apply แสดงผลชัดเจน:
+- “กำลังใช้ค่า...”
+- “ใช้มุมแล้ว ✓”
+- “ใช้ระยะแล้ว ✓”
+- Toast บอกค่าที่ถูกนำไปใช้จริง
+
+### Regression
+- Python/UI/PDF regression เดิมยังทำงาน
+- Node syntax check สำหรับ web/app.js
+- ตรวจ helper feedback ของ Desktop
+- ตรวจ helper/CSS animation ของ Web
+
+### Calculation scope
+ไม่มีการเปลี่ยนสูตรคำนวณหลัก
+เป็น UX/feedback upgrade เท่านั้น
