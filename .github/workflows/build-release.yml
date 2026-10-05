@@ -938,6 +938,10 @@ jobs:
           assert len(w.designRevisions)==revision_rows
 
           # ---------- Local updater / SHA regression ----------
+          assert "OFFICIAL_UPDATE_MANIFEST_API_URL" in source
+          assert "def _read_official_manifest_api" in source
+          assert "ดาวน์โหลด installer ไม่สำเร็จหลังลอง 3 ครั้ง" in source
+          assert "GitHub Contents API fallback" in source
           with tempfile.TemporaryDirectory() as td:
               td=Path(td)
               dummy=td/"Dummy_Setup.exe"
