@@ -1,5 +1,5 @@
 from pathlib import Path
-import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser
+import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser, base64
 from datetime import datetime
 from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal
 from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon,QPixmap
@@ -20,6 +20,7 @@ except Exception:
 APP_NAME = "Crane Vehicle Engineering Tool"
 APP_VERSION = "53.8.19"
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
+OFFICIAL_UPDATE_MANIFEST_API_URL = "https://api.github.com/repos/tronza449-dot/crane-vehicle-engineering-tool-updates/contents/latest.json?ref=main"
 
 def resource_path(relative_path):
     """Resolve bundled resources both from source and PyInstaller."""
@@ -4385,7 +4386,7 @@ void loop() {{
         ur=QHBoxLayout()
         checkUpdate=QPushButton("Check Update");checkUpdate.setObjectName("primaryButton");checkUpdate.clicked.connect(lambda:self.check_for_update(False))
         self.updateNowButton=QPushButton("Update Now");self.updateNowButton.setEnabled(False);self.updateNowButton.clicked.connect(self.download_pending_update)
-        repairUpdate=QPushButton("Repair Update");repairUpdate.setToolTip("Reset update source to official GitHub latest.json and check again");repairUpdate.clicked.connect(lambda:self.reset_update_source(True))
+        repairUpdate=QPushButton("Repair Update");repairUpdate.setToolTip("Reset source + check official GitHub raw + GitHub API fallback");repairUpdate.clicked.connect(lambda:self.reset_update_source(True))
         updateSettings=QPushButton("Settings");updateSettings.setObjectName("secondaryButton");updateSettings.clicked.connect(self.show_update_settings)
         ur.addWidget(checkUpdate);ur.addWidget(self.updateNowButton);ur.addWidget(repairUpdate);ur.addWidget(updateSettings);upl.addLayout(ur)
         system.addWidget(updatePanel,1)
@@ -4585,11 +4586,36 @@ void loop() {{
         self._set_update_progress(5)
 
         def worker():
+            errors=[]
+            candidates=[]
+            # 1) User-configured source first.
             try:
-                manifest=self._read_update_manifest(source)
-                self.updateTaskFinished.emit({"type":"check","ok":True,"manifest":manifest,"silent":silent})
+                candidates.append(self._read_update_manifest(source))
             except Exception as exc:
-                self.updateTaskFinished.emit({"type":"check","ok":False,"error":str(exc),"silent":silent})
+                errors.append(f"Configured source: {exc}")
+
+            # 2) Always compare against official GitHub raw manifest if a custom/stale source is configured.
+            if source != DEFAULT_UPDATE_MANIFEST_URL:
+                try:
+                    candidates.append(self._read_update_manifest(DEFAULT_UPDATE_MANIFEST_URL))
+                except Exception as exc:
+                    errors.append(f"Official raw: {exc}")
+
+            # 3) GitHub Contents API fallback bypasses raw.githubusercontent.com/CDN issues.
+            try:
+                candidates.append(self._read_official_manifest_api())
+            except Exception as exc:
+                errors.append(f"GitHub API: {exc}")
+
+            if candidates:
+                manifest=max(candidates,key=lambda m:self._version_tuple(m.get("latest_version","0")))
+                self.updateTaskFinished.emit({"type":"check","ok":True,"manifest":manifest,"silent":silent})
+            else:
+                self.updateTaskFinished.emit({
+                    "type":"check","ok":False,
+                    "error":" | ".join(errors) or "ไม่สามารถอ่านข้อมูลอัปเดตได้",
+                    "silent":silent
+                })
         threading.Thread(target=worker,daemon=True).start()
 
     def _read_update_manifest(self,source):
@@ -4632,6 +4658,38 @@ void loop() {{
         data["notes"]=str(data.get("notes","")).strip()
         data["sha256"]=str(data.get("sha256","")).strip().lower()
         data["_source"]=src
+        return data
+
+    def _read_official_manifest_api(self):
+        """Read latest.json through GitHub Contents API as a CDN/network fallback."""
+        req=urllib.request.Request(
+            OFFICIAL_UPDATE_MANIFEST_API_URL,
+            headers={
+                "User-Agent":f"{APP_NAME}/{APP_VERSION}",
+                "Accept":"application/vnd.github+json",
+                "Cache-Control":"no-cache",
+            }
+        )
+        with urllib.request.urlopen(req,timeout=20) as r:
+            payload=json.loads(r.read(2*1024*1024).decode("utf-8-sig"))
+        encoded=str(payload.get("content","")).replace("\n","").strip()
+        if not encoded:
+            raise ValueError("GitHub API ไม่มี content ของ latest.json")
+        raw=base64.b64decode(encoded)
+        data=json.loads(raw.decode("utf-8-sig"))
+        if not isinstance(data,dict):
+            raise ValueError("latest.json จาก GitHub API ไม่ใช่ JSON object")
+        latest=str(data.get("latest_version","")).strip()
+        download=str(data.get("download_url","")).strip()
+        if not latest:
+            raise ValueError("GitHub API latest.json ไม่มี latest_version")
+        if self._version_tuple(latest)>self._version_tuple(APP_VERSION) and not download:
+            raise ValueError("พบเวอร์ชันใหม่แต่ไม่มี download_url")
+        data["latest_version"]=latest
+        data["download_url"]=download
+        data["notes"]=str(data.get("notes","")).strip()
+        data["sha256"]=str(data.get("sha256","")).strip().lower()
+        data["_source"]="GitHub Contents API fallback"
         return data
 
     def _handle_update_task_result(self,result):
@@ -4724,16 +4782,35 @@ void loop() {{
         if parsed.scheme in ("http","https"):
             if parsed.scheme!="https" and parsed.hostname not in ("localhost","127.0.0.1"):
                 raise ValueError("Remote installer download ต้องใช้ HTTPS")
-            req=urllib.request.Request(src,headers={"User-Agent":f"{APP_NAME}/{APP_VERSION}"})
-            with urllib.request.urlopen(req,timeout=30) as r, open(target,"wb") as f:
-                total=int(r.headers.get("Content-Length","0") or 0)
-                done=0
-                while True:
-                    chunk=r.read(1024*256)
-                    if not chunk:break
-                    f.write(chunk);done+=len(chunk)
-                    if total>0:
-                        self.updateProgressChanged.emit(min(95,int(done*95/total)))
+            last_error=None
+            for attempt in range(1,4):
+                try:
+                    req=urllib.request.Request(src,headers={
+                        "User-Agent":f"{APP_NAME}/{APP_VERSION}",
+                        "Accept":"application/octet-stream",
+                        "Cache-Control":"no-cache",
+                    })
+                    with urllib.request.urlopen(req,timeout=120) as r, open(target,"wb") as f:
+                        total=int(r.headers.get("Content-Length","0") or 0)
+                        done=0
+                        while True:
+                            chunk=r.read(1024*256)
+                            if not chunk:break
+                            f.write(chunk);done+=len(chunk)
+                            if total>0:
+                                self.updateProgressChanged.emit(min(95,int(done*95/total)))
+                    last_error=None
+                    break
+                except Exception as exc:
+                    last_error=exc
+                    try:
+                        if target.exists():target.unlink()
+                    except Exception:
+                        pass
+                    if attempt<3:
+                        time.sleep(1.5*attempt)
+            if last_error is not None:
+                raise RuntimeError(f"ดาวน์โหลด installer ไม่สำเร็จหลังลอง 3 ครั้ง: {last_error}")
         else:
             source_path=Path(urllib.request.url2pathname(parsed.path)) if parsed.scheme=="file" else Path(src)
             if not source_path.exists():
