@@ -5865,7 +5865,7 @@ void loop() {{
         side=self.calc_side(d)[0];front,rear=self.longitudinal_sf_at(d,d['th'])
         return {
             "Vehicle mass (kg)":d['mt'],"Track width (m)":d['W'],"Boom length (m)":d['L'],"Crane angle (deg)":d['th'],
-            "Required torque / motor (N·m)":t['T'],"Required mech power / motor (W)":t['Pmech_per'],"Drive battery design (Ah)":e['Ah'],
+            "Required torque / motor (N·m)":t['T'],"Required mech power / motor (W)":t['Pmech_per'],"Drive battery minimum (Ah)":e['Ah'],"Drive battery practical (Ah)":e.get('Ah_recommended',e['Ah']),
             "Drive current calculated (A)":e['Icalc_up'],"Drive current worst indicator (A)":e['Iworst'],"Winch battery design (Ah)":w['ah'],
             "Winch lift time (s)":w['tu'],"Side SF @ current angle":side,"Front SF @ current angle":front,"Rear SF @ current angle":rear,
             "Worst SF":worst[0],"Worst angle (deg)":worst[1],"Worst direction":worst[2]}
@@ -5923,8 +5923,9 @@ void loop() {{
         <h3>Main 72 V Drive</h3>
         {f"<p><b>Battery Selection:</b> minimum energy {br['energy_min']:.2f} Ah; design target including C-rate = {br['design_ah']:.2f} Ah; suggested standard size to investigate = <b>{br['suggested']:.0f} Ah</b> @ {e['V']:.0f} V.</p>" if br else ""}
         <table border='1' cellspacing='0' cellpadding='6'>
-        <tr><td>Required design capacity</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td><td>Selected {self.mainSelectedAh.value():.1f} Ah → {st(self.mainSelectedAh.value(),e['Ah'])}</td></tr>
-        <tr><td>Continuous-current indicator</td><td>max(Torque model {t['Ibatt']:.1f}, Calculated uphill {e['Icalc_up']:.1f}) = {main_cont_req:.1f} A</td><td>BMS {self.mainBMSCont.value():.1f} A → {st(self.mainBMSCont.value(),main_cont_req)}</td></tr>
+        <tr><td>Calculated minimum</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td><td>Practical target {e.get('Ah_recommended',e['Ah']):.2f} Ah (Kb={e.get('Kb',1):.2f})</td></tr>
+        <tr><td>Selected capacity check</td><td>≥ {e.get('Ah_recommended',e['Ah']):.2f} Ah</td><td>Selected {self.mainSelectedAh.value():.1f} Ah → {st(self.mainSelectedAh.value(),e.get('Ah_recommended',e['Ah']))}</td></tr>
+        <tr><td>Continuous-current indicator</td><td>max(Torque {t['Ibatt']:.1f}, Uphill {e['Icalc_up']:.1f}, Turn {e.get('Iturn_avg',0):.1f}) = {main_cont_req:.1f} A</td><td>BMS {self.mainBMSCont.value():.1f} A → {st(self.mainBMSCont.value(),main_cont_req)}</td></tr>
         <tr><td>Peak/conservative indicator</td><td>max(Simple-cycle uphill {e['Icalc_up']:.1f}, controller-limit indicator {self.controllerCurrent.value()*t['n']:.1f}) = {main_peak_ind:.1f} A</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → {st(self.mainBMSPeak.value(),main_peak_ind)}</td></tr></table>
         <h3>Winch 12 V Separate Battery</h3>
         <table border='1' cellspacing='0' cellpadding='6'>
@@ -5953,16 +5954,17 @@ void loop() {{
         add("Drive","Controller current indicator / motor",f"{per_current:.1f} A",f"Limit {self.controllerCurrent.value():.1f} A",self.controllerCurrent.value()>=per_current,"preliminary")
         add("Drive","Traction",f"Fdesign {t['Fdesign']:.1f} N",f"Ftraction,max {t['Ftraction']:.1f} N",t['Ftraction']>=t['Fdesign'],f"ใช้แรงกดล้อขับ {t['drive_load_fraction']*100:.1f}% ของ N_total; final ต้องยืนยันจาก CG/load transfer")
         add("Stability","Worst-case SF",f"≥ {d['req']:.2f}",f"{worst[0]:.3f} @ {worst[1]}° {worst[2]}",worst[0]>=d['req'])
-        if self.mainSelectedAh.value()>0:add("Main Battery","Energy capacity",f"≥ {e['Ah']:.2f} Ah",f"{self.mainSelectedAh.value():.1f} Ah",self.mainSelectedAh.value()>=e['Ah'])
-        else:add("Main Battery","Energy capacity",f"{e['Ah']:.2f} Ah required","Selected not set",False,"กรอกใน Battery Selection / Battery+BMS",True)
+        req_ah=e.get("Ah_recommended",e["Ah"])
+        if self.mainSelectedAh.value()>0:add("Main Battery","Practical energy capacity",f"≥ {req_ah:.2f} Ah",f"{self.mainSelectedAh.value():.1f} Ah",self.mainSelectedAh.value()>=req_ah,f"Calculated minimum {e['Ah']:.2f} Ah; Kb={e.get('Kb',1):.2f}")
+        else:add("Main Battery","Practical energy capacity",f"{req_ah:.2f} Ah required","Selected not set",False,f"Calculated minimum {e['Ah']:.2f} Ah; Kb={e.get('Kb',1):.2f}",True)
         if hasattr(self,"batterySelectionView"):
             br=self.battery_selection_results()
             add("Main Battery","Suggested standard size",f"≥ {br['design_ah']:.2f} Ah by energy/C-rate target",
                 f"{br['suggested']:.0f} Ah standard size",False,f"Target {br['target_cont']:.1f}C continuous / {br['target_peak']:.1f}C peak",True)
-        main_cont=max(t['Ibatt'],e['Icalc_up'])
+        main_cont=max(t['Ibatt'],e['Icalc_up'],e.get('Iturn_avg',0.0))
         if self.mainBMSCont.value()>0:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A",f"{self.mainBMSCont.value():.1f} A",self.mainBMSCont.value()>=main_cont)
         else:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A","Not set",False,"กรอกพิกัด BMS",True)
-        peak_calc=max(e['Icalc_up'],0.0)
+        peak_calc=max(e['Icalc_up'],e.get('Iturn_avg',0.0),0.0)
         if self.mainBMSPeak.value()>0:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A",f"{self.mainBMSPeak.value():.1f} A",self.mainBMSPeak.value()>=peak_calc,"VESC battery-current limit ต้องตรวจแยกจาก phase/motor current")
         else:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A","Not set",False,"กรอกพิกัด Peak ของ Pack/BMS",True)
         if self.winchSelectedAh.value()>0:add("Winch Battery","Energy capacity",f"≥ {w['ah']:.2f} Ah",f"{self.winchSelectedAh.value():.1f} Ah",self.winchSelectedAh.value()>=w['ah'])
@@ -6009,7 +6011,7 @@ void loop() {{
         <p>Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
         <h3>Key Results</h3><table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Vehicle mass</td><td>{d['mt']:.1f} kg</td></tr><tr><td>Drive torque required</td><td>{t['T']:.2f} N·m / motor</td></tr>
-        <tr><td>Main battery design</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td></tr><tr><td>Winch battery design</td><td>{w['ah']:.2f} Ah @ {w['v']:.1f} V</td></tr>
+        <tr><td>Main battery minimum / practical</td><td>{e['Ah']:.2f} / {e.get('Ah_recommended',e['Ah']):.2f} Ah @ {e['V']:.1f} V</td></tr><tr><td>Winch battery design</td><td>{w['ah']:.2f} Ah @ {w['v']:.1f} V</td></tr>
         <tr><td>Worst stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr></table>
         {self.final_verification_html()}<hr>{self.design_check_html()}<hr>{self.validation_report_html()}<hr>{self.bom_report_html()}<hr>{self.winch_duty_html()}""")
 
