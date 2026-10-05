@@ -115,7 +115,7 @@ const CVET_SHARED_STORE="cvet_web_shared_project_v1";
 
 const SHARED_PARAMETER_GROUPS={
   mass_kg:[["driveForm","mass_kg"],["rampForm","mass_kg"],["batteryForm","mass_kg"]],
-  slope_deg:[["driveForm","slope_deg"],["batteryForm","slope_deg"]],
+  slope_deg:[["driveForm","slope_deg"],["batteryForm","slope_deg"],["stabilityForm","slope_deg"]],
   speed_kmh:[["driveForm","speed_kmh"],["batteryForm","speed_kmh"],["winchForm","vehicle_speed_kmh"]],
   voltage_v:[["driveForm","voltage_v"],["batteryForm","voltage_v"]],
   motors:[["driveForm","motors"],["batteryForm","motors"]],
@@ -501,19 +501,195 @@ $("#calcWinch").addEventListener("click",async()=>{
   }catch(e){setError(out,e);}
 });
 
+
+let lastStabilityResult=null;
+
+function fbdSf(v){return Number(v)>=999?'∞':f(v,3);}
+function fbdName(key){
+  return ({side_left:"Side Left / คว่ำซ้าย",side_right:"Side Right / คว่ำขวา",front:"Front / คว่ำหน้า",rear:"Rear / คว่ำหลัง",slope:"Slope / ทางลาด"})[key]||key;
+}
+function fbdThaiComponent(name){
+  return ({Vehicle:"ตัวรถ",Boom:"แขนเครน",Payload:"น้ำหนักบรรทุก"})[name]||name;
+}
+function fbdRoleThai(role){
+  return role==="overturning"?"ทำให้คว่ำ":role==="resisting"?"ต้านการคว่ำ":"อยู่ที่แกน P";
+}
+function svgDefs(){
+  return '<defs>'+
+    '<marker id="arrBlack" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#111827"/></marker>'+
+    '<marker id="arrGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#16803a"/></marker>'+
+    '<marker id="arrRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#b42318"/></marker>'+
+    '<marker id="arrPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/></marker>'+
+    '</defs>';
+}
+function svgText(x,y,text,cls){
+  return '<text x="'+x+'" y="'+y+'" class="'+(cls||'')+'">'+text+'</text>';
+}
+function linearMap(values,left,right){
+  let lo=Math.min.apply(null,values),hi=Math.max.apply(null,values);
+  let span=Math.max(hi-lo,.25);lo-=span*.13;hi+=span*.13;
+  return v=>left+(v-lo)*(right-left)/(hi-lo);
+}
+function roleColor(role){return role==="overturning"?"#b42318":role==="resisting"?"#176337":"#64748b";}
+
+function renderLinearFbd(r,key,bal,view){
+  const side=key==="side_left"||key==="side_right";
+  const W=1000,H=520,ground=285,deckY=220,boomY=105;
+  let supports,positions,pivot,axisLabel;
+  if(side){
+    supports=[-r.track_width_m/2,r.track_width_m/2];
+    positions=bal.components.map(q=>q.y_m);
+    pivot=bal.pivot_m;axisLabel="+y right";
+  }else{
+    supports=[bal.rear_x_m,bal.front_x_m];
+    positions=bal.components.map(q=>q.x_m);
+    pivot=bal.pivot_m;axisLabel="+x forward";
+  }
+  const mp=linearMap(supports.concat(positions,[pivot]),100,900);
+  const s0=mp(supports[0]),s1=mp(supports[1]),px=mp(pivot);
+  let svg='<svg class="engineering-fbd" viewBox="0 0 '+W+' '+H+'" role="img">'+svgDefs();
+  svg+='<line x1="55" y1="'+ground+'" x2="945" y2="'+ground+'" class="ground"/>';
+  svg+='<rect x="'+(Math.min(s0,s1)-60)+'" y="'+deckY+'" width="'+(Math.abs(s1-s0)+120)+'" height="38" rx="5" class="vehicle-body"/>';
+  svg+='<circle cx="'+s0+'" cy="'+ground+'" r="17" class="wheel"/><circle cx="'+s1+'" cy="'+ground+'" r="17" class="wheel"/>';
+
+  const craneBase=side?mp(0):mp(bal.crane_x_m);
+  const loadComp=bal.components.find(q=>q.name==="Payload");
+  const boomComp=bal.components.find(q=>q.name==="Boom");
+  const loadPos=side?loadComp.y_m:loadComp.x_m;
+  const loadX=mp(loadPos);
+  svg+='<line x1="'+craneBase+'" y1="'+deckY+'" x2="'+craneBase+'" y2="'+boomY+'" class="crane"/>';
+  svg+='<line x1="'+craneBase+'" y1="'+boomY+'" x2="'+loadX+'" y2="'+boomY+'" class="crane"/>';
+  svg+='<rect x="'+(loadX-16)+'" y="'+(boomY-12)+'" width="32" height="24" class="payload"/>';
+
+  const forceStarts={Vehicle:deckY+16,Boom:boomY+12,Payload:boomY+12};
+  bal.components.forEach(q=>{
+    const pos=side?q.y_m:q.x_m,x=mp(pos),y0=forceStarts[q.name]||boomY+12,y1=q.name==="Vehicle"?ground-20:boomY+102;
+    svg+='<circle cx="'+x+'" cy="'+y0+'" r="4" class="cg"/>';
+    svg+='<line x1="'+x+'" y1="'+y0+'" x2="'+x+'" y2="'+y1+'" class="weight-arrow" marker-end="url(#arrBlack)"/>';
+    svg+=svgText(x+7,y1-4,'W_'+(q.name==="Vehicle"?'V':q.name==="Boom"?'B':'L')+' '+f(q.force_n,1)+' N','force-label');
+  });
+
+  svg+='<circle cx="'+px+'" cy="'+ground+'" r="7" class="pivot"/>'+svgText(px+12,ground-24,'Tipping axis P','pivot-label');
+  svg+='<line x1="'+(px+18)+'" y1="'+(ground-5)+'" x2="'+(px+18)+'" y2="'+(ground-83)+'" class="reaction-arrow" marker-end="url(#arrGreen)"/>';
+  svg+=svgText(px+27,ground-76,'R_P','reaction-label');
+
+  const other=Math.abs(s0-px)<Math.abs(s1-px)?s1:s0;
+  svg+=svgText(other-44,ground+35,'R_opposite = 0','zero-label');
+
+  const lanes=[340,380,420];
+  bal.components.forEach((q,i)=>{
+    const x=mp(side?q.y_m:q.x_m),y=lanes[i];
+    svg+='<line x1="'+px+'" y1="'+(ground+5)+'" x2="'+px+'" y2="'+y+'" class="dim-guide"/>';
+    svg+='<line x1="'+x+'" y1="'+(ground-5)+'" x2="'+x+'" y2="'+y+'" class="dim-guide"/>';
+    svg+='<line x1="'+px+'" y1="'+y+'" x2="'+x+'" y2="'+y+'" stroke="'+roleColor(q.role)+'" class="dim-line"/>';
+    svg+=svgText((px+x)/2-45,y-7,'d_'+(q.name==="Vehicle"?'V':q.name==="Boom"?'B':'L')+' = '+f(q.arm_m,3)+' m','dim-label');
+  });
+
+  svg+=svgText(65,66,axisLabel,'axis-label');
+  svg+='<line x1="70" y1="82" x2="135" y2="82" class="axis-line" marker-end="url(#arrBlack)"/>';
+  svg+=svgText(615,55,'ดำ = Weight','legend-black')+svgText(715,55,'เขียว = Reaction/Resist','legend-green')+svgText(865,55,'แดง = Overturn','legend-red');
+  svg+=svgText(60,485,'M_O = '+f(bal.overturning_moment_nm,2)+' N·m   •   M_R = '+f(bal.resisting_moment_nm,2)+' N·m   •   SF = '+fbdSf(bal.sf),'result-label');
+  svg+='</svg>';
+  return svg;
+}
+
+function renderSlopeFbd(r,bal){
+  const W=1000,H=520,alpha=(bal.slope_deg||0)*Math.PI/180;
+  const ux=Math.cos(alpha),uy=-Math.sin(alpha),nx=-Math.sin(alpha),ny=-Math.cos(alpha);
+  const scale=Math.min(310/Math.max(r.wheelbase_m,.2),145/Math.max(bal.combined_cg_height_m,.2));
+  const rear={x:245,y:330};
+  const front={x:rear.x+ux*r.wheelbase_m*scale,y:rear.y+uy*r.wheelbase_m*scale};
+  const proj={x:rear.x+ux*bal.combined_cg_from_rear_m*scale,y:rear.y+uy*bal.combined_cg_from_rear_m*scale};
+  const cg={x:proj.x+nx*bal.combined_cg_height_m*scale,y:proj.y+ny*bal.combined_cg_height_m*scale};
+  const p=(x)=>Number(x).toFixed(1);
+  let svg='<svg class="engineering-fbd" viewBox="0 0 '+W+' '+H+'" role="img">'+svgDefs();
+  svg+='<line x1="'+p(rear.x-ux*170)+'" y1="'+p(rear.y-uy*170)+'" x2="'+p(front.x+ux*280)+'" y2="'+p(front.y+uy*280)+'" class="ground slope-ground"/>';
+  svg+='<line x1="'+p(rear.x)+'" y1="'+p(rear.y)+'" x2="'+p(front.x)+'" y2="'+p(front.y)+'" class="vehicle-slope"/>';
+  svg+='<circle cx="'+p(cg.x)+'" cy="'+p(cg.y)+'" r="6" class="cg"/>'+svgText(cg.x+10,cg.y-12,'Combined CG','cg-label');
+  svg+='<circle cx="'+p(rear.x)+'" cy="'+p(rear.y)+'" r="7" class="pivot"/>'+svgText(rear.x+12,rear.y+28,'Rear tipping axis P','pivot-label');
+  svg+='<line x1="'+p(rear.x+nx*8)+'" y1="'+p(rear.y+ny*8)+'" x2="'+p(rear.x+nx*90)+'" y2="'+p(rear.y+ny*90)+'" class="reaction-arrow" marker-end="url(#arrGreen)"/>'+svgText(rear.x+nx*96+8,rear.y+ny*96,'N_R','reaction-label');
+  svg+=svgText(front.x+14,front.y+28,'N_F = 0','zero-label');
+
+  const wp=120,wn=105,fi=85;
+  svg+='<line x1="'+p(cg.x)+'" y1="'+p(cg.y)+'" x2="'+p(cg.x-ux*wp)+'" y2="'+p(cg.y-uy*wp)+'" class="overturn-arrow" marker-end="url(#arrRed)"/>'+svgText(cg.x-ux*wp-35,cg.y-uy*wp+22,'W_parallel','red-label');
+  svg+='<line x1="'+p(cg.x)+'" y1="'+p(cg.y)+'" x2="'+p(cg.x-nx*wn)+'" y2="'+p(cg.y-ny*wn)+'" class="weight-arrow" marker-end="url(#arrBlack)"/>'+svgText(cg.x-nx*wn+8,cg.y-ny*wn,'W_normal','force-label');
+  const fix=cg.x+nx*17,fiy=cg.y+ny*17;
+  svg+='<line x1="'+p(fix)+'" y1="'+p(fiy)+'" x2="'+p(fix-ux*fi)+'" y2="'+p(fiy-uy*fi)+'" class="inertia-arrow" marker-end="url(#arrPurple)"/>'+svgText(fix-ux*fi-18,fiy-uy*fi-12,'F_I = ma','purple-label');
+
+  svg+='<line x1="'+p(rear.x-nx*32)+'" y1="'+p(rear.y-ny*32)+'" x2="'+p(proj.x-nx*32)+'" y2="'+p(proj.y-ny*32)+'" class="dim-line green-dim"/>'+svgText((rear.x+proj.x)/2-35,(rear.y+proj.y)/2-ny*32-8,'d_R = '+f(bal.combined_cg_from_rear_m,3)+' m','dim-label');
+  svg+='<line x1="'+p(proj.x+ux*28)+'" y1="'+p(proj.y+uy*28)+'" x2="'+p(cg.x+ux*28)+'" y2="'+p(cg.y+uy*28)+'" class="dim-line"/>'+svgText((proj.x+cg.x)/2+ux*28+8,(proj.y+cg.y)/2+uy*28,'h_CG = '+f(bal.combined_cg_height_m,3)+' m','dim-label');
+  svg+=svgText(610,55,'ดำ = Weight','legend-black')+svgText(705,55,'เขียว = Reaction','legend-green')+svgText(825,55,'แดง = Overturn','legend-red')+svgText(920,55,'ม่วง = F_I','legend-purple');
+  svg+=svgText(55,480,'M_O = '+f(bal.overturning_moment_nm,2)+' N·m   •   M_R = '+f(bal.resisting_moment_nm,2)+' N·m   •   SF = '+fbdSf(bal.sf),'result-label');
+  svg+='</svg>';
+  return svg;
+}
+
+function fbdFormulaHtml(key,bal,r){
+  if(key==="slope"){
+    return '<div class="formula-human">'+
+      '<h4>สูตรและการแทนค่า — ทางลาด</h4>'+
+      '<p><b>W_parallel = mg sinα</b><br><b>อ่านแบบภาษาคน:</b> มวลรถ × แรงโน้มถ่วง × sin(มุมทางลาด) = แรงที่ดึงรถลงตามทางลาด<br>'+
+      '<b>แทนค่า:</b> '+f(r.total_mass_kg,2)+' × 9.81 × sin('+f(bal.slope_deg,2)+'°) = <b>'+f(bal.w_parallel_n,2)+' N</b></p>'+
+      '<p><b>W_normal = mg cosα</b><br><b>อ่านแบบภาษาคน:</b> มวลรถ × แรงโน้มถ่วง × cos(มุมทางลาด) = แรงที่กดรถเข้าหาพื้น<br>'+
+      '<b>ผล:</b> <b>'+f(bal.w_normal_n,2)+' N</b></p>'+
+      '<p><b>F_I = ma</b> = '+f(r.total_mass_kg,2)+' × '+f(bal.accel_mps2,3)+' = <b>'+f(bal.inertia_n,2)+' N</b></p>'+
+      '<p><b>M_O = (W_parallel + F_I)h_CG</b> = ('+f(bal.w_parallel_n,2)+' + '+f(bal.inertia_n,2)+') × '+f(bal.combined_cg_height_m,3)+' = <b>'+f(bal.overturning_moment_nm,2)+' N·m</b></p>'+
+      '<p><b>M_R = W_normal d_R</b> = '+f(bal.w_normal_n,2)+' × '+f(bal.combined_cg_from_rear_m,3)+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p>'+
+      '<p><b>SF = M_R ÷ M_O</b> = '+f(bal.resisting_moment_nm,2)+' ÷ '+f(bal.overturning_moment_nm,2)+' = <b>'+fbdSf(bal.sf)+'</b> '+statusSpan(bal.pass)+'</p>'+
+      '</div>';
+  }
+  const comps=bal.components||[];
+  const mo=comps.filter(q=>q.role==="overturning");
+  const mr=comps.filter(q=>q.role==="resisting");
+  const term=(q)=>'('+f(q.force_n,2)+' N × '+f(q.arm_m,3)+' m)';
+  const details=(arr)=>arr.length?arr.map(q=>'• '+q.name+' / '+fbdThaiComponent(q.name)+': '+f(q.force_n,2)+' N × '+f(q.arm_m,3)+' m = '+f(q.moment_nm,2)+' N·m').join('<br>'):'• ไม่มีแรงในฝั่งนี้';
+  return '<div class="formula-human">'+
+    '<h4>สูตรและการแทนค่า — '+fbdName(key)+'</h4>'+
+    '<p><b>M_O = Σ(F_i d_i)</b><br><b>อ่านสูตรแบบภาษาคน:</b> แรงของแต่ละส่วนที่ทำให้รถคว่ำ × ระยะตั้งฉากถึงแกน P แล้วบวกกันทั้งหมด<br>'+
+    '<b>ตัวแปร:</b> M_O = โมเมนต์คว่ำ, Σ = รวมทุกพจน์, F_i = แรงของชิ้นส่วน, d_i = แขนโมเมนต์<br>'+
+    '<b>แต่ละพจน์:</b><br>'+details(mo)+'<br><b>แทนค่า:</b> '+(mo.length?mo.map(term).join(' + '):'0')+' = <b>'+f(bal.overturning_moment_nm,2)+' N·m</b></p>'+
+    '<p><b>M_R = Σ(F_i d_i)</b><br><b>อ่านสูตรแบบภาษาคน:</b> แรงของแต่ละส่วนที่ช่วยต้านการคว่ำ × ระยะถึงแกน P แล้วบวกกันทั้งหมด<br>'+
+    '<b>แต่ละพจน์:</b><br>'+details(mr)+'<br><b>แทนค่า:</b> '+(mr.length?mr.map(term).join(' + '):'0')+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p>'+
+    '<p><b>SF = M_R ÷ M_O</b><br><b>อ่านสูตรแบบภาษาคน:</b> โมเมนต์ต้าน ÷ โมเมนต์คว่ำ<br>'+
+    '<b>แทนค่า:</b> '+(bal.overturning_moment_nm>1e-9?f(bal.resisting_moment_nm,2)+' ÷ '+f(bal.overturning_moment_nm,2)+' = '+fbdSf(bal.sf):'ไม่มีโมเมนต์คว่ำ → SF = ∞')+
+    ' &nbsp; '+statusSpan(bal.pass)+'</p></div>';
+}
+
+function renderWebFbd(){
+  if(!lastStabilityResult)return;
+  const key=$("#webFbdCase").value,view=$("#webFbdView").value;
+  const source=view==="critical"?lastStabilityResult.critical_cases:lastStabilityResult.current_cases;
+  const bal=source[key];
+  if(!bal)return;
+  const angle=key==="slope"?'α='+f(bal.slope_deg,2)+'°':'θ='+f(bal.angle_deg,1)+'°';
+  $("#webFbdContext").innerHTML='<b>'+(view==="critical"?'CRITICAL CASE':'CURRENT ANGLE')+'</b> • '+fbdName(key)+' • '+angle+' • SF '+fbdSf(bal.sf)+' • '+statusSpan(bal.pass);
+  const canvas=$("#webFbdCanvas");
+  canvas.classList.remove("empty");
+  canvas.innerHTML=key==="slope"?renderSlopeFbd(lastStabilityResult,bal):renderLinearFbd(lastStabilityResult,key,bal,view);
+  $("#webFbdFormula").innerHTML=fbdFormulaHtml(key,bal,lastStabilityResult);
+}
+
+$("#webFbdCase").addEventListener("change",renderWebFbd);
+$("#webFbdView").addEventListener("change",renderWebFbd);
+
 $("#calcStability").addEventListener("click",async()=>{
   const out=$("#stabilityResult");setLoading(out);
   try{
     const r=await api("/api/calc/stability",formObject($("#stabilityForm")));
-    const sideSf=r.side.sf>=999?'∞':f(r.side.sf,3),frontSf=r.front.sf>=999?'∞':f(r.front.sf,3),rearSf=r.rear.sf>=999?'∞':f(r.rear.sf,3);
+    lastStabilityResult=r;
+    const cg=r.current_governing,crit=r.critical_governing;
+    const cgSf=fbdSf(cg.sf),critSf=fbdSf(crit.sf);
     out.innerHTML=
       '<h3>Stability Result</h3><div class="metric-grid">'+
-      '<div class="metric"><div class="k">Side SF</div><div class="v">'+sideSf+'</div><div>'+statusSpan(r.side.pass)+'</div></div>'+
-      '<div class="metric"><div class="k">Front SF</div><div class="v">'+frontSf+'</div><div>'+statusSpan(r.front.pass)+'</div></div>'+
-      '<div class="metric"><div class="k">Rear SF</div><div class="v">'+rearSf+'</div><div>'+statusSpan(r.rear.pass)+'</div></div></div>'+
-      '<h3>Side tipping</h3><div class="formula"><b>SFside = MR ÷ MO</b><br><b>สูตรภาษาไทย:</b> Safety Factor ด้านข้าง = โมเมนต์ต้านการคว่ำ ÷ โมเมนต์ทำให้คว่ำ<br><b>แทนค่า:</b> '+f(r.side.resisting_moment_nm,2)+' ÷ '+f(r.side.overturning_moment_nm,2)+' = <b>'+sideSf+'</b></div>'+
-      '<table><tr><th>รายการ</th><th>ค่า</th></tr><tr><td>Pivot = Track/2</td><td>'+f(r.side.pivot_m,3)+' m</td></tr><tr><td>ตำแหน่งโหลดด้านข้าง</td><td>'+f(r.side.load_lateral_m,3)+' m</td></tr><tr><td>MO</td><td>'+f(r.side.overturning_moment_nm,2)+' N·m</td></tr><tr><td>MR</td><td>'+f(r.side.resisting_moment_nm,2)+' N·m</td></tr></table>'+
-      '<p class="check">โมเดลนี้เป็น Preliminary static model ต้องยืนยัน CG และน้ำหนักจริงก่อนผลิต</p>';
+      '<div class="metric"><div class="k">Current Governing</div><div class="v">'+cgSf+'</div><div>'+fbdName(cg.key)+' • '+statusSpan(cg.pass)+'</div></div>'+
+      '<div class="metric"><div class="k">Critical Worst</div><div class="v">'+critSf+'</div><div>'+fbdName(crit.key)+' • '+statusSpan(crit.pass)+'</div></div>'+
+      '<div class="metric"><div class="k">Required SF</div><div class="v">'+f(r.required_sf,2)+'</div><div>เกณฑ์ออกแบบ</div></div></div>'+
+      '<h3>Current Angle '+f(r.crane_angle_deg,1)+'°</h3>'+
+      '<table><tr><th>Case</th><th>SF</th><th>Status</th></tr>'+
+      ['side_left','side_right','front','rear','slope'].map(k=>'<tr><td>'+fbdName(k)+'</td><td>'+fbdSf(r.current_cases[k].sf)+'</td><td>'+statusSpan(r.current_cases[k].pass)+'</td></tr>').join('')+
+      '</table>'+
+      '<p class="check">เลือก Case และ Current/Critical ด้านล่างเพื่อดู FBD, Moment arm และสูตรแทนค่าจริง</p>';
+    renderWebFbd();
   }catch(e){setError(out,e);}
 });
 
@@ -521,3 +697,4 @@ setupDynamicProjectParameters();
 checkHealth();
 setTimeout(()=>$("#calcRamp").click(),180);
 setTimeout(()=>$("#calcWinch").click(),300);
+setTimeout(()=>$("#calcStability").click(),420);
