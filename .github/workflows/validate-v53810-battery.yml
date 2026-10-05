@@ -1,0 +1,109 @@
+name: Validate V53.8.10 Simple Battery Cycle
+
+on:
+  push:
+    branches:
+      - v53.8.10-battery-cycle-simple
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Qt libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install PySide6 pyserial
+      - name: Syntax checks
+        run: |
+          python -m py_compile CraneVehicleEngineeringTool.py web_engine.py web_server.py web_launcher.py
+          node --check web/app.js
+          node --check web/details.js
+      - name: Simple cycle battery regression
+        run: |
+          python - <<'PY'
+          import math
+          from PySide6.QtWidgets import QApplication
+          import CraneVehicleEngineeringTool as cvet
+          import web_engine
+
+          app=QApplication([])
+          w=cvet.App()
+          w.euseOperationCycle.setChecked(False)
+          w.emass.setValue(300.0)
+          w.evolt.setValue(72.0)
+          w.espeed.setValue(1.0)
+          w.eoneway.setValue(30.0)
+          w.eslopeLen.setValue(2.9)
+          w.eslopeDeg.setValue(12.0)
+          w.eruntime.setValue(3.0)
+          w.err.setValue(0.02)
+          w.estopTime.setValue(0.0)
+          w.edriveEff.setValue(60.0)
+          w.eaux.setValue(50.0)
+          w.edod.setValue(80.0)
+          w.ereserve.setValue(20.0)
+
+          q=w.electrical_results()
+          assert abs(q["flat_oneway"]-27.1)<1e-9
+          assert abs(q["cycle_distance"]-60.0)<1e-9
+          assert q["Eout_drive"]>q["Ereturn_drive"]>0
+          assert q["Edown_batt_cycle"]>=0
+          assert abs(q["Edrive_cycle"]-(q["Eout_drive"]+q["Ereturn_drive"]))<1e-12
+          assert abs(q["Ecycle"]-(q["Edrive_cycle"]+q["Eaux_cycle"]))<1e-12
+          assert abs(q["Eload"]-q["Ecycle"]*q["cycles"])<1e-9
+          assert q["Eacc_mech_cycle"]==0.0
+          assert q["use_worst"] is False
+          assert q["Ah"]>0 and q["Edesign"]>0
+
+          # Changing the hidden compatibility acceleration setting must NOT change energy sizing.
+          w.eaccel.setValue(2.0);qa=w.electrical_results()
+          w.eaccel.setValue(10.0);qb=w.electrical_results()
+          assert abs(qa["Edrive_cycle"]-qb["Edrive_cycle"])<1e-12
+          assert abs(qa["Edesign"]-qb["Edesign"])<1e-12
+          # Compatibility peak-current field may still vary for old release checks.
+          assert qa["Icalc_peak"]>=qb["Icalc_peak"]
+
+          # Route-return correction: even when downhill slope traction is zero,
+          # the return trip still consumes flat-road energy.
+          w.eslopeDeg.setValue(19.0)
+          q19=w.electrical_results()
+          assert q19["Ereturn_drive"]>0
+          assert q19["Ereturn_drive"]>=q19["Eflat_batt_oneway"]-1e-12
+
+          vars_html=w.electrical_variables_html()
+          steps_html=w.equation_html(q19)
+          for token in ("d_flat","E_go","E_return","E_cycle","N_cycle","E_design"):
+              assert token in vars_html or token in steps_html, token
+          for old in ("พลังงานออกตัว","Worst-case model","No Regen"):
+              assert old not in vars_html
+              assert old not in steps_html
+
+          web=web_engine.calculate_drive_battery({
+              "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,
+              "one_way_m":30.0,"slope_length_m":2.9,"slope_deg":12.0,
+              "runtime_h":3.0,"rolling_coeff":0.02,"drive_eff_pct":60.0,
+              "aux_power_w":50.0,"dod_pct":80.0,"reserve_pct":20.0,
+              "lift_time_per_event_s":0.0,"lift_events_per_round":0,
+              "other_stop_time_per_round_s":0.0
+          })
+          assert web["calculation_method"]=="simple_cycle"
+          assert abs(web["flat_one_way_m"]-27.1)<1e-9
+          assert web["outbound_drive_energy_wh"]>web["return_drive_energy_wh"]>0
+          assert abs(web["trip_drive_energy_wh"]-(web["outbound_drive_energy_wh"]+web["return_drive_energy_wh"]))<1e-12
+          assert abs(web["total_energy_per_cycle_wh"]-(web["trip_drive_energy_wh"]+web["aux_energy_per_cycle_wh"]))<1e-12
+          assert web["design_ah"]>0
+          print("V53.8.10 simple cycle battery regression PASS")
+          PY
