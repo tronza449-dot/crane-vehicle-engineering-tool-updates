@@ -179,14 +179,16 @@ function syncVehicleParameters(){
 const CVET_SHARED_STORE="cvet_web_shared_project_v1";
 
 const SHARED_PARAMETER_GROUPS={
-  mass_kg:[["driveForm","mass_kg"],["rampForm","mass_kg"],["batteryForm","mass_kg"]],
+  mass_kg:[["driveForm","mass_kg"],["rampForm","mass_kg"],["batteryForm","mass_kg"],["stabilityForm","total_mass_kg"]],
   slope_deg:[["driveForm","slope_deg"],["batteryForm","slope_deg"],["stabilityForm","slope_deg"]],
   speed_kmh:[["driveForm","speed_kmh"],["batteryForm","speed_kmh"],["winchForm","vehicle_speed_kmh"]],
   voltage_v:[["driveForm","voltage_v"],["batteryForm","voltage_v"]],
   motors:[["driveForm","motors"],["batteryForm","motors"]],
   one_way_m:[["batteryForm","one_way_m"],["winchForm","one_way_m"]],
-  runtime_h:[["batteryForm","runtime_h"],["winchForm","operating_hours"]]
+  runtime_h:[["batteryForm","runtime_h"],["winchForm","operating_hours"]],
+  track_width_m:[["stabilityForm","track_width_m"],["batteryForm","track_width_m"]]
 };
+const MANUAL_SHARED_GROUPS=new Set(["slope_deg"]);
 
 function getField(formId,name){
   const form=$("#"+formId);
@@ -237,18 +239,32 @@ function restoreSharedProjectParameters(){
       runtime_h:getField("batteryForm","runtime_h")?.value
     };
     Object.entries(defaults).forEach(([group,value])=>{
-      if(value!==undefined) syncSharedProjectParameter(group,value);
+      if(value!==undefined && !MANUAL_SHARED_GROUPS.has(group)){
+        syncSharedProjectParameter(group,value);
+      }
     });
+    const track=getField("stabilityForm","track_width_m")?.value;
+    if(track!==undefined) syncSharedProjectParameter("track_width_m",track);
     return;
   }
 
   Object.entries(data).forEach(([group,value])=>{
-    if(group in SHARED_PARAMETER_GROUPS) syncSharedProjectParameter(group,value);
+    if(group in SHARED_PARAMETER_GROUPS && !MANUAL_SHARED_GROUPS.has(group)){
+      syncSharedProjectParameter(group,value);
+    }
   });
+
+  // New shared groups added after older web releases: initialise them from
+  // the canonical visible input without overwriting other saved module values.
+  if(data.track_width_m===undefined){
+    const track=getField("stabilityForm","track_width_m")?.value;
+    if(track!==undefined) syncSharedProjectParameter("track_width_m",track);
+  }
 }
 
 function setupSharedProjectParameterSync(){
   Object.entries(SHARED_PARAMETER_GROUPS).forEach(([group,pairs])=>{
+    if(MANUAL_SHARED_GROUPS.has(group)) return;
     pairs.forEach(([formId,name])=>{
       const el=getField(formId,name);
       if(!el) return;
@@ -339,12 +355,15 @@ $("#savePin").addEventListener("click",()=>{localStorage.setItem("cvet_web_pin",
 $("#eventMode").addEventListener("change",()=>{$("#manualEventsWrap").classList.toggle("hidden",$("#eventMode").value!=="manual");});
 $("#downMode").addEventListener("change",()=>{$$(".customDown").forEach(x=>x.classList.toggle("hidden",$("#downMode").value!=="custom"));});
 
+let lastDriveResult=null;
+
 $("#calcDrive").addEventListener("click",async(evt)=>{
   const btn=$("#calcDrive"),interactive=!!evt.isTrusted;
   if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
   const out=$("#driveResult");setLoading(out);
   try{
     const r=await api("/api/calc/drive-torque",formObject($("#driveForm")));
+    lastDriveResult=r;
     out.innerHTML=
       '<h3>ผลการคำนวณ</h3><div class="metric-grid">'+
       '<div class="metric"><div class="k">แรงรวมก่อน SF</div><div class="v">'+f(r.force_sum_n,1)+' N</div></div>'+
@@ -414,8 +433,9 @@ async function calculateRampGeometry(){
       'แทนค่า: '+f(r.mass_kg,1)+' × 9.81 × sin('+f(r.angle_deg,2)+'°) = <b>'+f(r.f_slope_n,2)+' N</b><br>'+
       'ตรวจซ้ำด้วย <b>F_slope = m g (h/L)</b> = '+f(r.f_slope_ratio_n,2)+' N</div>'+
 
-      '<div class="notice"><b>สำคัญ:</b> '+f(r.slope_percent,2)+'% คือเปอร์เซ็นต์ความชัน ไม่ใช่ '+f(r.slope_percent,2)+'°. '+
-      'สำหรับสูตร sin/cos ของมอเตอร์ให้ใช้ <b>'+f(r.angle_deg,2)+'°</b>.</div>';
+      '<div class="notice"><b>สำคัญ:</b> มุมหลักสำหรับสูตรมอเตอร์คือ <b>θ = atan(h/x) = '+f(r.angle_deg,2)+'°</b>. '+
+      'ส่วนมุมจาก L ที่วัดได้ = '+measuredAngle+' เป็นค่าตรวจสอบจากข้อมูลวัดอีกชุดหนึ่ง และอาจต่างกันได้เมื่อ h, x, L_measured ไม่เป็นสามเหลี่ยมเดียวกันพอดี.<br>'+
+      '<b>Slope '+f(r.slope_percent,2)+'%</b> เป็นเปอร์เซ็นต์ความชัน ไม่ใช่องศา.</div>';
     return r;
   }catch(e){setError(out,e);throw e;}
 }
@@ -466,7 +486,11 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
   if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
   const out=$("#batteryResult");setLoading(out);
   try{
-    const r=await api("/api/calc/drive-battery",formObject($("#batteryForm")));
+    const driveRef=await api("/api/calc/drive-torque",formObject($("#driveForm")));
+    lastDriveResult=driveRef;
+    const batteryPayload=formObject($("#batteryForm"));
+    batteryPayload.drive_reference_current_a=driveRef.battery_current_a;
+    const r=await api("/api/calc/drive-battery",batteryPayload);
     const c=r.candidate||{};
     const bmsCont=(c.bms_cont_a>0?statusSpan(c.bms_cont_ok):'<span class="check">NOT SET</span>');
     const bmsPeak=(c.bms_peak_a>0?statusSpan(c.bms_peak_ok):'<span class="check">NOT SET</span>');
@@ -483,6 +507,7 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
 
     out.innerHTML=
       '<h3>Main Battery 72 V — Simple Cycle</h3>'+
+      '<div class="notice"><b>Current check:</b> Battery model uphill = '+f(r.uphill_current_calc_a,2)+' A • Drive Torque reference = '+f(r.drive_reference_current_a,2)+' A • ใช้ค่าที่มากกว่าในการตรวจ BMS/C-rate</div>'+
       '<div class="notice"><b>1 Cycle</b> = ไป '+f(r.one_way_m,1)+' m + กลับ '+f(r.one_way_m,1)+' m • '+
       'แต่ละเที่ยว = ทางราบ '+f(r.flat_one_way_m,1)+' m + ทางลาด '+f(r.slope_length_m,1)+' m</div>'+
 
@@ -773,7 +798,9 @@ $("#calcStability").addEventListener("click",async(evt)=>{
     const cg=r.current_governing,crit=r.critical_governing;
     const cgSf=fbdSf(cg.sf),critSf=fbdSf(crit.sf);
     out.innerHTML=
-      '<h3>Stability Result</h3><div class="metric-grid">'+
+      '<h3>Stability Result</h3>'+
+      '<div class="notice"><b>Inputs used:</b> m_total '+f(r.total_mass_kg,1)+' kg • Payload '+f(r.payload_mass_kg,1)+' kg • Boom '+f(r.boom_mass_kg,1)+' kg • Track '+f(r.track_width_m,3)+' m • WB '+f(r.wheelbase_m,3)+' m • θ '+f(r.crane_angle_deg,1)+'°</div>'+
+      '<div class="metric-grid">'+
       '<div class="metric"><div class="k">Current Governing</div><div class="v">'+cgSf+'</div><div>'+fbdName(cg.key)+' • '+statusSpan(cg.pass)+'</div></div>'+
       '<div class="metric"><div class="k">Critical Worst</div><div class="v">'+critSf+'</div><div>'+fbdName(crit.key)+' • '+statusSpan(crit.pass)+'</div></div>'+
       '<div class="metric"><div class="k">Required SF</div><div class="v">'+f(r.required_sf,2)+'</div><div>เกณฑ์ออกแบบ</div></div></div>'+
@@ -781,6 +808,7 @@ $("#calcStability").addEventListener("click",async(evt)=>{
       '<table><tr><th>Case</th><th>SF</th><th>Status</th></tr>'+
       ['side_left','side_right','front','rear','slope'].map(k=>'<tr><td>'+fbdName(k)+'</td><td>'+fbdSf(r.current_cases[k].sf)+'</td><td>'+statusSpan(r.current_cases[k].pass)+'</td></tr>').join('')+
       '</table>'+
+      '<div class="notice"><b>Slope แยกจาก Crane Worst Case:</b> SF_slope = '+fbdSf(r.slope.sf)+' • '+statusSpan(r.slope.pass)+'</div>'+
       '<p class="check">เลือก Case และ Current/Critical ด้านล่างเพื่อดู FBD, Moment arm และสูตรแทนค่าจริง</p>';
     renderWebFbd();
     if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Stability + FBD เสร็จแล้ว");
