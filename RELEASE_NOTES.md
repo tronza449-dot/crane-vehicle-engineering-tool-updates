@@ -1,39 +1,47 @@
-# Crane Vehicle Engineering Tool V53.8.7
+# Crane Vehicle Engineering Tool V53.7.1
 
-## FBD Easy Mode — ลดสัญลักษณ์บนรูปให้อ่านง่ายขึ้น
+## Formal Engineering FBD + Stability Report Audit
 
-ปรับต่อจาก feedback ว่า FBD ยังดูยากและมีตัวเลข/สัญลักษณ์เยอะเกินไป
+ต่อจาก V53.7.0 โดยคงระบบ Ramp Geometry และฟังก์ชันหลักเดิมไว้ แล้วปรับ Stability/FBD สำหรับใช้ในรายงานวิศวกรรม
 
-### สิ่งที่เปลี่ยน
-บน FBD แบบง่ายจะไม่พยายามให้ผู้ใช้ไล่อ่านค่าแรงเป็น N ทีละตัวแล้ว
+### Formal FBD
+- แยก Geometry Top View ออกจาก Free-Body Diagram
+- Side Left / Side Right ใช้ Front Elevation
+- Front / Rear ใช้ Side Elevation
+- Slope FBD ใช้ resolved weight components โดยไม่วาด W=mg ซ้ำกับ mg sin(alpha), mg cos(alpha)
+- แสดง coordinate axes, tipping axis, support reactions, weights และ moment arms
+- ที่ impending tipping ระบุ reaction ฝั่งตรงข้าม tipping axis -> 0
 
-ให้ดูแค่ 4 อย่าง:
-1. จุดแดง = จุดหมุน
-2. สีแดง = พยายามทำให้รถคว่ำ
-3. สีน้ำเงิน = ช่วยต้านการคว่ำ
-4. สีเขียว = พื้นพยุงรถ
-
-ข้อความบนลูกศรเปลี่ยนเป็นภาษาธรรมดา เช่น:
-- น้ำหนักตัวรถ → ช่วยต้าน
-- น้ำหนักโหลด → พยายามคว่ำ
-- น้ำหนักแขนเครน → พยายามคว่ำ / ช่วยต้าน ตามตำแหน่งจริง
-- พื้นพยุงรถ
-- ส่วนของน้ำหนักที่ดึงลงทางลาด
-
-### คำตอบสำคัญอยู่ด้านล่างรูป
-แต่ละ FBD แสดงกล่องใหญ่ 3 กล่อง:
-- ฝั่งพยายามทำให้คว่ำ
-- ฝั่งช่วยต้านการคว่ำ
-- Safety Factor + ผ่าน/ไม่ผ่าน
-
-สูตรที่ต้องจำ:
-`SF = M_R / M_O`
+### Calculation convention
+- +x = ด้านหน้ารถ
+- +y = ด้านขวารถ
+- +z = ด้านบน
+- crane theta: -90 deg = left, 0 deg = forward, +90 deg = right
+- Left/Right/Front/Rear moment balance แยกกัน
+- Payload dynamic factor ใช้เฉพาะ adverse overturning payload moment
+- Worst-case search = 181 angles x 4 directions = 724 cases
 
 ### PDF Export
-Stability PDF และ Final Engineering PDF เริ่มด้วย FBD แบบง่ายก่อน
-รายละเอียดสมการและตัวเลขเต็มย้ายไปไว้ท้ายรายงาน/ภาคผนวกวิศวกรรม
+Stability PDF และ Final Engineering PDF มี:
+- Geometry & Tipping-Axis Definition
+- FBD Left
+- FBD Right
+- FBD Front
+- FBD Rear
+- FBD Uphill Slope
+- Variable table
+- Formula
+- Numeric substitution
+- M_O / M_R / SF
+- PASS / FAIL
 
-### Build
-แก้ regression test รุ่นเก่าที่อ้างข้อความ FBD แบบเดิม เพื่อให้ build ตรวจ Beginner FBD รุ่นปัจจุบันแทน
+### Slope
+- W_parallel = m g sin(alpha)
+- W_normal = m g cos(alpha)
+- F_I = m a opposite acceleration for quasi-static check
+- M_O = (W_parallel + F_I) h_CG
+- M_R = W_normal d_rear
+- SF_slope = M_R / M_O
 
-- เพิ่ม regression log artifact เพื่อวิเคราะห์กรณี Build ไม่ผ่านได้ตรงจุด
+### Scope
+Preliminary rigid-body engineering calculation. Actual mass/CG, structure, wheel/ground behavior, brakes, bearing, shock/dynamic loads and manufacturer limits still require validation.
