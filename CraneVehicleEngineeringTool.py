@@ -9697,13 +9697,25 @@ class ForceDiagram(QWidget):
         dx=12 if side=="right" else -132
         self.txt(p,pt.x()+dx,pt.y()-13,label,9,True,"#b42318")
 
+    def legend(self,p):
+        """Compact color legend used on both interactive and exported FBDs."""
+        x=max(520,self.width()-560);y=78
+        items=[("#111827","Weight"),("#16803a","Reaction / Resist"),("#b42318","Overturn"),("#f59e0b","Crane")]
+        for color,label in items:
+            p.setPen(QPen(QColor(color),3));p.drawLine(QPointF(x,y),QPointF(x+20,y))
+            self.txt(p,x+26,y+4,label,7,True,color);x+=128
+
     def result_box(self,p,sf,mo,mr,req):
-        y=self.height()-88;w=(self.width()-60)/3
+        compact=self.height()<680
+        h=46 if compact else 54
+        y=self.height()-(h+10 if compact else 88)
+        w=(self.width()-60)/3
         vals=[("Overturning moment M_O",f"{mo:.1f} N·m"),("Resisting moment M_R",f"{mr:.1f} N·m"),
               ("Safety Factor",("∞" if sf>=999 else f"{sf:.3f}")+("  PASS" if sf>=req else "  FAIL"))]
         for i,(t,v) in enumerate(vals):
-            x=20+i*w;p.setPen(QPen(QColor("#94a3b8"),1));p.setBrush(QColor("#f8fafc"));p.drawRect(QRectF(x,y,w-8,54))
-            self.txt(p,x+8,y+19,t,8,True);self.txt(p,x+8,y+42,v,11,True,"#176337" if (i<2 or sf>=req) else "#b42318")
+            x=20+i*w;p.setPen(QPen(QColor("#94a3b8"),1));p.setBrush(QColor("#f8fafc"));p.drawRect(QRectF(x,y,w-8,h))
+            self.txt(p,x+8,y+(16 if compact else 19),t,7 if compact else 8,True)
+            self.txt(p,x+8,y+(36 if compact else 42),v,10 if compact else 11,True,"#176337" if (i<2 or sf>=req) else "#b42318")
 
     def _linear_mapper(self,values,left,right,pad_ratio=0.12):
         lo=min(values);hi=max(values);span=max(hi-lo,0.25)
@@ -9742,66 +9754,67 @@ class ForceDiagram(QWidget):
         bal=self.app.side_moment_balance(d,angle,side)
         self.header(p,f"FREE-BODY DIAGRAM — {name} SIDE TIPPING (FRONT ELEVATION)",
                     f"{self._case_label()} θ={angle:.1f}° • weights act through CG/load points • moment arms measured to tipping axis P")
+        self.legend(p)
 
-        ww,hh=self.width(),self.height();ground=442;deck_top=350;deck_h=44;boom_y=185
+        ww,hh=self.width(),self.height();compact=hh<680
+        if compact:
+            ground=hh-215;deck_top=ground-62;deck_h=36;boom_y=max(112,deck_top-118)
+            lanes=[ground+34,ground+58,ground+82];track_y=ground+106
+            axis_y=98;side_y=80
+        else:
+            ground=442;deck_top=350;deck_h=44;boom_y=185
+            lanes=[505,537,569];track_y=602;axis_y=132;side_y=92
+
         yveh=d.get("yCG",0.0);yboom=bal["y_boom"];yload=bal["y_load"];yp=bal["pivot"]
         mapper=self._linear_mapper([-d["W"]/2,d["W"]/2,yveh,yboom,yload,yp],130,ww-130,.15)
         xL=mapper(-d["W"]/2);xR=mapper(d["W"]/2);pivotx=mapper(yp);other=xR if left else xL
         xveh=mapper(yveh);xboom=mapper(yboom);xload=mapper(yload);xzero=mapper(0.0)
 
-        # Ground, chassis and wheel contacts.
         p.setPen(QPen(QColor("#64748b"),3));p.drawLine(QPointF(70,ground),QPointF(ww-70,ground))
         deck_left=min(xL,xR)-68;deck_right=max(xL,xR)+68
         p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(deck_left,deck_top,deck_right-deck_left,deck_h))
         for x in (xL,xR):
-            p.setBrush(QColor("#1f2937"));p.setPen(QPen(QColor("#1f2937"),1));p.drawEllipse(QPointF(x,ground-4),21,21)
+            p.setBrush(QColor("#1f2937"));p.setPen(QPen(QColor("#1f2937"),1));p.drawEllipse(QPointF(x,ground-4),18 if compact else 21,18 if compact else 21)
 
-        # Crane front-elevation projection: the load and boom CG are physically attached to the projected boom.
         p.setPen(QPen(QColor("#f59e0b"),7,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(xzero,deck_top),QPointF(xzero,boom_y))
-        p.drawLine(QPointF(xzero,boom_y),QPointF(xload,boom_y))
+        p.drawLine(QPointF(xzero,deck_top),QPointF(xzero,boom_y));p.drawLine(QPointF(xzero,boom_y),QPointF(xload,boom_y))
         projected_coincident=abs(xboom-xload)<10
         if projected_coincident:
             self.marker(p,QPointF(xboom,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
         else:
-            self.marker(p,QPointF(xboom,boom_y),"CG_B","#a45108",8,-9)
-            self.marker(p,QPointF(xload,boom_y),"CG_L","#a45108",8,-9)
+            self.marker(p,QPointF(xboom,boom_y),"CG_B","#a45108",8,-9);self.marker(p,QPointF(xload,boom_y),"CG_L","#a45108",8,-9)
         self.marker(p,QPointF(xveh,deck_top+deck_h/2),"CG_V","#334155",8,-8)
 
-        # Force arrows through the true lines of action. Coincident projections are shown once, not overdrawn.
-        self.arrow(p,QPointF(xveh,deck_top+deck_h/2),QPointF(xveh,ground-16),"W_V","#111827",QPointF(7,-5))
+        self.arrow(p,QPointF(xveh,deck_top+deck_h/2),QPointF(xveh,ground-14),"W_V","#111827",QPointF(7,-5))
+        arrow1=74 if compact else 100;arrow2=86 if compact else 115
         if projected_coincident:
-            self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+115),"W_B + W_L","#111827",QPointF(7,-5))
-            self.txt(p,xboom+8,boom_y+132,"same projected line of action",7,False,"#52606d")
+            self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+arrow2),"W_B + W_L","#111827",QPointF(7,-5))
+            if not compact:self.txt(p,xboom+8,boom_y+132,"same projected line of action",7,False,"#52606d")
         else:
-            self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+100),"W_B","#111827",QPointF(7,-5))
-            self.arrow(p,QPointF(xload,boom_y+8),QPointF(xload,boom_y+115),"W_L","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+arrow1),"W_B","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xload,boom_y+8),QPointF(xload,boom_y+arrow2),"W_L","#111827",QPointF(7,-5))
 
-        # Pivot / reactions are separated to prevent overlapping labels.
         self.pivot(p,QPointF(pivotx,ground),"Tipping axis P","right" if left else "left")
         react_start=QPointF(pivotx+(18 if left else -18),ground-4)
-        self.arrow(p,react_start,react_start+QPointF(0,-86),"R_P","#16803a",QPointF(8,-2))
-        self.txt(p,other-50,ground+42,"R_opposite = 0",9,True,"#b42318")
+        self.arrow(p,react_start,react_start+QPointF(0,-68 if compact else -86),"R_P","#16803a",QPointF(8,-2))
+        self.txt(p,other-50,ground+28 if compact else ground+42,"R_opposite = 0",8 if compact else 9,True,"#b42318")
 
-        # Tipping-direction labels.
         if left:
-            self.txt(p,85,92,"← OVERTURNING SIDE",9,True,"#b42318")
-            self.txt(p,pivotx+28,92,"RESISTING SIDE →",9,True,"#176337")
+            self.txt(p,85,side_y,"← OVERTURNING SIDE",8 if compact else 9,True,"#b42318")
+            self.txt(p,pivotx+28,side_y,"RESISTING SIDE →",8 if compact else 9,True,"#176337")
         else:
-            self.txt(p,85,92,"← RESISTING SIDE",9,True,"#176337")
-            self.txt(p,pivotx+28,92,"OVERTURNING SIDE →",9,True,"#b42318")
+            self.txt(p,85,side_y,"← RESISTING SIDE",8 if compact else 9,True,"#176337")
+            self.txt(p,pivotx+28,side_y,"OVERTURNING SIDE →",8 if compact else 9,True,"#b42318")
 
-        # Explicit perpendicular moment arms used by M=F d.
         comp={q["name"]:q for q in bal["components"]}
-        lanes=[505,537,569]
         for lane,nm,x,lab in zip(lanes,("Vehicle","Boom","Payload"),(xveh,xboom,xload),("d_V","d_B","d_L")):
-            q=comp[nm]
-            self.moment_arm(p,pivotx,x,ground,lane,f"{lab} = {q['arm']:.3f} m",q["role"])
-        self.double_arrow(p,QPointF(xL,602),QPointF(xR,602),f"Track W = {d['W']:.3f} m","#64748b",-7)
+            q=comp[nm];self.moment_arm(p,pivotx,x,ground,lane,f"{lab} = {q['arm']:.3f} m",q["role"])
+        self.double_arrow(p,QPointF(xL,track_y),QPointF(xR,track_y),f"Track W = {d['W']:.3f} m","#64748b",-7)
 
-        self.axes(p,QPointF(78,132),"+y right","+z up")
-        self.txt(p,20,626,f"Line of action: y_V={yveh:.3f} m | y_B={yboom:.3f} m | y_L={yload:.3f} m | y_P={yp:.3f} m",8)
-        self.txt(p,20,646,"Red moment arm = overturning contribution • Green moment arm = resisting contribution • Payload Kdyn only when adverse.",8,False,"#52606d")
+        self.axes(p,QPointF(78,axis_y),"+y right","+z up")
+        if not compact:
+            self.txt(p,20,626,f"Line of action: y_V={yveh:.3f} m | y_B={yboom:.3f} m | y_L={yload:.3f} m | y_P={yp:.3f} m",8)
+            self.txt(p,20,646,"Red moment arm = overturning contribution • Green moment arm = resisting contribution • Payload Kdyn only when adverse.",8,False,"#52606d")
         self.result_box(p,bal["sf"],bal["mo"],bal["mr"],d["req"])
 
     def longitudinal(self,p,d,case):
@@ -9809,8 +9822,17 @@ class ForceDiagram(QWidget):
         bal=self.app.longitudinal_moment_balance(d,angle,case)
         self.header(p,f"FREE-BODY DIAGRAM — {name} TIPPING (SIDE ELEVATION)",
                     f"{self._case_label()} θ={angle:.1f}° • each vertical load line is shown at its calculated x-position")
+        self.legend(p)
 
-        ww,hh=self.width(),self.height();ground=442;deck_top=350;deck_h=44;boom_y=185
+        ww,hh=self.width(),self.height();compact=hh<680
+        if compact:
+            ground=hh-215;deck_top=ground-62;deck_h=36;boom_y=max(112,deck_top-118)
+            lanes=[ground+34,ground+58,ground+82];track_y=ground+106
+            axis_y=98;side_y=80
+        else:
+            ground=442;deck_top=350;deck_h=44;boom_y=185
+            lanes=[505,537,569];track_y=602;axis_y=132;side_y=92
+
         xr=bal["rear"];xf=bal["front"];xp=bal["pivot"];xveh=d["xCG"];xboom=bal["xboom"];xload=bal["xload"];xc=bal["xc"]
         mapper=self._linear_mapper([xr,xf,xp,xveh,xboom,xload,xc],130,ww-130,.15)
         rear=mapper(xr);front=mapper(xf);pivotx=mapper(xp);other=rear if frontcase else front
@@ -9820,110 +9842,102 @@ class ForceDiagram(QWidget):
         deck_left=min(rear,front)-68;deck_right=max(rear,front)+68
         p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(deck_left,deck_top,deck_right-deck_left,deck_h))
         for x in (rear,front):
-            p.setBrush(QColor("#1f2937"));p.setPen(QPen(QColor("#1f2937"),1));p.drawEllipse(QPointF(x,ground-4),21,21)
+            p.setBrush(QColor("#1f2937"));p.setPen(QPen(QColor("#1f2937"),1));p.drawEllipse(QPointF(x,ground-4),18 if compact else 21,18 if compact else 21)
 
-        # Crane side-elevation projection.
         p.setPen(QPen(QColor("#f59e0b"),7,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(xm,deck_top),QPointF(xm,boom_y))
-        p.drawLine(QPointF(xm,boom_y),QPointF(xl,boom_y))
+        p.drawLine(QPointF(xm,deck_top),QPointF(xm,boom_y));p.drawLine(QPointF(xm,boom_y),QPointF(xl,boom_y))
         projected_coincident=abs(xb-xl)<10
-        if projected_coincident:
-            self.marker(p,QPointF(xb,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
+        if projected_coincident:self.marker(p,QPointF(xb,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
         else:
-            self.marker(p,QPointF(xb,boom_y),"CG_B","#a45108",8,-9)
-            self.marker(p,QPointF(xl,boom_y),"CG_L","#a45108",8,-9)
+            self.marker(p,QPointF(xb,boom_y),"CG_B","#a45108",8,-9);self.marker(p,QPointF(xl,boom_y),"CG_L","#a45108",8,-9)
         self.marker(p,QPointF(xv,deck_top+deck_h/2),"CG_V","#334155",8,-8)
 
-        self.arrow(p,QPointF(xv,deck_top+deck_h/2),QPointF(xv,ground-16),"W_V","#111827",QPointF(7,-5))
+        self.arrow(p,QPointF(xv,deck_top+deck_h/2),QPointF(xv,ground-14),"W_V","#111827",QPointF(7,-5))
+        arrow1=74 if compact else 100;arrow2=86 if compact else 115
         if projected_coincident:
-            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+115),"W_B + W_L","#111827",QPointF(7,-5))
-            self.txt(p,xb+8,boom_y+132,"same projected line of action",7,False,"#52606d")
+            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow2),"W_B + W_L","#111827",QPointF(7,-5))
+            if not compact:self.txt(p,xb+8,boom_y+132,"same projected line of action",7,False,"#52606d")
         else:
-            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+100),"W_B","#111827",QPointF(7,-5))
-            self.arrow(p,QPointF(xl,boom_y+8),QPointF(xl,boom_y+115),"W_L","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow1),"W_B","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xl,boom_y+8),QPointF(xl,boom_y+arrow2),"W_L","#111827",QPointF(7,-5))
 
         self.pivot(p,QPointF(pivotx,ground),"Tipping axis P","left" if frontcase else "right")
         react_start=QPointF(pivotx+(-18 if frontcase else 18),ground-4)
-        self.arrow(p,react_start,react_start+QPointF(0,-86),"R_P","#16803a",QPointF(8,-2))
-        self.txt(p,other-50,ground+42,"R_opposite = 0",9,True,"#b42318")
+        self.arrow(p,react_start,react_start+QPointF(0,-68 if compact else -86),"R_P","#16803a",QPointF(8,-2))
+        self.txt(p,other-50,ground+28 if compact else ground+42,"R_opposite = 0",8 if compact else 9,True,"#b42318")
 
         if frontcase:
-            self.txt(p,80,92,"← RESISTING SIDE",9,True,"#176337")
-            self.txt(p,pivotx+28,92,"OVERTURNING SIDE →",9,True,"#b42318")
+            self.txt(p,80,side_y,"← RESISTING SIDE",8 if compact else 9,True,"#176337")
+            self.txt(p,pivotx+28,side_y,"OVERTURNING SIDE →",8 if compact else 9,True,"#b42318")
         else:
-            self.txt(p,80,92,"← OVERTURNING SIDE",9,True,"#b42318")
-            self.txt(p,pivotx+28,92,"RESISTING SIDE →",9,True,"#176337")
+            self.txt(p,80,side_y,"← OVERTURNING SIDE",8 if compact else 9,True,"#b42318")
+            self.txt(p,pivotx+28,side_y,"RESISTING SIDE →",8 if compact else 9,True,"#176337")
 
         comp={q["name"]:q for q in bal["components"]}
-        lanes=[505,537,569]
         for lane,nm,x,lab in zip(lanes,("Vehicle","Boom","Payload"),(xv,xb,xl),("d_V","d_B","d_L")):
-            q=comp[nm]
-            self.moment_arm(p,pivotx,x,ground,lane,f"{lab} = {q['arm']:.3f} m",q["role"])
-        self.double_arrow(p,QPointF(rear,602),QPointF(front,602),f"Wheelbase WB = {d['WB']:.3f} m","#64748b",-7)
+            q=comp[nm];self.moment_arm(p,pivotx,x,ground,lane,f"{lab} = {q['arm']:.3f} m",q["role"])
+        self.double_arrow(p,QPointF(rear,track_y),QPointF(front,track_y),f"Wheelbase WB = {d['WB']:.3f} m","#64748b",-7)
 
-        self.axes(p,QPointF(78,132),"+x forward","+z up")
-        self.txt(p,20,626,f"x_C={xc:.3f} m | x_V={xveh:.3f} m | x_B={xboom:.3f} m | x_L={xload:.3f} m | x_P={xp:.3f} m",8)
-        if bal["mo"]<=1e-12:
-            self.txt(p,20,646,"NO OVERTURNING GRAVITY MOMENT in this case: all shown vertical loads remain on the resisting side of P.",8,True,"#176337")
-        else:
-            self.txt(p,20,646,"Payload Kdyn is applied only when Payload lies beyond P on the overturning side.",8,False,"#52606d")
+        self.axes(p,QPointF(78,axis_y),"+x forward","+z up")
+        if not compact:
+            self.txt(p,20,626,f"x_C={xc:.3f} m | x_V={xveh:.3f} m | x_B={xboom:.3f} m | x_L={xload:.3f} m | x_P={xp:.3f} m",8)
+            if bal["mo"]<=1e-12:self.txt(p,20,646,"NO OVERTURNING GRAVITY MOMENT in this case: all shown vertical loads remain on the resisting side of P.",8,True,"#176337")
+            else:self.txt(p,20,646,"Payload Kdyn is applied only when Payload lies beyond P on the overturning side.",8,False,"#52606d")
         self.result_box(p,bal["sf"],bal["mo"],bal["mr"],d["req"])
 
     def slope(self,p,d):
         sr=self.app.slope_stability_results(d);alpha=sr["alpha"];deg=math.degrees(alpha)
         self.header(p,"FREE-BODY DIAGRAM — UPHILL REAR-TIPPING CHECK",
                     "Slope-fixed axes • resolved-weight representation • D'Alembert inertia force acts opposite uphill acceleration")
+        self.legend(p)
 
-        ww,hh=self.width(),self.height()
-        u=QPointF(math.cos(alpha),-math.sin(alpha))                  # +x_s uphill
-        n=QPointF(-math.sin(alpha),-math.cos(alpha))                # +z_s outward normal
-        scale=min(330/max(d["WB"],.2),175/max(sr["h"],.25))
-        rear=QPointF(300,500);front=rear+u*(d["WB"]*scale)
-        proj=rear+u*(sr["rear_arm"]*scale)
-        cg=proj+n*(sr["h"]*scale)
+        ww,hh=self.width(),self.height();compact=hh<680
+        u=QPointF(math.cos(alpha),-math.sin(alpha))
+        n=QPointF(-math.sin(alpha),-math.cos(alpha))
 
-        # Long slope line.
-        start=rear-u*220;end=front+u*330
+        if compact:
+            scale=min(290/max(d["WB"],.2),115/max(sr["h"],.25))
+            rear=QPointF(max(250,ww*.28),hh-170)
+            axis_origin=QPointF(82,100)
+            note_y=None
+        else:
+            scale=min(330/max(d["WB"],.2),175/max(sr["h"],.25))
+            rear=QPointF(300,500)
+            axis_origin=QPointF(85,135)
+            note_y=612
+
+        front=rear+u*(d["WB"]*scale);proj=rear+u*(sr["rear_arm"]*scale);cg=proj+n*(sr["h"]*scale)
+        start=rear-u*(170 if compact else 220);end=front+u*(250 if compact else 330)
         p.setPen(QPen(QColor("#64748b"),4));p.drawLine(start,end)
 
-        # Vehicle body sits above the slope, not inside it.
-        body=QPolygonF([
-            rear+u*(-42)+n*18,
-            front+u*(42)+n*18,
-            front+u*(42)+n*62,
-            rear+u*(-42)+n*62,
-        ])
+        body=QPolygonF([rear+u*(-42)+n*18,front+u*(42)+n*18,front+u*(42)+n*58,rear+u*(-42)+n*58])
         p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawPolygon(body)
         self.marker(p,cg,"Combined CG","#334155",8,-10)
 
-        # Tipping pivot / support reactions.
         self.pivot(p,rear,"Rear tipping axis P","right")
-        nr0=rear+n*8
-        self.arrow(p,nr0,nr0+n*105,"N_R","#16803a",QPointF(8,-2))
+        nr0=rear+n*8;self.arrow(p,nr0,nr0+n*(76 if compact else 105),"N_R","#16803a",QPointF(8,-2))
         p.setPen(QPen(QColor("#b42318"),2));p.drawLine(front+QPointF(-6,-6),front+QPointF(6,6));p.drawLine(front+QPointF(-6,6),front+QPointF(6,-6))
-        self.txt(p,front.x()+12,front.y()+22,"N_F = 0 at impending rear tip",9,True,"#b42318")
+        self.txt(p,front.x()+12,front.y()+22,"N_F = 0",8 if compact else 9,True,"#b42318")
 
-        # Resolved gravity components at the CG.
-        self.arrow(p,cg,cg-u*135,"W_parallel = mg sinα","#b42318",QPointF(-150,-8))
-        self.arrow(p,cg,cg-n*122,"W_normal = mg cosα","#111827",QPointF(8,0))
-
-        # D'Alembert pseudo-force; graphically offset but tied back to the same CG line.
+        wp=105 if compact else 135;wn=90 if compact else 122
+        self.arrow(p,cg,cg-u*wp,"W_parallel","#b42318",QPointF(-82,-8))
+        self.arrow(p,cg,cg-n*wn,"W_normal","#111827",QPointF(8,0))
         if sr["acc"]>1e-9:
-            fi0=cg+n*17
+            fi0=cg+n*(14 if compact else 17)
             p.setPen(QPen(QColor("#a78bfa"),1,Qt.DashLine));p.drawLine(cg,fi0)
-            self.arrow(p,fi0,fi0-u*102,"F_I = ma","#7c3aed",QPointF(-82,18))
-            self.txt(p,fi0.x()+8,fi0.y()-10,"graphic offset only — acts through CG",7,False,"#7c3aed")
+            self.arrow(p,fi0,fi0-u*(78 if compact else 102),"F_I = ma","#7c3aed",QPointF(-64,17))
+            if not compact:self.txt(p,fi0.x()+8,fi0.y()-10,"graphic offset only — acts through CG",7,False,"#7c3aed")
 
-        # Explicit geometric arms used in moment equations.
-        dr0=rear-n*36;dr1=proj-n*36
+        dr0=rear-n*(28 if compact else 36);dr1=proj-n*(28 if compact else 36)
         self.double_arrow(p,dr0,dr1,f"d_R = {sr['rear_arm']:.3f} m","#176337",-8)
-        h0=proj+u*34;h1=cg+u*34
+        h0=proj+u*(26 if compact else 34);h1=cg+u*(26 if compact else 34)
         self.double_arrow(p,h0,h1,f"h_CG = {sr['h']:.3f} m","#475569",-5)
 
-        self.axes(p,QPointF(85,135),"+x_s uphill","+z_s normal",-deg)
-        self.txt(p,20,612,f"α={deg:.2f}° | W_parallel={sr['w_parallel']:.1f} N | W_normal={sr['w_normal']:.1f} N | F_I={sr['inertia']:.1f} N",8)
-        self.txt(p,20,632,"W_parallel and W_normal are components of the same weight W=mg — do NOT add W=mg again.",8,True,"#b42318")
-        self.txt(p,20,651,"Moment about rear pivot: M_O=(W_parallel + F_I)h_CG ; M_R=W_normal d_R.  N_R is drawn outward normal to the road.",8,False,"#52606d")
+        self.axes(p,axis_origin,"+x_s uphill","+z_s normal",-deg)
+        if not compact:
+            self.txt(p,20,note_y,f"α={deg:.2f}° | W_parallel={sr['w_parallel']:.1f} N | W_normal={sr['w_normal']:.1f} N | F_I={sr['inertia']:.1f} N",8)
+            self.txt(p,20,note_y+20,"W_parallel and W_normal are components of the same weight W=mg — do NOT add W=mg again.",8,True,"#b42318")
+            self.txt(p,20,note_y+39,"Moment about rear pivot: M_O=(W_parallel + F_I)h_CG ; M_R=W_normal d_R. N_R points outward normal to the road.",8,False,"#52606d")
         self.result_box(p,sr["sf"],sr["mo"],sr["mr"],d["req"])
 
     def paintEvent(self,e):
