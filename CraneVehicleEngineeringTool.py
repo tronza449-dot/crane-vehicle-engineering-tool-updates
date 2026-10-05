@@ -8797,6 +8797,85 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
         self.tabs.addTab(w,"Report / รายงานสรุป")
 
 
+    def stability_fbd_cases(self,d=None):
+        d=d or self.inputs()
+        left=min((self.side_moment_balance(d,a,"left")["sf"],a) for a in range(-90,91))
+        right=min((self.side_moment_balance(d,a,"right")["sf"],a) for a in range(-90,91))
+        front=min((self.longitudinal_moment_balance(d,a,"front")["sf"],a) for a in range(-90,91))
+        rear=min((self.longitudinal_moment_balance(d,a,"rear")["sf"],a) for a in range(-90,91))
+        slope=self.slope_stability_results(d)
+        return [
+            {"key":"side_left","title":"LEFT SIDE TIPPING","thai":"การคว่ำด้านซ้าย","mode":1,"angle":float(left[1]),"sf":float(left[0])},
+            {"key":"side_right","title":"RIGHT SIDE TIPPING","thai":"การคว่ำด้านขวา","mode":2,"angle":float(right[1]),"sf":float(right[0])},
+            {"key":"front","title":"FRONT TIPPING","thai":"การคว่ำด้านหน้า","mode":3,"angle":float(front[1]),"sf":float(front[0])},
+            {"key":"rear","title":"REAR TIPPING","thai":"การคว่ำด้านหลัง","mode":4,"angle":float(rear[1]),"sf":float(rear[0])},
+            {"key":"slope","title":"UPHILL REAR-TIPPING","thai":"การคว่ำขณะขึ้นทางลาด","mode":5,"angle":None,"sf":float(slope["sf"])},
+        ]
+
+    def _render_stability_fbd_png(self,mode,path,angle=None):
+        fd=ForceDiagram(self);fd.resize(1180,760);fd.setMode(mode);fd.setCaseAngle(angle)
+        pix=QPixmap(fd.size());pix.fill(QColor("white"));fd.render(pix)
+        ok=pix.save(str(path),"PNG");fd.deleteLater()
+        if not ok:raise RuntimeError("Could not render FBD image")
+        return path
+
+    def formal_fbd_report_html(self,tmpdir,d=None):
+        d=d or self.inputs();cases=self.stability_fbd_cases(d)
+        geom=Path(tmpdir)/"fbd_geometry.png";self._render_stability_fbd_png(0,geom,d["th"])
+        pages=[f"""<div style='page-break-before:always'></div>
+        <h1>GEOMETRY & TIPPING-AXIS DEFINITION</h1>
+        <p>Coordinate convention: +x forward, +y right, +z upward. Crane slew: -90° left, 0° forward, +90° right.</p>
+        <p style='text-align:center'><img src='{geom.as_uri()}' width='680'></p>
+        <p><b>Important:</b> this top view defines geometry and support/tipping axes. It is not used as the force FBD because gravity acts vertically.
+        The force FBDs use front/side elevations so all vertical weights and ground reactions are shown in their true line of action.</p>"""]
+        summary=[]
+        for i,case in enumerate(cases,1):
+            fp=Path(tmpdir)/f"formal_{case['key']}.png";self._render_stability_fbd_png(case["mode"],fp,case["angle"])
+            sf=case["sf"];sftext="∞" if sf>=999 else f"{sf:.3f}";status="PASS" if sf>=d["req"] else "FAIL"
+            if case["key"]=="side_left":
+                bal=self.side_moment_balance(d,case["angle"],"left")
+                geomtxt=f"θ={case['angle']:.1f}°, y_P={bal['pivot']:.3f} m"
+            elif case["key"]=="side_right":
+                bal=self.side_moment_balance(d,case["angle"],"right")
+                geomtxt=f"θ={case['angle']:.1f}°, y_P={bal['pivot']:.3f} m"
+            elif case["key"]=="front":
+                bal=self.longitudinal_moment_balance(d,case["angle"],"front")
+                geomtxt=f"θ={case['angle']:.1f}°, x_P={bal['pivot']:.3f} m"
+            elif case["key"]=="rear":
+                bal=self.longitudinal_moment_balance(d,case["angle"],"rear")
+                geomtxt=f"θ={case['angle']:.1f}°, x_P={bal['pivot']:.3f} m"
+            else:
+                bal=self.slope_stability_results(d);geomtxt=f"α={math.degrees(bal['alpha']):.2f}°, h_CG={bal['h']:.3f} m"
+            if case["key"]!="slope":
+                rows="".join(
+                    f"<tr><td>{q['name']}</td><td>{q['force']:.2f}</td><td>{q['arm']:.3f}</td><td>{q['moment']:.2f}</td><td>{q['role']}</td></tr>"
+                    for q in bal["components"])
+                detail=f"""<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
+                <tr><th>Component</th><th>Design force (N)</th><th>d⊥ (m)</th><th>Moment (N·m)</th><th>Role</th></tr>{rows}</table>
+                <p>M_O = Σ(Fd)_overturning = <b>{bal['mo']:.2f} N·m</b><br>
+                M_R = Σ(Fd)_resisting = <b>{bal['mr']:.2f} N·m</b><br>
+                SF = M_R/M_O = <b>{sftext}</b></p>"""
+            else:
+                detail=f"""<p>W_parallel = mg sinα = {bal['w_parallel']:.2f} N<br>
+                W_normal = mg cosα = {bal['w_normal']:.2f} N<br>
+                F_I = ma = {bal['inertia']:.2f} N<br>
+                M_O = (W_parallel+F_I)h_CG = <b>{bal['mo']:.2f} N·m</b><br>
+                M_R = W_normal d_R = <b>{bal['mr']:.2f} N·m</b><br>
+                SF_slope = M_R/M_O = <b>{sftext}</b></p>"""
+            pages.append(f"""<div style='page-break-before:always'></div>
+            <h1>FBD {i}: {case['title']} / {case['thai']}</h1>
+            <p><b>Critical case used on this page:</b> {geomtxt}</p>
+            <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>
+            <h2>Equation and substitution</h2>{detail}
+            <p><b>Required:</b> SF ≥ {d['req']:.2f} &nbsp; | &nbsp; <b>Result:</b> SF = {sftext} → {status}</p>
+            <p style='font-size:9pt;color:#52606d'>At impending tipping, the support reaction opposite the selected tipping axis tends to zero.
+            Payload Kdyn is used only as an equivalent adverse design load in the overturning moment.</p>""")
+            summary.append(f"<tr><td>{i}</td><td>{case['title']}</td><td>{'-' if case['angle'] is None else f'{case['angle']:.1f}°'}</td><td>{sftext}</td><td>{status}</td></tr>")
+        head=f"""<h2>FORMAL FBD CASE SUMMARY</h2>
+        <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
+        <tr><th>#</th><th>Case</th><th>Critical angle</th><th>SF</th><th>Status</th></tr>{''.join(summary)}</table>"""
+        return head+"".join(pages)
+
     def export_pdf_report(self):
         docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
         default_path=str(Path(docs)/"Crane_Stability_Engineering_Report.pdf")
@@ -8808,41 +8887,32 @@ SF_slope = [g cosα × d_rear] / [h_CG × (g sinα + a)]
             self.calc_all();self.calc_worst()
             d=self.inputs();worst=self.stability_worst_record();slope=self.slope_stability_results(d)
             figures=[]
-            for name,widget in (("vehicle",getattr(self,"view",None)),("fbd",getattr(self,"forceDiagram",None)),("stability_map",getattr(self,"graph",None))):
+            for name,widget in (("vehicle",getattr(self,"view",None)),("stability_map",getattr(self,"graph",None))):
                 if widget is not None:
                     fp=tmpdir/f"{name}.png"
-                    if widget.grab().save(str(fp)):
-                        figures.append((name,fp.as_uri()))
-            fig_html="".join(
-                f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>"
-                for name,uri in figures
-            )
-            slope_sf_text="∞" if slope["sf"]>=999 else f"{slope['sf']:.3f}"
-            summary=f"""
-            <h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
+                    if widget.grab().save(str(fp)):figures.append((name,fp.as_uri()))
+            fig_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in figures)
+            fbd_html=self.formal_fbd_report_html(tmpdir,d)
+            summary=f"""<h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
             <p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
             <table border='1' cellspacing='0' cellpadding='6'>
             <tr><th>Input / Result</th><th>Value</th></tr>
             <tr><td>Total mass</td><td>{d['mt']:.2f} kg</td></tr>
-            <tr><td>Payload</td><td>{d['ml']:.2f} kg</td></tr>
-            <tr><td>Boom mass</td><td>{d['mb']:.2f} kg</td></tr>
+            <tr><td>Payload / Boom</td><td>{d['ml']:.2f} / {d['mb']:.2f} kg</td></tr>
             <tr><td>Track / Wheelbase</td><td>{d['W']:.3f} / {d['WB']:.3f} m</td></tr>
-            <tr><td>Worst stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
-            <tr><td>Uphill driving stability</td><td>{slope_sf_text}</td></tr>
-            </table>
-            <p><b>Scope:</b> Preliminary tipping/stability calculation. Use measured mass/CG and validate the real structure, tires, ground, brakes, slewing bearing and lifting system before fabrication/use.</p>
-            """
-            html=(
-                "<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
-                +summary+"<hr>"+self.stability_formula_html()
-                +"<div style='page-break-before:always'></div><h2>Figures / รูปประกอบ</h2>"+fig_html
-                +"</body></html>"
-            )
+            <tr><td>Worst crane-mode stability</td><td>SF {worst[0]:.3f} @ {worst[1]}° ({worst[2]})</td></tr>
+            <tr><td>Uphill stability</td><td>{'∞' if slope['sf']>=999 else f"{slope['sf']:.3f}"}</td></tr></table>
+            <p><b>Method:</b> rigid-body moment balance about each tipping axis. FBDs show external weights/reactions and the selected tipping axis.
+            Dynamic factor is an equivalent design multiplier on adverse payload moment only.</p>"""
+            html=("<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
+                  +summary+fbd_html
+                  +"<div style='page-break-before:always'></div>"+self.stability_formula_html()
+                  +"<div style='page-break-before:always'></div><h1>OTHER FIGURES</h1>"+fig_html
+                  +"</body></html>")
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(path);printer.setPageSize(QPageSize(QPageSize.A4));doc.print_(printer)
-            if not Path(path).exists() or Path(path).stat().st_size<1000:
-                raise RuntimeError("PDF file was not created correctly")
+            if not Path(path).exists() or Path(path).stat().st_size<1000:raise RuntimeError("PDF file was not created correctly")
             QMessageBox.information(self,"PDF Export","สร้างรายงาน PDF สำเร็จแล้ว:\n"+path)
         except Exception as ex:
             QMessageBox.critical(self,"PDF Export Error","สร้าง PDF ไม่สำเร็จ\n"+str(ex))
