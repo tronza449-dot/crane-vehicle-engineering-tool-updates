@@ -8432,62 +8432,81 @@ void loop() {{
         best=self.stability_worst_record()
 
         def fmt(v):return "∞" if v>=999 else f"{v:.3f}"
+        def comp_thai(name):
+            return {"Vehicle":"ตัวรถ","Boom":"แขนเครน","Payload":"น้ำหนักบรรทุก"}.get(name,name)
+        def role_thai(role):
+            return "ทำให้คว่ำ" if role=="overturning" else "ต้านการคว่ำ"
         def comp_table(b,coord):
             rows=[]
             for q in b["components"]:
                 pos=q[coord]
-                rows.append(f"<tr><td>{q['name']}</td><td>{q['mass']:.2f}</td><td>{q['factor']:.2f}</td>"
+                rows.append(f"<tr><td>{q['name']} / {comp_thai(q['name'])}</td><td>{q['mass']:.2f}</td><td>{q['factor']:.2f}</td>"
                             f"<td>{q['force']:.2f}</td><td>{pos:.3f}</td><td>{q['arm']:.3f}</td>"
-                            f"<td>{q['moment']:.2f}</td><td>{q['role']}</td></tr>")
+                            f"<td>{q['moment']:.2f}</td><td>{q['role']} / {role_thai(q['role'])}</td></tr>")
             return ("<table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>"
-                    "<tr><th>Component</th><th>m (kg)</th><th>Factor</th><th>Design force (N)</th>"
-                    f"<th>{coord} (m)</th><th>d⊥ (m)</th><th>M (N·m)</th><th>Role</th></tr>"
+                    "<tr><th>Component / ส่วนประกอบ</th><th>m (kg)</th><th>Factor / ตัวคูณ</th><th>Design force / แรงออกแบบ (N)</th>"
+                    f"<th>{coord} (m)</th><th>d⊥ / แขนโมเมนต์ (m)</th><th>M / โมเมนต์ (N·m)</th><th>Role / หน้าที่</th></tr>"
                     +"".join(rows)+"</table>")
         def case(title,b,coord,geom):
             status="PASS" if b["sf"]>=d["req"] else "FAIL"
+            status_th="ผ่าน" if status=="PASS" else "ไม่ผ่าน"
             status_color="#176337" if status=="PASS" else "#b42318"
+            mo_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in b["components"] if q["role"]=="overturning") or "0"
+            mr_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in b["components"] if q["role"]=="resisting") or "0"
+            sf_sub="∞ (ไม่มีโมเมนต์คว่ำ)" if b["mo"]<=1e-12 else f"{b['mr']:.2f}/{b['mo']:.2f} = {fmt(b['sf'])}"
             return f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
             <h3>{title}</h3>{geom}
             {comp_table(b,coord)}
-            <p><b>Overturning moment:</b> M_O = Σ(F_i d_i) on overturning side = {b['mo']:.2f} N·m<br>
-            <b>Resisting moment:</b> M_R = Σ(F_i d_i) on resisting side = {b['mr']:.2f} N·m<br>
-            <b>Safety factor:</b> SF = M_R/M_O = {fmt(b['sf'])} &nbsp; | &nbsp; Required SF = {d['req']:.2f}
-            &nbsp; | &nbsp; <b style='color:{status_color}'>Current-angle status: {status}</b></p>
+            <h4>ขั้นที่ 1: หาโมเมนต์คว่ำ M_O</h4>
+            <p><b>กำลังหาอะไร:</b> โมเมนต์รวมของแรงที่พยายามทำให้รถคว่ำรอบแกน P<br>
+            <b>สูตร:</b> M_O = Σ(F_i d_i)<br>
+            <b>แทนค่า:</b> M_O = {mo_terms} = <b>{b['mo']:.2f} N·m</b></p>
+            <h4>ขั้นที่ 2: หาโมเมนต์ต้าน M_R</h4>
+            <p><b>กำลังหาอะไร:</b> โมเมนต์รวมของแรงที่ช่วยต้านไม่ให้รถคว่ำ<br>
+            <b>สูตร:</b> M_R = Σ(F_i d_i)<br>
+            <b>แทนค่า:</b> M_R = {mr_terms} = <b>{b['mr']:.2f} N·m</b></p>
+            <h4>ขั้นที่ 3: หา Safety Factor</h4>
+            <p><b>กำลังหาอะไร:</b> เปรียบเทียบโมเมนต์ต้านกับโมเมนต์คว่ำ<br>
+            <b>สูตร:</b> SF = M_R/M_O<br>
+            <b>แทนค่า:</b> SF = {sf_sub}<br>
+            <b>เกณฑ์:</b> SF ต้อง ≥ {d['req']:.2f}<br>
+            <b>ผล:</b> <span style='color:{status_color};font-weight:bold'>{status} / {status_th}</span></p>
             </div>"""
 
-        html=f"""<h1>CURRENT-ANGLE SNAPSHOT — VARIABLES, EQUATIONS & SUBSTITUTION</h1>\n        <p style="background:#eef6ff;border:1px solid #cfe2f5;padding:10px"><b>Section scope:</b> this appendix uses the current input crane angle θ={th:.1f}°. The FBD pages before this appendix use their own searched critical angles. Do not mix current-angle results with critical-case results unless the angles coincide.</p>
+        html=f"""<h1>CURRENT-ANGLE SNAPSHOT — ตัวแปร สูตร และการแทนค่า</h1>\n        <p style="background:#eef6ff;border:1px solid #cfe2f5;padding:10px"><b>ขอบเขตของหน้านี้:</b> ใช้มุมเครนปัจจุบัน θ={th:.1f}° เพื่อแสดงสูตรและการแทนค่าแบบทีละขั้น ส่วนหน้า FBD ก่อนหน้านี้ใช้มุมวิกฤตของแต่ละกรณี จึงไม่ควรนำผลสองส่วนมาปนกัน เว้นแต่มุมจะตรงกัน</p>
         <p><b>Mass calculation mode:</b> {"Component Mass / Sum Components" if d.get("massMode")=="components" else "Total Mass / Manual Total"}.</p>
         <p><b>Coordinate convention:</b> +x = vehicle forward, +y = vehicle right, +z = upward.
         Crane angle θ: -90° = left, 0° = forward, +90° = right.</p>
         <p><b>Tipping criterion:</b> at impending tipping, the support reaction on the wheel line opposite the selected tipping axis approaches 0.
         Moment balance is therefore taken about the tipping axis P.</p>
         <table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
-        <tr><th>Symbol</th><th>Definition</th><th>Value</th><th>Unit</th></tr>
-        <tr><td>m_total</td><td>Total vehicle system mass during crane mode</td><td>{d['mt']:.2f}</td><td>kg</td></tr>
-        <tr><td>m_V</td><td>Base vehicle mass = m_total - m_L - m_B</td><td>{mveh:.2f}</td><td>kg</td></tr>
-        <tr><td>m_L</td><td>Payload mass</td><td>{d['ml']:.2f}</td><td>kg</td></tr>
-        <tr><td>m_B</td><td>Boom mass</td><td>{d['mb']:.2f}</td><td>kg</td></tr>
-        <tr><td>W</td><td>Track width, wheel-center to wheel-center</td><td>{d['W']:.3f}</td><td>m</td></tr>
-        <tr><td>WB</td><td>Wheelbase, axle-center to axle-center</td><td>{d['WB']:.3f}</td><td>m</td></tr>
-        <tr><td>L</td><td>Boom radius to payload</td><td>{d['L']:.3f}</td><td>m</td></tr>
-        <tr><td>θ</td><td>Crane slew angle</td><td>{th:.1f}</td><td>deg</td></tr>
-        <tr><td>Kdyn</td><td>Payload dynamic design factor; adverse payload moment only</td><td>{d['kd']:.2f}</td><td>-</td></tr>
-        <tr><td>x_C</td><td>Crane axis measured forward from rear axle</td><td>{d['xC']:.3f}</td><td>m</td></tr>
-        <tr><td>x_CG,V</td><td>Base vehicle longitudinal CG</td><td>{d['xCG']:.3f}</td><td>m</td></tr>
-        <tr><td>y_CG,V</td><td>Base vehicle lateral CG (+right)</td><td>{d.get('yCG',0.0):.3f}</td><td>m</td></tr>
-        <tr><td>x_CG,drive</td><td>Combined CG used in driving/slope mode</td><td>{d['driveXCG']:.3f}</td><td>m</td></tr>
-        <tr><td>h_CG</td><td>Combined CG height in slope mode</td><td>{slope['h']:.3f}</td><td>m</td></tr>
-        <tr><td>g</td><td>Gravitational acceleration</td><td>9.81</td><td>m/s²</td></tr>
+        <tr><th>Symbol / ตัวแปร</th><th>Definition / ความหมาย</th><th>Value / ค่า</th><th>Unit / หน่วย</th></tr>
+        <tr><td>m_total</td><td>Total vehicle system mass during crane mode / มวลรวมทั้งระบบขณะใช้งานเครน</td><td>{d['mt']:.2f}</td><td>kg</td></tr>
+        <tr><td>m_V</td><td>Base vehicle mass = m_total - m_L - m_B / มวลตัวรถฐาน</td><td>{mveh:.2f}</td><td>kg</td></tr>
+        <tr><td>m_L</td><td>Payload mass / มวลโหลดหรือสิ่งที่ยก</td><td>{d['ml']:.2f}</td><td>kg</td></tr>
+        <tr><td>m_B</td><td>Boom mass / มวลแขนเครน</td><td>{d['mb']:.2f}</td><td>kg</td></tr>
+        <tr><td>W</td><td>Track width, wheel-center to wheel-center / ระยะศูนย์กลางล้อซ้าย-ขวา</td><td>{d['W']:.3f}</td><td>m</td></tr>
+        <tr><td>WB</td><td>Wheelbase, axle-center to axle-center / ระยะฐานล้อหน้า-หลัง</td><td>{d['WB']:.3f}</td><td>m</td></tr>
+        <tr><td>L</td><td>Boom radius to payload / ระยะจากแกนเครนถึงโหลด</td><td>{d['L']:.3f}</td><td>m</td></tr>
+        <tr><td>θ</td><td>Crane slew angle / มุมหมุนเครน</td><td>{th:.1f}</td><td>deg</td></tr>
+        <tr><td>Kdyn</td><td>Payload dynamic design factor / ตัวคูณเผื่อแรงกระชากของโหลด</td><td>{d['kd']:.2f}</td><td>-</td></tr>
+        <tr><td>x_C</td><td>Crane axis measured forward from rear axle / ตำแหน่งแกนเครนจากเพลาหลัง</td><td>{d['xC']:.3f}</td><td>m</td></tr>
+        <tr><td>x_CG,V</td><td>Base vehicle longitudinal CG / จุดศูนย์ถ่วงตัวรถตามแนวยาว</td><td>{d['xCG']:.3f}</td><td>m</td></tr>
+        <tr><td>y_CG,V</td><td>Base vehicle lateral CG (+right) / จุดศูนย์ถ่วงตัวรถตามแนวขวาง</td><td>{d.get('yCG',0.0):.3f}</td><td>m</td></tr>
+        <tr><td>x_CG,drive</td><td>Combined CG used in driving/slope mode / จุดศูนย์ถ่วงรวมสำหรับโหมดวิ่งและทางลาด</td><td>{d['driveXCG']:.3f}</td><td>m</td></tr>
+        <tr><td>h_CG</td><td>Combined CG height in slope mode / ความสูงจุดศูนย์ถ่วงรวม</td><td>{slope['h']:.3f}</td><td>m</td></tr>
+        <tr><td>g</td><td>Gravitational acceleration / ความเร่งเนื่องจากแรงโน้มถ่วง</td><td>9.81</td><td>m/s²</td></tr>
         </table>
 
-        <h2>1. Side geometry</h2>
+        <h2>1. Side geometry / การหาระยะด้านข้างของเครน</h2>
         <p>y_CG,V = <b>{d.get('yCG',0.0):.3f} m</b><br>
         y_L = L sinθ = {d['L']:.3f} sin({th:.1f}°) = <b>{yL:.3f} m</b><br>
         y_B = (L/2) sinθ = ({d['L']:.3f}/2) sin({th:.1f}°) = <b>{yB:.3f} m</b><br>
         Left pivot: y_P,L = -W/2 = {-d['W']/2:.3f} m &nbsp; | &nbsp;
         Right pivot: y_P,R = +W/2 = {d['W']/2:.3f} m</p>
-        <p>For each component: d⊥ = |y_i-y_P|. If the component is beyond P in the tipping direction it contributes to M_O;
-        otherwise it contributes to M_R. For an adverse payload only, F_L,d = Kdyn m_L g.</p>
+        <p><b>หลักการหาแขนโมเมนต์:</b> d⊥ = |ตำแหน่งแนวแรง - ตำแหน่งแกนคว่ำ P|.
+        ถ้าแรงอยู่เลย P ไปทางด้านที่จะคว่ำ จะนับเป็น M_O; ถ้าอยู่ฝั่งตรงข้ามจะนับเป็น M_R.
+        Payload ที่อยู่ฝั่งคว่ำใช้แรงออกแบบ F_L,d = Kdyn m_L g เพื่อเผื่อแรงกระชาก</p>
         """
         html+=case("2. LEFT SIDE TIPPING",sl,"y",
                    f"<p>Pivot P = {sl['pivot']:.3f} m; opposite reaction R_right → 0.</p>")
