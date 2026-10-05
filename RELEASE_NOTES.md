@@ -1,39 +1,54 @@
 # Crane Vehicle Engineering Tool V53.8.15
 
-## Final Stability Report Polish
+## One-click Screenshot Tools
 
-อัปเดตต่อจาก V53.8.14 หลังตรวจ PDF จริงครบ 11 หน้า
+เพิ่มระบบแคปหน้าจอในโปรแกรมเพื่อลดการแคปเองทีละหน้า
 
-### Summary
-- เพิ่ม Current-angle governing case
-- แสดง SF และ PASS/FAIL ของมุมปัจจุบันแยกจาก Worst critical-case
-- ทำให้เห็นทันทีว่ามุมที่กำลังใช้งานอยู่ปลอดภัยตาม Required SF หรือไม่
+### Global Capture
+เพิ่มปุ่ม:
+- 📸 Capture
 
-### Current-angle appendix
-- แต่ละ Left / Right / Front / Rear case แสดง Current-angle status: PASS / FAIL
-- ไม่ต้องเทียบค่า SF กับ Required SF เอง
+ตำแหน่ง:
+- Status bar ด้านล่างของโปรแกรม
 
-### FBD readability
-- เพิ่มขนาดตัวอักษรเฉพาะ exported FBD ประมาณ 16% เพื่ออ่านบน A4 ได้ง่ายขึ้น
-- Interactive compact view ไม่ถูกขยายตาม
-- Slope legend เพิ่ม Purple = Inertia F_I
+การทำงาน:
+- แคปหน้าต่าง CVET ที่กำลังเปิดอยู่เป็น PNG
+- ไม่เปิด Save As ทุกครั้ง
+- ตั้งชื่อไฟล์อัตโนมัติจากวันเวลา + หน้าที่กำลังเปิด
+- บันทึกที่:
+  Documents/CVET_Screenshots
 
-### 3D report figure
-- ตัดข้อความ LEFT LIMIT / CENTER / RIGHT LIMIT ออกจาก scene เพื่อลดข้อความทับตัวรถ
-- คง endpoint markers และ CURRENT θ ที่ active boom
-- Render รูป Vehicle สำหรับ PDF ที่ขนาดคงที่ ไม่ขึ้นกับขนาดหน้าต่างโปรแกรมขณะ Export
+ตัวอย่างชื่อไฟล์:
+- 20261005_234501_Stability_Engineering_FBD.png
+- 20261005_234530_Battery_Electrical.png
 
-### Stability Map
-- Render สำหรับ PDF ที่ 1100×650
-- เพิ่มเส้น dashed ที่ Current crane angle
-- เพิ่มจุดและข้อความ Current governing case / SF
-- Worst critical point และ Target SF ยังอยู่เหมือนเดิม
-- ถ้าค่า SF ถูก clip จะมี display note
+### Capture All FBD
+เพิ่มปุ่มในหน้า Engineering FBD:
+- 📸 Capture All FBD
 
-### Worst-case appendix
-เปลี่ยนคำอธิบายจำนวนการคำนวณเป็น:
-181 angles × 4 tipping directions = 724 directional moment-balance evaluations
+กดครั้งเดียว โปรแกรมจะสร้างรูปอัตโนมัติ 6 รูป:
+1. Geometry / Tipping-axis definition
+2. Left Side critical FBD
+3. Right Side critical FBD
+4. Front critical FBD
+5. Rear critical FBD
+6. Uphill rear-tipping FBD
 
-### Calculation scope
-ไม่มีการเปลี่ยนสูตร stability หลัก
-ตัวเลขยังมาจาก side_moment_balance, longitudinal_moment_balance และ slope_stability_results เดิม
+ไฟล์ถูกเก็บใน subfolder:
+- Documents/CVET_Screenshots/<timestamp>_FBD_All
+
+ชื่อไฟล์ระบุ case และ critical angle ให้อัตโนมัติ
+
+### Workflow
+- ไม่เปลี่ยน view ที่ผู้ใช้กำลังดู
+- ไม่ต้องกดเปลี่ยน case ทีละหน้า
+- เหมาะสำหรับส่งรูปตรวจงานหรือแนบรายงาน
+
+### Regression
+GitHub Actions ตรวจเพิ่ม:
+- Capture Current Page สร้าง PNG ได้จริง
+- Capture All FBD สร้างครบ 6 รูป
+- ทุกไฟล์มีขนาดข้อมูลมากกว่า minimum regression threshold
+
+### Stability calculation
+ไม่มีการเปลี่ยนสูตร Stability / FBD calculation ในรุ่นนี้
