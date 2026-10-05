@@ -1,59 +1,39 @@
-# Crane Vehicle Engineering Tool V53.8.14
+# Crane Vehicle Engineering Tool V53.8.15
 
-## FBD / UI Polish and Report Consistency
+## Final Stability Report Polish
 
-อัปเดตต่อจาก V53.8.13 โดยเน้นแก้ความสับสนระหว่าง Current Angle กับ Critical Case และแก้ Interactive FBD ที่ layout ถูกบีบในหน้าจอจน result cards / moment arms ทับกับรูป
+อัปเดตต่อจาก V53.8.14 หลังตรวจ PDF จริงครบ 11 หน้า
 
-### Engineering FBD UI
-เพิ่ม View mode ชัดเจน 3 แบบ:
-1. Current Angle Snapshot / มุมปัจจุบัน
-2. Critical Case / มุมวิกฤตของด้านที่เลือก
-3. Auto Current Worst / ด้านที่มี SF ต่ำสุด ณ มุมปัจจุบัน
+### Summary
+- เพิ่ม Current-angle governing case
+- แสดง SF และ PASS/FAIL ของมุมปัจจุบันแยกจาก Worst critical-case
+- ทำให้เห็นทันทีว่ามุมที่กำลังใช้งานอยู่ปลอดภัยตาม Required SF หรือไม่
 
-แต่ละโหมดมี context banner บอกชัดว่ากำลังใช้มุมใดและเป็น Current หรือ Critical
+### Current-angle appendix
+- แต่ละ Left / Right / Front / Rear case แสดง Current-angle status: PASS / FAIL
+- ไม่ต้องเทียบค่า SF กับ Required SF เอง
 
-### Interactive FBD compact layout
-- แยก compact screen layout ออกจาก PDF layout
-- ปรับ ground/deck/boom/dimension lanes ตามความสูง widget
-- Result cards M_O / M_R / SF ไม่ทับรูป
-- d_V / d_B / d_L อยู่คนละ lane และไม่ถูกผลลัพธ์บัง
-- Slope FBD ย่อ geometry และ force arrows ตามพื้นที่หน้าจอ
-- เพิ่ม color legend บน FBD:
-  - Black = Weight
-  - Green = Reaction / Resisting
-  - Red = Overturning / tipping information
-  - Orange = Crane
-  - Purple = inertia force in slope case
-
-### Report consistency
-หน้า Summary เพิ่ม:
-- Current crane input angle
-- Worst critical-case stability
-- Uphill rear-tipping stability
-- Overall preliminary status
-
-Slope FBD note แก้ให้ถูกบริบท:
-- ใช้ combined driving mass/CG
-- payload assumed stowed on vehicle
-- Kdyn ไม่ถูกใช้ใน slope equation
+### FBD readability
+- เพิ่มขนาดตัวอักษรเฉพาะ exported FBD ประมาณ 16% เพื่ออ่านบน A4 ได้ง่ายขึ้น
+- Interactive compact view ไม่ถูกขยายตาม
+- Slope legend เพิ่ม Purple = Inertia F_I
 
 ### 3D report figure
-เปลี่ยน label ขอบเขตการหมุนจาก -90° / +90° ที่อาจถูกเข้าใจผิดว่าเป็น current angle เป็น:
-- LEFT LIMIT
-- CENTER
-- RIGHT LIMIT
-
-เพิ่ม marker:
-- CURRENT θ = actual displayed crane angle
+- ตัดข้อความ LEFT LIMIT / CENTER / RIGHT LIMIT ออกจาก scene เพื่อลดข้อความทับตัวรถ
+- คง endpoint markers และ CURRENT θ ที่ active boom
+- Render รูป Vehicle สำหรับ PDF ที่ขนาดคงที่ ไม่ขึ้นกับขนาดหน้าต่างโปรแกรมขณะ Export
 
 ### Stability Map
-ถ้าค่า SF ถูกตัดที่เพดานกราฟเพื่อให้อ่านค่าต่ำบริเวณ target ได้ชัด จะมีข้อความ:
-DISPLAY NOTE: SF > limit is clipped for readability
+- Render สำหรับ PDF ที่ 1100×650
+- เพิ่มเส้น dashed ที่ Current crane angle
+- เพิ่มจุดและข้อความ Current governing case / SF
+- Worst critical point และ Target SF ยังอยู่เหมือนเดิม
+- ถ้าค่า SF ถูก clip จะมี display note
+
+### Worst-case appendix
+เปลี่ยนคำอธิบายจำนวนการคำนวณเป็น:
+181 angles × 4 tipping directions = 724 directional moment-balance evaluations
 
 ### Calculation scope
-สูตรหลักของ stability ไม่เปลี่ยนจาก V53.8.13
-- side_moment_balance(...)
-- longitudinal_moment_balance(...)
-- slope_stability_results(...)
-ยังเป็น source of truth เดียวกันของตัวเลขและ FBD
-
+ไม่มีการเปลี่ยนสูตร stability หลัก
+ตัวเลขยังมาจาก side_moment_balance, longitudinal_moment_balance และ slope_stability_results เดิม
