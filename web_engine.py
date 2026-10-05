@@ -603,31 +603,62 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
     crane_from_rear = _f(data, "crane_from_rear_m", 0.2)
     vehicle_cg_x = _f(data, "vehicle_cg_x_from_center_m", 0.0)
 
-    pivot = track / 2.0
-    y_load = abs(boom * math.sin(math.radians(angle)))
-    y_boom = abs((boom / 2.0) * math.sin(math.radians(angle)))
+    y_load = boom * math.sin(math.radians(angle))
+    y_boom = (boom / 2.0) * math.sin(math.radians(angle))
     m_vehicle = max(0.0, mt - ml - mb)
-    vehicle_mr = m_vehicle * G * pivot
-    payload_over = kd * ml * G * max(0.0, y_load - pivot)
-    payload_res = ml * G * max(0.0, pivot - y_load)
-    boom_over = mb * G * max(0.0, y_boom - pivot)
-    boom_res = mb * G * max(0.0, pivot - y_boom)
-    mo = payload_over + boom_over
-    mr = vehicle_mr + payload_res + boom_res
-    side_sf = mr / mo if mo > 1e-12 else 999.0
+
+    def side_balance(side: str) -> Dict[str, Any]:
+        direction = 1.0 if side == "right" else -1.0
+        pivot = direction * track / 2.0
+        mo = 0.0
+        mr = 0.0
+        components = []
+        for name, mass, y, is_payload in (
+            ("Vehicle", m_vehicle, 0.0, False),
+            ("Boom", mb, y_boom, False),
+            ("Payload", ml, y_load, True),
+        ):
+            signed = direction * (y - pivot)
+            role = "overturning" if signed > 1e-12 else "resisting" if signed < -1e-12 else "on_pivot"
+            factor = kd if (is_payload and role == "overturning") else 1.0
+            force = mass * G * factor
+            arm = abs(signed)
+            moment = force * arm
+            if role == "overturning":
+                mo += moment
+            elif role == "resisting":
+                mr += moment
+            components.append({
+                "name": name, "mass_kg": mass, "y_m": y, "factor": factor,
+                "force_n": force, "arm_m": arm, "moment_nm": moment, "role": role,
+            })
+        sf = mr / mo if mo > 1e-12 else 999.0
+        return {"pivot_m": pivot, "overturning_moment_nm": mo, "resisting_moment_nm": mr,
+                "sf": sf, "pass": sf >= req, "components": components}
+
+    left = side_balance("left")
+    right = side_balance("right")
+    critical_direction = "left" if left["sf"] <= right["sf"] else "right"
+    critical_side = left if critical_direction == "left" else right
 
     longi = _longitudinal_sf(mt, ml, mb, wb, boom, angle, crane_from_rear, vehicle_cg_x, kd)
     return {
         "total_mass_kg": mt, "payload_mass_kg": ml, "boom_mass_kg": mb,
         "track_width_m": track, "wheelbase_m": wb, "boom_length_m": boom,
         "crane_angle_deg": angle, "dynamic_factor": kd, "required_sf": req,
-        "side": {
-            "pivot_m": pivot, "load_lateral_m": y_load, "boom_lateral_m": y_boom,
-            "overturning_moment_nm": mo, "resisting_moment_nm": mr,
-            "sf": side_sf, "pass": side_sf >= req,
+        "coordinate_convention": {
+            "x": "+x forward", "y": "+y right", "z": "+z up",
+            "crane_angle": "-90 left, 0 forward, +90 right",
         },
+        "side": {
+            **critical_side, "critical_direction": critical_direction,
+            "load_lateral_m": y_load, "boom_lateral_m": y_boom,
+        },
+        "side_left": left,
+        "side_right": right,
         "front": {"sf": longi["front_sf"], "pass": longi["front_sf"] >= req},
         "rear": {"sf": longi["rear_sf"], "pass": longi["rear_sf"] >= req},
         "geometry": {k: v for k, v in longi.items() if k not in {"front_sf", "rear_sf"}},
-        "note": "Preliminary static model; confirm real CG/masses before fabrication.",
+        "note": "Formal preliminary rigid-body model; left/right/front/rear are checked separately. Confirm real CG/masses before fabrication.",
     }
+
