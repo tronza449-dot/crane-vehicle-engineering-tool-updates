@@ -1,55 +1,82 @@
-# Crane Vehicle Engineering Tool V53.8.18
+# Crane Vehicle Engineering Tool V53.8.19
 
-## Plain-Thai Formula Explanation Upgrade
+## Live Web FBD
 
-อัปเดตต่อจาก V53.8.17 เพื่อให้คนอ่านไม่ต้องจำตัวแปรเอง
+เพิ่ม Engineering FBD เข้าเวอร์ชันเว็บ โดยใช้ผลคำนวณสดจาก Web API ไม่ใช่รูปภาพสำเร็จ
 
-### Stability / FBD
-สูตรสำคัญทุกส่วนเพิ่ม:
-- อ่านสูตรแบบภาษาคน
-- ตัวแปรในสูตรนี้
-- ตัวเลขแต่ละพจน์มาจากส่วนไหน
-- แสดงว่าแรง × ระยะ ของแต่ละชิ้นได้โมเมนต์เท่าไร
+### Web Stability FBD
+หน้า Stability บนเว็บเพิ่ม 5 Case:
+- Side Left / คว่ำซ้าย
+- Side Right / คว่ำขวา
+- Front / คว่ำหน้า
+- Rear / คว่ำหลัง
+- Slope / ทางลาด
 
-ตัวอย่าง:
-M_O = Σ(F_i d_i)
+เลือก View ได้:
+- Current Angle / มุมปัจจุบัน
+- Critical Case / มุมวิกฤตของ Case ที่เลือก
 
-อ่านแบบภาษาคน:
-เอาแรงของทุกชิ้นที่ช่วยทำให้รถคว่ำ × ระยะตั้งฉากจากแนวแรงถึงแกนคว่ำ P แล้วบวกกันทั้งหมด
+### Diagram
+Web FBD แสดง:
+- Vehicle / Boom / Payload
+- Tipping axis P
+- R_P
+- R_opposite = 0
+- W_V / W_B / W_L
+- d_V / d_B / d_L
+- M_O
+- M_R
+- Safety Factor
+- PASS / FAIL
 
-พร้อมอธิบาย:
-- M_O = โมเมนต์คว่ำ
-- Σ = รวมทุกพจน์
-- F_i = แรงของชิ้นส่วนลำดับที่ i
-- d_i = แขนโมเมนต์ของแรงนั้นถึงแกน P
-
-และแสดงแต่ละพจน์เช่น:
-Boom: 196.20 N × 0.050 m = 9.81 N·m
-Payload: 1177.20 N × 0.650 m = 765.18 N·m
-
-M_R และ SF ใช้รูปแบบเดียวกัน
-
-### Slope
-เพิ่มคำแปลภาษาคนของ:
-- W_parallel = mg sinα
-- W_normal = mg cosα
+Slope FBD แสดง:
+- Combined CG
+- W_parallel
+- W_normal
 - F_I = ma
+- N_R
+- N_F = 0
+- d_R
+- h_CG
 
-### Main Battery 72 V
-เพิ่มคำอธิบายภาษาคนและความหมายตัวแปรให้สูตรหลัก:
-- F_flat = Crr m g
-- E_flat = Fd/(η×3600)
-- F_up = mg sinθ + Crr mg cosθ
-- E_up = F_up L/(η×3600)
-- t_cycle
-- N_cycle
-- E_total
-- Ah_min = E_design/V
-- Ah_practical = Ah_min × Kb
+### สูตรภาษาไทย
+ใต้ Web FBD แสดงสูตรและการแทนค่าแบบเดียวกับ Desktop:
+- M_O = Σ(F_i d_i)
+- อ่านสูตรแบบภาษาคน
+- อธิบายตัวแปร
+- แสดงว่าแรงแต่ละส่วน × แขนโมเมนต์ = โมเมนต์เท่าไร
+- M_R
+- SF
+- สูตรทางลาด
 
-รูปแบบ:
-กำลังหาอะไร → สูตร → อ่านแบบภาษาคน → ตัวแปร → แทนค่า → คำตอบ
+### Web stability engine
+Web API เพิ่ม:
+- current_cases
+- critical_cases
+- current_governing
+- critical_governing
+- detailed Front/Rear components
+- slope case
+
+Critical Case scan มุมเครนตั้งแต่ -90° ถึง +90° ด้วย step 1° สำหรับ Side Left / Side Right / Front / Rear
+
+### Web input
+เพิ่ม Input สำหรับ Slope FBD:
+- slope angle
+- uphill acceleration
+- combined CG from rear axle
+- combined CG height
+
+Slope angle sync กับ Drive Torque และ Main Battery ผ่าน Shared Project Parameters
+
+### Regression
+GitHub Actions เพิ่ม:
+- node --check web/app.js
+- ตรวจ Web FBD HTML/JS
+- ตรวจ current_cases / critical_cases ครบ 5 case
+- ตรวจ slope output
+- ตรวจ Front/Rear component data
 
 ### Calculation scope
-ไม่มีการเปลี่ยนสูตรคำนวณหลัก
-เป็นการปรับคำอธิบายและ presentation เท่านั้น
+เป็น Preliminary rigid-body model เช่นเดียวกับ Desktop
+ต้องยืนยันน้ำหนักจริง ตำแหน่ง CG จริง และผลทดสอบจริงก่อน fabrication/use
