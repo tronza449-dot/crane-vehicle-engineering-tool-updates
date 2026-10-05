@@ -5909,13 +5909,13 @@ void loop() {{
             self._core_recalculate();self.update_project_tools();self.refresh_integration_suite()
             t=self.torque_results();e=self.electrical_results();w=self.winch_results();worst=self.stability_worst_record()
             images=[]
-            for name,widget in (("vehicle",getattr(self,"view",None)),("fbd",getattr(self,"forceDiagram",None)),
-                                ("stability_map",getattr(self,"graph",None)),("motor_operating",getattr(self,"motorOpGraph",None)),
+            for name,widget in (("vehicle",getattr(self,"view",None)),("stability_map",getattr(self,"graph",None)),("motor_operating",getattr(self,"motorOpGraph",None)),
                                 ("gpio_board",getattr(self,"hwBoardView",None)),("system_flowchart",getattr(self,"flowchartView",None))):
                 if widget is not None:
                     fp=tmp/f"{name}.png"
                     if widget.grab().save(str(fp)):images.append((name,fp.as_uri()))
             img_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in images)
+            fbd_html=self.formal_fbd_report_html(tmp,self.inputs())
             page="<div style='page-break-before:always'></div>"
             winch_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_html(w),flags=re.I)
             winch_speed_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_speed_html(self.winch_speed_results()),flags=re.I)
@@ -5928,7 +5928,8 @@ void loop() {{
             <h1>1. DRIVE TORQUE</h1>{self.torque_formula_html(t)}{page}
             <h1>2. ELECTRICAL / BATTERY</h1>{self.equation_html(e)}{page}
             <h1>3. WINCH</h1>{winch_formula}<hr>{winch_speed_formula}<hr>{self.winch_duty_html()}{page}
-            <h1>4. STABILITY</h1>{self.stability_formula_html()}{page}
+            <h1>4. STABILITY — FORMAL FREE-BODY DIAGRAMS</h1>{fbd_html}{page}
+            <h1>4A. STABILITY — VARIABLES / EQUATIONS / SUBSTITUTION</h1>{self.stability_formula_html()}{page}
             <h1>5. WORST CASE</h1><p>SF_worst = {worst[0]:.3f} at θ={worst[1]}° ({worst[2]}), target SF={self.req.value():.2f}</p>{page}
             <h1>6. BATTERY + BMS</h1>{self.bms_check_html()}{page}
             <h1>7. VALIDATION</h1>{self.validation_report_html()}{page}
@@ -8617,7 +8618,7 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
         try:
             d=self.inputs()
             raw=self.stability_worst_scan()
-            map_name={"Side":"Side / ด้านข้าง","Front":"Front / ด้านหน้า","Rear":"Rear / ด้านหลัง"}
+            map_name={"Side Left":"Side Left / ด้านซ้าย","Side Right":"Side Right / ด้านขวา","Front":"Front / ด้านหน้า","Rear":"Rear / ด้านหลัง"}
             records=[(v,ang,map_name.get(typ,typ)) for v,ang,typ in raw]
             val,ang,typ=records[0] if records else (999,None,"-")
             status="PASS / ผ่านเกณฑ์เบื้องต้น" if val>=d["req"] else "FAIL / ต้องปรับแบบ"
@@ -8627,7 +8628,7 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
                 for i,(v,th,typ0) in enumerate(top5)
             )
             val_text='∞' if val>=999 else f'{val:.3f}'
-            formula_text="SF_worst = min(SF_side(θ), SF_front(θ), SF_rear(θ))"
+            formula_text="SF_worst = min(SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ))"
             html=f"""
             <h2 style='color:#17456b'>WORST CASE SEARCH / ค้นหากรณีวิกฤต</h2>
             <p>รูปแบบการแสดงผล: <b>คำอธิบายภาษาไทย → สูตรภาษาไทย → สูตรตัวแปร → แทนค่า → คำตอบ</b></p>
@@ -8640,8 +8641,8 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
               <p><b>สูตรตัวแปร</b></p>
               <p style='margin-left:18px'>{formula_text}<br>θ = -90°, -89°, ..., +90°</p>
               <p><b>แทนค่า</b></p>
-              <p style='margin-left:18px'>181 มุม × 3 ทิศทาง = 543 กรณี</p>
-              <p style='color:#176337'><b>คำตอบ: ตรวจครบ 543 กรณี</b></p>
+              <p style='margin-left:18px'>181 มุม × 4 ทิศทาง = 724 กรณี</p>
+              <p style='color:#176337'><b>คำตอบ: ตรวจครบ 724 กรณี</b></p>
             </div>
 
             <div style='border:1px solid #d6e0ea;padding:14px 16px;margin:10px 0;background:#fbfdff'>
