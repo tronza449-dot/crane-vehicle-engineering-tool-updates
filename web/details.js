@@ -47,48 +47,27 @@
     const form=$("#batteryForm"), out=$("#batteryResult"), p=formObject(form);
     try{
       const r=await api("/api/calc/drive-battery",p);
-      const v=r.speed_m_s, cyc=2*p.one_way_m;
-      const flat=Math.max(0,cyc-2*p.slope_length_m), flatH=(flat/v)/3600, upH=(p.slope_length_m/v)/3600;
-      const th=p.slope_deg*Math.PI/180, fflat=p.rolling_coeff*p.mass_kg*9.81, pflat=fflat*v;
-      const fgrade=p.mass_kg*9.81*Math.sin(th), frr=p.rolling_coeff*p.mass_kg*9.81*Math.cos(th), fup=fgrade+frr, pup=fup*v;
-      const a=v/p.accel_time_s, facc=p.mass_kg*a, pacc=(fup+facc)*v;
-      const dod=p.dod_pct/100, reserve=p.reserve_pct/100;
-      add(out,"รายละเอียดพลังงานและการเลือก Main Battery 72V",[
-        ["v - ความเร็ว SI","v = km/h / 3.6",f(p.speed_kmh,3)+" ÷ 3.6",f(v,6),"m/s","แปลงความเร็ว","ใช้คำนวณเวลา แรง และกำลัง"],
-        ["Dcycle - ระยะต่อรอบ","2 × one_way","2 × "+f(p.one_way_m,2),f(cyc,3),"m/รอบ","ระยะไป-กลับ","1 รอบ = ไป + กลับ"],
-        ["tdrive","Dcycle / v",f(cyc,3)+" ÷ "+f(v,6),f(r.drive_time_per_round_s,3),"s/รอบ","เวลารถวิ่ง","เฉพาะเวลามอเตอร์ขับเคลื่อน"],
-        ["tlift/event","จาก Winch Operating Time",f(p.lift_time_per_event_s,3),f(r.lift_time_per_event_s,3),"s/event","เวลา 1 งานยก","ขึ้น + ลง"],
-        ["tlift/round","tlift/event × Nevent",f(r.lift_time_per_event_s,3)+" × "+r.lift_events_per_round,f(r.lift_time_per_round_s,3),"s/รอบ","เวลายกรวม","รถหยุดระหว่างยก"],
-        ["tother","Other stop",f(r.other_stop_time_per_round_s,3),f(r.other_stop_time_per_round_s,3),"s/รอบ","เวลาหยุดอื่น","ไม่ใช่เวลายก"],
-        ["tround","tdrive + tlift + tother",f(r.drive_time_per_round_s,3)+" + "+f(r.lift_time_per_round_s,3)+" + "+f(r.other_stop_time_per_round_s,3),f(r.round_time_s,3),"s/รอบ","เวลารวมหนึ่งรอบ","รวมวิ่ง + ยก + หยุด"],
-        ["Ntheory","runtime / tround",f(p.runtime_h*3600,1)+" ÷ "+f(r.round_time_s,3),f(r.cycles_theoretical,4),"รอบ","จำนวนรอบเชิงทฤษฎี","ก่อนปัดลง"],
-        ["Ncomplete","floor(Ntheory)",f(r.cycles_theoretical,4),f(r.completed_round_trips,0),"รอบ","จำนวนรอบเต็ม","ใช้คำนวณพลังงานขับรวม"],
-        ["Dflat","Dcycle − 2Lslope",f(cyc,2)+" − 2×"+f(p.slope_length_m,2),f(flat,3),"m/รอบ","ระยะทางราบ","ส่วนที่ไม่ใช่ทางลาด"],
-        ["tflat","Dflat/v/3600",f(flat,3)+" ÷ "+f(v,6)+" ÷ 3600",f(flatH,6),"h/รอบ","เวลาทางราบ","ระยะ ÷ ความเร็ว"],
-        ["tup","Lslope/v/3600",f(p.slope_length_m,3)+" ÷ "+f(v,6)+" ÷ 3600",f(upH,6),"h/รอบ","เวลาขึ้นลาด","เวลา 1 ช่วงทางลาด"],
-        ["Fflat","Crr m g",f(p.rolling_coeff,4)+" × "+f(p.mass_kg,2)+" × 9.81",f(fflat,3),"N","แรงกลิ้งทางราบ","Crr × น้ำหนัก"],
-        ["Pflat","Fflat v",f(fflat,3)+" × "+f(v,6),f(pflat,3),"W","กำลังทางราบ","แรง × ความเร็ว"],
-        ["Fgrade","m g sinθ",f(p.mass_kg,2)+" × 9.81 × sin("+f(p.slope_deg,2)+"°)",f(fgrade,3),"N","แรงจากความชัน","องค์ประกอบน้ำหนักตามลาด"],
-        ["Frr slope","Crr m g cosθ",f(p.rolling_coeff,4)+" × "+f(p.mass_kg,2)+" × 9.81 × cos("+f(p.slope_deg,2)+"°)",f(frr,3),"N","แรงกลิ้งบนลาด","ใช้แรงปกติบนลาด"],
-        ["Pup","(Fgrade+Frr)v",f(fup,3)+" × "+f(v,6),f(pup,3),"W","กำลังกลขึ้นลาด","แรงขึ้นลาด × ความเร็ว"],
-        ["a","v/t_acc",f(v,6)+" ÷ "+f(p.accel_time_s,3),f(a,6),"m/s²","ความเร่ง","ใช้ตรวจ peak"],
-        ["Pacc peak","(Fup+Facc)v","("+f(fup,3)+"+"+f(facc,3)+")×"+f(v,6),f(pacc,3),"W","กำลัง peak ตอนเร่ง","แรงขึ้นลาด + แรงเร่ง"],
-        ["Edrive/trip","Energy model per complete round",r.energy_model,f(r.trip_drive_energy_wh,3),"Wh/รอบ","พลังงานขับต่อรอบ","ไม่รวมวินช์"],
-        ["Edrive","Etrip × Ncomplete",f(r.trip_drive_energy_wh,3)+" × "+r.completed_round_trips,f(r.drive_energy_wh,3),"Wh","พลังงานขับรวม","นับเฉพาะรอบที่ทำครบ"],
-        ["Eaux","Paux × runtime",f(p.aux_power_w,2)+" × "+f(p.runtime_h,3),f(r.aux_energy_wh,3),"Wh","พลังงานอุปกรณ์","สมมติเปิดตลอดเวลาทำงาน"],
-        ["Eload","Edrive + Eaux",f(r.drive_energy_wh,3)+" + "+f(r.aux_energy_wh,3),f(r.load_energy_wh,3),"Wh","พลังงานโหลดรวม","ไม่รวมวินช์ 12 V"],
-        ["Enom","Eload / DoD",f(r.load_energy_wh,3)+" ÷ "+f(dod,3),f(r.nominal_energy_wh,3),"Wh","พลังงาน nominal","จำกัดการคายประจุ"],
-        ["Edesign","Enom × (1+Reserve)",f(r.nominal_energy_wh,3)+" × (1+"+f(reserve,3)+")",f(r.design_energy_wh,3),"Wh","พลังงานออกแบบ","เพิ่มพลังงานสำรอง"],
-        ["Cdesign","Edesign / V",f(r.design_energy_wh,3)+" ÷ "+f(p.voltage_v,1),f(r.design_ah,3),"Ah","ความจุขั้นต่ำ","Wh ÷ V"],
-        ["Cstandard","ปัดขึ้นขนาดมาตรฐาน","จาก "+f(r.design_ah,3)+" Ah",f(r.standard_ah,0),"Ah","ขนาดแบตที่เลือก","เลือกค่ามาตรฐาน ≥ ค่าคำนวณ"],
-        ["Iup calc","Pup/η/V",f(pup,3)+" ÷ "+f(p.drive_eff_pct/100,3)+" ÷ "+f(p.voltage_v,1),f(r.uphill_current_calc_a,3),"A","กระแสขึ้นลาด","กำลัง ÷ η ÷ V"],
-        ["Iacc calc","Pacc/η/V",f(pacc,3)+" ÷ "+f(p.drive_eff_pct/100,3)+" ÷ "+f(p.voltage_v,1),f(r.accel_current_calc_a,3),"A","กระแส peak เชิงคำนวณ","ช่วงเร่งขึ้นลาด"],
-        ["BMS continuous","I required",f(r.continuous_current_required_a,3),f(r.continuous_current_required_a,3),"A","กระแสต่อเนื่องขั้นต่ำ","Candidate BMS ต้องไม่ต่ำกว่านี้"],
-        ["BMS peak","I peak required",f(r.peak_current_required_a,3),f(r.peak_current_required_a,3),"A","กระแส peak ขั้นต่ำ","Candidate BMS ต้องรองรับ"],
-        ["Candidate runtime","Eusable / Pavg",f(r.candidate.load_budget_wh,2)+" ÷ average operating power",f(r.candidate.runtime_h,3),"h","คำนวณย้อนกลับจาก Ah","ใช้ DoD + Reserve policy เดิม"],
-        ["Candidate full rounds","floor(runtime / t_round)",f(r.candidate.runtime_h,3)+" h ÷ "+f(r.round_time_s/3600,6)+" h/รอบ",f(r.candidate.full_rounds,0),"รอบ","จำนวนรอบเต็มจากแบต Candidate","ไม่รวมพลังงานวินช์ 12 V"],
-        ["Suggested Ah","max(Energy, C-rate) → standard",f(r.design_ah_with_current,3),f(r.suggested_ah,0),"Ah","ขนาดมาตรฐานที่ควรตรวจสเปก","ยังต้องยืนยัน datasheet จริง"]
-      ],"เวลายกถูกใช้เพื่อหาจำนวนรอบที่รถวิ่งได้จริง แต่พลังงานวินช์ไม่ถูกรวมใน Main Battery 72 V เพราะใช้แบต 12 V แยก • Reverse runtime เป็นค่าประมาณจาก Operating Cycle ปัจจุบัน • No regen");
+      add(out,"รายละเอียด Main Battery แบบ 1 Cycle",[
+        ["d_flat","d_oneway − L_slope",f(r.one_way_m,2)+" − "+f(r.slope_length_m,2),f(r.flat_one_way_m,3),"m/เที่ยว","หาระยะทางราบต่อเที่ยว","30 m ไม่ได้เป็นทางชันทั้งหมด"],
+        ["D_cycle","2 × d_oneway","2 × "+f(r.one_way_m,2),f(r.cycle_distance_m,3),"m/Cycle","หาระยะไป-กลับ","1 Cycle = ไป + กลับ"],
+        ["F_flat","Crr m g",f(p.rolling_coeff,4)+" × "+f(r.mass_kg,2)+" × 9.81",f(r.flat_force_n,3),"N","แรงต้านทางราบ","ใช้ทั้งเที่ยวไปและเที่ยวกลับ"],
+        ["E_flat,oneway","F_flat d_flat /(η×3600)",f(r.flat_force_n,2)+" × "+f(r.flat_one_way_m,2)+" /(η×3600)",f(r.flat_energy_one_way_wh,4),"Wh","พลังงานทางราบต่อเที่ยว","มีทั้งไปและกลับ"],
+        ["F_up","mg sinθ + Crr mg cosθ",f(r.grade_force_n,2)+" + "+f(r.slope_rolling_force_n,2),f(r.uphill_force_n,3),"N","แรงช่วงขึ้นลาด","แรงความชัน + แรงกลิ้ง"],
+        ["E_up","F_up L_slope /(η×3600)",f(r.uphill_force_n,2)+" × "+f(r.slope_length_m,2)+" /(η×3600)",f(r.uphill_slope_energy_wh,4),"Wh","พลังงานขึ้นลาด","อยู่ในเที่ยวไป"],
+        ["F_down","max(0,Frr_slope−Fgrade)","max(0,"+f(r.slope_rolling_force_n,2)+"−"+f(r.grade_force_n,2)+")",f(r.downhill_drive_force_n,3),"N","แรงขับช่วงลงลาด","ถ้าแรงโน้มถ่วงช่วยพออาจเป็น 0"],
+        ["E_down","F_down L_slope /(η×3600)",f(r.downhill_drive_force_n,2)+" × "+f(r.slope_length_m,2)+" /(η×3600)",f(r.downhill_slope_energy_wh,4),"Wh","พลังงานช่วงลาดลง","ไม่หักพลังงานคืน"],
+        ["E_go","E_flat + E_up",f(r.flat_energy_one_way_wh,4)+" + "+f(r.uphill_slope_energy_wh,4),f(r.outbound_drive_energy_wh,4),"Wh","พลังงานเที่ยวไป","ทางราบ + ขึ้นลาด"],
+        ["E_return","E_down + E_flat",f(r.downhill_slope_energy_wh,4)+" + "+f(r.flat_energy_one_way_wh,4),f(r.return_drive_energy_wh,4),"Wh","พลังงานเที่ยวกลับ","ลงลาด + ทางราบ"],
+        ["E_drive,cycle","E_go + E_return",f(r.outbound_drive_energy_wh,4)+" + "+f(r.return_drive_energy_wh,4),f(r.trip_drive_energy_wh,4),"Wh/Cycle","พลังงานขับต่อ Cycle","ยังไม่รวม Auxiliary"],
+        ["t_cycle","t_drive + t_lift + t_other",f(r.drive_time_per_round_s,2)+" + "+f(r.lift_time_per_round_s,2)+" + "+f(r.other_stop_time_per_round_s,2),f(r.round_time_s,3),"s/Cycle","เวลาต่อ Cycle","งานยกมีผลต่อจำนวน Cycle แต่พลังงานวินช์แยก"],
+        ["E_aux,cycle","P_aux × t_cycle",f(p.aux_power_w,2)+" × "+f(r.round_time_s/3600,6),f(r.aux_energy_per_cycle_wh,4),"Wh/Cycle","ไฟอุปกรณ์เสริมต่อ Cycle","ESP32/Display/Relay ฯลฯ"],
+        ["E_cycle","E_drive,cycle + E_aux,cycle",f(r.trip_drive_energy_wh,4)+" + "+f(r.aux_energy_per_cycle_wh,4),f(r.total_energy_per_cycle_wh,4),"Wh/Cycle","พลังงานรวมต่อ Cycle","ตัวหลักที่ใช้คูณจำนวน Cycle"],
+        ["N_cycle","floor(runtime/t_cycle)",f(r.runtime_h*3600,1)+" ÷ "+f(r.round_time_s,3),f(r.completed_round_trips,0),"Cycle","จำนวน Cycle เต็ม","ปัดลงเพราะต้องทำงานให้ครบรอบ"],
+        ["E_total","E_cycle × N",f(r.total_energy_per_cycle_wh,4)+" × "+r.completed_round_trips,f(r.load_energy_wh,3),"Wh","พลังงานรวม","ก่อนเผื่อ DoD/Reserve"],
+        ["E_design","(E_total/DoD)(1+Reserve)",f(r.load_energy_wh,3)+" / "+f(p.dod_pct/100,3)+" × (1+"+f(p.reserve_pct/100,3)+")",f(r.design_energy_wh,3),"Wh","พลังงานแบตออกแบบ","เผื่อความจุใช้งานและสำรอง"],
+        ["Ah","E_design / V",f(r.design_energy_wh,3)+" ÷ "+f(r.voltage_v,1),f(r.design_ah,3),"Ah","ความจุแบต","ค่าหยาบสำหรับเลือกขนาดแบต"],
+        ["I_up","P_up /(ηV)","จากกำลังขึ้นลาด",f(r.uphill_current_calc_a,3),"A","กระแสช่วงขึ้นลาด","ใช้ตรวจ BMS เบื้องต้นแยกจาก Ah"]
+      ],"แบบจำลองนี้ตั้งใจให้เรียบง่าย: ไม่คิดพลังงานช่วงออกตัว และไม่นำพลังงานจากช่วงลงลาดมาหักคืนแบตเตอรี่ • เที่ยวกลับยังใช้ไฟบนทางราบเสมอ • Winch ใช้แบต 12 V แยก");
     }catch(e){}
   }
 
