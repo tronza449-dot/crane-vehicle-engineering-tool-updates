@@ -4748,7 +4748,15 @@ void loop() {{
             ("E_down,slope","พลังงานไฟช่วงลงลาด","Wh",f"{q['Edown_batt_cycle']:.3f}","ไม่หักพลังงานคืน"),
             ("E_go","พลังงานขับเที่ยวไป","Wh",f"{q['Eout_drive']:.3f}","ทางราบ + ขึ้นลาด"),
             ("E_return","พลังงานขับเที่ยวกลับ","Wh",f"{q['Ereturn_drive']:.3f}","ลงลาด + ทางราบ"),
-            ("E_drive,cycle","พลังงานขับ 1 Cycle","Wh",f"{q['Edrive_cycle']:.3f}","E_go + E_return"),
+            ("W_track","Track width ที่ใช้คำนวณการหมุน","m",f"{q['turn_track']:.3f}","ดึงจาก Stability"),
+            ("N_turn","จำนวน Differential/Pivot turn ต่อ Cycle","ครั้ง",str(q["turn_events"]),"0 เมื่อปิด Turning Energy"),
+            ("φ_turn","มุมหมุนต่อครั้ง","deg",f"{q['turn_angle_deg']:.1f}","เช่น 90° หรือ 180°"),
+            ("C_turn","Effective turn/scrub coefficient","-",f"{q['turn_coeff']:.3f}","ค่าประมาณ ต้องปรับจากการทดลองจริง"),
+            ("s_turn","ระยะล้อแต่ละฝั่งต่อการหมุน = (W/2)φ","m",f"{q['turn_wheel_path']:.3f}","φ ใช้หน่วย rad"),
+            ("F_turn","แรงต้านการหมุนเทียบเท่า = C_turn m g","N",f"{q['Fturn_effective']:.2f}","แบบประมาณ"),
+            ("E_turn,event","พลังงานต่อการหมุน 1 ครั้ง","Wh",f"{q['Eturn_event']:.4f}","F_turn s_turn /(η×3600)"),
+            ("E_turn,cycle","พลังงานการหมุนต่อ Cycle","Wh",f"{q['Eturn_cycle']:.4f}","E_turn,event × N_turn"),
+            ("E_drive,cycle","พลังงานขับ 1 Cycle","Wh",f"{q['Edrive_cycle']:.3f}","E_go + E_return + E_turn,cycle"),
             ("P_aux","กำลังอุปกรณ์เสริมเฉลี่ย","W",f"{self.eaux.value():.1f}","ESP32/จอ/รีเลย์ ฯลฯ"),
             ("E_aux,cycle","พลังงานอุปกรณ์เสริมต่อ Cycle","Wh",f"{q['Eaux_cycle']:.3f}","P_aux × t_cycle"),
             ("E_cycle","พลังงานรวมต่อ Cycle","Wh",f"{q['Ecycle']:.3f}","E_drive,cycle + E_aux,cycle"),
@@ -4757,8 +4765,12 @@ void loop() {{
             ("DoD","สัดส่วนความจุที่ใช้ได้","%",f"{q['dod']*100:.1f}","เผื่อไม่ใช้แบตจนหมด"),
             ("Reserve","พลังงานสำรอง","%",f"{q['reserve']*100:.1f}","เผื่อความคลาดเคลื่อน"),
             ("E_design","พลังงานแบตที่ควรมี","Wh",f"{q['Edesign']:.2f}","หลัง DoD + Reserve"),
-            ("Ah","ความจุแบตที่คำนวณได้","Ah",f"{q['Ah']:.2f}","E_design / V"),
+            ("Ah_min","ความจุขั้นต่ำจากโมเดล","Ah",f"{q['Ah']:.2f}","E_design / V"),
+            ("K_b","Battery Design Factor","-",f"{q['Kb']:.2f}","Allowance สำหรับโมเดลหยาบ/ความไม่แน่นอน"),
+            ("Ah_practical","ความจุแนะนำเชิงใช้งาน","Ah",f"{q['Ah_recommended']:.2f}","Ah_min × K_b"),
+            ("Ah_standard","ขนาดมาตรฐานที่ปัดขึ้น","Ah",f"{q['recommended_standard']:.0f}","เลือกขนาดมาตรฐาน ≥ Ah_practical"),
             ("I_up","กระแสช่วงขึ้นลาดโดยประมาณ","A",f"{q['Icalc_up']:.2f}","ใช้ตรวจ BMS เบื้องต้น แยกจากการคำนวณ Ah"),
+            ("I_turn,avg","กระแสเฉลี่ยระหว่าง Pivot turn โดยประมาณ","A",f"{q['Iturn_avg']:.2f}","จาก E_turn,event / t_turn"),
         ]
         return self._variable_table_html("MAIN BATTERY 72 V — SIMPLE CYCLE VARIABLES",
                                          "ตัวแปรแบบย่อสำหรับคำนวณพลังงานต่อ Cycle แล้วหา Wh/Ah",rows)
@@ -7455,24 +7467,34 @@ void loop() {{
         = <b>{q['Edown_batt_cycle']:.3f} Wh</b></p>
         <p>ถ้าแรงโน้มถ่วงพารถลงได้เอง ค่าช่วงลาดลงอาจเป็น 0 Wh
         แต่ <b>เที่ยวกลับไม่ใช่ 0 Wh</b> เพราะยังมีทางราบ {q['flat_oneway']:.2f} m.</p>""")
-        h+=box("5. พลังงานเที่ยวไป / เที่ยวกลับ / 1 Cycle",f"""
+        h+=box("5. Differential / Pivot Turning Energy",f"""
+        <p>เปิดใช้งาน = <b>{"Yes" if q['turn_enabled'] else "No"}</b>,
+        จำนวนหมุน = {q['turn_events']} ครั้ง/Cycle, มุม = {q['turn_angle_deg']:.1f}°,
+        Track = {q['turn_track']:.3f} m</p>
+        <p>s_turn = (W/2)φ = <b>{q['turn_wheel_path']:.3f} m</b> ต่อฝั่ง/ครั้ง</p>
+        <p>F_turn = C_turn m g = {q['turn_coeff']:.3f}×{q['m']:.1f}×9.81
+        = <b>{q['Fturn_effective']:.2f} N</b></p>
+        <p>E_turn,event = F_turn s_turn /(η×3600) = <b>{q['Eturn_event']:.4f} Wh</b><br>
+        E_turn,cycle = E_turn,event × N_turn = <b>{q['Eturn_cycle']:.4f} Wh</b></p>
+        <p><i>C_turn เป็นค่าประมาณของการไถล/ต้านการหมุน ควรปรับจากการวัดกระแสจริง โดยเฉพาะรถที่มีล้อพยุงไม่เลี้ยวตาม.</i></p>""")
+        h+=box("6. พลังงานเที่ยวไป / เที่ยวกลับ / 1 Cycle",f"""
         <p>E_go = E_flat,oneway + E_up,slope
         = {q['Eflat_batt_oneway']:.3f} + {q['Eup_batt_cycle']:.3f}
         = <b>{q['Eout_drive']:.3f} Wh</b></p>
         <p>E_return = E_down,slope + E_flat,oneway
         = {q['Edown_batt_cycle']:.3f} + {q['Eflat_batt_oneway']:.3f}
         = <b>{q['Ereturn_drive']:.3f} Wh</b></p>
-        <p>E_drive,cycle = E_go + E_return = <b>{q['Edrive_cycle']:.3f} Wh</b></p>
+        <p>E_drive,cycle = E_go + E_return + E_turn,cycle = <b>{q['Edrive_cycle']:.3f} Wh</b></p>
         <p>E_aux,cycle = P_aux × t_cycle = <b>{q['Eaux_cycle']:.3f} Wh</b></p>
         <p><b>E_cycle = E_drive,cycle + E_aux,cycle = {q['Ecycle']:.3f} Wh/Cycle</b></p>""")
-        h+=box("6. จำนวน Cycle ในเวลาทำงาน",f"""
+        h+=box("7. จำนวน Cycle ในเวลาทำงาน",f"""
         <p>t_drive = {q['drive_cycle_s']:.2f} s<br>
         t_lift = {q['lift_round_s']:.2f} s<br>
         t_other = {q['other_stop_s']:.2f} s</p>
         <p>t_cycle = {q['cycle_total_s']:.2f} s</p>
         <p>N_cycle = floor({q['runtime_s']:.1f}/{q['cycle_total_s']:.2f})
         = <b>{q['cycles']} Cycle</b></p>""")
-        h+=box("7. พลังงานรวมและขนาดแบต",f"""
+        h+=box("8. พลังงานรวมและขนาดแบต",f"""
         <p>E_total = E_cycle × N_cycle
         = {q['Ecycle']:.3f} × {q['cycles']}
         = <b>{q['Eload']:.2f} Wh</b></p>
@@ -7481,8 +7503,11 @@ void loop() {{
         = {q['Enom']:.2f} Wh</p>
         <p>E_design = E_nominal(1+Reserve)
         = <b>{q['Edesign']:.2f} Wh</b></p>
-        <p>Ah = E_design / V = {q['Edesign']:.2f}/{q['V']:.1f}
-        = <b>{q['Ah']:.2f} Ah @ {q['V']:.1f} V</b></p>""")
+        <p>Ah_min = E_design / V = {q['Edesign']:.2f}/{q['V']:.1f}
+        = <b>{q['Ah']:.2f} Ah</b></p>
+        <p>Ah_practical = Ah_min × K_b = {q['Ah']:.2f} × {q['Kb']:.2f}
+        = <b>{q['Ah_recommended']:.2f} Ah</b></p>
+        <p>ขนาดมาตรฐานที่ปัดขึ้น = <b>{q['recommended_standard']:.0f} Ah @ {q['V']:.1f} V</b></p>""")
         h+="""<p><b>ขอบเขตของแบบจำลอง:</b> เป็นการประมาณแบบหยาบสำหรับเลือกความจุแบตเตอรี่
         ไม่คิดพลังงานช่วงออกตัว และไม่นำพลังงานจากการลงทางลาดมาหักคืนแบตเตอรี่.
         Winch 12 V คำนวณแยกจากแบตรถ 72 V.</p>"""
@@ -7700,8 +7725,8 @@ void loop() {{
             f"SIMPLE CYCLE MODEL\n"
             f"1 Cycle = ไป {q['one']:.1f} m + กลับ {q['one']:.1f} m | ทางลาด/เที่ยว {q['Ls']:.1f} m | ทางราบ/เที่ยว {q['flat_oneway']:.1f} m\n"
             f"เที่ยวไป = {q['Eout_drive']:.3f} Wh | เที่ยวกลับ = {q['Ereturn_drive']:.3f} Wh | Drive/Cycle = {q['Edrive_cycle']:.3f} Wh\n"
-            f"Aux/Cycle = {q['Eaux_cycle']:.3f} Wh | Total/Cycle = {q['Ecycle']:.3f} Wh\n"
-            f"{q['cycles']} Cycle ใน {q['runtime_h']:.2f} h → {q['Eload']:.1f} Wh ก่อนเผื่อ → {q['Ah']:.2f} Ah @ {q['V']:.1f} V"
+            f"Turn/Cycle = {q['Eturn_cycle']:.3f} Wh | Aux/Cycle = {q['Eaux_cycle']:.3f} Wh | Total/Cycle = {q['Ecycle']:.3f} Wh\n"
+            f"{q['cycles']} Cycle → Min {q['Ah']:.2f} Ah | Practical Kb={q['Kb']:.1f} → {q['Ah_recommended']:.2f} Ah → เลือกประมาณ {q['recommended_standard']:.0f} Ah"
         )
 
         cycles=max(q["cycles"],1)
@@ -7713,7 +7738,7 @@ void loop() {{
         self.tripDriveTotalLabel.setText(f"{q['Eout_drive']:.3f} Wh")
         self.tripAuxLabel.setText(f"{q['Ereturn_drive']:.3f} Wh")
         self.tripLoadTotalLabel.setText(f"{q['Eload']:.1f} Wh")
-        self.tripBatteryLabel.setText(f"{q['Edesign']:.0f} Wh\n= {q['Ah']:.2f} Ah @ {q['V']:.0f} V")
+        self.tripBatteryLabel.setText(f"Min {q['Ah']:.2f} Ah\nPractical {q['Ah_recommended']:.2f} Ah → {q['recommended_standard']:.0f} Ah")
         self.tripEnergyExplain.setHtml(f"""
         <h3 style='color:#17324d'>คำนวณแบบ 1 Cycle</h3>
         <p><b>1 Cycle</b> = ไป {q['one']:.1f} m + กลับ {q['one']:.1f} m = {q['cycle_distance']:.1f} m</p>
@@ -7722,7 +7747,9 @@ void loop() {{
         → <b>{q['Eout_drive']:.3f} Wh</b></p>
         <p><b>เที่ยวกลับ:</b> ลงลาด {q['Ls']:.1f} m + ทางราบ {q['flat_oneway']:.1f} m
         → <b>{q['Ereturn_drive']:.3f} Wh</b></p>
-        <p>ดังนั้น <b>พลังงานขับต่อรอบ</b> = {q['Eout_drive']:.3f} + {q['Ereturn_drive']:.3f}
+        <p>พลังงานหมุน Differential/Pivot = <b>{q['Eturn_cycle']:.3f} Wh/Cycle</b>
+        ({q['turn_events']} ครั้ง × {q['turn_angle_deg']:.0f}°)</p>
+        <p>ดังนั้น <b>พลังงานขับต่อรอบ</b> = เที่ยวไป + เที่ยวกลับ + Turning
         = <b>{q['Edrive_cycle']:.3f} Wh/รอบ</b></p>
         <p>Auxiliary ต่อรอบ = {q['Eaux_cycle']:.3f} Wh → พลังงานรวมต่อ Cycle = <b>{q['Ecycle']:.3f} Wh</b></p>
         <p>เวลา 1 Cycle = รถวิ่ง {q['drive_cycle_s']:.1f} s + งานยก {q['lift_round_s']:.1f} s + หยุดอื่น {q['other_stop_s']:.1f} s
@@ -7730,7 +7757,9 @@ void loop() {{
         <p>ใน {q['runtime_h']:.2f} h ทำได้ <b>{q['cycles']} Cycle เต็ม</b> → E_total = {q['Ecycle']:.3f} × {q['cycles']}
         = <b>{q['Eload']:.1f} Wh</b></p>
         <p>หลัง DoD {q['dod']*100:.0f}% + Reserve {q['reserve']*100:.0f}% →
-        <b style='color:#b42318'>{q['Edesign']:.0f} Wh = {q['Ah']:.2f} Ah @ {q['V']:.0f} V</b></p>
+        ขั้นต่ำ <b>{q['Ah']:.2f} Ah</b>. จากนั้นใช้ Battery Design Factor Kb={q['Kb']:.1f}
+        → <b style='color:#b42318'>{q['Ah_recommended']:.2f} Ah</b>
+        → ขนาดมาตรฐานประมาณ <b>{q['recommended_standard']:.0f} Ah @ {q['V']:.0f} V</b></p>
         <p style='background:#fff8e9;padding:10px;border:1px solid #ead39a'>
         ช่วงลาดลงอาจใช้พลังงานขับประมาณ 0 Wh ถ้าแรงโน้มถ่วงช่วยมากพอ
         แต่ <b>เที่ยวกลับไม่เป็น 0 Wh</b> เพราะยังต้องวิ่งทางราบ {q['flat_oneway']:.1f} m.
@@ -7749,13 +7778,15 @@ void loop() {{
         <p>ใช้สูตรพื้นฐาน <b>E = F×s /(η×3600)</b>. ทางราบใช้ F=Crr·mg,
         ขึ้นลาดใช้ F=mg sinθ + Crr·mg cosθ,
         ลงลาดใช้ F=max(0,Crr·mg cosθ - mg sinθ).</p>
-        <h3>3) รวมเป็น 1 Cycle</h3>
-        <p>เที่ยวไป {q['Eout_drive']:.3f} Wh + เที่ยวกลับ {q['Ereturn_drive']:.3f} Wh
+        <h3>3) รวม Turning + 1 Cycle</h3>
+        <p>Turning = {q['Eturn_cycle']:.3f} Wh/Cycle. ดังนั้นเที่ยวไป {q['Eout_drive']:.3f} Wh
+        + เที่ยวกลับ {q['Ereturn_drive']:.3f} Wh + Turning {q['Eturn_cycle']:.3f} Wh
         + Auxiliary {q['Eaux_cycle']:.3f} Wh = <b>{q['Ecycle']:.3f} Wh/Cycle</b>.</p>
         <h3>4) หาแบต</h3>
         <p>{q['cycles']} Cycle ใช้ {q['Eload']:.1f} Wh.
-        หลังเผื่อ DoD + Reserve ต้องมี {q['Edesign']:.1f} Wh
-        หรือ <b>{q['Ah']:.2f} Ah @ {q['V']:.1f} V</b>.</p>
+        หลังเผื่อ DoD + Reserve ได้ขั้นต่ำ <b>{q['Ah']:.2f} Ah</b>.
+        ใช้ Kb={q['Kb']:.1f} สำหรับ practical allowance → <b>{q['Ah_recommended']:.2f} Ah</b>
+        และปัดเป็นประมาณ <b>{q['recommended_standard']:.0f} Ah @ {q['V']:.1f} V</b>.</p>
         <p><b>สิ่งที่ตัดออกจากการคำนวณหลัก:</b> พลังงานช่วงออกตัว, การคิดกำลังมอเตอร์เต็มพิกัด,
         และการนำพลังงานจากช่วงลงลาดมาหักคืนแบตเตอรี่. จุดประสงค์คือให้เป็น Preliminary sizing ที่อธิบายง่าย.</p>
         <p>Winch ใช้แบต 12 V แยก จึงใช้เฉพาะ <b>เวลายก</b> เพื่อหาจำนวน Cycle แต่ไม่เอาพลังงานวินช์มาบวกในแบต 72 V.</p>
@@ -7767,14 +7798,17 @@ void loop() {{
         <tr><td>Route / one way</td><td>{q['one']:.1f} m = flat {q['flat_oneway']:.1f} + slope {q['Ls']:.1f} m</td></tr>
         <tr><td>Outbound energy</td><td><b>{q['Eout_drive']:.3f} Wh</b></td></tr>
         <tr><td>Return energy</td><td><b>{q['Ereturn_drive']:.3f} Wh</b></td></tr>
+        <tr><td>Turning energy / Cycle</td><td>{q['Eturn_cycle']:.3f} Wh</td></tr>
         <tr><td>Drive energy / Cycle</td><td><b>{q['Edrive_cycle']:.3f} Wh</b></td></tr>
         <tr><td>Auxiliary / Cycle</td><td>{q['Eaux_cycle']:.3f} Wh</td></tr>
         <tr><td>Total energy / Cycle</td><td><b>{q['Ecycle']:.3f} Wh</b></td></tr>
         <tr><td>Completed Cycles</td><td>{q['cycles']}</td></tr>
         <tr><td>Total load energy</td><td>{q['Eload']:.1f} Wh</td></tr>
         <tr><td>After DoD + reserve</td><td>{q['Edesign']:.1f} Wh</td></tr>
-        <tr><td>Required battery capacity</td><td><b>{q['Ah']:.2f} Ah @ {q['V']:.1f} V</b></td></tr>
-        <tr><td>Uphill current reference</td><td>{q['Icalc_up']:.1f} A</td></tr>
+        <tr><td>Calculated minimum</td><td>{q['Ah']:.2f} Ah @ {q['V']:.1f} V</td></tr>
+        <tr><td>Battery Design Factor</td><td>× {q['Kb']:.2f}</td></tr>
+        <tr><td>Practical recommendation</td><td><b>{q['Ah_recommended']:.2f} Ah → {q['recommended_standard']:.0f} Ah standard</b></td></tr>
+        <tr><td>Uphill / Turning current reference</td><td>{q['Icalc_up']:.1f} / {q['Iturn_avg']:.1f} A</td></tr>
         </table>
         <p>Ah ใช้เลือกความจุพลังงาน; BMS/สาย/Controller ยังต้องตรวจกระแสแยกอีกครั้ง.</p>
         """)
