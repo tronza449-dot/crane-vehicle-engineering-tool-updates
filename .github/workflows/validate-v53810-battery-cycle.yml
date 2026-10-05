@@ -1,0 +1,102 @@
+name: Validate V53.8.10 Battery Cycle
+
+on:
+  push:
+    branches:
+      - v53.8.10-battery-cycle-simple
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Qt libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install PySide6 pyserial
+      - name: Validate simple cycle model
+        run: |
+          python -m py_compile CraneVehicleEngineeringTool.py web_engine.py web_server.py web_launcher.py
+          python - <<'PY'
+          import math
+          from PySide6.QtWidgets import QApplication
+          import CraneVehicleEngineeringTool as cvet
+          import web_engine as web
+
+          app=QApplication([])
+          w=cvet.App()
+
+          # User route: 30 m one-way = 2.9 m slope + 27.1 m flat.
+          w.emass.setValue(300.0)
+          w.evolt.setValue(72.0)
+          w.espeed.setValue(1.0)
+          w.eoneway.setValue(30.0)
+          w.eslopeLen.setValue(2.9)
+          w.eslopeDeg.setValue(12.0)
+          w.eruntime.setValue(3.0)
+          w.err.setValue(0.02)
+          w.edriveEff.setValue(60.0)
+          w.eaux.setValue(50.0)
+          w.edod.setValue(80.0)
+          w.ereserve.setValue(20.0)
+          w.estopTime.setValue(0.0)
+          w.euseOperationCycle.setChecked(False)
+
+          q=w.electrical_results()
+          assert abs(q["flat_oneway"]-27.1)<1e-9
+          assert abs(q["cycle_distance"]-60.0)<1e-9
+          assert q["Eout_drive"]>0
+          assert q["Ereturn_drive"]>0, "Return trip must include 27.1 m flat-road energy"
+          assert q["Edrive_cycle"]>q["Ereturn_drive"]
+          assert abs(q["Edrive_cycle"]-(q["Eout_drive"]+q["Ereturn_drive"]))<1e-10
+          assert abs(q["Ecycle"]-(q["Edrive_cycle"]+q["Eaux_cycle"]))<1e-10
+          assert q["Eacc_mech_cycle"]==0.0
+          assert q["use_worst"] is False
+          assert q["Eworst_drive_cycle"]==q["Edrive_cycle"]
+          assert q["Ah"]>0
+          # At 12 deg and Crr=0.02, gravity dominates rolling resistance downhill.
+          assert abs(q["Edown_batt_cycle"])<1e-12
+          assert abs(q["Ereturn_drive"]-q["Eflat_batt_oneway"])<1e-10
+
+          txt=w.equation_html(q)
+          for token in ("1 Cycle","27.10","เที่ยวกลับ","E_return","Ah"):
+              assert token in txt, token
+          # Removed from user-facing battery calculation/report wording.
+          for forbidden in ("พลังงานออกตัว","กรณี Worst-case ตอนขึ้นลาด","No Regen"):
+              assert forbidden not in txt, forbidden
+
+          # Web engine must use the exact same route decomposition.
+          r=web.calculate_drive_battery({
+              "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,
+              "one_way_m":30.0,"slope_length_m":2.9,"slope_deg":12.0,
+              "runtime_h":3.0,"rolling_coeff":0.02,"drive_eff_pct":60.0,
+              "aux_power_w":50.0,"dod_pct":80.0,"reserve_pct":20.0,
+              "lift_time_per_event_s":0.0,"lift_events_per_round":0,
+              "other_stop_time_per_round_s":0.0,
+          })
+          assert r["calculation_method"]=="simple_cycle"
+          assert abs(r["flat_one_way_m"]-27.1)<1e-9
+          assert r["return_drive_energy_wh"]>0
+          assert abs(r["downhill_slope_energy_wh"])<1e-12
+          assert abs(r["return_drive_energy_wh"]-r["flat_energy_one_way_wh"])<1e-10
+          assert abs(r["total_energy_per_cycle_wh"]-(r["trip_drive_energy_wh"]+r["aux_energy_per_cycle_wh"]))<1e-10
+          assert r["energy_recovery_included"] is False
+
+          print("V53.8.10 SIMPLE CYCLE PASS")
+          print("Outbound Wh:",q["Eout_drive"])
+          print("Return Wh:",q["Ereturn_drive"])
+          print("Cycle Wh:",q["Ecycle"])
+          print("Cycles:",q["cycles"],"Ah:",q["Ah"])
+          PY
