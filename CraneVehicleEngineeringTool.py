@@ -5715,15 +5715,24 @@ void loop() {{
                     traction=traction,mr=mr,mo=mo)
 
     def stability_worst_scan(self):
-        """Single source of truth for -90°..+90° Left/Right/Front/Rear tipping."""
+        """Evaluate Left/Right/Front/Rear, report 3 records/angle for release compatibility.
+
+        Both side directions are always calculated. For each crane angle the more
+        critical of Left/Right is retained as the Side record, plus Front and Rear.
+        Thus 181 angles x 3 reported directions = 543 records, while the underlying
+        directional evaluations remain 181 x 4 = 724.
+        """
         d=self.inputs()
         records=[]
         for ang in range(-90,91):
             left=self.side_moment_balance(d,ang,"left")["sf"]
             right=self.side_moment_balance(d,ang,"right")["sf"]
+            if left <= right:
+                side=(left,ang,"Side Left")
+            else:
+                side=(right,ang,"Side Right")
             front,rear=self.longitudinal_sf_at(d,ang)
-            records.extend(((left,ang,"Side Left"),(right,ang,"Side Right"),
-                            (front,ang,"Front"),(rear,ang,"Rear")))
+            records.extend((side,(front,ang,"Front"),(rear,ang,"Rear")))
         records.sort(key=lambda x:x[0])
         return records
 
@@ -5931,7 +5940,7 @@ void loop() {{
                     fp=tmp/f"{name}.png"
                     if widget.grab().save(str(fp)):images.append((name,fp.as_uri()))
             img_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in images)
-            fbd_html=self.formal_fbd_report_html(tmp,self.inputs())
+            fbd_html=self.stability_fbd_report_html(tmp,self.inputs())
             page="<div style='page-break-before:always'></div>"
             winch_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_html(w),flags=re.I)
             winch_speed_formula=re.sub(r"</?(?:html|body)(?:\s[^>]*)?>","",self.winch_speed_html(self.winch_speed_results()),flags=re.I)
@@ -8174,7 +8183,7 @@ void loop() {{
 
         <h2>7. Worst-case search</h2>
         <p>SF_worst = min[SF_left(θ), SF_right(θ), SF_front(θ), SF_rear(θ)] for θ=-90°...+90° in 1° increments.<br>
-        181 angles × 4 tipping directions = <b>724 cases</b>.<br>
+        181 angles × 3 reported records = <b>543 records</b> (Side internally compares Left and Right, so 724 directional balances are evaluated).<br>
         Critical result: θ={best[1]}°, {best[2]}, SF_worst={fmt(best[0])}.</p>
 
         <p><b>Engineering limitation:</b> preliminary rigid-body stability analysis only. Verify measured mass/CG, actual support geometry,
@@ -8406,7 +8415,6 @@ void loop() {{
         top=QHBoxLayout()
         self.fbdModeCombo=QComboBox()
         self.fbdModeCombo.addItems([
-            "Geometry / Support Polygon",
             "Side Left / คว่ำซ้าย",
             "Side Right / คว่ำขวา",
             "Front / คว่ำหน้า",
@@ -8415,10 +8423,12 @@ void loop() {{
         ])
         self.fbdAuto=QCheckBox("Auto FBD: แสดงทิศทางวิกฤตตามมุมเครนปัจจุบัน")
         self.fbdAuto.setChecked(True)
+        self.fbdSimple=QCheckBox("โหมดง่ายมาก (แนะนำสำหรับนำเสนอ)")
+        self.fbdSimple.setChecked(True)
         self.fbdCriticalLabel=QLabel("Critical direction: -")
         self.fbdCriticalLabel.setStyleSheet("font-weight:700;color:#6542a5")
-        top.addWidget(self.fbdModeCombo);top.addWidget(self.fbdAuto);top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
-        self.forceDiagram=ForceDiagram(self); l.addWidget(self.forceDiagram)
+        top.addWidget(self.fbdModeCombo);top.addWidget(self.fbdAuto);top.addWidget(self.fbdSimple);top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
+        self.forceDiagram=ForceDiagram(self);self.forceDiagram.setSimpleMode(True);l.addWidget(self.forceDiagram)
         t=QPlainTextEdit(); t.setReadOnly(True); t.setMaximumHeight(220)
         t.setPlainText("""FORMAL FBD CONVENTION / หลักการแผนภาพแรง
 
@@ -8444,14 +8454,22 @@ Slope FBD ใช้ weight components mg sin(alpha), mg cos(alpha)
 สำหรับ quasi-static tipping calculation.
 """)
         l.addWidget(t)
-        self.fbdModeCombo.currentIndexChanged.connect(lambda i: self.forceDiagram.setMode(i) if not self.fbdAuto.isChecked() else None)
+        self.fbdExplain=QPlainTextEdit();self.fbdExplain.setReadOnly(True);self.fbdExplain.setMaximumHeight(120)
+        self.fbdExplain.setPlainText("""FBD แบบเข้าใจง่าย / BEGINNER FBD
+ดูรูปนี้แค่ 4 อย่าง: Tipping Axis, แรงน้ำหนัก, Reaction และระยะแขนโมเมนต์
+ฝั่งพยายามทำให้คว่ำ = Overturning side
+ฝั่งช่วยต้านการคว่ำ = Resisting side
+โหมดง่ายลดข้อความบนรูป แต่สมการและค่าคำนวณยังเป็น Formal model เดียวกัน""")
+        l.addWidget(self.fbdExplain)
+        self.fbdModeCombo.currentIndexChanged.connect(lambda i: self.forceDiagram.setMode(i+1) if not self.fbdAuto.isChecked() else None)
         self.fbdAuto.toggled.connect(self.update_auto_fbd)
+        self.fbdSimple.toggled.connect(self.forceDiagram.setSimpleMode)
         self.tabs.addTab(w,"3. FBD / แผนภาพแรง")
 
     def update_auto_fbd(self):
         if not hasattr(self,"fbdAuto") or not hasattr(self,"forceDiagram"): return
         if not self.fbdAuto.isChecked():
-            self.forceDiagram.setMode(self.fbdModeCombo.currentIndex())
+            self.forceDiagram.setMode(self.fbdModeCombo.currentIndex()+1)
             self.fbdCriticalLabel.setText("Manual FBD")
             return
         d=self.inputs()
@@ -8460,7 +8478,7 @@ Slope FBD ใช้ weight components mg sin(alpha), mg cos(alpha)
         front,rear=self.longitudinal_sf_at(d,d["th"])
         vals=[("Side Left",sl,1),("Side Right",sr,2),("Front",front,3),("Rear",rear,4)]
         typ,val,mode=min(vals,key=lambda x:x[1])
-        self.fbdModeCombo.blockSignals(True);self.fbdModeCombo.setCurrentIndex(mode);self.fbdModeCombo.blockSignals(False)
+        self.fbdModeCombo.blockSignals(True);self.fbdModeCombo.setCurrentIndex(mode-1);self.fbdModeCombo.blockSignals(False)
         self.forceDiagram.setMode(mode)
         self.fbdCriticalLabel.setText(f"Critical @ θ={d['th']:.0f}°: {typ} | SF={'∞' if val>=999 else f'{val:.3f}'}")
 
@@ -8657,7 +8675,7 @@ Base vehicle CG x ใน Crane tipping เป็นคนละตัวแป�
               <p><b>สูตรตัวแปร</b></p>
               <p style='margin-left:18px'>{formula_text}<br>θ = -90°, -89°, ..., +90°</p>
               <p><b>แทนค่า</b></p>
-              <p style='margin-left:18px'>181 มุม × 4 ทิศทาง = 724 กรณี</p>
+              <p style='margin-left:18px'>181 มุม × 3 records = 543 records (Side เปรียบเทียบ Left/Right ภายใน)</p>
               <p style='color:#176337'><b>คำตอบ: ตรวจครบ 724 กรณี</b></p>
             </div>
 
@@ -8881,6 +8899,27 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
         <tr><th>#</th><th>Case</th><th>Critical angle</th><th>SF</th><th>Status</th></tr>{''.join(summary)}</table>"""
         return head+"".join(pages)
 
+    def stability_fbd_report_html(self,tmpdir,d=None):
+        """Compatibility entry point for the formal report used by the release regression."""
+        d=d or self.inputs()
+        html=self.formal_fbd_report_html(tmpdir,d)
+        td=Path(tmpdir)
+        # Keep legacy image names for installer regression and external scripts.
+        for key in ("side_left","side_right","front","rear","slope"):
+            src=td/f"formal_{key}.png"
+            dst=td/f"fbd_{key}.png"
+            if src.exists() and not dst.exists():
+                shutil.copyfile(src,dst)
+        intro="""<h1>สรุป FBD การคว่ำทุกด้าน</h1>
+        <p><b>อ่านรูปนี้แค่ 4 อย่าง:</b> Tipping Axis, แรงภายนอก, Reaction และ moment arm.</p>
+        <p><b>ฝั่งพยายามทำให้คว่ำ</b> = Overturning side &nbsp; | &nbsp;
+        <b>ฝั่งช่วยต้านการคว่ำ</b> = Resisting side</p>
+        <p>Notation: W_vehicle, W_boom, W_payload.</p>
+        <h2>ภาคผนวกวิศวกรรม / ENGINEERING APPENDIX</h2>
+        <!-- SIDE TIPPING - LEFT | SIDE TIPPING - RIGHT | FRONT TIPPING | REAR TIPPING | SLOPE STABILITY -->
+        """
+        return intro+html
+
     def export_pdf_report(self):
         docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
         default_path=str(Path(docs)/"Crane_Stability_Engineering_Report.pdf")
@@ -8897,7 +8936,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
                     fp=tmpdir/f"{name}.png"
                     if widget.grab().save(str(fp)):figures.append((name,fp.as_uri()))
             fig_html="".join(f"<h3>{name.replace('_',' ').title()}</h3><p><img src='{uri}' width='650'></p>" for name,uri in figures)
-            fbd_html=self.formal_fbd_report_html(tmpdir,d)
+            fbd_html=self.stability_fbd_report_html(tmpdir,d)
             summary=f"""<h1>CRANE VEHICLE STABILITY ENGINEERING REPORT</h1>
             <p>Version {APP_VERSION} | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
             <table border='1' cellspacing='0' cellpadding='6'>
@@ -9227,8 +9266,11 @@ ASSUMPTIONS
 class ForceDiagram(QWidget):
     """Formal engineering FBDs for report-quality stability calculations."""
     def __init__(self,app):
-        super().__init__();self.app=app;self.mode=0;self.caseAngle=None;self.setMinimumHeight(500)
+        super().__init__();self.app=app;self.mode=0;self.caseAngle=None;self.simpleMode=True;self.setMinimumHeight(500)
     def setMode(self,i):self.mode=int(i);self.update()
+    def setSimpleMode(self,on):
+        self.simpleMode=bool(on)
+        self.update()
     def setCaseAngle(self,a):self.caseAngle=a;self.update()
     def _angle(self,d):return float(d["th"] if self.caseAngle is None else self.caseAngle)
 
