@@ -156,7 +156,7 @@ function syncVehicleParameters(){
   const mainV=formValue("batteryForm","voltage_v",72);
   const motorW=formValue("driveForm","motor_rated_w",1500);
   const motors=formValue("driveForm","motors",2);
-  const slope=formValue("batteryForm","slope_deg",19);
+  const slope=formValue("batteryForm","slope_deg",11.11);
   const runtime=formValue("batteryForm","runtime_h",3);
   const arm=formValue("stabilityForm","boom_length_m",1.2);
   const trackM=formValue("stabilityForm","track_width_m",0.7);
@@ -287,8 +287,30 @@ function syncTurnEnergyControls(){
   });
 }
 
+function migrateLegacyMeasuredSlopeDefault(){
+  try{
+    const marker="cvet_slope_1111_migrated_v53823";
+    if(localStorage.getItem(marker)) return;
+    const ramp=$("#rampForm");
+    const rise=ramp&&ramp.elements.rise_cm?Number(ramp.elements.rise_cm.value):NaN;
+    const run=ramp&&ramp.elements.run_cm?Number(ramp.elements.run_cm.value):NaN;
+    const fields=[
+      getField("driveForm","slope_deg"),
+      getField("batteryForm","slope_deg"),
+      getField("stabilityForm","slope_deg")
+    ];
+    const legacy=fields.every(el=>el&&Math.abs(Number(el.value)-19)<1e-6);
+    const measured=Math.abs(rise-55)<1e-6&&Math.abs(run-280)<1e-6;
+    if(legacy&&measured){
+      fields.forEach(el=>{el.value="11.11";});
+    }
+    localStorage.setItem(marker,"1");
+  }catch(e){}
+}
+
 function setupDynamicProjectParameters(){
   restoreWebInputs();
+  migrateLegacyMeasuredSlopeDefault();
   restoreSharedProjectParameters();
 
   storedInputElements().forEach(el=>{
