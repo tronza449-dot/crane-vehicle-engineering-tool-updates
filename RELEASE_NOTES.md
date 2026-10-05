@@ -1,51 +1,85 @@
-# Crane Vehicle Engineering Tool V53.8.10
+# Crane Vehicle Engineering Tool V53.8.11
 
-## Main Battery 72 V — Simple Cycle Energy
+## Battery Practical Factor + Differential/Pivot Turning Energy
 
-อัปเดตต่อจาก V53.8.9 โดยปรับการคำนวณแบตเตอรี่รถให้เป็นแบบหยาบและอธิบายง่ายตามแนวคิด “คำนวณต่อ 1 Cycle แล้วคูณจำนวน Cycle”
+อัปเดตต่อจาก V53.8.10 โดยเพิ่มการเผื่อขนาดแบตสำหรับการใช้งานจริง และเพิ่มพลังงานจากการหมุนแบบ Differential Steering ลงใน Simple Cycle model
 
-### Route model
-- 1 Cycle = เที่ยวไป + เที่ยวกลับ
-- ระยะเที่ยวเดียวเริ่มต้น 30 m
-- ระยะทางลาดเริ่มต้น 2.9 m
-- ระยะทางราบต่อเที่ยว = 30 - 2.9 = 27.1 m
-- เที่ยวไป = ทางราบ + ขึ้นทางลาด
-- เที่ยวกลับ = ลงทางลาด + ทางราบ
+### Battery Design Factor
+เพิ่มตัวแปร:
+- Kb = Battery Design Factor
+- ค่าเริ่มต้น = 3.0
+- Calculated minimum: Ah_min = E_design / V
+- Practical recommendation: Ah_practical = Ah_min × Kb
+- โปรแกรมปัดขึ้นเป็นขนาดแบตมาตรฐานให้
 
-### Simple energy equations
-- ทางราบ: F_flat = Crr m g
-- ขึ้นลาด: F_up = m g sin(theta) + Crr m g cos(theta)
-- ลงลาด: F_down = max(0, Crr m g cos(theta) - m g sin(theta))
-- พลังงานแต่ละช่วง: E = F s / (eta × 3600)
-- E_go = E_flat,oneway + E_up,slope
-- E_return = E_down,slope + E_flat,oneway
-- E_drive,cycle = E_go + E_return
+จุดประสงค์คือแยกให้ชัดระหว่าง:
+- ค่าขั้นต่ำที่ได้จากแบบจำลองหยาบ
+- ขนาดที่ควรพิจารณาใช้งานจริง
+
+### Differential / Pivot Turn Energy
+เพิ่มตัวเลือกเปิด/ปิด Turning Energy และ Inputs:
+- จำนวนครั้งหมุนต่อ Cycle
+- มุมหมุนต่อครั้ง
+- เวลาหมุนต่อครั้ง
+- Track width W
+- Effective turn/scrub coefficient Cturn
+
+สูตรแบบง่ายสำหรับ Pivot Turn:
+- phi = turn angle in radians
+- s_turn = (W/2) × phi
+- F_turn = Cturn × m × g
+- E_turn,event = F_turn × s_turn / (eta × 3600)
+- E_turn,cycle = E_turn,event × N_turn
+- E_drive,cycle = E_go + E_return + E_turn,cycle
 - E_cycle = E_drive,cycle + E_aux,cycle
-- E_total = E_cycle × N_cycle
-- E_design = (E_total / DoD) × (1 + Reserve)
-- Ah = E_design / V
 
-### Important behavior
-- ช่วงลงทางลาดอาจมี traction energy ≈ 0 Wh หากแรงโน้มถ่วงช่วยพารถลง
-- แต่เที่ยวกลับไม่ใช่ 0 Wh เพราะยังมีทางราบ 27.1 m
-- ไม่คิดพลังงานช่วงออกตัวใน Wh/Ah sizing
-- ไม่ใช้ Rated Motor Power เป็น Worst-case energy model
-- ไม่นำพลังงานจากช่วงลงทางลาดมาหักคืนแบตเตอรี่
-- Winch 12 V ยังแยกพลังงานออกจาก Main Battery 72 V; ใช้เฉพาะเวลายกในการหาจำนวน Cycle
+Turning time ถูกเพิ่มในเวลา 1 Cycle:
+- t_cycle = t_drive + t_lift + t_other + t_turn
 
-### UI / Report
-- Input Battery ตัดช่องจำนวนครั้งออกตัว, เวลาเร่ง, Worst-case energy mode และ Uphill efficiency ออกจากหน้าหลัก
-- Trip Summary แสดงพลังงานเที่ยวไป / เที่ยวกลับ / ต่อ Cycle
-- Variables และ Calculation Steps ปรับเป็น Cycle model
-- Thai Guide และ Battery PDF ใช้สูตรแบบเดียวกัน
-- Web version ใช้ Cycle model เดียวกับ Windows
+### Important limitation
+Cturn เป็น effective empirical coefficient ของการต้านการหมุน/การไถล
+ผลจริงขึ้นกับ:
+- พื้นผิว
+- ยาง
+- น้ำหนักกดแต่ละล้อ
+- Track width
+- ล้อพยุง
+- รัศมีเลี้ยว
+- ความเร็วตอนหมุน
 
-### Validation
-- ตรวจเส้นทาง 30 m = slope 2.9 m + flat 27.1 m
-- ตรวจว่า Return energy > 0 จากทางราบ
-- ตรวจว่า acceleration setting ไม่เปลี่ยน Edrive/Edesign
-- ตรวจ Windows + Web calculation และ JavaScript syntax ผ่าน
+สำหรับรถที่ใช้ล้อพยุงแบบ non-swivel การไถลระหว่างหมุนอาจสูง จึงควรวัดกระแสจริงแล้วปรับ Cturn
 
-### Scope
-เป็น Preliminary battery sizing แบบหยาบเพื่อใช้เลือกความจุและอธิบายหลักการ
-ควรวัดกระแส/กำลังจริงของรถเพื่อปรับค่า Efficiency และยืนยัน Pack/BMS ก่อนซื้อใช้งานจริง.
+### Battery Selection
+- Battery Selection ใช้ Ah_practical เป็นเกณฑ์พลังงาน
+- ยังแสดง Ah_min เพื่ออธิบายค่าทฤษฎี
+- BMS current check รวม current reference จากการหมุน
+- Final report และ Integrated Design Check แสดง practical battery target
+
+### Windows + Web
+เพิ่มสูตรเดียวกันทั้ง:
+- Windows application
+- Web calculator
+- Variables
+- Calculation Steps
+- Thai explanation
+- Battery results
+- Battery selection
+
+### Regression example
+ทดสอบ:
+- m = 300 kg
+- W = 0.70 m
+- 2 pivot turns / Cycle
+- 180 deg / turn
+- Cturn = 0.20
+- eta = 60%
+
+ได้โดยประมาณ:
+- E_turn,event = 0.300 Wh
+- E_turn,cycle = 0.599 Wh
+- Ah_min ≈ 5.99 Ah
+- Kb = 3
+- Ah_practical ≈ 17.96 Ah
+- Standard suggestion = 20 Ah
+
+ค่าตัวอย่างนี้ใช้ตรวจสมการ ไม่ใช่ค่ารับรองการใช้งานจริง.
