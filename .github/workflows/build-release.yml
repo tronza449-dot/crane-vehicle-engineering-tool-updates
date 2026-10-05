@@ -175,6 +175,10 @@ jobs:
           assert "LEFT LIMIT" in source and "RIGHT LIMIT" in source
           assert "DISPLAY NOTE: SF >" in source
           assert "compact=self.height()<680" in source
+          assert "Current-angle governing case" in source
+          assert "724 directional moment-balance evaluations" in source
+          assert "Current θ=" in source
+          assert "Inertia F_I" in source
 
           for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
               assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
