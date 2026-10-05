@@ -379,47 +379,68 @@ $("#calcBattery").addEventListener("click",async()=>{
     ).join('');
 
     out.innerHTML=
-      '<h3>Main Battery 72 V Result</h3><div class="metric-grid">'+
-      '<div class="metric"><div class="k">รอบเต็มในเวลาที่กำหนด</div><div class="v">'+r.completed_round_trips+' รอบ</div></div>'+
-      '<div class="metric"><div class="k">เวลารวม / รอบ</div><div class="v">'+f(r.round_time_s/60,2)+' min</div></div>'+
-      '<div class="metric"><div class="k">Drive energy</div><div class="v">'+f(r.drive_energy_wh,1)+' Wh</div></div>'+
+      '<h3>Main Battery 72 V — Simple Cycle</h3>'+
+      '<div class="notice"><b>1 Cycle</b> = ไป '+f(r.one_way_m,1)+' m + กลับ '+f(r.one_way_m,1)+' m • '+
+      'แต่ละเที่ยว = ทางราบ '+f(r.flat_one_way_m,1)+' m + ทางลาด '+f(r.slope_length_m,1)+' m</div>'+
+
+      '<div class="metric-grid">'+
+      '<div class="metric"><div class="k">เที่ยวไป</div><div class="v">'+f(r.outbound_drive_energy_wh,3)+' Wh</div></div>'+
+      '<div class="metric"><div class="k">เที่ยวกลับ</div><div class="v">'+f(r.return_drive_energy_wh,3)+' Wh</div></div>'+
+      '<div class="metric"><div class="k">Drive / Cycle</div><div class="v">'+f(r.trip_drive_energy_wh,3)+' Wh</div></div>'+
+      '<div class="metric"><div class="k">Total / Cycle</div><div class="v">'+f(r.total_energy_per_cycle_wh,3)+' Wh</div></div>'+
+      '<div class="metric"><div class="k">Cycle เต็ม</div><div class="v">'+r.completed_round_trips+' รอบ</div></div>'+
+      '<div class="metric"><div class="k">Energy รวม</div><div class="v">'+f(r.load_energy_wh,1)+' Wh</div></div>'+
       '<div class="metric"><div class="k">Design capacity</div><div class="v">'+f(r.design_ah,2)+' Ah</div></div>'+
-      '<div class="metric"><div class="k">รวม Current/C-rate</div><div class="v">'+f(r.design_ah_with_current,2)+' Ah</div></div>'+
-      '<div class="metric"><div class="k">Suggested standard</div><div class="v">'+f(r.suggested_ah,0)+' Ah</div></div>'+
-      '<div class="metric"><div class="k">BMS Continuous ≥</div><div class="v">'+f(r.continuous_current_required_a,1)+' A</div></div>'+
-      '<div class="metric"><div class="k">BMS Peak ≥</div><div class="v">'+f(r.peak_current_required_a,1)+' A</div></div></div>'+
+      '<div class="metric"><div class="k">Suggested standard</div><div class="v">'+f(r.suggested_ah,0)+' Ah</div></div></div>'+
 
-      '<h3>Operating Time</h3>'+
-      '<div class="formula"><b>t_round = t_drive + t_lift + t_other</b><br>'+
-      '<b>แทนค่า:</b> '+f(r.drive_time_per_round_s,2)+' + '+f(r.lift_time_per_round_s,2)+' + '+f(r.other_stop_time_per_round_s,2)+
-      ' = <b>'+f(r.round_time_s,2)+' s/รอบ</b><br>'+
-      '<b>จำนวนรอบเชิงทฤษฎี:</b> '+f(r.cycles_theoretical,2)+' รอบ → นับรอบที่ทำครบ = <b>'+r.completed_round_trips+' รอบ</b></div>'+
-      '<div class="formula"><b>เวลางานยกมีผลกับจำนวนรอบ แต่ไม่รวมพลังงานวินช์ในแบต 72 V</b><br>'+
-      'Winch ใช้แบต 12 V แยก ดังนั้น Main Battery คิดเฉพาะพลังงานขับรถ + Auxiliary</div>'+
+      '<h3>1) แบ่งเส้นทาง</h3>'+
+      '<div class="formula">d_flat = d_oneway − L_slope = '+f(r.one_way_m,2)+' − '+f(r.slope_length_m,2)+
+      ' = <b>'+f(r.flat_one_way_m,2)+' m</b><br>'+
+      '1 Cycle = 2 × '+f(r.one_way_m,2)+' = <b>'+f(r.cycle_distance_m,2)+' m</b></div>'+
 
-      '<h3>Reverse Calculation — แบตที่กำลังจะซื้อ</h3>'+
+      '<h3>2) Energy ต่อช่วง</h3>'+
+      '<div class="formula"><b>ทางราบ:</b> F = Crr·m·g = '+f(r.flat_force_n,2)+' N<br>'+
+      'Eflat/เที่ยว = <b>'+f(r.flat_energy_one_way_wh,3)+' Wh</b></div>'+
+      '<div class="formula"><b>ขึ้นลาด:</b> F = mg sinθ + Crr·mg cosθ = '+f(r.uphill_force_n,2)+' N<br>'+
+      'Eup = <b>'+f(r.uphill_slope_energy_wh,3)+' Wh</b></div>'+
+      '<div class="formula"><b>ลงลาด:</b> F = max(0, Crr·mg cosθ − mg sinθ) = '+f(r.downhill_drive_force_n,2)+' N<br>'+
+      'Edown = <b>'+f(r.downhill_slope_energy_wh,3)+' Wh</b><br>'+
+      'ถ้าช่วงลาดลงใช้ 0 Wh เที่ยวกลับยังไม่เป็น 0 เพราะมีทางราบ '+f(r.flat_one_way_m,1)+' m</div>'+
+
+      '<h3>3) รวมเป็น 1 Cycle</h3>'+
+      '<div class="formula">Ego = Eflat + Eup = <b>'+f(r.outbound_drive_energy_wh,3)+' Wh</b><br>'+
+      'Ereturn = Edown + Eflat = <b>'+f(r.return_drive_energy_wh,3)+' Wh</b><br>'+
+      'Edrive,cycle = <b>'+f(r.trip_drive_energy_wh,3)+' Wh</b><br>'+
+      'Eaux,cycle = <b>'+f(r.aux_energy_per_cycle_wh,3)+' Wh</b><br>'+
+      'Ecycle = <b>'+f(r.total_energy_per_cycle_wh,3)+' Wh/Cycle</b></div>'+
+
+      '<h3>4) จำนวน Cycle และขนาดแบต</h3>'+
+      '<div class="formula"><b>t_cycle = t_drive + t_lift + t_other</b><br>'+
+      f(r.drive_time_per_round_s,2)+' + '+f(r.lift_time_per_round_s,2)+' + '+f(r.other_stop_time_per_round_s,2)+
+      ' = <b>'+f(r.round_time_s,2)+' s</b><br>'+
+      'N = floor(runtime/t_cycle) = <b>'+r.completed_round_trips+' Cycle</b><br>'+
+      'Etotal = Ecycle × N = <b>'+f(r.load_energy_wh,2)+' Wh</b><br>'+
+      'Edesign = (Etotal/DoD)×(1+Reserve) = <b>'+f(r.design_energy_wh,2)+' Wh</b><br>'+
+      'Ah = Edesign/V = <b>'+f(r.design_ah,2)+' Ah @ '+f(r.voltage_v,0)+' V</b></div>'+
+
+      '<div class="notice"><b>แบบจำลองนี้ตั้งใจให้หยาบและอธิบายง่าย:</b> ไม่คิดพลังงานช่วงออกตัว '+
+      'และไม่นำพลังงานจากช่วงลงลาดมาหักคืนแบตเตอรี่ • Winch 12 V คำนวณแยก</div>'+
+
+      '<h3>Battery Purchase / Reverse Calculation</h3>'+
       '<div class="metric-grid">'+
       '<div class="metric"><div class="k">Candidate</div><div class="v">'+f(c.capacity_ah,1)+' Ah</div></div>'+
       '<div class="metric"><div class="k">Estimated runtime*</div><div class="v">'+f(c.runtime_h,2)+' h</div></div>'+
-      '<div class="metric"><div class="k">Full rounds*</div><div class="v">'+c.full_rounds+' รอบ</div></div>'+
+      '<div class="metric"><div class="k">Full Cycles*</div><div class="v">'+c.full_rounds+' รอบ</div></div>'+
       '<div class="metric"><div class="k">Margin vs target</div><div class="v">'+(c.target_margin_pct>=0?'+':'')+f(c.target_margin_pct,1)+'%</div></div></div>'+
       '<table><tr><th>Candidate check</th><th>Required</th><th>Candidate</th><th>Status</th></tr>'+
       '<tr><td>Energy / Capacity</td><td>≥ '+f(r.design_ah,2)+' Ah</td><td>'+f(c.capacity_ah,1)+' Ah</td><td>'+statusSpan(c.energy_ok)+'</td></tr>'+
       '<tr><td>BMS Continuous</td><td>≥ '+f(r.continuous_current_required_a,1)+' A</td><td>'+f(c.bms_cont_a,1)+' A</td><td>'+bmsCont+'</td></tr>'+
-      '<tr><td>BMS Peak</td><td>≥ '+f(r.peak_current_required_a,1)+' A</td><td>'+f(c.bms_peak_a,1)+' A</td><td>'+bmsPeak+'</td></tr></table>'+
-      '<p class="check">*Runtime/รอบ เป็นค่าประมาณจาก Operating Cycle ปัจจุบัน + Auxiliary + DoD + Reserve ไม่รวมพลังงานวินช์ 12 V</p>'+
+      '<tr><td>BMS Peak (simple reference)</td><td>≥ '+f(r.peak_current_required_a,1)+' A</td><td>'+f(c.bms_peak_a,1)+' A</td><td>'+bmsPeak+'</td></tr></table>'+
+      '<p class="check">*Runtime/Cycle เป็นค่าประมาณจาก Cycle ปัจจุบัน + DoD + Reserve; พลังงานวินช์ 12 V ไม่รวม</p>'+
 
       '<h3>Compare Battery Size</h3>'+
-      '<div style="overflow:auto"><table><tr><th>Battery</th><th>Rated Wh</th><th>Runtime*</th><th>Full rounds*</th><th>Margin target</th><th>Req cont C</th><th>Req peak C</th><th>Check</th></tr>'+
-      compare+'</table></div>'+
-
-      '<h3>สูตรแบต</h3>'+
-      '<div class="formula"><b>Eload = Edrive + Eaux</b><br><b>สูตรภาษาไทย:</b> พลังงานโหลดรวม = พลังงานขับรถ + พลังงานอุปกรณ์เสริม<br><b>ผล:</b> '+f(r.load_energy_wh,2)+' Wh</div>'+
-      '<div class="formula"><b>Edesign = (Eload ÷ DoD) × (1 + Reserve)</b><br><b>สูตรภาษาไทย:</b> พลังงานออกแบบ = พลังงานโหลดรวม ÷ DoD × (1 + พลังงานสำรอง)<br><b>ผล:</b> '+f(r.design_energy_wh,2)+' Wh</div>'+
-      '<div class="formula"><b>Ah = Edesign ÷ V</b><br><b>สูตรภาษาไทย:</b> ความจุแบต = พลังงานออกแบบ ÷ แรงดันแบต<br><b>ผล:</b> '+f(r.design_ah,2)+' Ah @ '+f(r.voltage_v,0)+' V</div>'+
-      '<div class="formula"><b>Runtime(reverse) = Usable energy budget ÷ Average operating power</b><br>'+
-      '<b>สูตรภาษาไทย:</b> เวลาที่แบต Candidate ใช้งานได้ ≈ พลังงานที่อนุญาตตาม DoD/Reserve ÷ กำลังเฉลี่ยของ Operating Cycle</div>'+
-      '<p>Current estimate: Continuous ≈ <b>'+f(r.continuous_current_required_a,2)+' A</b> • Peak ≈ <b>'+f(r.peak_current_required_a,2)+' A</b> • No regen</p>';
+      '<div style="overflow:auto"><table><tr><th>Battery</th><th>Rated Wh</th><th>Runtime*</th><th>Full Cycles*</th><th>Margin target</th><th>Req cont C</th><th>Req peak C</th><th>Check</th></tr>'+
+      compare+'</table></div>';
   }catch(e){setError(out,e);}
 });
 
