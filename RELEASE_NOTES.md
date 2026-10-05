@@ -1,35 +1,48 @@
-# Crane Vehicle Engineering Tool V53.8.23
+# Crane Vehicle Engineering Tool V53.8.24
 
-## Web Current Semantics + Measured Ramp Default
+## Web Stability — Mass Modes + Guided Calculation Steps
 
-ปรับแก้หลัง Web Calculation Audit V53.8.22 เพื่อให้การเลือก BMS, การแสดงค่ามอเตอร์ และค่าเริ่มต้นทางลาดตรงกับความหมายทางวิศวกรรมมากขึ้น
+ปรับหน้า Stability บน Web ให้ใช้งานและอ่านผลเหมือน Desktop มากขึ้น โดยแยกแหล่งข้อมูลมวลออกเป็น 2 โหมด และจัดสูตรเป็นขั้นตอน 1 → 4
 
-### Main Battery / BMS
-- แยก Continuous current ออกจาก Peak current อย่างชัดเจน
-- Continuous = ค่าสูงสุดของ steady uphill current และ Pivot-turn average current
-- Peak = ค่าสูงสุดระหว่าง Continuous และ Drive Torque design-current reference
-- Drive Torque reference ไม่ถูกนำไปพองค่า Continuous อีกต่อไป
-- ตาราง Candidate Battery / BMS และ C-rate ใช้ Continuous/Peak คนละค่าตามความหมายจริง
+### Stability Mass Mode
+- Mode A — Total Mass: กรอก m_total, Payload, Boom และ CG เอง
+- Mode B — Component Mass: กรอกน้ำหนักและพิกัด x/y/z ของแต่ละชิ้น แล้วรวมมวลและ CG อัตโนมัติ
+- ตาราง Component เริ่มต้น 12 รายการตรงกับ Desktop
+- ใช้กฎจัดกลุ่มเดียวกับ Desktop:
+  - Boom / แขนเครน → m_B
+  - Basket + Payload / ตะกร้า + ซากสัตว์ → m_L
+  - รายการอื่น → Base vehicle
+- คำนวณ Base CG และ Combined CG แบบ weighted average
+- ใน Component Mode ค่า m_total, m_L, m_B, Base CG และ Slope CG ถูก derive จากตารางจริง
+- มวลรวมที่ derive แล้ว sync กลับไปยัง Project mass ที่เกี่ยวข้อง
 
-### Web UI
-- Current-check notice แสดง Continuous และ Peak แยกกันพร้อมที่มาของค่า
-- Vehicle Parameters / Drive Motors ดึงจำนวนมอเตอร์และกำลังมอเตอร์จากหน้า Drive Torque โดยตรง
-- เพิ่มช่อง Motor rated power (W / motor) ในหน้า Drive Torque
-- แก้ข้อความแหล่งข้อมูล Drive Motors ให้ตรงกับค่าที่ใช้จริง
+### Guided Calculation UI
+ใต้ FBD ของแต่ละ Case แสดงการคำนวณเป็น 4 ขั้น:
+1. หาแรงและระยะแขนโมเมนต์จากแกนคว่ำ P
+2. หาโมเมนต์คว่ำ M_O = Σ(F_i d_i)
+3. หาโมเมนต์ต้าน M_R = Σ(F_i d_i)
+4. หา Safety Factor SF = M_R / M_O และ PASS/FAIL
 
-### Measured ramp baseline
-สำหรับข้อมูลวัด h=55 cm และ run=280 cm:
-- θ = atan(55/280) ≈ 11.11°
-- Slope ≈ 19.64%
-- ใช้ 11.11° เป็น Web default สำหรับ Drive, Main Battery และ Slope Stability
-- 19.64 ใช้เป็น % grade เท่านั้น ไม่ใช้แทนองศา
-- เพิ่ม one-time migration: ถ้า Browser ยังเก็บค่า legacy 19° ครบทั้ง 3 โมดูลและ Ramp ยังเป็น 55/280 cm จะเปลี่ยนเป็น 11.11° อัตโนมัติ
+สำหรับ Slope:
+1. หา W_parallel, W_normal และ F_I
+2. หา d_R และ h_CG
+3. หา M_O และ M_R
+4. หา SF_slope และ PASS/FAIL
+
+### Web UX
+- เพิ่ม Mode cards A/B ที่เห็นชัดว่าเลือกโหมดไหนอยู่
+- Component table แสดง Σm และ CG preview ทันที
+- แสดง Base / Boom / Basket+Payload breakdown
+- ผลลัพธ์บอก Mass Source ว่ามาจาก Total Mass หรือ Component Mass
+- Step cards รองรับจอมือถือด้วย
 
 ### Regression
-- ปรับ regression ให้ตรวจว่า Continuous ไม่ถูกบังคับให้เท่ากับ Drive Torque design-current
-- ตรวจว่า Peak ครอบคลุม Drive Torque reference
-- ยังคง Desktop ↔ Web Stability parity และ regression ชุดเดิมทั้งหมด
+- เพิ่ม Web Component Mass regression
+- ตรวจ Σm = 300 kg, Base = 180 kg, Boom = 20 kg, Basket+Payload = 100 kg จาก default table
+- ตรวจผล Component Mode เท่ากับ Total Mode เมื่อใช้ derived mass/CG เดียวกัน
+- ตรวจ Static UI สำหรับ mass mode และ 4-step calculation
+- Regression ชุด Desktop/Web เดิมยังคงทำงานทั้งหมด
 
 ### Calculation scope
 ยังเป็น Preliminary engineering calculation
-ควรยืนยันน้ำหนักจริง, CG จริง, rolling resistance, traction และกระแสจริงจากการทดสอบก่อนผลิตใช้งาน
+ควรยืนยันมวลจริง, CG จริง, ตำแหน่งอุปกรณ์จริง และ geometry จุดรองรับก่อนผลิตใช้งาน
