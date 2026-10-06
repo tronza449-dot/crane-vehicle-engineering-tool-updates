@@ -862,6 +862,38 @@ function renderSlopeFbd(r,bal){
   return svg;
 }
 
+function stabilityVariableTableHtml(r){
+  const rows=[
+    ["m_total","มวลรวมทั้งระบบ",f(r.total_mass_kg,2),"kg",r.mass_mode==="components"?"Derived: Σm_i":"Input: Total Mass"],
+    ["m_V","มวลรถฐาน",f(r.base_vehicle_mass_kg,2),"kg",r.mass_mode==="components"?"Derived: Base components":"Derived: m_total - m_L - m_B"],
+    ["m_L","มวล Basket + Payload",f(r.payload_mass_kg,2),"kg",r.mass_mode==="components"?"Derived: Basket + Payload":"Input: Payload"],
+    ["m_B","มวล Boom",f(r.boom_mass_kg,2),"kg",r.mass_mode==="components"?"Derived: Boom group":"Input: Boom"],
+    ["W","Track width ศูนย์กลางล้อซ้าย-ขวา",f(r.track_width_m,3),"m","Input: Stability"],
+    ["WB","Wheelbase ศูนย์กลางเพลาหน้า-หลัง",f(r.wheelbase_m,3),"m","Input: Stability"],
+    ["L","ความยาวแขนเครนถึงโหลด",f(r.boom_length_m,3),"m","Input: Stability"],
+    ["θ","มุมหมุนเครนปัจจุบัน",f(r.crane_angle_deg,2),"deg","Input: Stability"],
+    ["Kdyn","Dynamic factor ของ Payload",f(r.dynamic_factor,2),"-","Input: Stability"],
+    ["SF_req","Safety Factor ที่ต้องการ",f(r.required_sf,2),"-","Input: Stability"],
+    ["x_CG,V","Base vehicle CG ตามแนวยาว",f(r.vehicle_cg_x_m,3),"m",r.mass_mode==="components"?"Derived: weighted CG":"Input: Stability"],
+    ["y_CG,V","Base vehicle CG ตามแนวขวาง",f(r.vehicle_cg_y_m,3),"m",r.mass_mode==="components"?"Derived: weighted CG":"Input: Stability"],
+    ["α","มุมทางลาด",f(r.slope.slope_deg,2),"deg","Input / Ramp Geometry"],
+    ["a","ความเร่งขึ้นทางลาด",f(r.slope.accel_mps2,3),"m/s²","Input: Stability"],
+    ["d_R","Combined CG จากเพลาหลัง",f(r.slope.combined_cg_from_rear_m,3),"m",r.mass_mode==="components"?"Derived: Combined CG":"Input: Stability"],
+    ["h_CG","ความสูง Combined CG",f(r.slope.combined_cg_height_m,3),"m",r.mass_mode==="components"?"Derived: weighted CG z":"Input: Stability"],
+    ["g","ความเร่งโน้มถ่วง","9.81","m/s²","Constant"],
+    ["M_O","โมเมนต์คว่ำ","ตาม Case","N·m","Calculated"],
+    ["M_R","โมเมนต์ต้าน","ตาม Case","N·m","Calculated"],
+    ["SF","Safety Factor = M_R / M_O","ตาม Case","-","Calculated"]
+  ];
+  return '<div class="stability-unit-block">'+
+    '<div class="unit-convention"><b>Unit Convention / มาตรฐานหน่วย:</b> Mass = kg • Distance = m • Force = N • Moment = N·m • Angle = deg • Acceleration = m/s² • Safety Factor = ไม่มีหน่วย</div>'+
+    '<div class="variable-table-head"><h4>ตารางตัวแปรที่ใช้คำนวณ</h4><span>'+r.mass_mode_label+'</span></div>'+
+    '<div class="variable-table-wrap"><table class="stability-variable-table">'+
+    '<tr><th>ตัวแปร</th><th>ความหมาย</th><th>ค่า</th><th>หน่วย</th><th>แหล่งที่มา</th></tr>'+
+    rows.map(x=>'<tr><td><b>'+x[0]+'</b></td><td>'+x[1]+'</td><td class="num-cell">'+x[2]+'</td><td class="unit-cell">'+x[3]+'</td><td>'+x[4]+'</td></tr>').join('')+
+    '</table></div></div>';
+}
+
 function fbdFormulaHtml(key,bal,r){
   const flow='<div class="calc-flow-strip">'+
     '<span><b>1</b> แรง + ระยะ</span><i>→</i>'+
@@ -883,7 +915,7 @@ function fbdFormulaHtml(key,bal,r){
       '<p><b>M_O = (W_parallel + F_I)h_CG</b><br>('+f(bal.w_parallel_n,2)+' + '+f(bal.inertia_n,2)+') × '+f(bal.combined_cg_height_m,3)+' = <b>'+f(bal.overturning_moment_nm,2)+' N·m</b></p>'+
       '<p><b>M_R = W_normal d_R</b><br>'+f(bal.w_normal_n,2)+' × '+f(bal.combined_cg_from_rear_m,3)+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p></div></section>'+
       '<section class="calc-step-card final-step"><div class="calc-step-no">4</div><div><h5>หา Safety Factor และตัดสินผล</h5>'+
-      '<p><b>SF = M_R ÷ M_O</b> = '+f(bal.resisting_moment_nm,2)+' ÷ '+f(bal.overturning_moment_nm,2)+' = <b>'+fbdSf(bal.sf)+'</b> &nbsp; '+statusSpan(bal.pass)+'</p>'+
+      '<p><b>SF = M_R ÷ M_O</b> = '+f(bal.resisting_moment_nm,2)+' N·m ÷ '+f(bal.overturning_moment_nm,2)+' N·m = <b>'+fbdSf(bal.sf)+'</b> <span class="unit-note">(ไม่มีหน่วย)</span> &nbsp; '+statusSpan(bal.pass)+'</p>'+
       '<p class="step-meaning">เกณฑ์ของโปรเจกต์: SF ≥ '+f(r.required_sf,2)+'</p></div></section></div>';
   }
 
@@ -898,7 +930,7 @@ function fbdFormulaHtml(key,bal,r){
     '<h4>ขั้นตอนการคำนวณ — '+fbdName(key)+'</h4>'+flow+
     '<section class="calc-step-card"><div class="calc-step-no">1</div><div><h5>หาแรงและระยะแขนโมเมนต์จากแกนคว่ำ P</h5>'+
     '<p class="step-meaning">ก่อนคิดโมเมนต์ ให้ดูว่าแต่ละแรงอยู่ฝั่ง “ทำให้คว่ำ” หรือ “ต้านการคว่ำ” แล้ววัดระยะตั้งฉากถึงแกน P</p>'+
-    '<div class="step-table-wrap"><table><tr><th>ส่วน</th><th>แรง F</th><th>ตำแหน่ง</th><th>แขน d</th><th>หน้าที่</th></tr>'+forceRows+'</table></div></div></section>'+
+    '<div class="step-table-wrap"><table><tr><th>ส่วน</th><th>แรง F (N)</th><th>ตำแหน่ง (m)</th><th>แขน d (m)</th><th>หน้าที่</th></tr>'+forceRows+'</table></div></div></section>'+
     '<section class="calc-step-card"><div class="calc-step-no">2</div><div><h5>หาโมเมนต์คว่ำ M_O</h5>'+
     '<p><b>สูตร:</b> M_O = Σ(F_i d_i)<br><b>อ่านง่าย:</b> รวม “แรง × แขนโมเมนต์” เฉพาะแรงที่พยายามทำให้รถคว่ำ</p>'+
     '<p>'+details(mo)+'<br><b>แทนค่า:</b> M_O = '+(mo.length?mo.map(term).join(' + '):'0')+' = <b>'+f(bal.overturning_moment_nm,2)+' N·m</b></p></div></section>'+
@@ -906,7 +938,7 @@ function fbdFormulaHtml(key,bal,r){
     '<p><b>สูตร:</b> M_R = Σ(F_i d_i)<br><b>อ่านง่าย:</b> รวม “แรง × แขนโมเมนต์” ของแรงที่ช่วยพยุงรถไม่ให้คว่ำ</p>'+
     '<p>'+details(mr)+'<br><b>แทนค่า:</b> M_R = '+(mr.length?mr.map(term).join(' + '):'0')+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p></div></section>'+
     '<section class="calc-step-card final-step"><div class="calc-step-no">4</div><div><h5>หา Safety Factor และตัดสินผล</h5>'+
-    '<p><b>สูตร:</b> SF = M_R ÷ M_O<br><b>แทนค่า:</b> '+(bal.overturning_moment_nm>1e-9?f(bal.resisting_moment_nm,2)+' ÷ '+f(bal.overturning_moment_nm,2)+' = <b>'+fbdSf(bal.sf)+'</b>':'ไม่มีโมเมนต์คว่ำ → <b>SF = ∞</b>')+
+    '<p><b>สูตร:</b> SF = M_R ÷ M_O<br><b>แทนค่า:</b> '+(bal.overturning_moment_nm>1e-9?f(bal.resisting_moment_nm,2)+' N·m ÷ '+f(bal.overturning_moment_nm,2)+' N·m = <b>'+fbdSf(bal.sf)+'</b> <span class="unit-note">(ไม่มีหน่วย)</span>':'ไม่มีโมเมนต์คว่ำ → <b>SF = ∞</b> <span class="unit-note">(ไม่มีหน่วย)</span>')+
     ' &nbsp; '+statusSpan(bal.pass)+'</p><p class="step-meaning">เกณฑ์ของโปรเจกต์: SF ≥ '+f(r.required_sf,2)+'</p></div></section></div>';
 }
 
@@ -953,11 +985,12 @@ $("#calcStability").addEventListener("click",async(evt)=>{
       : '<div class="mass-source-card"><b>MODE A — TOTAL MASS</b><br>ใช้ m_total, Payload, Boom และ CG ที่กรอกเองโดยตรง</div>';
     out.innerHTML=
       '<h3>Stability Result</h3>'+massSource+
-      '<div class="notice"><b>Inputs used:</b> m_total '+f(r.total_mass_kg,1)+' kg • Payload '+f(r.payload_mass_kg,1)+' kg • Boom '+f(r.boom_mass_kg,1)+' kg • Track '+f(r.track_width_m,3)+' m • WB '+f(r.wheelbase_m,3)+' m • θ '+f(r.crane_angle_deg,1)+'°</div>'+
+      stabilityVariableTableHtml(r)+
+      '<div class="notice"><b>Inputs used:</b> m_total '+f(r.total_mass_kg,1)+' kg • Payload '+f(r.payload_mass_kg,1)+' kg • Boom '+f(r.boom_mass_kg,1)+' kg • Track '+f(r.track_width_m,3)+' m • WB '+f(r.wheelbase_m,3)+' m • θ '+f(r.crane_angle_deg,1)+' deg</div>'+
       '<div class="metric-grid">'+
-      '<div class="metric"><div class="k">Current Governing</div><div class="v">'+cgSf+'</div><div>'+fbdName(cg.key)+' • '+statusSpan(cg.pass)+'</div></div>'+
-      '<div class="metric"><div class="k">Critical Worst</div><div class="v">'+critSf+'</div><div>'+fbdName(crit.key)+' • '+statusSpan(crit.pass)+'</div></div>'+
-      '<div class="metric"><div class="k">Required SF</div><div class="v">'+f(r.required_sf,2)+'</div><div>เกณฑ์ออกแบบ</div></div></div>'+
+      '<div class="metric"><div class="k">Current Governing SF</div><div class="v">'+cgSf+' <small class="metric-unit">-</small></div><div>'+fbdName(cg.key)+' • '+statusSpan(cg.pass)+'</div></div>'+
+      '<div class="metric"><div class="k">Critical Worst SF</div><div class="v">'+critSf+' <small class="metric-unit">-</small></div><div>'+fbdName(crit.key)+' • '+statusSpan(crit.pass)+'</div></div>'+
+      '<div class="metric"><div class="k">Required SF</div><div class="v">'+f(r.required_sf,2)+' <small class="metric-unit">-</small></div><div>ไม่มีหน่วย • เกณฑ์ออกแบบ</div></div></div>'+
       '<h3>Current Angle '+f(r.crane_angle_deg,1)+'°</h3>'+
       '<table><tr><th>Case</th><th>SF</th><th>Status</th></tr>'+
       ['side_left','side_right','front','rear','slope'].map(k=>'<tr><td>'+fbdName(k)+'</td><td>'+fbdSf(r.current_cases[k].sf)+'</td><td>'+statusSpan(r.current_cases[k].pass)+'</td></tr>').join('')+
