@@ -1,48 +1,51 @@
-# Crane Vehicle Engineering Tool V53.8.24
+# Crane Vehicle Engineering Tool V53.8.25
 
-## Web Stability — Mass Modes + Guided Calculation Steps
+## Web Stability — Units + Variable Dictionary
 
-ปรับหน้า Stability บน Web ให้ใช้งานและอ่านผลเหมือน Desktop มากขึ้น โดยแยกแหล่งข้อมูลมวลออกเป็น 2 โหมด และจัดสูตรเป็นขั้นตอน 1 → 4
+เพิ่มหน่วยวิศวกรรมและตารางตัวแปรให้หน้า Stability อ่านง่ายและใช้เป็นเอกสารประกอบการนำเสนอได้ชัดเจนขึ้น
 
-### Stability Mass Mode
-- Mode A — Total Mass: กรอก m_total, Payload, Boom และ CG เอง
-- Mode B — Component Mass: กรอกน้ำหนักและพิกัด x/y/z ของแต่ละชิ้น แล้วรวมมวลและ CG อัตโนมัติ
-- ตาราง Component เริ่มต้น 12 รายการตรงกับ Desktop
-- ใช้กฎจัดกลุ่มเดียวกับ Desktop:
-  - Boom / แขนเครน → m_B
-  - Basket + Payload / ตะกร้า + ซากสัตว์ → m_L
-  - รายการอื่น → Base vehicle
-- คำนวณ Base CG และ Combined CG แบบ weighted average
-- ใน Component Mode ค่า m_total, m_L, m_B, Base CG และ Slope CG ถูก derive จากตารางจริง
-- มวลรวมที่ derive แล้ว sync กลับไปยัง Project mass ที่เกี่ยวข้อง
+### Variable + Unit table
+เพิ่มตารางก่อนผล Stability:
+- ตัวแปร
+- ความหมาย
+- ค่า
+- หน่วย
+- แหล่งที่มา (Input / Derived / Constant / Calculated)
 
-### Guided Calculation UI
-ใต้ FBD ของแต่ละ Case แสดงการคำนวณเป็น 4 ขั้น:
-1. หาแรงและระยะแขนโมเมนต์จากแกนคว่ำ P
-2. หาโมเมนต์คว่ำ M_O = Σ(F_i d_i)
-3. หาโมเมนต์ต้าน M_R = Σ(F_i d_i)
-4. หา Safety Factor SF = M_R / M_O และ PASS/FAIL
+ครอบคลุมตัวแปรหลัก:
+- m_total, m_V, m_L, m_B → kg
+- W, WB, L, x_CG,V, y_CG,V, d_R, h_CG → m
+- θ, α → deg
+- a, g → m/s²
+- M_O, M_R → N·m
+- Kdyn, SF_req, SF → ไม่มีหน่วย
 
-สำหรับ Slope:
-1. หา W_parallel, W_normal และ F_I
-2. หา d_R และ h_CG
-3. หา M_O และ M_R
-4. หา SF_slope และ PASS/FAIL
+### Unit Convention
+เพิ่มกล่องสรุปมาตรฐานหน่วย:
+Mass = kg
+Distance = m
+Force = N
+Moment = N·m
+Angle = deg
+Acceleration = m/s²
+Safety Factor = ไม่มีหน่วย
 
-### Web UX
-- เพิ่ม Mode cards A/B ที่เห็นชัดว่าเลือกโหมดไหนอยู่
-- Component table แสดง Σm และ CG preview ทันที
-- แสดง Base / Boom / Basket+Payload breakdown
-- ผลลัพธ์บอก Mass Source ว่ามาจาก Total Mass หรือ Component Mass
-- Step cards รองรับจอมือถือด้วย
+### Guided calculation
+- ตาราง Step 1 ระบุหัวคอลัมน์ Force (N), Position (m), Arm (m) ชัดเจน
+- Step 2/3 แสดง M_O และ M_R เป็น N·m
+- Step 4 แสดงการตัดหน่วย N·m / N·m และระบุว่า SF ไม่มีหน่วย
+- Metric cards ระบุ SF เป็น dimensionless
+
+### Component Mass
+- ปรับหัวตารางเป็น Mass (kg), x (m), y (m), z (m)
 
 ### Regression
-- เพิ่ม Web Component Mass regression
-- ตรวจ Σm = 300 kg, Base = 180 kg, Boom = 20 kg, Basket+Payload = 100 kg จาก default table
-- ตรวจผล Component Mode เท่ากับ Total Mode เมื่อใช้ derived mass/CG เดียวกัน
-- ตรวจ Static UI สำหรับ mass mode และ 4-step calculation
-- Regression ชุด Desktop/Web เดิมยังคงทำงานทั้งหมด
+- ตรวจว่าหน้า Web มี Stability variable dictionary
+- ตรวจ Unit Convention
+- ตรวจ N·m และ m/s²
+- ตรวจหัวตาราง Component units
+- Regression เดิมของ Stability, Component Mode, FBD, PDF และ Desktop/Web parity ยังคงทำงาน
 
 ### Calculation scope
-ยังเป็น Preliminary engineering calculation
-ควรยืนยันมวลจริง, CG จริง, ตำแหน่งอุปกรณ์จริง และ geometry จุดรองรับก่อนผลิตใช้งาน
+เป็น Preliminary engineering calculation
+ควรยืนยันมวลจริง, CG จริง, geometry จุดรองรับ และโหลดไดนามิกก่อนผลิตใช้งาน
