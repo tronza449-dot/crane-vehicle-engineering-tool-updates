@@ -3,7 +3,7 @@
 Repository นี้ใช้เป็นช่องทางตรวจสอบและแจกจ่ายเวอร์ชันใหม่ของ **Crane Vehicle Engineering Tool**
 
 ## Current version
-- **V53.8.26**
+- **V53.8.27**
 
 ## Main additions
 - ESP32 DevKit V1 / ESP-WROOM-32 as current project controller target
