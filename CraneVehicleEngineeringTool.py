@@ -7965,6 +7965,194 @@ void loop() {{
         return h
 
 
+    def battery_report_html(self,q=None):
+        """Presentation-first main-battery report: answer first, formulas in appendix."""
+        q=q or self.electrical_results()
+        sel=self.battery_selection_results()
+        drive_pct=(100.0*q["Edrive_cycle"]/q["Ecycle"]) if q["Ecycle"]>0 else 0.0
+        aux_pct=(100.0*q["Eaux_cycle"]/q["Ecycle"]) if q["Ecycle"]>0 else 0.0
+        dominant=("Auxiliary" if q["Eaux_cycle"]>q["Edrive_cycle"] else "Drive")
+        turn_text=("INCLUDED" if q["turn_enabled"] else "NOT INCLUDED")
+        generated=datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        def metric(label,value,note=""):
+            return (
+                "<td style='width:25%;border:1px solid #d8e2ec;padding:10px;background:#f7fafc'>"
+                f"<div style='font-size:8.5pt;color:#60758b;font-weight:700'>{label}</div>"
+                f"<div style='font-size:16pt;color:#17324d;font-weight:900;margin-top:4px'>{value}</div>"
+                f"<div style='font-size:8pt;color:#71869a;margin-top:3px'>{note}</div></td>"
+            )
+
+        css="""<style>
+        body{font-family:'Noto Sans Thai','Leelawadee UI',Tahoma,Arial;font-size:9.5pt;color:#17324d;line-height:1.45}
+        h1{font-size:20pt;color:#102e49;margin:0 0 5px 0}
+        h2{font-size:14pt;color:#17456b;border-bottom:2px solid #d8e5ef;padding-bottom:5px;margin:18px 0 10px}
+        h3{font-size:11.5pt;color:#17456b;margin:13px 0 6px}
+        p{margin:5px 0}
+        table{border-collapse:collapse;width:100%}
+        th{background:#eaf2fb;color:#244865;font-weight:800;padding:6px;border:1px solid #d3dfe9}
+        td{padding:6px;border:1px solid #d8e2ec;vertical-align:top}
+        .muted{color:#60758b}.small{font-size:8.5pt}
+        .hero{border:1px solid #cfe2f5;background:#eef6ff;padding:12px;margin:9px 0}
+        .answer{border:2px solid #a9d7ba;background:#eefaf4;padding:12px;margin:10px 0}
+        .warn{border:1px solid #ead39a;background:#fff8e9;padding:10px;margin:9px 0;color:#68420b}
+        .danger{border:1px solid #f2b5b5;background:#fff0f0;padding:10px;margin:9px 0;color:#8a241c}
+        .flow{border:1px solid #d8e2ec;background:#fbfdff;padding:10px;text-align:center;font-weight:800}
+        .pagebreak{page-break-before:always}
+        .keep{page-break-inside:avoid}
+        </style>"""
+
+        summary=f"""
+        {css}
+        <h1>รายงานคำนวณแบตเตอรี่หลัก {q['V']:.0f} V</h1>
+        <p class='muted'><b>Simple Cycle Preliminary Sizing</b> • Version {APP_VERSION} • Generated {generated}</p>
+        <div class='hero'>
+          <b>โจทย์ที่รายงานนี้ตอบ:</b> รถใช้พลังงานเท่าไรต่อ 1 รอบไป-กลับ, ทำงานได้กี่รอบในเวลาที่กำหนด,
+          และควรเลือกแบตเตอรี่หลักกี่ Ah พร้อม BMS Continuous / Peak ขั้นต่ำเท่าไร
+        </div>
+
+        <h2>1. Executive Summary / สรุปคำตอบก่อน</h2>
+        <table cellspacing='0' cellpadding='0'><tr>
+        {metric("พลังงานรวม / 1 Cycle",f"{q['Ecycle']:.3f} Wh","Drive + Auxiliary")}
+        {metric("จำนวนรอบเต็ม",f"{q['cycles']} Cycle",f"ใน {q['runtime_h']:.2f} h")}
+        {metric("ความจุขั้นต่ำ",f"{q['Ah']:.2f} Ah","หลัง DoD + Reserve")}
+        {metric("ขนาดมาตรฐานเบื้องต้น",f"{q['recommended_standard']:.0f} Ah @ {q['V']:.0f} V",f"Kb = {q['Kb']:.2f}")}
+        </tr><tr>
+        {metric("พลังงานรวม",f"{q['Eload']:.1f} Wh",f"{q['cycles']} Cycle")}
+        {metric("BMS Continuous ≥",f"{sel['bms_cont']:.0f} A",f"required {sel['cont_req']:.2f} A")}
+        {metric("BMS Peak ≥",f"{sel['bms_peak']:.0f} A",f"required {sel['peak_calc']:.2f} A")}
+        {metric("Turning Energy",turn_text,f"{q['Eturn_cycle']:.4f} Wh/Cycle")}
+        </tr></table>
+
+        <div class='answer'>
+          <b>คำตอบสำหรับเลือกซื้อเบื้องต้น:</b>
+          เริ่มตรวจสเปกที่ประมาณ <b>{max(q['recommended_standard'],sel['suggested']):.0f} Ah @ {q['V']:.0f} V</b>,
+          BMS Continuous อย่างน้อย <b>{sel['bms_cont']:.0f} A</b> และ BMS Peak อย่างน้อย
+          <b>{sel['bms_peak']:.0f} A</b> ตามแบบจำลองปัจจุบัน.<br>
+          <span class='small'>Ah ใช้ตรวจความจุพลังงาน ส่วน BMS/สาย/Fuse/VESC current limit ต้องตรวจแยก.</span>
+        </div>
+
+        <h2>2. Input & Assumptions / ข้อมูลตั้งต้น</h2>
+        <table>
+        <tr><th>ตัวแปร</th><th>ความหมาย</th><th>ค่า</th><th>หน่วย</th></tr>
+        <tr><td>m</td><td>มวลรวมรถ</td><td>{q['m']:.2f}</td><td>kg</td></tr>
+        <tr><td>V</td><td>แรงดันแบตเตอรี่หลัก</td><td>{q['V']:.1f}</td><td>V</td></tr>
+        <tr><td>v</td><td>ความเร็วรถ</td><td>{q['v']*3.6:.2f}</td><td>km/h</td></tr>
+        <tr><td>d_oneway</td><td>ระยะเที่ยวเดียว</td><td>{q['one']:.2f}</td><td>m</td></tr>
+        <tr><td>L_slope</td><td>ระยะทางลาดต่อเที่ยว</td><td>{q['Ls']:.2f}</td><td>m</td></tr>
+        <tr><td>θ</td><td>มุมทางลาด</td><td>{math.degrees(q['theta']):.2f}</td><td>deg</td></tr>
+        <tr><td>Crr</td><td>Rolling resistance coefficient</td><td>{q['crr']:.3f}</td><td>-</td></tr>
+        <tr><td>η</td><td>ประสิทธิภาพระบบขับโดยประมาณ</td><td>{q['eff']*100:.1f}</td><td>%</td></tr>
+        <tr><td>P_aux</td><td>กำลัง Auxiliary เฉลี่ย</td><td>{self.eaux.value():.1f}</td><td>W</td></tr>
+        <tr><td>DoD</td><td>สัดส่วนความจุที่อนุญาตให้ใช้</td><td>{q['dod']*100:.1f}</td><td>%</td></tr>
+        <tr><td>Reserve</td><td>พลังงานสำรอง</td><td>{q['reserve']*100:.1f}</td><td>%</td></tr>
+        <tr><td>Kb</td><td>Battery Design Factor</td><td>{q['Kb']:.2f}</td><td>-</td></tr>
+        </table>
+        <div class='warn'><b>Kb = {q['Kb']:.2f}</b> เป็น Preliminary Design Allowance ของแบบจำลองนี้
+        ไม่ใช่ค่ามาตรฐานตายตัวของแบตเตอรี่หรือมาตรฐานอุตสาหกรรม.</div>
+        """
+
+        cycle=f"""
+        <div class='pagebreak'></div>
+        <h2>3. One Cycle / หนึ่งรอบไป-กลับใช้พลังงานอย่างไร</h2>
+        <div class='flow'>
+          ไป {q['one']:.2f} m = ราบ {q['flat_oneway']:.2f} m + ขึ้นลาด {q['Ls']:.2f} m
+          &nbsp; → &nbsp;
+          กลับ {q['one']:.2f} m = ลงลาด {q['Ls']:.2f} m + ราบ {q['flat_oneway']:.2f} m
+        </div>
+        <table style='margin-top:10px'>
+        <tr><th>ช่วง</th><th>พลังงาน</th><th>หน่วย</th><th>หมายเหตุ</th></tr>
+        <tr><td>ทางราบ — เที่ยวไป</td><td>{q['Eflat_batt_oneway']:.3f}</td><td>Wh</td><td>F_flat = Crr mg</td></tr>
+        <tr><td>ขึ้นทางลาด</td><td>{q['Eup_batt_cycle']:.3f}</td><td>Wh</td><td>F_up = mg sinθ + Crr mg cosθ</td></tr>
+        <tr><td>ลงทางลาด</td><td>{q['Edown_batt_cycle']:.3f}</td><td>Wh</td><td>ไม่หัก Regen คืน</td></tr>
+        <tr><td>ทางราบ — เที่ยวกลับ</td><td>{q['Eflat_batt_oneway']:.3f}</td><td>Wh</td><td>ยังใช้พลังงานแม้ช่วงลาดลง ≈ 0 Wh</td></tr>
+        <tr><td>Differential/Pivot</td><td>{q['Eturn_cycle']:.4f}</td><td>Wh/Cycle</td><td>{turn_text}</td></tr>
+        <tr><td><b>Drive subtotal</b></td><td><b>{q['Edrive_cycle']:.3f}</b></td><td><b>Wh/Cycle</b></td><td>{drive_pct:.1f}% ของพลังงานต่อ Cycle</td></tr>
+        <tr><td>Auxiliary</td><td>{q['Eaux_cycle']:.3f}</td><td>Wh/Cycle</td><td>{aux_pct:.1f}% ของพลังงานต่อ Cycle</td></tr>
+        <tr><td><b>Total</b></td><td><b>{q['Ecycle']:.3f}</b></td><td><b>Wh/Cycle</b></td><td><b>{dominant}</b> เป็นสัดส่วนที่มากกว่าใน Scenario นี้</td></tr>
+        </table>
+
+        <div class='warn'><b>เหตุผลที่ Downhill อาจ = 0 Wh:</b>
+        แบบจำลองใช้ F_down = max(0, Crr mg cosθ - mg sinθ).
+        ถ้าแรงโน้มถ่วงมากพอ รถไม่ต้องใช้แรงขับบวกบนช่วงลาดลง จึงประมาณ traction energy = 0 Wh.
+        แต่ <b>เที่ยวกลับไม่ใช่ 0 Wh</b> เพราะยังมีทางราบและ Auxiliary.</div>
+
+        <h2>4. Runtime & Number of Cycles / เวลาและจำนวนรอบ</h2>
+        <table>
+        <tr><th>รายการ</th><th>ค่า</th><th>หน่วย</th></tr>
+        <tr><td>เวลาขับรถต่อ Cycle</td><td>{q['drive_cycle_s']:.2f}</td><td>s</td></tr>
+        <tr><td>เวลายกที่นำมารวมใน Cycle</td><td>{q['lift_round_s']:.2f}</td><td>s</td></tr>
+        <tr><td>เวลาหยุดอื่น</td><td>{q['other_stop_s']:.2f}</td><td>s</td></tr>
+        <tr><td>เวลาหมุน Pivot</td><td>{q['turn_time_cycle_s']:.2f}</td><td>s</td></tr>
+        <tr><td><b>เวลา 1 Cycle</b></td><td><b>{q['cycle_total_s']:.2f}</b></td><td><b>s/Cycle</b></td></tr>
+        <tr><td>เวลาทำงานเป้าหมาย</td><td>{q['runtime_h']:.2f}</td><td>h</td></tr>
+        <tr><td><b>จำนวน Cycle เต็ม</b></td><td><b>{q['cycles']}</b></td><td>Cycle</td></tr>
+        </table>
+        <p><b>สูตร:</b> N_cycle = floor(t_runtime / t_cycle) =
+        floor({q['runtime_s']:.0f} / {q['cycle_total_s']:.2f}) = <b>{q['cycles']} Cycle</b></p>
+        """
+
+        sizing=f"""
+        <div class='pagebreak'></div>
+        <h2>5. Battery Sizing Flow / จาก Wh ไปเป็น Ah</h2>
+        <div class='flow'>
+          {q['Ecycle']:.3f} Wh/Cycle × {q['cycles']} Cycle
+          → {q['Eload']:.2f} Wh
+          → ÷ DoD {q['dod']:.2f}
+          → {q['Enom']:.2f} Wh
+          → + Reserve {q['reserve']*100:.0f}%
+          → {q['Edesign']:.2f} Wh
+          → ÷ {q['V']:.0f} V
+          → {q['Ah']:.2f} Ah
+          → × Kb {q['Kb']:.2f}
+          → {q['Ah_recommended']:.2f} Ah
+          → ≈ {q['recommended_standard']:.0f} Ah
+        </div>
+        <table style='margin-top:10px'>
+        <tr><th>ขั้น</th><th>สูตร</th><th>ผล</th><th>หน่วย</th></tr>
+        <tr><td>พลังงานใช้งานจริง</td><td>E_total = E_cycle × N_cycle</td><td>{q['Eload']:.2f}</td><td>Wh</td></tr>
+        <tr><td>เผื่อ DoD</td><td>E_nominal = E_total / DoD</td><td>{q['Enom']:.2f}</td><td>Wh</td></tr>
+        <tr><td>เผื่อ Reserve</td><td>E_design = E_nominal(1+Reserve)</td><td>{q['Edesign']:.2f}</td><td>Wh</td></tr>
+        <tr><td>ขั้นต่ำจากพลังงาน</td><td>Ah_min = E_design / V</td><td>{q['Ah']:.2f}</td><td>Ah</td></tr>
+        <tr><td>Practical allowance</td><td>Ah_practical = Ah_min × Kb</td><td>{q['Ah_recommended']:.2f}</td><td>Ah</td></tr>
+        <tr><td><b>ขนาดมาตรฐานเบื้องต้น</b></td><td>round up</td><td><b>{q['recommended_standard']:.0f}</b></td><td><b>Ah @ {q['V']:.0f} V</b></td></tr>
+        </table>
+
+        <h2>6. Current / BMS Check — แยกจาก Energy Sizing</h2>
+        <table>
+        <tr><th>รายการ</th><th>ค่าที่ต้องรองรับ</th><th>ค่าปัดขึ้นเบื้องต้น</th><th>ความหมาย</th></tr>
+        <tr><td>Continuous current</td><td>{sel['cont_req']:.2f} A</td><td><b>BMS ≥ {sel['bms_cont']:.0f} A</b></td><td>steady uphill / pivot demand</td></tr>
+        <tr><td>Peak current</td><td>{sel['peak_calc']:.2f} A</td><td><b>BMS Peak ≥ {sel['bms_peak']:.0f} A</b></td><td>รวม Drive Torque design-current reference</td></tr>
+        <tr><td>Drive design-current reference</td><td>{sel['t']['Ibatt']:.2f} A</td><td>-</td><td>มาจาก Drive Torque model</td></tr>
+        </table>
+        <div class='warn'>
+        <b>ก่อนซื้อจริง:</b> ตรวจ Pack voltage/chemistry, BMS Continuous/Peak, cell current rating,
+        connector, cable, fuse, charger และ VESC battery-current limit จาก datasheet จริง.
+        ค่าด้านบนเป็น preliminary calculation ไม่ใช่การรับรองแบตเตอรี่.
+        </div>
+
+        <h2>7. What Is / Is Not Included</h2>
+        <table>
+        <tr><th>หัวข้อ</th><th>สถานะ</th><th>รายละเอียด</th></tr>
+        <tr><td>Drive traction energy</td><td>INCLUDED</td><td>Flat + uphill + downhill model</td></tr>
+        <tr><td>Auxiliary energy</td><td>INCLUDED</td><td>P_aux × t_cycle</td></tr>
+        <tr><td>Winch 12 V energy</td><td>NOT INCLUDED</td><td>ใช้แบต 12 V แยก แต่เวลายกสามารถรวมใน t_cycle</td></tr>
+        <tr><td>Regenerative energy credit</td><td>NOT INCLUDED</td><td>ไม่หักพลังงานคืนจากช่วงลงลาด</td></tr>
+        <tr><td>Acceleration/start energy in Ah sizing</td><td>NOT INCLUDED</td><td>ใช้สำหรับ current/peak check แยก</td></tr>
+        <tr><td>Differential/Pivot energy</td><td>{turn_text}</td><td>{q['Eturn_cycle']:.4f} Wh/Cycle</td></tr>
+        </table>
+        """
+
+        appendix=f"""
+        <div class='pagebreak'></div>
+        <h2>Appendix A — Detailed Formula & Substitution</h2>
+        <p class='muted'>ส่วนนี้เก็บสูตรเต็มสำหรับตรวจสอบที่มาของตัวเลข โดยไม่รบกวนหน้าสรุปหลัก.</p>
+        {self.equation_html(q,include_intro=False)}
+        """
+
+        return summary+cycle+sizing+appendix
+
+
     def export_electrical_pdf(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
         from PySide6.QtGui import QTextDocument
@@ -7977,12 +8165,7 @@ void loop() {{
             q=self.electrical_results()
             document=QTextDocument()
             document.setDefaultFont(QFont("Noto Sans Thai",10))
-            summary=(f"<h1>รายงานคำนวณแบตเตอรี่หลัก 72 V — Simple Cycle</h1>"
-                     f"<p><b>วิธีคำนวณ:</b> คิดพลังงานทีละ 1 Cycle แล้วรวมตามจำนวน Cycle ที่ทำได้; "
-                     f"มวลรวม {q['m']:.1f} kg; แบตเตอรี่ {q['V']:.1f} V; เวลาทำงานเป้าหมาย {q['runtime_h']:.2f} h</p>")
-            document.setHtml(summary+self.equation_html(q)+
-                "<hr/><h2>คำอธิบายภาษาไทยเพิ่มเติม</h2>"+
-                self.eThaiExplain.toHtml())
+            document.setHtml(self.battery_report_html(q))
             printer=QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(filename)
