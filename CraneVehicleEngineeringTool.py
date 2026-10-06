@@ -7794,28 +7794,30 @@ void loop() {{
         return locals()
 
 
-    def equation_html(self,q):
+    def equation_html(self,q,include_intro=True):
         """Thai-first, step-by-step battery calculation with explicit substitution."""
         def box(title,body):
             return f"<div style='border:1px solid #d6e0ea;padding:12px 14px;margin:10px 0;background:#fbfdff'><h3 style='color:#17456b'>{title}</h3>{body}</div>"
 
-        h=f"""<h2>MAIN BATTERY 72 V — สูตร + แทนค่าแบบทีละขั้น</h2>
-        <p><b>จุดประสงค์:</b> คำนวณว่ารถใช้พลังงานกี่ Wh ต่อ 1 Cycle จากนั้นหาจำนวน Cycle ในเวลาทำงาน
-        แล้วแปลงพลังงานรวมเป็นความจุแบตเตอรี่ Ah ที่ควรใช้จริง.</p>
+        h=""
+        if include_intro:
+            h+=f"""<h2>MAIN BATTERY 72 V — สูตร + แทนค่าแบบทีละขั้น</h2>
+            <p><b>จุดประสงค์:</b> คำนวณว่ารถใช้พลังงานกี่ Wh ต่อ 1 Cycle จากนั้นหาจำนวน Cycle ในเวลาทำงาน
+            แล้วแปลงพลังงานรวมเป็นความจุแบตเตอรี่ Ah ที่ควรใช้จริง.</p>
 
-        <table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
-        <tr><th>ตัวแปร</th><th>ความหมาย</th><th>ค่าที่ใช้</th><th>หน่วย</th></tr>
-        <tr><td>m</td><td>มวลรวมรถที่ใช้คำนวณ</td><td>{q['m']:.2f}</td><td>kg</td></tr>
-        <tr><td>V</td><td>แรงดันแบตเตอรี่หลัก</td><td>{q['V']:.1f}</td><td>V</td></tr>
-        <tr><td>v</td><td>ความเร็วรถ</td><td>{q['v']*3.6:.2f}</td><td>km/h</td></tr>
-        <tr><td>Crr</td><td>สัมประสิทธิ์แรงต้านการกลิ้ง</td><td>{q['crr']:.3f}</td><td>-</td></tr>
-        <tr><td>η</td><td>ประสิทธิภาพระบบขับโดยประมาณ</td><td>{q['eff']:.3f}</td><td>-</td></tr>
-        <tr><td>θ</td><td>มุมทางลาด</td><td>{math.degrees(q['theta']):.2f}</td><td>deg</td></tr>
-        <tr><td>DoD</td><td>สัดส่วนความจุแบตที่อนุญาตให้ใช้</td><td>{q['dod']*100:.1f}</td><td>%</td></tr>
-        <tr><td>Reserve</td><td>พลังงานสำรองเผื่อความคลาดเคลื่อน</td><td>{q['reserve']*100:.1f}</td><td>%</td></tr>
-        <tr><td>Kb</td><td>Battery Design Factor สำหรับแบบจำลองหยาบ</td><td>{q['Kb']:.2f}</td><td>-</td></tr>
-        </table>
-        """
+            <table border='1' cellspacing='0' cellpadding='5' style='border-collapse:collapse;width:100%'>
+            <tr><th>ตัวแปร</th><th>ความหมาย</th><th>ค่าที่ใช้</th><th>หน่วย</th></tr>
+            <tr><td>m</td><td>มวลรวมรถที่ใช้คำนวณ</td><td>{q['m']:.2f}</td><td>kg</td></tr>
+            <tr><td>V</td><td>แรงดันแบตเตอรี่หลัก</td><td>{q['V']:.1f}</td><td>V</td></tr>
+            <tr><td>v</td><td>ความเร็วรถ</td><td>{q['v']*3.6:.2f}</td><td>km/h</td></tr>
+            <tr><td>Crr</td><td>สัมประสิทธิ์แรงต้านการกลิ้ง</td><td>{q['crr']:.3f}</td><td>-</td></tr>
+            <tr><td>η</td><td>ประสิทธิภาพระบบขับโดยประมาณ</td><td>{q['eff']:.3f}</td><td>-</td></tr>
+            <tr><td>θ</td><td>มุมทางลาด</td><td>{math.degrees(q['theta']):.2f}</td><td>deg</td></tr>
+            <tr><td>DoD</td><td>สัดส่วนความจุแบตที่อนุญาตให้ใช้</td><td>{q['dod']*100:.1f}</td><td>%</td></tr>
+            <tr><td>Reserve</td><td>พลังงานสำรองเผื่อความคลาดเคลื่อน</td><td>{q['reserve']*100:.1f}</td><td>%</td></tr>
+            <tr><td>Kb</td><td>Battery Design Factor สำหรับแบบจำลองหยาบ</td><td>{q['Kb']:.2f}</td><td>-</td></tr>
+            </table>
+            """
 
         h+=box("1) แบ่งเส้นทางของ 1 Cycle",f"""
         <p><b>กำลังหาอะไร:</b> แยกระยะทาง 1 เที่ยวออกเป็นทางราบและทางลาด เพื่อคำนวณพลังงานแต่ละช่วงแยกกัน</p>
@@ -7866,21 +7868,24 @@ void loop() {{
         <p><b>อธิบาย:</b> ถ้าแรงโน้มถ่วงช่วยให้รถไหลลงได้เอง ค่า E_down อาจประมาณ 0 Wh
         แต่ <b>เที่ยวกลับไม่เท่ากับ 0 Wh</b> เพราะยังมีทางราบ {q['flat_oneway']:.2f} m ที่ต้องใช้พลังงาน</p>""")
 
-        turn_state="รวมในการคำนวณ / INCLUDED" if q["turn_enabled"] else "ไม่รวมในการคำนวณ / NOT INCLUDED"
-        h+=box("5) Differential / Pivot Turning Energy",f"""
-        <p><b>สถานะ:</b> {turn_state}</p>
-        <p><b>กำลังหาอะไร:</b> ประมาณพลังงานที่เสียไปจากการหมุนรถแบบ Differential/Pivot ซึ่งมีการไถลของยางกับพื้น</p>
-        <p><b>สูตรระยะที่ล้อแต่ละฝั่งเคลื่อน:</b> s_turn = (W/2)φ</p>
-        <p><b>แทนค่า:</b> Track W = {q['turn_track']:.3f} m, มุมหมุน = {q['turn_angle_deg']:.1f}°
-        → s_turn = <b>{q['turn_wheel_path']:.3f} m/ฝั่ง/ครั้ง</b></p>
-        <p><b>สูตรแรงต้านหมุนโดยประมาณ:</b> F_turn = C_turn m g</p>
-        <p><b>แทนค่า:</b> F_turn = {q['turn_coeff']:.3f} × {q['m']:.2f} × 9.81
-        = <b>{q['Fturn_effective']:.2f} N</b></p>
-        <p><b>สูตรพลังงานต่อการหมุน 1 ครั้ง:</b> E_turn,event = F_turn s_turn /(η×3600)</p>
-        <p><b>แทนค่า:</b> E_turn,event = <b>{q['Eturn_event']:.4f} Wh</b></p>
-        <p><b>พลังงานหมุนต่อ Cycle:</b> E_turn,cycle = E_turn,event × N_turn =
-        {q['Eturn_event']:.4f} × {q['turn_events']} = <b>{q['Eturn_cycle']:.4f} Wh/Cycle</b></p>
-        <p><b>หมายเหตุ:</b> C_turn เป็นค่าประมาณสำหรับ preliminary sizing ควรปรับจากการวัดกระแสจริง โดยเฉพาะรถที่มีล้อพยุงแบบไม่เลี้ยวตาม</p>""")
+        if q["turn_enabled"]:
+            h+=box("5) Differential / Pivot Turning Energy — INCLUDED",f"""
+            <p><b>สถานะ:</b> รวมในการคำนวณ / INCLUDED</p>
+            <p><b>สูตรระยะล้อ:</b> s_turn = (W/2)φ =
+            ({q['turn_track']:.3f}/2) × {math.radians(q['turn_angle_deg']):.3f}
+            = <b>{q['turn_wheel_path']:.3f} m/ฝั่ง/ครั้ง</b></p>
+            <p><b>แรงต้านหมุนโดยประมาณ:</b> F_turn = C_turn m g =
+            {q['turn_coeff']:.3f} × {q['m']:.2f} × 9.81 = <b>{q['Fturn_effective']:.2f} N</b></p>
+            <p><b>พลังงาน:</b> E_turn,event = F_turn s_turn /(η×3600) =
+            <b>{q['Eturn_event']:.4f} Wh/ครั้ง</b></p>
+            <p><b>ต่อ Cycle:</b> {q['Eturn_event']:.4f} × {q['turn_events']} =
+            <b>{q['Eturn_cycle']:.4f} Wh/Cycle</b></p>
+            <p><b>หมายเหตุ:</b> C_turn เป็นค่าประมาณ ควรปรับจากการวัดกระแสจริง.</p>""")
+        else:
+            h+=box("5) Differential / Pivot Turning Energy — NOT INCLUDED",f"""
+            <p><b>สถานะ:</b> ไม่รวมในการคำนวณหลัก</p>
+            <p>ดังนั้น <b>E_turn,cycle = {q['Eturn_cycle']:.4f} Wh/Cycle</b> และเวลาหมุนที่นำมาคิด = <b>{q['turn_time_cycle_s']:.2f} s/Cycle</b>.</p>
+            <p>สูตร Turning ถูกเก็บไว้เป็นตัวเลือกสำหรับ Scenario ที่ต้องการประเมินการสูญเสียจากการ Pivot/Differential turn.</p>""")
 
         h+=box("6) รวมพลังงานเที่ยวไป เที่ยวกลับ และ 1 Cycle",f"""
         <p><b>กำลังหาอะไร:</b> รวมพลังงานขับทั้งหมดที่เกิดขึ้นจริงใน 1 รอบไป-กลับ</p>
@@ -8019,8 +8024,10 @@ void loop() {{
     def battery_selection_results(self):
         e=self.electrical_results();t=self.torque_results()
         energy_min=max(0.0,e.get("Ah_recommended",e["Ah"]))
-        cont_req=max(0.0,t["Ibatt"],e["Icalc_up"])
-        peak_calc=max(0.0,e["Icalc_up"],e.get("Iturn_avg",0.0))
+        # Continuous = steady operating demand. Peak also covers the Drive Torque
+        # design-current reference, which includes acceleration/design allowance.
+        cont_req=max(0.0,e["Icalc_up"],e.get("Iturn_avg",0.0))
+        peak_calc=max(cont_req,max(0.0,t["Ibatt"]))
         controller_indicator=self.controllerCurrent.value()*max(1,t["n"]) if hasattr(self,"controllerCurrent") else 0.0
         target_cont=max(0.1,self.bselTargetContC.value()) if hasattr(self,"bselTargetContC") else 3.0
         target_peak=max(0.1,self.bselTargetPeakC.value()) if hasattr(self,"bselTargetPeakC") else 5.0
