@@ -1,51 +1,62 @@
-# Crane Vehicle Engineering Tool V53.8.25
+# Crane Vehicle Engineering Tool V53.8.26
 
-## Web Stability — Units + Variable Dictionary
+## Battery PDF Report — Presentation-first Redesign
 
-เพิ่มหน่วยวิศวกรรมและตารางตัวแปรให้หน้า Stability อ่านง่ายและใช้เป็นเอกสารประกอบการนำเสนอได้ชัดเจนขึ้น
+ปรับรายงาน Battery Calculation PDF ให้เข้าใจง่ายขึ้น โดยคงสูตรเดิม แต่เปลี่ยนลำดับการเล่าเรื่องจาก “สูตรยาวต่อเนื่อง” เป็น “คำตอบก่อน → เหตุผล → สูตรละเอียด”
 
-### Variable + Unit table
-เพิ่มตารางก่อนผล Stability:
-- ตัวแปร
-- ความหมาย
-- ค่า
-- หน่วย
-- แหล่งที่มา (Input / Derived / Constant / Calculated)
+### New report order
+1. Executive Summary / สรุปคำตอบก่อน
+2. Input & Assumptions
+3. One Cycle Energy Breakdown
+4. Runtime & Number of Cycles
+5. Battery Sizing Flow: Wh → Ah
+6. Current / BMS Check
+7. What Is / Is Not Included
+8. Appendix A — Detailed Formula & Substitution
 
-ครอบคลุมตัวแปรหลัก:
-- m_total, m_V, m_L, m_B → kg
-- W, WB, L, x_CG,V, y_CG,V, d_R, h_CG → m
-- θ, α → deg
-- a, g → m/s²
-- M_O, M_R → N·m
-- Kdyn, SF_req, SF → ไม่มีหน่วย
+### Executive Summary
+หน้าแรกแสดงทันที:
+- Wh/Cycle
+- จำนวน Cycle เต็ม
+- พลังงานรวม Wh
+- Ah ขั้นต่ำ
+- Ah practical / ขนาดมาตรฐานเบื้องต้น
+- BMS Continuous ขั้นต่ำ
+- BMS Peak ขั้นต่ำ
+- สถานะ Turning Energy
 
-### Unit Convention
-เพิ่มกล่องสรุปมาตรฐานหน่วย:
-Mass = kg
-Distance = m
-Force = N
-Moment = N·m
-Angle = deg
-Acceleration = m/s²
-Safety Factor = ไม่มีหน่วย
+### One Cycle Energy Breakdown
+รวมข้อมูลเที่ยวไป/กลับไว้ในตารางเดียว:
+- Flat outbound
+- Uphill
+- Downhill
+- Flat return
+- Differential/Pivot
+- Drive subtotal
+- Auxiliary
+- Total Wh/Cycle
+พร้อมเปอร์เซ็นต์ Drive vs Auxiliary เพื่อเห็นว่าส่วนใดเป็นโหลดหลักใน Scenario ปัจจุบัน
 
-### Guided calculation
-- ตาราง Step 1 ระบุหัวคอลัมน์ Force (N), Position (m), Arm (m) ชัดเจน
-- Step 2/3 แสดง M_O และ M_R เป็น N·m
-- Step 4 แสดงการตัดหน่วย N·m / N·m และระบุว่า SF ไม่มีหน่วย
-- Metric cards ระบุ SF เป็น dimensionless
+### Battery Sizing Flow
+แสดง Flow เดียว:
+E_cycle × N_cycle → E_total → DoD → Reserve → Ah_min → Kb → Ah_practical → standard Ah
 
-### Component Mass
-- ปรับหัวตารางเป็น Mass (kg), x (m), y (m), z (m)
+### Current / BMS
+- Continuous = max(steady uphill, pivot average)
+- Peak = max(Continuous, Drive Torque design-current reference)
+- ป้องกันกรณี Peak ต่ำกว่า Continuous
+- แสดง BMS floor แยกจาก Energy/Ah sizing
 
-### Regression
-- ตรวจว่าหน้า Web มี Stability variable dictionary
-- ตรวจ Unit Convention
-- ตรวจ N·m และ m/s²
-- ตรวจหัวตาราง Component units
-- Regression เดิมของ Stability, Component Mode, FBD, PDF และ Desktop/Web parity ยังคงทำงาน
+### Turning section
+- ถ้า Turning Disabled: แสดงเฉพาะสถานะและค่าที่เป็น 0 แบบสั้น
+- ถ้า Turning Enabled: จึงแสดงสูตรและ substitution เต็ม
 
-### Calculation scope
-เป็น Preliminary engineering calculation
-ควรยืนยันมวลจริง, CG จริง, geometry จุดรองรับ และโหลดไดนามิกก่อนผลิตใช้งาน
+### Removed duplication
+- Battery PDF ไม่ต่อท้าย “คำอธิบายภาษาไทยเพิ่มเติม” ซ้ำอีกครั้ง
+- สูตรเต็มเก็บใน Appendix เพื่อใช้อ้างอิงเมื่ออาจารย์ต้องการดูที่มาของตัวเลข
+
+### Engineering notes
+- Downhill ≈ 0 Wh หมายถึง traction energy บนช่วงลาด ไม่ได้หมายความว่าเที่ยวกลับใช้ 0 Wh
+- Kb เป็น Preliminary Design Allowance ไม่ใช่ค่ามาตรฐานตายตัว
+- Winch 12 V energy ยังแยกจาก Main Battery 72 V; เวลายกสามารถรวมใน Cycle time ได้
+- เป็น Preliminary engineering calculation ต้องยืนยันด้วยข้อมูลจริงก่อนผลิตใช้งาน
