@@ -1,62 +1,55 @@
-# Crane Vehicle Engineering Tool V53.8.26
+# Crane Vehicle Engineering Tool V53.8.27
 
-## Battery PDF Report — Presentation-first Redesign
+## Battery PDF — Guided STEP Cards + Thai Formula Reading
 
-ปรับรายงาน Battery Calculation PDF ให้เข้าใจง่ายขึ้น โดยคงสูตรเดิม แต่เปลี่ยนลำดับการเล่าเรื่องจาก “สูตรยาวต่อเนื่อง” เป็น “คำตอบก่อน → เหตุผล → สูตรละเอียด”
+ปรับส่วนคำนวณใน Battery PDF ให้มองง่ายขึ้นด้วยกรอบ STEP ใหญ่ และเพิ่มคำอธิบายภาษาไทยใต้สูตรทุกสูตรหลัก
 
-### New report order
-1. Executive Summary / สรุปคำตอบก่อน
-2. Input & Assumptions
-3. One Cycle Energy Breakdown
-4. Runtime & Number of Cycles
-5. Battery Sizing Flow: Wh → Ah
-6. Current / BMS Check
-7. What Is / Is Not Included
-8. Appendix A — Detailed Formula & Substitution
+### New STEP layout
+รายงานหลักเรียงเป็น:
+- STEP 1 — แบ่งเส้นทางของ 1 Cycle
+- STEP 2 — หาแรงและพลังงานของแต่ละช่วง
+- STEP 3 — รวมพลังงานให้เป็น 1 Cycle
+- STEP 4 — หาเวลา 1 Cycle และจำนวน Cycle
+- STEP 5 — แปลงพลังงานรวมจาก Wh เป็น Ah
+- STEP 6 — ตรวจ Continuous / Peak Current และ BMS
 
-### Executive Summary
-หน้าแรกแสดงทันที:
-- Wh/Cycle
-- จำนวน Cycle เต็ม
-- พลังงานรวม Wh
-- Ah ขั้นต่ำ
-- Ah practical / ขนาดมาตรฐานเบื้องต้น
-- BMS Continuous ขั้นต่ำ
-- BMS Peak ขั้นต่ำ
-- สถานะ Turning Energy
+### Formula presentation inside each STEP
+ทุกสูตรหลักเรียงรูปแบบเดียวกัน:
+1. สูตร
+2. อ่านสูตรแบบภาษาไทย
+3. แทนค่า
+4. ผลลัพธ์ + หน่วย
+5. ผล STEP
 
-### One Cycle Energy Breakdown
-รวมข้อมูลเที่ยวไป/กลับไว้ในตารางเดียว:
-- Flat outbound
-- Uphill
-- Downhill
-- Flat return
-- Differential/Pivot
-- Drive subtotal
-- Auxiliary
-- Total Wh/Cycle
-พร้อมเปอร์เซ็นต์ Drive vs Auxiliary เพื่อเห็นว่าส่วนใดเป็นโหลดหลักใน Scenario ปัจจุบัน
+ตัวอย่าง:
+F_flat = Crr × m × g
+อ่านสูตรแบบภาษาไทย:
+แรงต้านทางราบ = ค่าสัมประสิทธิ์แรงต้านการกลิ้ง × มวลรถ × แรงโน้มถ่วง
 
-### Battery Sizing Flow
-แสดง Flow เดียว:
-E_cycle × N_cycle → E_total → DoD → Reserve → Ah_min → Kb → Ah_practical → standard Ah
+### Thai explanations added
+ครอบคลุม:
+- แรงต้านทางราบ
+- พลังงานทางราบ
+- แรงขึ้นทางลาด
+- พลังงานขึ้นลาด
+- แรงลงทางลาด
+- พลังงานลงลาด
+- พลังงานเที่ยวไป / เที่ยวกลับ
+- Drive energy / Auxiliary energy / Total Cycle energy
+- เวลา Cycle / จำนวน Cycle
+- E_total / DoD / Reserve
+- Ah_min / Ah_practical
+- Continuous current / Peak current / BMS
 
-### Current / BMS
-- Continuous = max(steady uphill, pivot average)
-- Peak = max(Continuous, Drive Torque design-current reference)
-- ป้องกันกรณี Peak ต่ำกว่า Continuous
-- แสดง BMS floor แยกจาก Energy/Ah sizing
+### Visual hierarchy
+- กรอบใหญ่ 1 กรอบต่อ STEP
+- สูตรเป็นแถบสีน้ำเงินอ่อน
+- คำอธิบายภาษาไทยเป็นแถบสีเหลืองอ่อน
+- แทนค่าเป็นแถบสีม่วงอ่อน
+- ผล STEP เป็นกล่องสีเขียวอ่อน
 
-### Turning section
-- ถ้า Turning Disabled: แสดงเฉพาะสถานะและค่าที่เป็น 0 แบบสั้น
-- ถ้า Turning Enabled: จึงแสดงสูตรและ substitution เต็ม
-
-### Removed duplication
-- Battery PDF ไม่ต่อท้าย “คำอธิบายภาษาไทยเพิ่มเติม” ซ้ำอีกครั้ง
-- สูตรเต็มเก็บใน Appendix เพื่อใช้อ้างอิงเมื่ออาจารย์ต้องการดูที่มาของตัวเลข
-
-### Engineering notes
-- Downhill ≈ 0 Wh หมายถึง traction energy บนช่วงลาด ไม่ได้หมายความว่าเที่ยวกลับใช้ 0 Wh
-- Kb เป็น Preliminary Design Allowance ไม่ใช่ค่ามาตรฐานตายตัว
-- Winch 12 V energy ยังแยกจาก Main Battery 72 V; เวลายกสามารถรวมใน Cycle time ได้
-- เป็น Preliminary engineering calculation ต้องยืนยันด้วยข้อมูลจริงก่อนผลิตใช้งาน
+### Engineering logic
+- BMS Continuous/Peak semantics ยังคงตาม V53.8.26
+- Downhill ≈ 0 Wh ยังอธิบายแยกชัดเจน
+- Kb ยังระบุว่าเป็น Preliminary Design Allowance
+- Appendix สูตรเต็มยังคงอยู่สำหรับตรวจสอบรายละเอียด
