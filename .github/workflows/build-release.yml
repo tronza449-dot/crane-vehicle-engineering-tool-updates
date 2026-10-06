@@ -223,6 +223,11 @@ jobs:
           assert "ฝั่งช่วยต้านการคว่ำ" in source
           assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in source
           assert "สูตร + แทนค่าแบบทีละขั้น" in source
+          assert "def battery_report_html" in source
+          assert "Executive Summary / สรุปคำตอบก่อน" in source
+          assert "Battery Sizing Flow / จาก Wh ไปเป็น Ah" in source
+          assert "Current / BMS Check" in source
+          assert "Appendix A — Detailed Formula & Substitution" in source
           assert "อ่านสูตรแบบภาษาคน" in source
           assert "ตัวแปรในสูตรนี้" in source
           assert "ตัวเลขแต่ละพจน์" in source
@@ -473,6 +478,19 @@ jobs:
           assert br["suggested_runtime"]["full_rounds"]>=0
           assert br["bms_cont"]+1e-9>=br["cont_req"]
           assert br["bms_peak"]+1e-9>=br["peak_calc"]
+          assert br["peak_calc"]+1e-9>=br["cont_req"]
+          assert abs(br["cont_req"]-max(e["Icalc_up"],e.get("Iturn_avg",0.0)))<1e-9
+          assert br["peak_calc"]+1e-9>=br["t"]["Ibatt"]
+          battery_report=w.battery_report_html(e)
+          assert "Executive Summary / สรุปคำตอบก่อน" in battery_report
+          assert "One Cycle / หนึ่งรอบไป-กลับใช้พลังงานอย่างไร" in battery_report
+          assert "Battery Sizing Flow / จาก Wh ไปเป็น Ah" in battery_report
+          assert "Current / BMS Check" in battery_report
+          assert "What Is / Is Not Included" in battery_report
+          assert "Appendix A — Detailed Formula & Substitution" in battery_report
+          assert "คำอธิบายภาษาไทยเพิ่มเติม" not in battery_report
+          assert "BMS Continuous" in battery_report and "BMS Peak" in battery_report
+          assert "Kb =" in battery_report and "Preliminary Design Allowance" in battery_report
           assert w.bselCompareTable.rowCount() >= 10
           assert w.bselCompareTable.columnCount()==8
 
