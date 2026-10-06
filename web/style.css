@@ -255,3 +255,23 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
   .calc-flow-strip i{display:none}
   .calc-step-card{grid-template-columns:34px 1fr;padding:11px}
 }
+
+
+/* V53.8.25 — Stability units and variable dictionary */
+.stability-unit-block{margin:12px 0 14px}
+.unit-convention{padding:10px 12px;border-radius:10px;background:#eef6ff;border:1px solid #cfe2f5;color:#17456b;font-size:12px;line-height:1.55}
+.variable-table-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:12px 0 8px}
+.variable-table-head h4{margin:0;color:#17456b}
+.variable-table-head span{font-size:11px;font-weight:900;color:#60758b;background:#f3f7fb;border:1px solid #d8e2ec;border-radius:999px;padding:6px 9px}
+.variable-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+.stability-variable-table{min-width:760px;margin:0}
+.stability-variable-table th{background:#edf4fb;font-size:11.5px}
+.stability-variable-table td{font-size:12px;vertical-align:middle}
+.stability-variable-table .num-cell{text-align:right;font-variant-numeric:tabular-nums;font-weight:800}
+.stability-variable-table .unit-cell{text-align:center;font-weight:900;color:#245fbb;white-space:nowrap}
+.metric-unit{font-size:12px;color:#71869a;font-weight:800}
+.unit-note{font-size:11.5px;color:#71869a;font-weight:700}
+@media(max-width:720px){
+  .variable-table-head{align-items:flex-start;flex-direction:column}
+  .variable-table-head span{align-self:flex-start}
+}
