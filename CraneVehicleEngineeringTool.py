@@ -7998,6 +7998,13 @@ void loop() {{
         .warn{border:1px solid #ead39a;background:#fff8e9;padding:10px;margin:9px 0;color:#68420b}
         .danger{border:1px solid #f2b5b5;background:#fff0f0;padding:10px;margin:9px 0;color:#8a241c}
         .flow{border:1px solid #d8e2ec;background:#fbfdff;padding:10px;text-align:center;font-weight:800}
+        .stepbox{border:2px solid #b9cfe1;background:#ffffff;margin:12px 0 16px 0;page-break-inside:avoid}
+        .stephead{background:#eaf3fb;color:#17456b;padding:9px 12px;font-size:12pt;font-weight:900;border-bottom:1px solid #b9cfe1}
+        .stepbody{padding:10px 12px}
+        .formula{background:#f7fafc;border-left:4px solid #2f6fa5;padding:8px 10px;margin:8px 0}
+        .thai-formula{background:#fff8e9;border-left:4px solid #d99a21;padding:7px 10px;margin:5px 0;color:#68420b}
+        .substitute{background:#f7f4ff;border-left:4px solid #7c3aed;padding:7px 10px;margin:5px 0}
+        .stepresult{background:#eefaf4;border:1px solid #a9d7ba;padding:8px 10px;margin:8px 0;color:#176337;font-weight:800}
         .pagebreak{page-break-before:always}
         .keep{page-break-inside:avoid}
         </style>"""
@@ -8054,84 +8061,168 @@ void loop() {{
 
         cycle=f"""
         <div class='pagebreak'></div>
-        <h2>3. One Cycle / หนึ่งรอบไป-กลับใช้พลังงานอย่างไร</h2>
-        <div class='flow'>
-          ไป {q['one']:.2f} m = ราบ {q['flat_oneway']:.2f} m + ขึ้นลาด {q['Ls']:.2f} m
-          &nbsp; → &nbsp;
-          กลับ {q['one']:.2f} m = ลงลาด {q['Ls']:.2f} m + ราบ {q['flat_oneway']:.2f} m
+        <h2>Calculation Steps / ลำดับการคำนวณ</h2>
+        <p class='muted'>อ่านทีละกรอบจาก STEP 1 → STEP 6 โดยทุกสูตรมีคำอธิบายภาษาไทยอยู่ใต้สูตรทันที.</p>
+
+        <div class='stepbox'>
+          <div class='stephead'>STEP 1 — แบ่งเส้นทางของ 1 Cycle</div>
+          <div class='stepbody'>
+            <p><b>กำลังหาอะไร:</b> หาระยะทางราบต่อเที่ยว ก่อนนำไปคำนวณพลังงานแต่ละช่วง.</p>
+            <div class='formula'><b>สูตร:</b> d_flat = d_oneway - L_slope</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> ระยะทางราบ = ระยะทางเที่ยวเดียวทั้งหมด − ระยะทางลาด</div>
+            <div class='substitute'><b>แทนค่า:</b> d_flat = {q['one']:.2f} − {q['Ls']:.2f} = {q['flat_oneway']:.2f} m</div>
+            <div class='stepresult'><b>ผล STEP 1:</b> 1 เที่ยว = ทางราบ {q['flat_oneway']:.2f} m + ทางลาด {q['Ls']:.2f} m •
+            1 Cycle = ไป {q['one']:.2f} m + กลับ {q['one']:.2f} m = {q['cycle_distance']:.2f} m/Cycle</div>
+          </div>
         </div>
-        <table style='margin-top:10px'>
-        <tr><th>ช่วง</th><th>พลังงาน</th><th>หน่วย</th><th>หมายเหตุ</th></tr>
-        <tr><td>ทางราบ — เที่ยวไป</td><td>{q['Eflat_batt_oneway']:.3f}</td><td>Wh</td><td>F_flat = Crr mg</td></tr>
-        <tr><td>ขึ้นทางลาด</td><td>{q['Eup_batt_cycle']:.3f}</td><td>Wh</td><td>F_up = mg sinθ + Crr mg cosθ</td></tr>
-        <tr><td>ลงทางลาด</td><td>{q['Edown_batt_cycle']:.3f}</td><td>Wh</td><td>ไม่หัก Regen คืน</td></tr>
-        <tr><td>ทางราบ — เที่ยวกลับ</td><td>{q['Eflat_batt_oneway']:.3f}</td><td>Wh</td><td>ยังใช้พลังงานแม้ช่วงลาดลง ≈ 0 Wh</td></tr>
-        <tr><td>Differential/Pivot</td><td>{q['Eturn_cycle']:.4f}</td><td>Wh/Cycle</td><td>{turn_text}</td></tr>
-        <tr><td><b>Drive subtotal</b></td><td><b>{q['Edrive_cycle']:.3f}</b></td><td><b>Wh/Cycle</b></td><td>{drive_pct:.1f}% ของพลังงานต่อ Cycle</td></tr>
-        <tr><td>Auxiliary</td><td>{q['Eaux_cycle']:.3f}</td><td>Wh/Cycle</td><td>{aux_pct:.1f}% ของพลังงานต่อ Cycle</td></tr>
-        <tr><td><b>Total</b></td><td><b>{q['Ecycle']:.3f}</b></td><td><b>Wh/Cycle</b></td><td><b>{dominant}</b> เป็นสัดส่วนที่มากกว่าใน Scenario นี้</td></tr>
-        </table>
 
-        <div class='warn'><b>เหตุผลที่ Downhill อาจ = 0 Wh:</b>
-        แบบจำลองใช้ F_down = max(0, Crr mg cosθ - mg sinθ).
-        ถ้าแรงโน้มถ่วงมากพอ รถไม่ต้องใช้แรงขับบวกบนช่วงลาดลง จึงประมาณ traction energy = 0 Wh.
-        แต่ <b>เที่ยวกลับไม่ใช่ 0 Wh</b> เพราะยังมีทางราบและ Auxiliary.</div>
+        <div class='stepbox'>
+          <div class='stephead'>STEP 2 — หาแรงและพลังงานของแต่ละช่วง</div>
+          <div class='stepbody'>
+            <h3>2.1 ทางราบ</h3>
+            <div class='formula'><b>สูตรแรง:</b> F_flat = Crr × m × g</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> แรงต้านทางราบ = ค่าสัมประสิทธิ์แรงต้านการกลิ้ง × มวลรถ × แรงโน้มถ่วง</div>
+            <div class='substitute'><b>แทนค่า:</b> F_flat = {q['crr']:.3f} × {q['m']:.2f} × 9.81 = <b>{q['Fflat']:.2f} N</b></div>
 
-        <h2>4. Runtime & Number of Cycles / เวลาและจำนวนรอบ</h2>
-        <table>
-        <tr><th>รายการ</th><th>ค่า</th><th>หน่วย</th></tr>
-        <tr><td>เวลาขับรถต่อ Cycle</td><td>{q['drive_cycle_s']:.2f}</td><td>s</td></tr>
-        <tr><td>เวลายกที่นำมารวมใน Cycle</td><td>{q['lift_round_s']:.2f}</td><td>s</td></tr>
-        <tr><td>เวลาหยุดอื่น</td><td>{q['other_stop_s']:.2f}</td><td>s</td></tr>
-        <tr><td>เวลาหมุน Pivot</td><td>{q['turn_time_cycle_s']:.2f}</td><td>s</td></tr>
-        <tr><td><b>เวลา 1 Cycle</b></td><td><b>{q['cycle_total_s']:.2f}</b></td><td><b>s/Cycle</b></td></tr>
-        <tr><td>เวลาทำงานเป้าหมาย</td><td>{q['runtime_h']:.2f}</td><td>h</td></tr>
-        <tr><td><b>จำนวน Cycle เต็ม</b></td><td><b>{q['cycles']}</b></td><td>Cycle</td></tr>
-        </table>
-        <p><b>สูตร:</b> N_cycle = floor(t_runtime / t_cycle) =
-        floor({q['runtime_s']:.0f} / {q['cycle_total_s']:.2f}) = <b>{q['cycles']} Cycle</b></p>
+            <div class='formula'><b>สูตรพลังงาน:</b> E_flat = F_flat × d_flat ÷ (η × 3600)</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานทางราบ = แรงต้านทางราบ × ระยะทางราบ ÷ (ประสิทธิภาพระบบ × 3600)</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Fflat']:.2f} × {q['flat_oneway']:.2f} ÷ ({q['eff']:.3f} × 3600)
+            = <b>{q['Eflat_batt_oneway']:.3f} Wh/เที่ยว</b></div>
+
+            <h3>2.2 ขึ้นทางลาด</h3>
+            <div class='formula'><b>สูตรแรง:</b> F_up = m g sinθ + Crr m g cosθ</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> แรงขึ้นทางลาด = แรงที่ใช้ต้านน้ำหนักตามแนวลาด + แรงต้านการกลิ้งบนทางลาด</div>
+            <div class='substitute'><b>แทนค่า:</b> F_up = {q['Fgrade']:.2f} + {q['Frrs']:.2f} = <b>{q['Fup']:.2f} N</b></div>
+
+            <div class='formula'><b>สูตรพลังงาน:</b> E_up = F_up × L_slope ÷ (η × 3600)</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานขึ้นลาด = แรงขึ้นทางลาด × ระยะทางลาด ÷ (ประสิทธิภาพระบบ × 3600)</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Fup']:.2f} × {q['Ls']:.2f} ÷ ({q['eff']:.3f} × 3600)
+            = <b>{q['Eup_batt_cycle']:.3f} Wh</b></div>
+
+            <h3>2.3 ลงทางลาด</h3>
+            <div class='formula'><b>สูตรแรง:</b> F_down = max(0, Crr m g cosθ − m g sinθ)</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> แรงขับตอนลงลาด = ค่ามากสุดระหว่าง 0 กับ (แรงต้านการกลิ้งบนลาด − แรงโน้มถ่วงที่ช่วยดึงรถลงลาด)</div>
+            <div class='substitute'><b>แทนค่า:</b> max(0, {q['Frrs']:.2f} − {q['Fgrade']:.2f}) = <b>{q['Fdown']:.2f} N</b></div>
+
+            <div class='formula'><b>สูตรพลังงาน:</b> E_down = F_down × L_slope ÷ (η × 3600)</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานลงลาด = แรงขับที่ยังต้องใช้ตอนลงลาด × ระยะทางลาด ÷ (ประสิทธิภาพระบบ × 3600)</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Fdown']:.2f} × {q['Ls']:.2f} ÷ ({q['eff']:.3f} × 3600)
+            = <b>{q['Edown_batt_cycle']:.3f} Wh</b></div>
+
+            <div class='stepresult'><b>ผล STEP 2:</b>
+            ทางราบ {q['Eflat_batt_oneway']:.3f} Wh/เที่ยว • ขึ้นลาด {q['Eup_batt_cycle']:.3f} Wh • ลงลาด {q['Edown_batt_cycle']:.3f} Wh</div>
+          </div>
+        </div>
+
+        <div class='stepbox'>
+          <div class='stephead'>STEP 3 — รวมพลังงานให้เป็น 1 Cycle</div>
+          <div class='stepbody'>
+            <div class='formula'><b>สูตรเที่ยวไป:</b> E_go = E_flat + E_up</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานเที่ยวไป = พลังงานทางราบขาไป + พลังงานขึ้นทางลาด</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Eflat_batt_oneway']:.3f} + {q['Eup_batt_cycle']:.3f} = <b>{q['Eout_drive']:.3f} Wh</b></div>
+
+            <div class='formula'><b>สูตรเที่ยวกลับ:</b> E_return = E_down + E_flat</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานเที่ยวกลับ = พลังงานลงทางลาด + พลังงานทางราบขากลับ</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Edown_batt_cycle']:.3f} + {q['Eflat_batt_oneway']:.3f} = <b>{q['Ereturn_drive']:.3f} Wh</b></div>
+
+            <div class='formula'><b>สูตร Drive/Cycle:</b> E_drive,cycle = E_go + E_return + E_turn,cycle</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานขับต่อหนึ่งรอบ = พลังงานเที่ยวไป + พลังงานเที่ยวกลับ + พลังงานจากการหมุนแบบ Differential/Pivot</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Eout_drive']:.3f} + {q['Ereturn_drive']:.3f} + {q['Eturn_cycle']:.4f}
+            = <b>{q['Edrive_cycle']:.3f} Wh/Cycle</b></div>
+
+            <div class='formula'><b>สูตร Auxiliary:</b> E_aux,cycle = P_aux × t_cycle ÷ 3600</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานอุปกรณ์เสริม = กำลังไฟเฉลี่ยของอุปกรณ์เสริม × เวลา 1 Cycle ÷ 3600</div>
+            <div class='substitute'><b>แทนค่า:</b> {self.eaux.value():.1f} × {q['cycle_total_s']:.2f} ÷ 3600
+            = <b>{q['Eaux_cycle']:.3f} Wh/Cycle</b></div>
+
+            <div class='formula'><b>สูตรรวม:</b> E_cycle = E_drive,cycle + E_aux,cycle</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานรวมต่อ 1 Cycle = พลังงานขับรถ + พลังงานอุปกรณ์เสริม</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Edrive_cycle']:.3f} + {q['Eaux_cycle']:.3f}
+            = <b>{q['Ecycle']:.3f} Wh/Cycle</b></div>
+
+            <table style='margin-top:9px'>
+              <tr><th>ส่วน</th><th>พลังงาน</th><th>สัดส่วน</th></tr>
+              <tr><td>Drive</td><td>{q['Edrive_cycle']:.3f} Wh/Cycle</td><td>{drive_pct:.1f}%</td></tr>
+              <tr><td>Auxiliary</td><td>{q['Eaux_cycle']:.3f} Wh/Cycle</td><td>{aux_pct:.1f}%</td></tr>
+            </table>
+            <div class='stepresult'><b>ผล STEP 3:</b> 1 Cycle ใช้พลังงานรวม <b>{q['Ecycle']:.3f} Wh/Cycle</b> • ส่วนที่มากกว่า = {dominant}</div>
+
+            <div class='warn'><b>Downhill ≈ 0 Wh ไม่ได้แปลว่าเที่ยวกลับ = 0 Wh:</b>
+            ยังมีทางราบขากลับและ Auxiliary ที่ต้องใช้พลังงาน.</div>
+          </div>
+        </div>
+
+        <div class='stepbox'>
+          <div class='stephead'>STEP 4 — หาเวลา 1 Cycle และจำนวน Cycle</div>
+          <div class='stepbody'>
+            <div class='formula'><b>สูตรเวลา:</b> t_cycle = t_drive + t_lift + t_other + t_turn</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> เวลา 1 Cycle = เวลาวิ่งรถ + เวลายก + เวลาหยุดอื่น + เวลาหมุนรถ</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['drive_cycle_s']:.2f} + {q['lift_round_s']:.2f} + {q['other_stop_s']:.2f} + {q['turn_time_cycle_s']:.2f}
+            = <b>{q['cycle_total_s']:.2f} s/Cycle</b></div>
+
+            <div class='formula'><b>สูตรจำนวนรอบ:</b> N_cycle = floor(t_runtime ÷ t_cycle)</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> จำนวนรอบเต็ม = เวลาทำงานทั้งหมด ÷ เวลา 1 Cycle แล้วปัดเศษลง</div>
+            <div class='substitute'><b>แทนค่า:</b> floor({q['runtime_s']:.0f} ÷ {q['cycle_total_s']:.2f}) = <b>{q['cycles']} Cycle</b></div>
+
+            <div class='stepresult'><b>ผล STEP 4:</b> เวลาเป้าหมาย {q['runtime_h']:.2f} h → ทำได้ <b>{q['cycles']} Cycle เต็ม</b></div>
+          </div>
+        </div>
         """
 
         sizing=f"""
         <div class='pagebreak'></div>
-        <h2>5. Battery Sizing Flow / จาก Wh ไปเป็น Ah</h2>
-        <div class='flow'>
-          {q['Ecycle']:.3f} Wh/Cycle × {q['cycles']} Cycle
-          → {q['Eload']:.2f} Wh
-          → ÷ DoD {q['dod']:.2f}
-          → {q['Enom']:.2f} Wh
-          → + Reserve {q['reserve']*100:.0f}%
-          → {q['Edesign']:.2f} Wh
-          → ÷ {q['V']:.0f} V
-          → {q['Ah']:.2f} Ah
-          → × Kb {q['Kb']:.2f}
-          → {q['Ah_recommended']:.2f} Ah
-          → ≈ {q['recommended_standard']:.0f} Ah
-        </div>
-        <table style='margin-top:10px'>
-        <tr><th>ขั้น</th><th>สูตร</th><th>ผล</th><th>หน่วย</th></tr>
-        <tr><td>พลังงานใช้งานจริง</td><td>E_total = E_cycle × N_cycle</td><td>{q['Eload']:.2f}</td><td>Wh</td></tr>
-        <tr><td>เผื่อ DoD</td><td>E_nominal = E_total / DoD</td><td>{q['Enom']:.2f}</td><td>Wh</td></tr>
-        <tr><td>เผื่อ Reserve</td><td>E_design = E_nominal(1+Reserve)</td><td>{q['Edesign']:.2f}</td><td>Wh</td></tr>
-        <tr><td>ขั้นต่ำจากพลังงาน</td><td>Ah_min = E_design / V</td><td>{q['Ah']:.2f}</td><td>Ah</td></tr>
-        <tr><td>Practical allowance</td><td>Ah_practical = Ah_min × Kb</td><td>{q['Ah_recommended']:.2f}</td><td>Ah</td></tr>
-        <tr><td><b>ขนาดมาตรฐานเบื้องต้น</b></td><td>round up</td><td><b>{q['recommended_standard']:.0f}</b></td><td><b>Ah @ {q['V']:.0f} V</b></td></tr>
-        </table>
+        <div class='stepbox'>
+          <div class='stephead'>STEP 5 — แปลงพลังงานรวมจาก Wh เป็น Ah</div>
+          <div class='stepbody'>
+            <div class='formula'><b>สูตรพลังงานรวม:</b> E_total = E_cycle × N_cycle</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานรวมที่ใช้ = พลังงานต่อ 1 Cycle × จำนวน Cycle ทั้งหมด</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Ecycle']:.3f} × {q['cycles']} = <b>{q['Eload']:.2f} Wh</b></div>
 
-        <h2>6. Current / BMS Check — แยกจาก Energy Sizing</h2>
-        <table>
-        <tr><th>รายการ</th><th>ค่าที่ต้องรองรับ</th><th>ค่าปัดขึ้นเบื้องต้น</th><th>ความหมาย</th></tr>
-        <tr><td>Continuous current</td><td>{sel['cont_req']:.2f} A</td><td><b>BMS ≥ {sel['bms_cont']:.0f} A</b></td><td>steady uphill / pivot demand</td></tr>
-        <tr><td>Peak current</td><td>{sel['peak_calc']:.2f} A</td><td><b>BMS Peak ≥ {sel['bms_peak']:.0f} A</b></td><td>รวม Drive Torque design-current reference</td></tr>
-        <tr><td>Drive design-current reference</td><td>{sel['t']['Ibatt']:.2f} A</td><td>-</td><td>มาจาก Drive Torque model</td></tr>
-        </table>
-        <div class='warn'>
-        <b>ก่อนซื้อจริง:</b> ตรวจ Pack voltage/chemistry, BMS Continuous/Peak, cell current rating,
-        connector, cable, fuse, charger และ VESC battery-current limit จาก datasheet จริง.
-        ค่าด้านบนเป็น preliminary calculation ไม่ใช่การรับรองแบตเตอรี่.
+            <div class='formula'><b>สูตรเผื่อ DoD:</b> E_nominal = E_total ÷ DoD</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานแบตพิกัดที่ต้องมี = พลังงานที่ใช้จริง ÷ สัดส่วนความจุที่อนุญาตให้ใช้</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Eload']:.2f} ÷ {q['dod']:.3f} = <b>{q['Enom']:.2f} Wh</b></div>
+
+            <div class='formula'><b>สูตรเผื่อ Reserve:</b> E_design = E_nominal × (1 + Reserve)</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานออกแบบ = พลังงานหลังเผื่อ DoD × (1 + สัดส่วนพลังงานสำรอง)</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Enom']:.2f} × (1 + {q['reserve']:.3f}) = <b>{q['Edesign']:.2f} Wh</b></div>
+
+            <div class='formula'><b>สูตรความจุขั้นต่ำ:</b> Ah_min = E_design ÷ V</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> ความจุแบตขั้นต่ำ = พลังงานที่ออกแบบไว้ ÷ แรงดันแบตเตอรี่</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Edesign']:.2f} ÷ {q['V']:.1f} = <b>{q['Ah']:.2f} Ah</b></div>
+
+            <div class='formula'><b>สูตรความจุใช้งานแนะนำ:</b> Ah_practical = Ah_min × Kb</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> ความจุแบตที่แนะนำ = ความจุขั้นต่ำ × ตัวคูณเผื่อสำหรับความไม่แน่นอนของแบบจำลอง</div>
+            <div class='substitute'><b>แทนค่า:</b> {q['Ah']:.2f} × {q['Kb']:.2f} = <b>{q['Ah_recommended']:.2f} Ah</b></div>
+
+            <div class='stepresult'><b>ผล STEP 5:</b> ขั้นต่ำ {q['Ah']:.2f} Ah → Practical {q['Ah_recommended']:.2f} Ah →
+            ขนาดมาตรฐานประมาณ <b>{q['recommended_standard']:.0f} Ah @ {q['V']:.0f} V</b></div>
+            <div class='warn'><b>หมายเหตุ Kb:</b> Kb = {q['Kb']:.2f} เป็น Preliminary Design Allowance ไม่ใช่ค่ามาตรฐานตายตัว.</div>
+          </div>
         </div>
 
-        <h2>7. What Is / Is Not Included</h2>
+        <div class='stepbox'>
+          <div class='stephead'>STEP 6 — ตรวจ Continuous / Peak Current และ BMS</div>
+          <div class='stepbody'>
+            <div class='formula'><b>สูตร Continuous:</b> I_cont = max(I_up, I_turn,avg)</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> กระแสต่อเนื่องที่ต้องรองรับ = ค่ามากที่สุดระหว่างกระแสขณะขึ้นทางลาดกับกระแสเฉลี่ยขณะหมุนรถ</div>
+            <div class='substitute'><b>แทนค่า:</b> max({q['Icalc_up']:.2f}, {q.get('Iturn_avg',0.0):.2f}) = <b>{sel['cont_req']:.2f} A</b></div>
+
+            <div class='formula'><b>สูตร Peak:</b> I_peak = max(I_cont, I_drive,design)</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> กระแส Peak ที่ต้องรองรับ = ค่ามากที่สุดระหว่างกระแสต่อเนื่องกับกระแสออกแบบจากการคำนวณแรงขับ/การเร่ง</div>
+            <div class='substitute'><b>แทนค่า:</b> max({sel['cont_req']:.2f}, {sel['t']['Ibatt']:.2f}) = <b>{sel['peak_calc']:.2f} A</b></div>
+
+            <div class='formula'><b>การเลือก BMS เบื้องต้น:</b> ปัดกระแสที่ต้องรองรับขึ้นเป็นค่ามาตรฐาน</div>
+            <div class='thai-formula'><b>อ่านแบบภาษาไทย:</b> BMS ต้องรับกระแสต่อเนื่องและกระแส Peak ได้ไม่น้อยกว่าค่าที่คำนวณได้</div>
+
+            <div class='stepresult'><b>ผล STEP 6:</b> BMS Continuous ≥ <b>{sel['bms_cont']:.0f} A</b> •
+            BMS Peak ≥ <b>{sel['bms_peak']:.0f} A</b></div>
+
+            <div class='warn'><b>ก่อนซื้อจริง:</b> ตรวจ Pack voltage/chemistry, BMS Continuous/Peak, cell current rating,
+            connector, cable, fuse, charger และ VESC battery-current limit จาก datasheet จริง.</div>
+          </div>
+        </div>
+
+        <h2>What Is / Is Not Included</h2>
         <table>
         <tr><th>หัวข้อ</th><th>สถานะ</th><th>รายละเอียด</th></tr>
         <tr><td>Drive traction energy</td><td>INCLUDED</td><td>Flat + uphill + downhill model</td></tr>
