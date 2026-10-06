@@ -239,10 +239,14 @@ jobs:
           assert "function renderWebFbd" in web_js
           assert "function stabilityPayload" in web_js
           assert "function stabilityComponentRows" in web_js
+          assert "function stabilityVariableTableHtml" in web_js
+          assert "Unit Convention / มาตรฐานหน่วย" in web_js
+          assert "N·m" in web_js and "m/s²" in web_js
           assert "calc-flow-strip" in web_js and "calc-step-card" in web_js
           assert 'name="mass_mode"' in web_html
           assert 'id="stabilityComponentBody"' in web_html
           assert "Component Mass & CG Table" in web_html
+          assert "Mass (kg)" in web_html and "x (m)" in web_html
           assert "function buttonBusy" in web_js
           assert "function buttonSuccess" in web_js
           assert "function actionToast" in web_js
