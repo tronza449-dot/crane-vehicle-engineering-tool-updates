@@ -225,8 +225,10 @@ jobs:
           assert "สูตร + แทนค่าแบบทีละขั้น" in source
           assert "def battery_report_html" in source
           assert "Executive Summary / สรุปคำตอบก่อน" in source
-          assert "Battery Sizing Flow / จาก Wh ไปเป็น Ah" in source
-          assert "Current / BMS Check" in source
+          assert "STEP 1 — แบ่งเส้นทางของ 1 Cycle" in source
+          assert "STEP 6 — ตรวจ Continuous / Peak Current และ BMS" in source
+          assert "อ่านสูตรแบบภาษาไทย" in source
+          assert "thai-formula" in source and "stepbox" in source
           assert "Appendix A — Detailed Formula & Substitution" in source
           assert "อ่านสูตรแบบภาษาคน" in source
           assert "ตัวแปรในสูตรนี้" in source
@@ -483,9 +485,13 @@ jobs:
           assert br["peak_calc"]+1e-9>=br["t"]["Ibatt"]
           battery_report=w.battery_report_html(e)
           assert "Executive Summary / สรุปคำตอบก่อน" in battery_report
-          assert "One Cycle / หนึ่งรอบไป-กลับใช้พลังงานอย่างไร" in battery_report
-          assert "Battery Sizing Flow / จาก Wh ไปเป็น Ah" in battery_report
-          assert "Current / BMS Check" in battery_report
+          for step_no in range(1,7):
+              assert f"STEP {step_no}" in battery_report
+          assert "อ่านสูตรแบบภาษาไทย" in battery_report
+          assert "แรงต้านทางราบ = ค่าสัมประสิทธิ์แรงต้านการกลิ้ง × มวลรถ × แรงโน้มถ่วง" in battery_report
+          assert "พลังงานรวมต่อ 1 Cycle = พลังงานขับรถ + พลังงานอุปกรณ์เสริม" in battery_report
+          assert "ความจุแบตขั้นต่ำ = พลังงานที่ออกแบบไว้ ÷ แรงดันแบตเตอรี่" in battery_report
+          assert "กระแส Peak ที่ต้องรองรับ" in battery_report
           assert "What Is / Is Not Included" in battery_report
           assert "Appendix A — Detailed Formula & Substitution" in battery_report
           assert "คำอธิบายภาษาไทยเพิ่มเติม" not in battery_report
