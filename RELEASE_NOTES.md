@@ -94,6 +94,13 @@ Locked Web inputs remain part of FormData calculations but are not editable by p
 Desktop Sync is blocked while the Web design lock is active so a locked final design cannot
 be silently overwritten.
 
+Desktop lock hardening:
+- Open Project File is blocked while Final Lock is active
+- Apply Scenario Preset is blocked while Final Lock is active
+- Apply saved Design Revision is blocked while Final Lock is active
+- Apply Project Tools Design A/B is blocked while Final Lock is active
+- Comparison calculations may still read revisions internally, but the current locked design is restored afterward
+
 ### 5. Compare Design Revision upgraded
 The existing Design Revision Manager is retained and upgraded.
 
