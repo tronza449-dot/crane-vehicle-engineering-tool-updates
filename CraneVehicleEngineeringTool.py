@@ -5971,21 +5971,20 @@ void loop() {{
         self.engineeringSummaryView=QTextEdit();self.engineeringSummaryView.setReadOnly(True);sl.addWidget(self.engineeringSummaryView,1)
         self.projectTabs.addTab(sp,"Engineering Summary")
 
-        # 8) SYSTEM WHAT-IF / COUPLED SCENARIO
+        # 8) SIMPLE WHAT-IF + COUPLED ENGINE
         senp=QWidget();senl=QVBoxLayout(senp)
         intro=QLabel(
-            "WHAT-IF แบบสัมพันธ์ทั้งระบบ: เปลี่ยนหลายค่าใน Scenario เดียว แล้วโปรแกรมส่งค่าที่สัมพันธ์กัน "
-            "ไปคำนวณ Drive + Main Battery + Winch + Stability ใหม่พร้อมกัน โดยไม่แก้ Design จริง"
+            "WHAT-IF แบบง่าย: เลือกสิ่งที่อยากลองเปลี่ยนเพียง 1 เรื่อง ใส่ค่าใหม่ แล้วดูผลกระทบทั้งระบบทันที "
+            "ค่าที่สัมพันธ์กันจะถูกคำนวณต่อให้โดยอัตโนมัติ"
         )
-        intro.setWordWrap(True);intro.setStyleSheet("background:#eef6ff;color:#274c77;padding:10px;border-radius:8px;font-weight:700")
+        intro.setWordWrap(True);intro.setStyleSheet("background:#eef6ff;color:#274c77;padding:11px;border-radius:8px;font-weight:700")
         senl.addWidget(intro)
 
         def wi_spin(v,lo,hi,step=.01,dec=3):
             q=QDoubleSpinBox();q.setRange(lo,hi);q.setDecimals(dec);q.setSingleStep(step);q.setValue(v);q.setMinimumWidth(130);return q
 
         dwi=self.inputs()
-        wiBox=QGroupBox("Scenario Input / ค่าที่ต้องการลองเปลี่ยนพร้อมกัน")
-        wiForm=QFormLayout(wiBox);wiForm.setRowWrapPolicy(QFormLayout.WrapLongRows)
+        # Full coupled scenario fields are retained as the calculation engine.
         self.whatIfBaseMass=wi_spin(max(0.0,dwi["mt"]-dwi["ml"]-dwi["mb"]),0,5000,5,1)
         self.whatIfPayload=wi_spin(dwi["ml"],0,2000,5,1)
         self.whatIfBoomMass=wi_spin(dwi["mb"],0,1000,1,1)
@@ -6001,54 +6000,77 @@ void loop() {{
         self.whatIfOperationSpeed=wi_spin(self.espeed.value() if hasattr(self,"espeed") else 1,.05,50,.1,2)
         self.whatIfLift=wi_spin(self.wheight.value() if hasattr(self,"wheight") else 1,.05,10,.05,2)
         self.whatIfWinchLoad=wi_spin(self.wmass.value() if hasattr(self,"wmass") else dwi["ml"],0,2041,5,1)
-        self.whatIfLinkWinchPayload=QCheckBox("ลิงก์ Winch load = Payload system mass")
+        self.whatIfLinkWinchPayload=QCheckBox("ให้ Winch load เปลี่ยนตาม Payload")
         self.whatIfLinkWinchPayload.setChecked(abs(self.whatIfWinchLoad.value()-self.whatIfPayload.value())<1e-6)
-        self.whatIfDerivedTotal=QLabel()
-        self.whatIfDerivedTotal.setStyleSheet("font-weight:900;color:#176337")
+        self.whatIfDerivedTotal=QLabel();self.whatIfDerivedTotal.setStyleSheet("font-weight:900;color:#176337")
 
-        wiForm.addRow("Base vehicle mass / มวลรถฐาน (kg)",self.whatIfBaseMass)
-        wiForm.addRow("Payload system / น้ำหนักสัตว์+ตะกร้า (kg)",self.whatIfPayload)
-        wiForm.addRow("Boom mass / มวลแขนเครน (kg)",self.whatIfBoomMass)
-        wiForm.addRow("Total mass / มวลรวม (Auto)",self.whatIfDerivedTotal)
-        wiForm.addRow("Wheel track W (m)",self.whatIfTrack)
-        wiForm.addRow("Wheelbase WB (m)",self.whatIfWheelbase)
-        wiForm.addRow("Boom length L (m)",self.whatIfBoomLength)
-        wiForm.addRow("Crane x_C from rear axle (m)",self.whatIfCraneX)
-        wiForm.addRow("Base vehicle CG x (m)",self.whatIfBaseCGX)
-        wiForm.addRow("Combined driving CG x (m)",self.whatIfDriveCGX)
-        wiForm.addRow("Combined CG height hCG (m)",self.whatIfHCG)
-        wiForm.addRow("Route slope / มุมทางลาด (deg)",self.whatIfSlope)
-        wiForm.addRow("Drive design speed / ความเร็วใช้ตรวจมอเตอร์ (km/h)",self.whatIfDriveSpeed)
-        wiForm.addRow("Operation speed / ความเร็วใช้งานจริง (km/h)",self.whatIfOperationSpeed)
-        wiForm.addRow("Winch lift distance / ระยะยก (m)",self.whatIfLift)
-        wiForm.addRow(self.whatIfLinkWinchPayload)
-        wiForm.addRow("Winch lifted load (kg)",self.whatIfWinchLoad)
+        quick=QGroupBox("1) เลือกสิ่งที่อยากลองเปลี่ยน")
+        qf=QFormLayout(quick)
+        self.whatIfQuickParam=QComboBox()
+        for label,key in (
+            ("น้ำหนักบรรทุก / Payload","payload"),
+            ("ความกว้างฐานล้อ / Track width W","track"),
+            ("ความยาวแขนเครน / Boom length L","boom_length"),
+            ("ตำแหน่งฐานเครน / Crane x_C","crane_x"),
+            ("มุมทางลาด / Slope","slope"),
+            ("ความเร็วใช้งาน / Operation speed","operation_speed"),
+            ("ระยะยก Winch / Lift distance","lift"),
+        ): self.whatIfQuickParam.addItem(label,key)
+        self.whatIfQuickCurrent=QLabel("-")
+        self.whatIfQuickCurrent.setStyleSheet("font-weight:700;color:#4a6175")
+        self.whatIfQuickValue=QDoubleSpinBox();self.whatIfQuickValue.setMinimumWidth(150)
+        self.whatIfQuickValue.setDecimals(3);self.whatIfQuickValue.setRange(-9999,9999)
+        self.whatIfQuickImpact=QLabel()
+        self.whatIfQuickImpact.setWordWrap(True)
+        self.whatIfQuickImpact.setStyleSheet("background:#fff8e9;color:#68420b;padding:8px;border-radius:7px")
+        qf.addRow("อยากลองเปลี่ยนอะไร",self.whatIfQuickParam)
+        qf.addRow("ค่าปัจจุบัน",self.whatIfQuickCurrent)
+        qf.addRow("ลองเปลี่ยนเป็น",self.whatIfQuickValue)
+        qf.addRow("โปรแกรมจะคำนวณต่อให้",self.whatIfQuickImpact)
+        senl.addWidget(quick)
 
-        wiScroll=QScrollArea();wiScroll.setWidgetResizable(True);wiScroll.setFrameShape(QFrame.NoFrame)
-        wiScroll.setWidget(wiBox);wiScroll.setMaximumHeight(360);senl.addWidget(wiScroll)
+        quickBtns=QHBoxLayout()
+        loadWi=QPushButton("รีเซ็ตเป็นค่าปัจจุบัน");loadWi.clicked.connect(self.load_what_if_baseline)
+        senrun=QPushButton("ดูผลกระทบทั้งระบบ");senrun.setObjectName("primaryButton");senrun.clicked.connect(self.update_sensitivity_analysis)
+        quickBtns.addWidget(loadWi);quickBtns.addWidget(senrun);quickBtns.addStretch(1);senl.addLayout(quickBtns)
 
-        rule=QLabel(
-            "กฎการเชื่อม: Total mass = Base + Boom + Payload → ส่งไป Torque/Battery/Stability • "
-            "Slope ส่งไป Drive/Battery/Slope stability • W ส่งไป Stability และ Pivot-turn energy • "
-            "Operation speed ส่งไป Battery + จำนวนรอบ Winch • Lift distance ส่งไปเวลา Winch และเวลาต่อ Cycle. "
-            "สิ่งที่ไม่เดาอัตโนมัติ: เพิ่ม W/WB แล้วโครงหนักขึ้นเท่าไร, เพิ่ม L แล้ว Boom หนักขึ้นเท่าไร, CG ขยับเท่าไร — ต้องมีข้อมูลโครงสร้าง/ตำแหน่งมวลก่อน"
-        )
-        rule.setWordWrap(True);rule.setStyleSheet("background:#fff8e9;color:#68420b;padding:10px;border:1px solid #ead39a;border-radius:8px")
-        senl.addWidget(rule)
-
-        senbar=QHBoxLayout()
-        loadWi=QPushButton("โหลดค่าปัจจุบันเป็น Baseline");loadWi.clicked.connect(self.load_what_if_baseline)
-        senrun=QPushButton("คำนวณ What-if ทั้งระบบ");senrun.setObjectName("primaryButton");senrun.clicked.connect(self.update_sensitivity_analysis)
-        senbar.addWidget(loadWi);senbar.addWidget(senrun);senbar.addStretch(1);senl.addLayout(senbar)
+        self.whatIfShowAdvanced=QCheckBox("แสดงค่าขั้นสูง / ปรับหลายค่าพร้อมกัน")
+        senl.addWidget(self.whatIfShowAdvanced)
+        self.whatIfAdvancedWidget=QWidget()
+        adv=QFormLayout(self.whatIfAdvancedWidget)
+        adv.addRow("Base vehicle mass (kg)",self.whatIfBaseMass)
+        adv.addRow("Payload system (kg)",self.whatIfPayload)
+        adv.addRow("Boom mass (kg)",self.whatIfBoomMass)
+        adv.addRow("Total mass (Auto)",self.whatIfDerivedTotal)
+        adv.addRow("Track width W (m)",self.whatIfTrack)
+        adv.addRow("Wheelbase WB (m)",self.whatIfWheelbase)
+        adv.addRow("Boom length L (m)",self.whatIfBoomLength)
+        adv.addRow("Crane x_C (m)",self.whatIfCraneX)
+        adv.addRow("Base vehicle CG x (m)",self.whatIfBaseCGX)
+        adv.addRow("Combined driving CG x (m)",self.whatIfDriveCGX)
+        adv.addRow("Combined CG height hCG (m)",self.whatIfHCG)
+        adv.addRow("Slope (deg)",self.whatIfSlope)
+        adv.addRow("Drive design speed (km/h)",self.whatIfDriveSpeed)
+        adv.addRow("Operation speed (km/h)",self.whatIfOperationSpeed)
+        adv.addRow("Lift distance (m)",self.whatIfLift)
+        adv.addRow(self.whatIfLinkWinchPayload)
+        adv.addRow("Winch load (kg)",self.whatIfWinchLoad)
+        self.whatIfAdvancedWidget.setVisible(False)
+        self.whatIfShowAdvanced.toggled.connect(self.whatIfAdvancedWidget.setVisible)
+        advScroll=QScrollArea();advScroll.setWidgetResizable(True);advScroll.setFrameShape(QFrame.NoFrame)
+        advScroll.setWidget(self.whatIfAdvancedWidget);advScroll.setMaximumHeight(300);senl.addWidget(advScroll)
+        advScroll.setVisible(False);self.whatIfShowAdvanced.toggled.connect(advScroll.setVisible)
 
         for q in (self.whatIfBaseMass,self.whatIfPayload,self.whatIfBoomMass,self.whatIfTrack,self.whatIfWheelbase,
                   self.whatIfBoomLength,self.whatIfCraneX,self.whatIfBaseCGX,self.whatIfDriveCGX,self.whatIfHCG,
                   self.whatIfSlope,self.whatIfDriveSpeed,self.whatIfOperationSpeed,self.whatIfLift,self.whatIfWinchLoad):
             q.valueChanged.connect(self._sync_what_if_linked_inputs)
         self.whatIfLinkWinchPayload.toggled.connect(self._sync_what_if_linked_inputs)
+        self.whatIfQuickParam.currentIndexChanged.connect(self._refresh_simple_what_if_editor)
+        self.whatIfQuickValue.valueChanged.connect(self._apply_simple_what_if_value)
 
         self.sensitivityView=QTextEdit();self.sensitivityView.setReadOnly(True);senl.addWidget(self.sensitivityView,1)
-        self.projectTabs.addTab(senp,"What-if ทั้งระบบ / Coupled Scenario")
+        self.projectTabs.addTab(senp,"What-if แบบง่าย")
         self.load_what_if_baseline(silent=True)
 
         # 9) ANSWER ORIGIN / STEP-BY-STEP CALCULATION
@@ -6689,6 +6711,40 @@ void loop() {{
     def update_engineering_summary(self):
         if hasattr(self,"engineeringSummaryView"):self.engineeringSummaryView.setHtml(self.engineering_summary_html())
 
+    def _simple_what_if_spec(self):
+        return {
+            "payload":("whatIfPayload","kg",0.0,2000.0,5.0,"Total mass → Torque → Main Battery → Stability และ Winch load ถ้าเปิดลิงก์"),
+            "track":("whatIfTrack","m",0.10,5.0,0.05,"Side Stability และ Turning Energy เมื่อเปิดการคำนวณการหมุน"),
+            "boom_length":("whatIfBoomLength","m",0.10,5.0,0.05,"ระยะแรงของเครน → Worst SF / Critical case"),
+            "crane_x":("whatIfCraneX","m",-2.0,2.0,0.05,"Front/Rear Stability และ Critical case"),
+            "slope":("whatIfSlope","deg",0.0,45.0,0.5,"Torque + Main Battery + Slope Stability"),
+            "operation_speed":("whatIfOperationSpeed","km/h",0.05,50.0,0.1,"เวลาเดินทาง → จำนวน Cycle → งานยก Auto → Battery"),
+            "lift":("whatIfLift","m",0.05,10.0,0.05,"เวลา Winch → เวลา Cycle → จำนวนงานยก + Winch Battery"),
+        }
+
+    def _refresh_simple_what_if_editor(self,*_):
+        if not hasattr(self,"whatIfQuickParam"):return
+        key=self.whatIfQuickParam.currentData()
+        spec=self._simple_what_if_spec().get(key)
+        if not spec:return
+        attr,unit,lo,hi,step,impact=spec
+        field=getattr(self,attr)
+        cur=float(field.value())
+        q=self.whatIfQuickValue
+        q.blockSignals(True);q.setRange(lo,hi);q.setSingleStep(step)
+        q.setDecimals(2 if unit in ("kg","deg","km/h") else 3);q.setValue(cur);q.blockSignals(False)
+        self.whatIfQuickCurrent.setText(f"{cur:.3f} {unit}".rstrip("0").rstrip("."))
+        self.whatIfQuickImpact.setText(impact)
+
+    def _apply_simple_what_if_value(self,value):
+        if not hasattr(self,"whatIfQuickParam"):return
+        key=self.whatIfQuickParam.currentData();spec=self._simple_what_if_spec().get(key)
+        if not spec:return
+        field=getattr(self,spec[0],None)
+        if field is None:return
+        field.setValue(float(value))
+        self._sync_what_if_linked_inputs()
+
     def _sync_what_if_linked_inputs(self,*_):
         if not hasattr(self,"whatIfBaseMass"):return
         total=self.whatIfBaseMass.value()+self.whatIfBoomMass.value()+self.whatIfPayload.value()
@@ -6749,6 +6805,7 @@ void loop() {{
         self.whatIfLinkWinchPayload.blockSignals(False)
         self._sync_what_if_linked_inputs()
         self.whatIfBaseline=dict(values)
+        if hasattr(self,"whatIfQuickParam"):self._refresh_simple_what_if_editor()
         if hasattr(self,"sensitivityView") and not silent:
             self.sensitivityView.setHtml(
                 "<h2>Baseline loaded / โหลดแบบปัจจุบันแล้ว</h2>"
@@ -6852,10 +6909,34 @@ void loop() {{
         rr="".join(f"<tr><td>{a}</td><td>{bv}</td><td>{sv}</td><td><b>{dv}</b></td></tr>" for a,bv,sv,dv in result_rows)
         link_text="ON: Winch load ตาม Payload อัตโนมัติ" if scenario["link_winch_payload"] else "OFF: Winch load เป็น Scenario Input แยก"
 
+        key=self.whatIfQuickParam.currentData() if hasattr(self,"whatIfQuickParam") else ""
+        quick_label=self.whatIfQuickParam.currentText() if hasattr(self,"whatIfQuickParam") else "Scenario"
+        quick_unit=self._simple_what_if_spec().get(key,("", "",0,0,0,""))[1] if key else ""
+        current_quick=(base.get(key) if key in base else None)
+        scenario_quick=(scenario.get(key) if key in scenario else None)
+        quick_change=""
+        if current_quick is not None and scenario_quick is not None:
+            quick_change=f"<p><b>{quick_label}</b>: {current_quick:.3f} {quick_unit} → <b>{scenario_quick:.3f} {quick_unit}</b></p>"
+        overall_status=status(q["overall_sf"],q["required_sf"])
+        compact=(
+            "<table border='1' cellspacing='0' cellpadding='7'>"
+            "<tr><th>ผลสำคัญ</th><th>ก่อน</th><th>หลัง</th><th>เปลี่ยน</th></tr>"
+            f"<tr><td>Torque / motor</td><td>{b['torque']:.2f} N·m</td><td><b>{q['torque']:.2f} N·m</b></td><td>{self._what_if_delta(b['torque'],q['torque'],'N·m',2)}</td></tr>"
+            f"<tr><td>Main Battery</td><td>{b['main_ah_practical']:.2f} Ah</td><td><b>{q['main_ah_practical']:.2f} Ah</b></td><td>{self._what_if_delta(b['main_ah_practical'],q['main_ah_practical'],'Ah',2)}</td></tr>"
+            f"<tr><td>Winch Battery</td><td>{b['winch_ah']:.2f} Ah</td><td><b>{q['winch_ah']:.2f} Ah</b></td><td>{self._what_if_delta(b['winch_ah'],q['winch_ah'],'Ah',2)}</td></tr>"
+            f"<tr><td>Worst Stability SF</td><td>{sf_text(b['overall_sf'])}</td><td><b>{sf_text(q['overall_sf'])}</b></td><td><b>{overall_status}</b></td></tr>"
+            f"<tr><td>จุดวิกฤต</td><td>{b['overall_case']}</td><td><b>{q['overall_case']}</b></td><td>-</td></tr>"
+            "</table>"
+        )
         return (
-            "<h1>COUPLED SYSTEM WHAT-IF / ถ้าเปลี่ยนแบบนี้ ทั้งระบบจะเป็นอย่างไร?</h1>"
-            "<p><b>หลักการ:</b> ไม่เปลี่ยนทีละค่าแบบแยกส่วนอีกแล้ว แต่ใช้ Scenario หนึ่งชุดแล้วคำนวณระบบที่เกี่ยวข้องใหม่พร้อมกัน</p>"
-            "<h2>1) Baseline ↔ Scenario Input</h2>"
+            "<h1>WHAT-IF แบบง่าย — เปลี่ยนแล้วรถเป็นอย่างไร?</h1>"
+            +quick_change+
+            "<h2>สรุปผลที่ควรดู</h2>"+compact+
+            "<p><b>อ่านง่าย ๆ:</b> โปรแกรมยังคำนวณแบบสัมพันธ์ทั้งระบบเหมือนเดิม แต่ซ่อนค่าที่ไม่จำเป็นออกจากหน้าหลัก</p>"
+            "<h3>ค่าที่เปลี่ยนตามอัตโนมัติ</h3>"
+            "<p>Total mass, Torque, Main Battery, Winch cycle และ Stability จะคำนวณต่อจาก Scenario ที่เลือกตามความสัมพันธ์จริงของโมเดล</p>"
+            "<h3>รายละเอียดเพิ่มเติม</h3>"
+            "<h4>Baseline ↔ Scenario Input</h4>"
             "<table border='1' cellspacing='0' cellpadding='6'><tr><th>Parameter</th><th>Baseline</th><th>Scenario</th><th>Change</th></tr>"
             +"".join(ir)+"</table>"
             "<h2>2) ความสัมพันธ์ที่โปรแกรมใช้จริง</h2>"
