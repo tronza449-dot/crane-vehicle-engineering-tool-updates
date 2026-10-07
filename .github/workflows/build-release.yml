@@ -375,6 +375,19 @@ jobs:
           w._button_release_feedback(press_button)
           QApplication.processEvents()
 
+          # Web-like Stability mass-mode cards must stay synchronized.
+          assert hasattr(w,"craneMassModeTotal") and hasattr(w,"craneMassModeComponents")
+          assert hasattr(w,"massModeFixed") and hasattr(w,"massModeSum")
+          w.set_mass_mode_from_radio("components")
+          QApplication.processEvents()
+          assert w.massCalcMode.currentIndex()==1
+          assert w.craneMassModeComponents.isChecked() and w.massModeSum.isChecked()
+          assert not w.craneMassModeTotal.isChecked() and not w.massModeFixed.isChecked()
+          w.set_mass_mode_from_radio("total")
+          QApplication.processEvents()
+          assert w.massCalcMode.currentIndex()==0
+          assert w.craneMassModeTotal.isChecked() and w.massModeFixed.isChecked()
+
           # ---------- Web launcher visibility regression ----------
           assert hasattr(w,"openWebServerButton")
           assert w.openWebServerButton.text()=="เปิด Web Server"
