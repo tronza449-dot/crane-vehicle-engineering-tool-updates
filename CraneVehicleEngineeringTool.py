@@ -6852,6 +6852,7 @@ void loop() {{
     def make_winch(self):
         w=QWidget();self.winchPage=w
         outer=QVBoxLayout(w);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
+        outer.addWidget(self._make_module_save_bar("winch","W • WINCH"))
         self.wTabs=QTabWidget(w);self.wTabs.setDocumentMode(True);self.wTabs.setUsesScrollButtons(True)
         outer.addWidget(self.wTabs)
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame)
@@ -6870,7 +6871,6 @@ void loop() {{
         nav.addWidget(make_chip("SPEC + 2 INPUTS","#fff1dd","#9a5800"))
         export=QPushButton("Export PDF");export.setObjectName("primaryButton");export.setMinimumWidth(140);export.clicked.connect(self.export_winch_pdf);nav.addWidget(export)
         root.addWidget(header)
-        root.addWidget(self._make_module_save_bar("winch","W • WINCH"))
 
         # Two editable design inputs on Datasheet: load and lift distance. Cycle count comes from Operating Cycles.
         self.wmass=QDoubleSpinBox(w);self.wmass.setRange(1.0,2041.0);self.wmass.setDecimals(1);self.wmass.setValue(100.0);self.wmass.setSuffix(" kg");self.wmass.setMinimumWidth(180)
