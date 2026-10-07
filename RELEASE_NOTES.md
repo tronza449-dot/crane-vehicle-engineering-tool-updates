@@ -1,39 +1,42 @@
-# Crane Vehicle Engineering Tool V53.8.29
+# Crane Vehicle Engineering Tool V53.8.30
 
-## Stability Web Hotfix + Web-like Desktop Buttons / Mode Cards
+## Simpler Stability Inputs + Green Desktop Completion Feedback
 
-### 1. Web Stability hotfix
-แก้ error ที่หน้า Stability:
-- `$(...).map is not a function`
-- สาเหตุ: selector บางจุดคืน element เดียว แต่ถูกนำไปใช้ .map() / .forEach()
-- แก้เป็น querySelectorAll collection โดยตรงสำหรับ:
-  - Component Mass rows
-  - Mode A / Mode B cards
-  - Mass mode radio inputs
-  - Component Mass input listeners
+### Stability Mode A — Total Mass
+ปรับให้ใช้งานง่ายขึ้นสำหรับผู้ใช้ที่ไม่ทราบตำแหน่ง CG:
+- กรอกเฉพาะ Total mass, Payload, Boom และ Geometry
+- ไม่ต้องกรอก Base vehicle CG x / y
+- ไม่ต้องกรอก Driving combined CG x ในหน้า Stability
+- โปรแกรมใช้ preliminary assumption อัตโนมัติ:
+  - x_CG,V = 0 m
+  - y_CG,V = 0 m
+  - x_CG,drive = 0 m
+- แสดงคำอธิบายว่ากำลังใช้ centered-CG assumption
 
-เพิ่ม cache-busting เป็น `?v=53.8.29` เพื่อบังคับ browser โหลด JS/CSS ใหม่ ไม่ค้างไฟล์ V53.8.28
+### Stability Mode B — Component Mass
+- ซ่อน Total mass / Payload / Boom manual inputs ที่ไม่ได้ใช้
+- ซ่อน CG manual inputs
+- ใช้มวลและ CG จาก Mass_CG table อัตโนมัติ
+- หน้า Mass_CG จะแสดง Component table เฉพาะเมื่อ Mode B ทำงาน
 
-### 2. Desktop button animation — Web style
-ปรับปุ่ม Desktop ให้ฟีลเหมือน Web:
-- Mouse press: opacity ลดลงแบบ smooth
-- Release: opacity กลับ 100%
-- Click acknowledgement: blue flash สั้น ๆ แบบ Web btn-ack
-- ปุ่ม Action ยังคง Busy → Success / Error ตามเดิม
-- Animation ใช้ QPropertyAnimation + QGraphicsOpacityEffect จึงไม่ถูก Qt Layout ดึงตำแหน่งกลับ
+### Unused-mode cleanup
+- Mode A: Component table ถูกซ่อน เพราะไม่ได้เป็นแหล่งข้อมูล
+- Mode B: manual mass fields ถูกซ่อน เพราะไม่ได้เป็นแหล่งข้อมูล
+- เหลือเฉพาะ Input ที่เกี่ยวข้องกับโหมดปัจจุบัน
 
-### 3. Desktop Stability Mode selector — Web card style
-เปลี่ยนการเลือกโหมด Stability/Tipping จาก Combo/Radio แบบเดิม เป็นการ์ดกดเลือกเหมือน Web:
-- Mode A — Total Mass
-- Mode B — Component Mass
-- การ์ดที่เลือกมีพื้นฟ้า + กรอบน้ำเงิน
-- Hover state ชัดเจน
-- ทั้งหน้า Crane Mode และ Component Mass ใช้หน้าตาเดียวกัน
-- โหมดทั้งสองหน้าซิงก์กันอัตโนมัติ
+### Desktop button feedback
+ปรับให้เห็นผลชัดเหมือน Web:
+- Press: opacity animation
+- Completed action: ปุ่มเปลี่ยนเป็นสีเขียว
+- เพิ่มเครื่องหมาย ✓ ชั่วคราวบนข้อความปุ่ม
+- Status bar แสดง “เสร็จแล้ว ✓”
+- หลังประมาณ 0.9 s ปุ่มกลับเป็นหน้าตาเดิม
+- ปุ่ม Mode / Navigation ไม่โดน completion flash เพื่อคง selected-state styling
 
-### Regression coverage
-เพิ่มการตรวจ:
-- Stability Web ต้องใช้ querySelectorAll collection
-- ห้ามกลับไปใช้ single-element selector กับ .map / .forEach
-- Desktop press animation ต้องสร้าง opacity effect และ animation จริง
-- Stability mode cards ต้องสลับ A/B และซิงก์กันได้
+### Regression
+เพิ่มการตรวจว่า:
+- Mode B ซ่อน manual fields และแสดง Component table
+- Mode A แสดงเฉพาะ manual mass fields
+- CG manual rows ถูกซ่อนทั้งสองโหมด
+- Mode A บังคับ centered CG = 0 อัตโนมัติ
+- Generic desktop action ต้องเข้าสถานะ success สีเขียวและมี ✓
