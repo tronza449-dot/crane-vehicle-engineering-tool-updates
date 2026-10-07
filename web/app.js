@@ -463,6 +463,135 @@ async function api(path,payload){
 function setLoading(el){el.classList.remove("empty");el.innerHTML="<p>กำลังคำนวณ...</p>";}
 function setError(el,err){el.classList.remove("empty");el.innerHTML='<div class="error">'+String(err.message||err)+'</div>';}
 
+function calcStepCard(no,title,body,finalStep=false){
+  return '<section class="calc-step-card'+(finalStep?' final-step':'')+'">'+
+    '<div class="calc-step-no">'+no+'</div><div><h5>'+title+'</h5>'+body+'</div></section>';
+}
+function calcStepSection(title,subtitle,steps){
+  return '<div class="formula-human step-formula all-mode-steps">'+
+    '<h3>'+title+'</h3><p class="step-meaning">'+subtitle+'</p>'+steps.join('')+'</div>';
+}
+function driveStepsHtml(r){
+  const tractionOk=Number(r.traction_margin)>=1;
+  return calcStepSection('STEP-BY-STEP — Drive Torque',
+    'ลำดับเดียวกับ Desktop: แปลงค่า → หาแรง → ใส่ Safety Factor → แบ่งต่อมอเตอร์ → ตรวจ Traction/Current',[
+      calcStepCard(1,'แปลงล้อ ความเร็ว และความเร่ง',
+        '<p><b>r = D×0.0254÷2</b> = <b>'+f(r.wheel_radius_m,4)+' m</b><br>'+
+        '<b>v = km/h ÷ 3.6</b> = '+f(r.speed_kmh,2)+'÷3.6 = <b>'+f(r.speed_m_s,4)+' m/s</b><br>'+
+        '<b>a = v/t</b> = <b>'+f(r.accel_m_s2,4)+' m/s²</b></p>'),
+      calcStepCard(2,'หาแรงต้านแต่ละส่วน',
+        '<p><b>F_g = mg sinθ</b> = '+f(r.mass_kg,2)+'×9.81×sin('+f(r.slope_deg,2)+'°) = <b>'+f(r.fg_n,2)+' N</b><br>'+
+        '<b>F_r = Crr·mg cosθ</b> = '+f(r.rolling_coeff,4)+'×'+f(r.mass_kg,2)+'×9.81×cos('+f(r.slope_deg,2)+'°) = <b>'+f(r.fr_n,2)+' N</b><br>'+
+        '<b>F_a = ma</b> = '+f(r.mass_kg,2)+'×'+f(r.accel_m_s2,4)+' = <b>'+f(r.fa_n,2)+' N</b></p>'),
+      calcStepCard(3,'รวมแรงและใส่ Safety Factor',
+        '<p><b>F_sum = F_g + F_r + F_a</b> = '+f(r.fg_n,2)+' + '+f(r.fr_n,2)+' + '+f(r.fa_n,2)+' = <b>'+f(r.force_sum_n,2)+' N</b><br>'+
+        '<b>F_design = F_sum × SF</b> = '+f(r.force_sum_n,2)+'×'+f(r.safety_factor,2)+' = <b>'+f(r.design_force_n,2)+' N</b></p>'),
+      calcStepCard(4,'แรงบิด กำลัง และกระแส',
+        '<p><b>F_motor = F_design/n</b> = '+f(r.design_force_n,2)+'÷'+r.motors+' = <b>'+f(r.force_per_motor_n,2)+' N</b><br>'+
+        '<b>T = F_motor·r</b> = '+f(r.force_per_motor_n,2)+'×'+f(r.wheel_radius_m,4)+' = <b>'+f(r.torque_per_motor_nm,2)+' N·m/มอเตอร์</b><br>'+
+        '<b>P_batt = P_wheel/η</b> = <b>'+f(r.electrical_power_total_w,2)+' W</b><br>'+
+        '<b>I_batt = P_batt/V</b> = '+f(r.electrical_power_total_w,2)+'÷'+f(r.voltage_v,1)+' = <b>'+f(r.battery_current_a,2)+' A</b></p>'),
+      calcStepCard(5,'ตรวจแรงยึดเกาะ / Traction',
+        '<p><b>N_drive = mg cosθ × driven load fraction</b> = <b>'+f(r.driven_normal_load_n,2)+' N</b><br>'+
+        '<b>F_traction = μN_drive</b> = '+f(r.traction_coeff,3)+'×'+f(r.driven_normal_load_n,2)+' = <b>'+f(r.traction_limit_n,2)+' N</b><br>'+
+        'Traction margin = '+f(r.traction_limit_n,2)+'÷'+f(r.design_force_n,2)+' = <b>'+f(r.traction_margin,3)+'</b> • '+statusSpan(tractionOk)+'</p>',true)
+    ]);
+}
+function rampStepsHtml(r){
+  const measured=(r.measured_angle_deg===null||r.measured_angle_deg===undefined)?'—':f(r.measured_angle_deg,3)+'°';
+  return calcStepSection('STEP-BY-STEP — Ramp Geometry',
+    'ใช้ h และ x เป็นชุดหลักสำหรับมุมทางลาด; L ที่วัดใช้ตรวจสอบความสอดคล้อง',[
+      calcStepCard(1,'หาความยาวทางลาดทฤษฎี',
+        '<p><b>L = √(x²+h²)</b> = √('+f(r.run_cm,2)+'²+'+f(r.rise_cm,2)+'²) = <b>'+f(r.theoretical_slant_cm,3)+' cm</b> = '+f(r.theoretical_slant_m,4)+' m</p>'),
+      calcStepCard(2,'หามุมทางลาด',
+        '<p><b>θ = tan⁻¹(h/x)</b> = tan⁻¹('+f(r.rise_cm,2)+'/'+f(r.run_cm,2)+') = <b>'+f(r.angle_deg,3)+'°</b></p>'),
+      calcStepCard(3,'หา Slope (%)',
+        '<p><b>Slope = (h/x)×100</b> = ('+f(r.rise_cm,2)+'/'+f(r.run_cm,2)+')×100 = <b>'+f(r.slope_percent,3)+'%</b></p>'),
+      calcStepCard(4,'ตรวจค่าความยาวที่วัดจริง',
+        '<p>L measured = '+f(r.measured_slant_cm,2)+' cm • ต่างจากทฤษฎี = <b>'+f(r.measured_difference_abs_cm,3)+' cm</b> ('+f(r.measured_difference_pct,2)+'%)<br>'+
+        'มุมจาก L measured = <b>'+measured+'</b></p>'),
+      calcStepCard(5,'หาแรงจากความชันสำหรับมอเตอร์',
+        '<p><b>F_slope = mg sinθ</b> = '+f(r.mass_kg,2)+'×9.81×sin('+f(r.angle_deg,3)+'°) = <b>'+f(r.f_slope_n,2)+' N</b><br>'+
+        'ตรวจซ้ำด้วย <b>mg(h/L)</b> = <b>'+f(r.f_slope_ratio_n,2)+' N</b></p>',true)
+    ]);
+}
+function batteryStepsHtml(r,c){
+  return calcStepSection('STEP-BY-STEP — Main Battery 72 V',
+    'ยึด Simple Cycle แบบ Desktop: แบ่งเส้นทาง → พลังงานต่อช่วง → พลังงานต่อ Cycle → จำนวน Cycle → Ah → BMS/แบตที่จะซื้อ',[
+      calcStepCard(1,'แบ่งเส้นทางและเวลา 1 Cycle',
+        '<p><b>d_flat = d_oneway − L_slope</b> = '+f(r.one_way_m,2)+'−'+f(r.slope_length_m,2)+' = <b>'+f(r.flat_one_way_m,2)+' m/เที่ยว</b><br>'+
+        '<b>t_cycle = t_drive+t_lift+t_other+t_turn</b> = '+f(r.drive_time_per_round_s,2)+'+'+f(r.lift_time_per_round_s,2)+'+'+f(r.other_stop_time_per_round_s,2)+'+'+f(r.turn_time_per_round_s,2)+' = <b>'+f(r.round_time_s,2)+' s</b></p>'),
+      calcStepCard(2,'หาแรงและพลังงานแต่ละช่วง',
+        '<p><b>F_flat = Crr·mg</b> = <b>'+f(r.flat_force_n,2)+' N</b><br>'+
+        '<b>F_up = mg sinθ + Crr·mg cosθ</b> = <b>'+f(r.uphill_force_n,2)+' N</b><br>'+
+        '<b>F_down = max(0,Crr·mg cosθ−mg sinθ)</b> = <b>'+f(r.downhill_drive_force_n,2)+' N</b><br>'+
+        'E_flat/เที่ยว = '+f(r.flat_energy_one_way_wh,4)+' Wh • E_up = '+f(r.uphill_slope_energy_wh,4)+' Wh • E_down = '+f(r.downhill_slope_energy_wh,4)+' Wh</p>'),
+      calcStepCard(3,'รวม Differential / Pivot Turn ถ้าเปิดใช้',
+        '<p>สถานะ = <b>'+(r.turn_enabled?'INCLUDED':'NOT INCLUDED')+'</b><br>'+
+        '<b>s_turn = (W/2)φ</b> = '+f(r.turn_wheel_path_m,4)+' m • <b>F_turn = Cturn·mg</b> = '+f(r.turn_force_n,2)+' N<br>'+
+        'E_turn/event = '+f(r.turn_energy_per_event_wh,5)+' Wh • E_turn/Cycle = <b>'+f(r.turn_energy_per_cycle_wh,5)+' Wh</b></p>'),
+      calcStepCard(4,'รวมพลังงานต่อ 1 Cycle',
+        '<p>E_go = <b>'+f(r.outbound_drive_energy_wh,4)+' Wh</b> • E_return = <b>'+f(r.return_drive_energy_wh,4)+' Wh</b><br>'+
+        '<b>E_drive,cycle</b> = '+f(r.trip_drive_energy_wh,4)+' Wh<br>'+
+        '<b>E_aux,cycle = P_aux·t_cycle</b> = '+f(r.aux_power_w,2)+'×'+f(r.round_time_s/3600,5)+' = '+f(r.aux_energy_per_cycle_wh,4)+' Wh<br>'+
+        '<b>E_cycle = '+f(r.total_energy_per_cycle_wh,4)+' Wh</b></p>'),
+      calcStepCard(5,'หาจำนวน Cycle และพลังงานรวม',
+        '<p><b>N = floor(t_available/t_cycle)</b> = <b>'+r.completed_round_trips+' Cycle</b><br>'+
+        '<b>E_total = E_cycle×N</b> = '+f(r.total_energy_per_cycle_wh,4)+'×'+r.completed_round_trips+' = <b>'+f(r.load_energy_wh,2)+' Wh</b></p>'),
+      calcStepCard(6,'แปลงเป็น Wh ออกแบบและ Ah',
+        '<p><b>E_nom = E_total/DoD</b> = '+f(r.load_energy_wh,2)+'/'+f(r.dod,3)+' = '+f(r.nominal_energy_wh,2)+' Wh<br>'+
+        '<b>E_design = E_nom×(1+Reserve)</b> = <b>'+f(r.design_energy_wh,2)+' Wh</b><br>'+
+        '<b>Ah_min = E_design/V</b> = '+f(r.design_energy_wh,2)+'/'+f(r.voltage_v,1)+' = <b>'+f(r.design_ah,2)+' Ah</b><br>'+
+        '<b>Ah_practical = Ah_min×Kb</b> = <b>'+f(r.recommended_ah,2)+' Ah</b> → แนะนำมาตรฐาน <b>'+f(r.suggested_ah,0)+' Ah</b></p>'),
+      calcStepCard(7,'ตรวจ Continuous / Peak Current และ Candidate Battery',
+        '<p>Continuous = max(Uphill '+f(r.uphill_current_calc_a,2)+' A, Pivot '+f(r.turn_average_current_a,2)+' A) = <b>'+f(r.continuous_current_required_a,2)+' A</b><br>'+
+        'Peak = max(Continuous, Drive Torque ref '+f(r.drive_reference_current_a,2)+' A) = <b>'+f(r.peak_current_required_a,2)+' A</b><br>'+
+        'Candidate '+f(c.capacity_ah,1)+' Ah • Energy '+statusSpan(!!c.energy_ok)+' • BMS Continuous '+(c.bms_cont_a>0?statusSpan(c.bms_cont_ok):'<span class="check">NOT SET</span>')+'</p>',true)
+    ]);
+}
+function winchStepsHtml(r){
+  const c=r.core,o=r.operation;
+  return calcStepSection('STEP-BY-STEP — Winch / Operating Cycle',
+    'ใช้ข้อมูลใบสเปก First Layer แบบเดียวกับ Desktop แล้วคำนวณเวลาและจำนวนรอบการทำงาน',[
+      calcStepCard(1,'หาอัตราส่วน Interpolation ของโหลด',
+        '<p><b>r = (x−x₁)/(x₂−x₁)</b> = ('+f(c.load_kg,2)+'−'+f(c.interp_lower_load_kg,2)+')/('+f(c.interp_upper_load_kg,2)+'−'+f(c.interp_lower_load_kg,2)+') = <b>'+f(c.interp_alpha,6)+'</b></p>'),
+      calcStepCard(2,'Interpolation ความเร็วสลิงและกระแส',
+        '<p><b>v = v₁+r(v₂−v₁)</b> = <b>'+f(c.up_speed_m_min,4)+' m/min</b><br>'+
+        '<b>I = I₁+r(I₂−I₁)</b> = <b>'+f(c.up_current_a,3)+' A</b></p>'),
+      calcStepCard(3,'หาเวลา UP / DOWN และตรวจ Rope Layer',
+        '<p><b>t_up = h/v × 60</b> = '+f(c.lift_m,3)+'/'+f(c.up_speed_m_min,4)+'×60 = <b>'+f(o.up_time_s,3)+' s</b><br>'+
+        't_down = <b>'+f(o.down_time_s,3)+' s</b> • Rope layer = '+c.layer+' • Line pull = '+f(c.layer_line_pull_kg,0)+' kg • '+statusSpan(c.layer_pull_ok)+'</p>'),
+      calcStepCard(4,'หาเวลา 1 งานยกและเวลา 1 รอบรถ',
+        '<p><b>t_event = t_up+t_down</b> = '+f(o.up_time_s,3)+'+'+f(o.down_time_s,3)+' = <b>'+f(o.event_time_s,3)+' s</b><br>'+
+        '<b>t_round = t_drive + N_event·t_event + t_other</b> = <b>'+f(o.round_time_s,3)+' s</b></p>'),
+      calcStepCard(5,'หาจำนวนรอบและจำนวนงานยก',
+        '<p><b>N_round = floor(t_available/t_round)</b> = <b>'+o.completed_round_trips+' รอบ</b><br>'+
+        'เที่ยวทางเดียว = '+o.one_way_trips+' • งานยก = <b>'+o.lift_events+' งาน</b> • Winch moves = '+o.winch_moves+'</p>',true)
+    ]);
+}
+function winchBatteryStepsHtml(r){
+  const b=r.battery;
+  return calcStepSection('STEP-BY-STEP — Winch Battery 12 V',
+    'แบต 12 V คิดแยกจากแบตขับ 72 V; ใช้จำนวนงานยก Auto หรือ Manual ตามโหมดที่เลือก',[
+      calcStepCard(1,'กำหนดจำนวนงานยกที่ใช้คำนวณ',
+        '<p>Mode = <b>'+b.event_mode+'</b> • N_event = <b>'+b.events+'</b> • UP '+b.up_count+' ครั้ง • DOWN '+b.down_count+' ครั้ง</p>'),
+      calcStepCard(2,'หาพลังงานยกขึ้น',
+        '<p><b>E_up = V·I_up·t_up/3600</b> = '+f(b.voltage_v,1)+'×'+f(b.up_current_a,3)+'×'+f(b.up_time_s,3)+'/3600 = <b>'+f(b.e_up_wh,4)+' Wh</b></p>'),
+      calcStepCard(3,'หาพลังงานลดลง',
+        '<p><b>E_down = V·I_down·t_down/3600</b> = '+f(b.voltage_v,1)+'×'+f(b.down_current_a,3)+'×'+f(b.down_time_s,3)+'/3600 = <b>'+f(b.e_down_wh,4)+' Wh</b></p>'),
+      calcStepCard(4,'หาพลังงานต่อ 1 งาน และพลังงานรวม',
+        '<p><b>E_event = E_up+E_down</b> = <b>'+f(b.e_event_wh,4)+' Wh</b><br>'+
+        '<b>E_total = N_event·E_event</b> = '+b.events+'×'+f(b.e_event_wh,4)+' = <b>'+f(b.e_total_wh,3)+' Wh</b></p>'),
+      calcStepCard(5,'คำนวณ Ah หลัง DoD + Reserve',
+        '<p><b>Ah_design = E_total(1+Reserve)/(V·DoD)</b> = <b>'+f(b.ah_design,3)+' Ah</b><br>'+
+        'Standard ≥ <b>'+f(b.standard_ah,0)+' Ah @ '+f(b.voltage_v,0)+' V</b></p>'),
+      calcStepCard(6,'ตรวจ Candidate Battery / BMS',
+        '<p>Candidate '+f(b.candidate_ah,1)+' Ah = '+statusSpan(b.candidate_energy_ok)+'<br>'+
+        'Operating current = '+f(b.operating_current_a,2)+' A • BMS Continuous '+f(b.bms_cont_a,1)+' A = '+(b.bms_cont_a>0?statusSpan(b.bms_cont_ok):'<span class="check">CHECK</span>')+'<br>'+
+        'BMS Peak: <span class="check">CHECK DATASHEET — Starting/Stall surge ไม่ระบุ</span></p>',true)
+    ]);
+}
+
 async function checkHealth(){
   try{
     const res=await fetch("/api/health"); const h=await res.json();
@@ -508,7 +637,8 @@ $("#calcDrive").addEventListener("click",async(evt)=>{
       '<div class="formula"><b>Fg = m × g × sin(θ)</b><br><b>สูตรภาษาไทย:</b> แรงจากความชัน = มวลรถ × ความเร่งโน้มถ่วง × sin(มุมทางลาด)<br><b>แทนค่า:</b> '+f(r.mass_kg,1)+' × 9.81 × sin('+f(r.slope_deg,1)+'°) = <b>'+f(r.fg_n,2)+' N</b></div>'+
       '<div class="formula"><b>Fdesign = (Fg + Fr + Fa) × SF</b><br><b>สูตรภาษาไทย:</b> แรงออกแบบรวม = (แรงทางลาด + แรงต้านกลิ้ง + แรงเร่ง) × Safety Factor<br><b>ผล:</b> '+f(r.design_force_n,2)+' N</div>'+
       '<div class="formula"><b>T = (Fdesign ÷ จำนวนมอเตอร์) × รัศมีล้อ</b><br><b>ผล:</b> '+f(r.torque_per_motor_nm,2)+' N·m/มอเตอร์</div>'+
-      '<p>Traction margin = <b>'+f(r.traction_margin,2)+'</b> • Limit '+f(r.traction_limit_n,1)+' N</p>';
+      '<p>Traction margin = <b>'+f(r.traction_margin,2)+'</b> • Limit '+f(r.traction_limit_n,1)+' N</p>'+
+      driveStepsHtml(r);
     if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Drive Torque เสร็จแล้ว");
   }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Drive Torque เสร็จแล้ว ไม่สำเร็จ");}
 });
@@ -567,7 +697,8 @@ async function calculateRampGeometry(){
 
       '<div class="notice"><b>สำคัญ:</b> มุมหลักสำหรับสูตรมอเตอร์คือ <b>θ = atan(h/x) = '+f(r.angle_deg,2)+'°</b>. '+
       'ส่วนมุมจาก L ที่วัดได้ = '+measuredAngle+' เป็นค่าตรวจสอบจากข้อมูลวัดอีกชุดหนึ่ง และอาจต่างกันได้เมื่อ h, x, L_measured ไม่เป็นสามเหลี่ยมเดียวกันพอดี.<br>'+
-      '<b>Slope '+f(r.slope_percent,2)+'%</b> เป็นเปอร์เซ็นต์ความชัน ไม่ใช่องศา.</div>';
+      '<b>Slope '+f(r.slope_percent,2)+'%</b> เป็นเปอร์เซ็นต์ความชัน ไม่ใช่องศา.</div>'+
+      rampStepsHtml(r);
     return r;
   }catch(e){setError(out,e);throw e;}
 }
@@ -709,7 +840,8 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
 
       '<h3>Compare Battery Size</h3>'+
       '<div style="overflow:auto"><table><tr><th>Battery</th><th>Rated Wh</th><th>Runtime*</th><th>Full Cycles*</th><th>Margin target</th><th>Req cont C</th><th>Req peak C</th><th>Check</th></tr>'+
-      compare+'</table></div>';
+      compare+'</table></div>'+
+      batteryStepsHtml(r,c);
     if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Main Battery เสร็จแล้ว");
   }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Main Battery เสร็จแล้ว ไม่สำเร็จ");}
 });
@@ -760,7 +892,8 @@ $("#calcWinch").addEventListener("click",async(evt)=>{
       '<div class="metric"><div class="k">งานยกจากเวลาทำงาน</div><div class="v">'+o.lift_events+'</div></div></div>'+
       '<div class="formula"><b>t_event = t_up + t_down</b><br><b>สูตรภาษาไทย:</b> เวลา 1 งานยก = เวลาขึ้น + เวลาลง<br><b>แทนค่า:</b> '+f(o.up_time_s,2)+' + '+f(o.down_time_s,2)+' = <b>'+f(o.event_time_s,2)+' s</b></div>'+
       '<div class="formula"><b>Nround = floor(t_available ÷ t_round)</b><br><b>สูตรภาษาไทย:</b> จำนวนรอบที่ทำได้ครบ = ปัดลง(เวลาทำงานทั้งหมด ÷ เวลาต่อรอบ)<br><b>ผล:</b> '+o.completed_round_trips+' รอบ</div>'+
-      '<div class="notice"><b>ต่อไป:</b> ถ้าต้องการหา Ah / Wh / BMS ของวินช์ ให้เปิดแท็บ <b>Winch Battery 12 V</b>. พลังงานส่วนนั้นแยกจาก Main Battery 72 V.</div>';
+      '<div class="notice"><b>ต่อไป:</b> ถ้าต้องการหา Ah / Wh / BMS ของวินช์ ให้เปิดแท็บ <b>Winch Battery 12 V</b>. พลังงานส่วนนั้นแยกจาก Main Battery 72 V.</div>'+
+      winchStepsHtml(r);
     if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Winch / Operating Cycle เสร็จแล้ว");
   }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Winch ไม่สำเร็จ");}
 });
@@ -815,7 +948,8 @@ $("#calcWinchBattery").addEventListener("click",async(evt)=>{
       '<div class="battery-separation-note result-separation"><b>ย้ำการแยกระบบ:</b>'+
       '<span>12 V Winch Battery: '+f(b.e_total_wh,2)+' Wh / '+f(b.ah_design,2)+' Ah design</span>'+
       '<span>72 V Main Battery: คำนวณอีกหน้า และไม่บวก Wh/Ah ชุดนี้เข้าไป</span>'+
-      '<span>แชร์เฉพาะเวลา UP/DOWN เพื่อให้ Main Battery นับจำนวน Operating Cycle ได้สมจริง</span></div>';
+      '<span>แชร์เฉพาะเวลา UP/DOWN เพื่อให้ Main Battery นับจำนวน Operating Cycle ได้สมจริง</span></div>'+
+      winchBatteryStepsHtml(r);
     syncVehicleParameters();
     if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Winch Battery 12 V เสร็จแล้ว");
   }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Winch Battery 12 V ไม่สำเร็จ");}
@@ -1078,6 +1212,7 @@ $("#calcStability").addEventListener("click",async(evt)=>{
       ['side_left','side_right','front','rear','slope'].map(k=>'<tr><td>'+fbdName(k)+'</td><td>'+fbdSf(r.current_cases[k].sf)+'</td><td>'+statusSpan(r.current_cases[k].pass)+'</td></tr>').join('')+
       '</table>'+
       '<div class="notice"><b>Slope แยกจาก Crane Worst Case:</b> SF_slope = '+fbdSf(r.slope.sf)+' • '+statusSpan(r.slope.pass)+'</div>'+
+      '<div class="notice"><b>STEP-BY-STEP ทุก Stability Mode:</b> เลือก Side Left / Side Right / Front / Rear / Slope และ Current/Critical ด้านล่าง ระบบจะแสดง STEP ของ Case นั้นพร้อมแทนค่าจริง</div>'+
       '<p class="check">เลือก Case และ Current/Critical ด้านล่างเพื่อดู FBD, Moment arm และสูตรแทนค่าจริง</p>';
     renderWebFbd();
     if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Stability + FBD เสร็จแล้ว");
