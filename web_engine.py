@@ -357,6 +357,8 @@ def calculate_drive_torque(data: Dict[str, Any]) -> Dict[str, Any]:
         "battery_current_a": ibatt, "driven_normal_load_n": ndrive,
         "traction_limit_n": ftraction, "traction_margin": (ftraction / fdesign if fdesign > 0 else 999.0),
         "motors": motors, "efficiency": eff,
+        "rolling_coeff": rolling, "safety_factor": sf, "voltage_v": voltage,
+        "drive_load_fraction": drive_load_fraction, "traction_coeff": traction_coeff,
     }
 
 
@@ -592,6 +594,8 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "design_energy_wh": edesign,
         "design_ah": ah,
         "battery_design_factor": battery_factor,
+        "drive_efficiency": eff, "rolling_coeff": crr, "aux_power_w": aux_w,
+        "dod": dod, "reserve": reserve,
         "recommended_energy_wh": erecommended,
         "recommended_ah": ah_recommended,
         "standard_ah": next_standard_capacity(ah_recommended),
