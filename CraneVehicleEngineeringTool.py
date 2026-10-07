@@ -6561,7 +6561,8 @@ void loop() {{
         add("Drive","Required torque / motor",f"{t['T']:.2f} N·m","PASS","Design force after SF")
         add("Drive","Motor rated power",f"{t.get('motor_rated_w',0):.0f} W / motor","PASS" if t.get("motor_power_ok",False) else "FAIL",
             f"required {t['Pmech_per']:.1f} W • margin {t.get('motor_power_margin',0):.2f}×")
-        add("Drive","Traction margin",f"{t.get('traction_margin',0):.2f}×","PASS" if t.get("traction_margin",0)>=1 else "FAIL","≥ 1.00 required")
+        traction_margin=(t["Ftraction"]/t["Fdesign"]) if t["Fdesign"]>1e-12 else 999.0
+        add("Drive","Traction margin",f"{traction_margin:.2f}×","PASS" if traction_margin>=1 else "FAIL","≥ 1.00 required")
         add("Battery","Main battery minimum",f"{e['Ah']:.2f} Ah","PASS",f"practical {e.get('Ah_recommended',e['Ah']):.2f} Ah")
         add("Battery","72 V energy load",f"{e['Eload']:.1f} Wh","PASS",f"{e['cycles']} complete Cycle")
         add("Winch","12 V battery design",f"{w['ah']:.2f} Ah","PASS",f"{w['n']} jobs • UP+DOWN/job")
@@ -6621,9 +6622,9 @@ void loop() {{
         blocks=[]
         if mode in ("ALL","Drive Torque"):
             blocks.append(f"""<h2>DRIVE TORQUE TRACE</h2>
-            <p><b>Input:</b> m={t['m']:.2f} kg, θ={math.degrees(t['theta']):.2f}°, r={t['r']:.4f} m, n={t['n']}</p>
+            <p><b>Input:</b> m={t['m']:.2f} kg, θ={t['deg']:.2f}°, r={t['r']:.4f} m, n={t['n']}</p>
             <p><b>Formula:</b> F_design=(mg sinθ + Crr·mg cosθ + ma)×SF</p>
-            <p><b>Substitute:</b> ({t['Fg']:.2f}+{t['Frr']:.2f}+{t['Fa']:.2f})×{t['SF']:.2f}=<b>{t['Fdesign']:.2f} N</b></p>
+            <p><b>Substitute:</b> ({t['Fg']:.2f}+{t['Fr']:.2f}+{t['Fa']:.2f})×{self.tsf.value():.2f}=<b>{t['Fdesign']:.2f} N</b></p>
             <p><b>Formula:</b> T=(F_design/n)r → <b>{t['T']:.2f} N·m/motor</b></p>
             <p><b>Power check:</b> required {t['Pmech_per']:.1f} W vs rated {t.get('motor_rated_w',0):.1f} W → <b>{'PASS' if t.get('motor_power_ok') else 'FAIL'}</b></p>""")
         if mode in ("ALL","Main Battery"):
