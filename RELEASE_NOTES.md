@@ -1,45 +1,61 @@
-# Crane Vehicle Engineering Tool V53.8.31
+# Crane Vehicle Engineering Tool V53.8.32
 
-## Confirmed Vehicle Width + Centered 250×250 mm Crane Base
+## Winch Linear Interpolation — Show Full Calculation
 
-### Confirmed project geometry
-- Vehicle width = 1.00 m
-- Crane base = 0.25 × 0.25 m
-- Crane base is centered left-right
-- Crane lateral center y_C = 0.00 m
-- Side clearance = (1.00 - 0.25)/2 = 0.375 m = 375 mm per side
+### Why this update
+The Winch calculator previously showed the interpolated result only, for example:
+- Speed ≈ 3.124 m/min
+- Current ≈ 22.57 A
 
-### Important distinction
-- Vehicle width = actual frame/body width
-- Wheel track W = center-to-center distance of left/right wheels
-- These are separate values and are no longer presented as the same dimension
+This release now shows exactly how those values are obtained from the supplied 4500LB First Layer datasheet.
 
-### Desktop Stability
-- Added a green geometry summary card
-- Wheel track label explicitly says it is not vehicle width
-- Crane x from rear axle now states sign convention:
-  - + = toward vehicle front
-  - - = toward vehicle tail
-- x_C remains user/measured input because rear-axle-to-tail distance is not yet confirmed
-- Stability variable table and formal summary now include:
-  - VehicleWidth
-  - CraneBaseW / CraneBaseL
-  - y_C
-  - side clearance
+### Desktop
+Added a visible LINEAR INTERPOLATION calculation section on the Winch Spec / Datasheet page.
 
-### 3D Crane View
-- Vehicle body is now drawn using the confirmed 1.00 m body width
-- Wheels remain positioned by Wheel track W
-- Crane base is drawn as 0.25 × 0.25 m instead of the previous generic 0.38 × 0.38 m block
-- Crane pivot remains centered laterally at y_C = 0
-- Live Data panel shows Vehicle width, Wheel track and Crane base separately
+For the current Load, the program now shows:
+1. The two datasheet rows used
+2. Interpolation fraction
+3. Speed interpolation
+4. Current interpolation
+5. The resulting Speed and Current that are passed to later calculations
+
+Example for 100 kg:
+- Datasheet interval: 0 kg → 454 kg
+- v1 = 3.3 m/min, v2 = 2.5 m/min
+- I1 = 12 A, I2 = 60 A
+- r = (100 - 0) / (454 - 0) = 0.220264
+- v = 3.3 + r(2.5 - 3.3) = 3.124 m/min
+- I = 12 + r(60 - 12) = 22.57 A
+
+The section also explains:
+- interpolated speed is used to calculate UP time
+- interpolated current is used in Winch Battery Wh calculations
+
+### PDF / Report
+The exported Winch PDF now includes the full interpolation derivation before the operating-cycle and battery calculations.
 
 ### Web
-- Stability Geometry section shows the confirmed 1.00 m / 0.25 × 0.25 m dimensions
-- Shows 375 mm clearance each side
-- Wheel track label is explicitly center-to-center
-- x_C label shows +front / -tail convention
-- Vehicle Parameters now includes Crane Base = 250 × 250 mm
+The Winch result now shows:
+- First Layer interval used
+- STEP 1 interpolation ratio
+- STEP 2 line-speed interpolation
+- STEP 3 motor-current interpolation
+- substituted values and final units
 
-### Note
-The longitudinal crane location x_C is intentionally not auto-calculated yet because the actual rear-axle-to-tail distance has not been confirmed.
+### Calculation source
+The interpolation remains based only on the supplied First Layer table:
+- 0 kg: 3.3 m/min, 12 A
+- 454 kg: 2.5 m/min, 60 A
+- 907 kg: 1.1 m/min, 100 A
+- 2041 kg: 0.8 m/min, 140 A
+
+No new performance values were invented.
+
+### Regression
+Added tests for the 100 kg case:
+- r = 100/454
+- Speed = 3.3 + r(2.5 - 3.3)
+- Current = 12 + r(60 - 12)
+- Desktop visible interpolation section
+- PDF interpolation section
+- Web interpolation fields and formula rendering
