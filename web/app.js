@@ -637,6 +637,7 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
     ).join('');
 
     out.innerHTML=
+      '<div class="system-result-head main-72v"><span class="system-chip green">72 V VEHICLE ONLY</span><b>Winch 12 V energy = NOT INCLUDED</b></div>'+
       '<h3>Main Battery 72 V — Simple Cycle</h3>'+
       '<div class="notice"><b>Current check:</b> Continuous = max(Uphill '+f(r.uphill_current_calc_a,2)+' A, Pivot '+f(r.turn_average_current_a,2)+' A) = <b>'+f(r.continuous_current_required_a,2)+' A</b> • Peak = max(Continuous, Drive Torque design reference '+f(r.drive_reference_current_a,2)+' A) = <b>'+f(r.peak_current_required_a,2)+' A</b></div>'+
       '<div class="notice"><b>1 Cycle</b> = ไป '+f(r.one_way_m,1)+' m + กลับ '+f(r.one_way_m,1)+' m • '+
