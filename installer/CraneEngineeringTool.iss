@@ -1,5 +1,5 @@
 #define MyAppName "Crane Vehicle Engineering Tool"
-#define MyAppVersion "53.8.37"
+#define MyAppVersion "53.8.38"
 #define MyAppPublisher "Mechatronics Engineering Project"
 #define MyAppExeName "CraneEngineeringTool.exe"
 #define MyWebExeName "CraneVehicleWebServer.exe"
@@ -24,6 +24,9 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+CloseApplications=yes
+RestartApplications=no
+RestartIfNeededByRun=no
 
 ; One-click behavior
 DisableStartupPrompt=yes
@@ -34,7 +37,7 @@ DisableReadyPage=yes
 DisableFinishedPage=yes
 AllowNoIcons=no
 
-VersionInfoVersion=53.8.37.0
+VersionInfoVersion=53.8.38.0
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 
