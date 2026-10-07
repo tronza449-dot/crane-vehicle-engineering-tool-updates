@@ -6650,7 +6650,7 @@ void loop() {{
         if mode in ("ALL","Ramp Geometry"):
             r=self.ramp_geometry_results()
             blocks.append(f"""<h2>RAMP GEOMETRY TRACE</h2>
-            <p><b>Input:</b> rise={r['h']:.2f} cm, run={r['x']:.2f} cm, measured slant={r['measured']:.2f} cm</p>
+            <p><b>Input:</b> rise={r['h']:.2f} cm, run={r['x']:.2f} cm, measured slant={r['lm']:.2f} cm</p>
             <p><b>Formula:</b> L=√(h²+x²) → √({r['h']:.2f}²+{r['x']:.2f}²)=<b>{r['L']:.3f} cm</b></p>
             <p><b>Formula:</b> θ=atan(h/x) → <b>{r['angle']:.3f}°</b></p>
             <p><b>Slope %:</b> (h/x)×100 = <b>{r['slope_pct']:.3f}%</b></p>
