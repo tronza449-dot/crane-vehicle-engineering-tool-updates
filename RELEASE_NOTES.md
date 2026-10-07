@@ -1,52 +1,39 @@
-# Crane Vehicle Engineering Tool V53.8.28
+# Crane Vehicle Engineering Tool V53.8.29
 
-## Desktop Button Press Animation + Separate Web Battery Systems
+## Stability Web Hotfix + Web-like Desktop Buttons / Mode Cards
 
-### Desktop — Press animation
-เพิ่ม animation ตอนกดปุ่มในโปรแกรม Desktop ให้รู้สึกเหมือนปุ่มถูกกดจริง:
-- กดแล้วปุ่มยุบ/เลื่อนเล็กน้อย
-- ปล่อยแล้วเด้งกลับแบบ smooth
-- ยังคงสถานะ Pressed / Busy / Success / Error เดิม
-- ใช้ QPropertyAnimation + QEasingCurve
+### 1. Web Stability hotfix
+แก้ error ที่หน้า Stability:
+- `$(...).map is not a function`
+- สาเหตุ: selector บางจุดคืน element เดียว แต่ถูกนำไปใช้ .map() / .forEach()
+- แก้เป็น querySelectorAll collection โดยตรงสำหรับ:
+  - Component Mass rows
+  - Mode A / Mode B cards
+  - Mass mode radio inputs
+  - Component Mass input listeners
 
-### Web — แยกแบตรถและแบตวินช์
-ปรับ Web จากเดิมที่หน้า Winch มีทั้งกลไกและ Battery อยู่รวมกัน ให้แยกเป็น 3 โมดูลชัดเจน:
-1. Main Battery 72 V
-2. Winch / Lift
-3. Winch Battery 12 V
+เพิ่ม cache-busting เป็น `?v=53.8.29` เพื่อบังคับ browser โหลด JS/CSS ใหม่ ไม่ค้างไฟล์ V53.8.28
 
-### Main Battery 72 V
-- ใช้พลังงาน Drive + Auxiliary ของรถ
-- ใช้เวลา UP/DOWN จาก Winch เพื่อหา Cycle time เท่านั้น
-- ไม่รวม Wh/Ah ของ Winch Battery
-- มี badge: 72 V VEHICLE ONLY / WINCH ENERGY EXCLUDED
+### 2. Desktop button animation — Web style
+ปรับปุ่ม Desktop ให้ฟีลเหมือน Web:
+- Mouse press: opacity ลดลงแบบ smooth
+- Release: opacity กลับ 100%
+- Click acknowledgement: blue flash สั้น ๆ แบบ Web btn-ack
+- ปุ่ม Action ยังคง Busy → Success / Error ตามเดิม
+- Animation ใช้ QPropertyAnimation + QGraphicsOpacityEffect จึงไม่ถูก Qt Layout ดึงตำแหน่งกลับ
 
-### Winch / Lift
-- Load interpolation
-- UP/DOWN time
-- Current @ load
-- Rope layer
-- Operating Cycles
-- ไม่มี Battery sizing ในหน้านี้
+### 3. Desktop Stability Mode selector — Web card style
+เปลี่ยนการเลือกโหมด Stability/Tipping จาก Combo/Radio แบบเดิม เป็นการ์ดกดเลือกเหมือน Web:
+- Mode A — Total Mass
+- Mode B — Component Mass
+- การ์ดที่เลือกมีพื้นฟ้า + กรอบน้ำเงิน
+- Hover state ชัดเจน
+- ทั้งหน้า Crane Mode และ Component Mass ใช้หน้าตาเดียวกัน
+- โหมดทั้งสองหน้าซิงก์กันอัตโนมัติ
 
-### Winch Battery 12 V
-- แบตแยกสำหรับวินช์
-- E_up / E_down / E_event / E_total
-- Ah design
-- Auto / Manual lift events
-- Candidate capacity
-- BMS Continuous / Peak check
-- มี badge: 12 V WINCH ONLY
-
-### Data sharing
-Main Battery และ Winch Battery ไม่แชร์พลังงานกัน
-ข้อมูลที่แชร์จาก Winch → Main Battery มีเฉพาะ:
-- เวลา UP
-- เวลา DOWN
-- เวลา 1 งานยก
-- จำนวนงานยกต่อ Operating Cycle
-เพื่อให้จำนวน Cycle ใน 3 ชั่วโมงสมจริง
-
-### Compatibility
-- Web input เดิมของ Winch Battery จะถูก migrate ไป form ใหม่อัตโนมัติ
-- Main Battery calculation engine ยังคง winch_energy_included = false
+### Regression coverage
+เพิ่มการตรวจ:
+- Stability Web ต้องใช้ querySelectorAll collection
+- ห้ามกลับไปใช้ single-element selector กับ .map / .forEach
+- Desktop press animation ต้องสร้าง opacity effect และ animation จริง
+- Stability mode cards ต้องสลับ A/B และซิงก์กันได้
