@@ -380,6 +380,11 @@ jobs:
           assert 'id="rampForm"' in Path("web/index.html").read_text(encoding="utf-8")
           assert "/api/calc/ramp-geometry" in Path("web_server.py").read_text(encoding="utf-8")
           assert "calculateRampGeometry" in web_js
+          assert 'id="syncDesktopValues"' in Path("web/index.html").read_text(encoding="utf-8")
+          assert "/api/project-values" in Path("web_server.py").read_text(encoding="utf-8")
+          assert "def _desktop_web_values" in Path("web_server.py").read_text(encoding="utf-8")
+          assert "syncDesktopProjectValues" in web_js
+          assert "applyDesktopFormValues" in web_js
           for step_fn in ("driveStepsHtml","rampStepsHtml","batteryStepsHtml","winchStepsHtml","winchBatteryStepsHtml"):
               assert ("function "+step_fn) in web_js, f"Missing web step renderer: {step_fn}"
           assert "STEP-BY-STEP ทุก Stability Mode" in web_js
@@ -399,6 +404,81 @@ jobs:
           assert 'paramTrack' in Path("web/index.html").read_text(encoding="utf-8")
           assert webapp.app.title.startswith("Crane Vehicle Engineering Tool")
           assert webapp.health()["ok"] is True
+
+          # ---------- Desktop Save Values -> Web sync regression ----------
+          with tempfile.TemporaryDirectory() as sync_td:
+              sync_path=Path(sync_td)/"desktop_values.json"
+              def sv(kind,value):
+                  return {"kind":kind,"value":value}
+              sync_state={
+                  "format":"CraneVehicleEngineeringToolProject",
+                  "version":"53.8.37",
+                  "saved_at":"2099-01-01T12:34:56",
+                  "widgets":{
+                      "mt":sv("double",321.0),"ml":sv("double",87.0),"mb":sv("double",22.0),
+                      "W":sv("double",0.82),"WB":sv("double",1.18),"L":sv("double",1.25),
+                      "th":sv("double",35.0),"kd":sv("double",1.10),"req":sv("double",1.50),
+                      "xC":sv("double",0.27),"xCG":sv("double",0.04),"yCG":sv("double",-0.02),
+                      "driveXCG":sv("double",0.06),"hcg":sv("double",0.62),
+                      "slope":sv("double",17.5),"acc":sv("double",0.31),
+                      "massCalcMode":sv("combo",0),
+                      "tUseMain":sv("check",True),"tm":sv("double",299.0),
+                      "twheelInch":sv("double",10.0),"tgrade":sv("double",18.0),
+                      "tspeed":sv("double",4.5),"taccel":sv("double",5.0),
+                      "tmu":sv("double",0.02),"tmotors":sv("int",2),"tsf":sv("double",1.3),
+                      "teff":sv("double",85.0),"tvoltage":sv("double",72.0),
+                      "tDriveLoadFrac":sv("double",50.0),"ttraction":sv("double",0.7),
+                      "motorRatedPower":sv("double",1500.0),
+                      "euseTorqueMass":sv("check",True),"emass":sv("double",290.0),
+                      "evolt":sv("double",72.0),"espeed":sv("double",1.0),
+                      "eoneway":sv("double",30.0),"eslopeLen":sv("double",2.9),
+                      "eslopeDeg":sv("double",12.0),"eruntime":sv("double",3.0),
+                      "err":sv("double",0.02),"edriveEff":sv("double",60.0),
+                      "eaux":sv("double",50.0),"edod":sv("double",80.0),
+                      "ereserve":sv("double",20.0),"ebatteryFactor":sv("double",3.0),
+                      "eTurnEnable":sv("check",True),"eTurnEvents":sv("int",2),
+                      "eTurnAngle":sv("double",180.0),"eTurnTime":sv("double",5.0),
+                      "eTurnCoeff":sv("double",0.2),
+                      "bselTargetContC":sv("double",3.0),"bselTargetPeakC":sv("double",5.0),
+                      "eCandidateAh":sv("double",40.0),"eCandidateContA":sv("double",100.0),
+                      "eCandidatePeakA":sv("double",150.0),
+                      "rampUseMainMass":sv("check",True),"rampRiseCm":sv("double",55.0),
+                      "rampRunCm":sv("double",280.0),"rampMeasuredCm":sv("double",290.0),
+                      "wmass":sv("double",100.0),"wheight":sv("double",1.5),
+                      "wopSpeed":sv("double",1.0),"wopDistance":sv("double",30.0),
+                      "wopHours":sv("double",3.0),"wopEvents":sv("int",2),"wopOther":sv("double",0.0),
+                      "wbDownMode":sv("combo",0),"wbDownBasis":sv("combo",0),
+                      "wbDownCurrent":sv("double",10.0),"wbDownSpeed":sv("double",3.0),
+                      "wbDownTime":sv("double",30.0),"wbEventMode":sv("combo",0),
+                      "wbEvents":sv("int",64),"wbVoltage":sv("double",12.0),
+                      "wbDoD":sv("double",80.0),"wbReserve":sv("double",20.0),
+                      "wbCandidateAh":sv("double",40.0),"wbBmsCont":sv("double",120.0),
+                      "wbBmsPeak":sv("double",200.0),
+                  },
+                  "components":[
+                      ["Frame / โครงรถ","55","0","0","0.35"],
+                      ["Payload / ซากสัตว์","87","0","0","0.60"],
+                  ],
+                  "hardware":[],"integration":{}
+              }
+              sync_path.write_text(json.dumps(sync_state,ensure_ascii=False),encoding="utf-8")
+              with patch.dict(webapp.os.environ,{"CVET_DESKTOP_STATE":str(sync_path)},clear=False):
+                  synced=webapp.api_project_values()
+              assert synced["ok"] is True
+              assert synced["desktop_version"]=="53.8.37"
+              assert synced["saved_at"]=="2099-01-01T12:34:56"
+              assert synced["forms"]["driveForm"]["mass_kg"]==321.0
+              assert synced["forms"]["batteryForm"]["mass_kg"]==321.0
+              assert synced["forms"]["stabilityForm"]["track_width_m"]==0.82
+              assert synced["forms"]["stabilityForm"]["wheelbase_m"]==1.18
+              assert synced["forms"]["stabilityForm"]["crane_from_rear_m"]==0.27
+              assert synced["forms"]["stabilityForm"]["boom_length_m"]==1.25
+              assert abs(synced["forms"]["stabilityForm"]["combined_cg_from_rear_m"]-0.65)<1e-12
+              assert synced["forms"]["stabilityForm"]["combined_cg_height_m"]==0.62
+              assert synced["forms"]["stabilityForm"]["slope_deg"]==17.5
+              assert synced["forms"]["winchForm"]["lift_m"]==1.5
+              assert synced["forms"]["winchBatteryForm"]["bms_cont_a"]==120.0
+              assert synced["components"][1]["mass_kg"]==87.0
 
           app = QApplication.instance() or QApplication([])
           app.setApplicationName(cvet.APP_NAME)
