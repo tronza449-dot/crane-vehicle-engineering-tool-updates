@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.43"
+APP_VERSION = "53.8.44"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
