@@ -1,4 +1,4 @@
-# Crane Vehicle Engineering Tool V53.8.40
+# Crane Vehicle Engineering Tool V53.8.41
 
 ## Full Web Calculation Audit Fixes
 
