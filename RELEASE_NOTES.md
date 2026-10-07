@@ -1,65 +1,121 @@
-# Crane Vehicle Engineering Tool V53.8.39
+# Crane Vehicle Engineering Tool V53.8.40
 
-## Stability FBD Direction Fix — Critical Case Is Now the Default
+## Full Web Calculation Audit Fixes
 
-### 1. Why Side Right showed M_O = 0
-The calculation itself was not globally zero.
+This release follows a complete formula and UI audit of:
+Drive Torque, Ramp Geometry, Main Battery 72 V, Winch, Winch Battery 12 V,
+Side Left/Right, Front/Rear, Slope Stability, Component Mass mode, and Desktop↔Web parity.
 
-The Web and Desktop FBD pages previously opened in **Current Angle Snapshot** mode by default.
-For example, when the current crane angle is -90° (boom points left):
-- Side Left has an overturning moment
-- Side Right correctly has no overturning moment at that same snapshot angle
-- Front/Rear may also show M_O = 0 depending on geometry
+### 1. Drive Torque — Motor rated power is now actually checked
+Previously the Web form accepted “Motor rated power / motor” but the calculation engine did not use it.
 
-That behavior is mathematically correct for a snapshot, but it is confusing when the user selects “Side Right / Front / Rear” expecting the directional tipping design case.
+Now the engine calculates:
+- Required mechanical design power / motor
+- Entered rated power / motor
+- Power margin = Rated / Required
+- PASS / FAIL
 
-### 2. Critical Case is now the default
-Both Desktop and Web Stability FBD now open in:
+This is added to both the result card and STEP-BY-STEP calculation.
 
-**Critical Case / มุมวิกฤตของด้านที่เลือก**
+### 2. Wheel diameter input clarified
+The Drive Torque wheel input now explicitly means:
 
-So:
-- Side Left automatically uses its worst angle
-- Side Right automatically uses its worst angle
-- Front automatically uses its worst angle
-- Rear searches the permitted crane range -90° to +90°
-- Current Angle Snapshot remains available as a separate view
+**Effective wheel outside / rolling diameter**
 
-### 3. Directional validation using the project geometry
-Regression now validates this exact engineering example:
+It is not the rim number printed in a tire size.
+Example: for 3.0-10, “10” refers to the rim size; it must not automatically be used as a 10-inch rolling diameter.
 
-Inputs:
-- total mass = 300 kg
-- base vehicle = 180 kg
-- boom = 20 kg
-- payload = 100 kg
-- track = 1.10 m
-- boom length = 1.20 m
-- dynamic factor = 1.20
+New-project Desktop default is changed from 10 in to 16 in, and the field includes a warning tooltip.
+Existing saved user values are not silently overwritten.
 
-At current crane angle -90°:
-- Side Right current M_O = 0 — correct because the boom is pointing left
-- Side Left current M_O > 0
+### 3. Main Battery — Auxiliary energy now covers the full requested runtime
+Previously Auxiliary energy in forward sizing was multiplied only by completed integer Cycles.
+That omitted the final fractional time after the last full Cycle.
 
-For Side Right **Critical Case**, the scanner must find +90° and produce approximately:
-- M_O = 774.99 N·m
-- M_R = 971.19 N·m
-- SF = 1.253
+Now:
+- Drive energy = E_drive,cycle × completed Cycles
+- Auxiliary energy = P_aux × requested runtime
+- E_total = E_drive,total + E_aux,total
 
-The release build fails if this directional behavior changes.
+Therefore a 50 W Auxiliary load over 3 h contributes exactly 150 Wh,
+even when the route finishes with unused time after the last full Cycle.
 
-### 4. Clear zero-M_O explanation
-When M_O = 0:
-- Current view now says the current crane angle does not create overturning in that direction and recommends switching to Critical Case.
-- Critical view says no overturning was found in that direction within the permitted crane range -90° to +90°.
+Per-Cycle Auxiliary energy is still shown for teaching/explanation purposes.
 
-This is especially important for Rear tipping: with a crane restricted to ±90°, a rear-mounted axis that remains inside the rear support line may legitimately have no rear overturning moment from the boom/payload.
+### 4. Main Battery / BMS current now includes Auxiliary current
+Auxiliary is supplied by the 72 V vehicle battery, so simultaneous current must be included.
 
-### 5. Desktop/Web consistency
-Desktop FBD default:
-- Critical Case
+Now:
+- I_aux = P_aux / V
+- Continuous = max(I_uphill, I_pivot) + I_aux
+- Peak = max(Continuous, Drive Torque design reference + I_aux)
 
-Web FBD default:
-- Critical Case
+Desktop and Web use the same rule.
 
-All previous Desktop ↔ Web numerical parity tests remain enabled.
+### 5. Winch — Rope-layer limitation is now explicit
+The supplied datasheet provides speed/current performance for First Layer.
+
+When lift distance reaches Layer > 1:
+- Line-pull limit is still checked using the layer table
+- Speed/current remain based on First-Layer interpolation because no layer-specific speed/current table was supplied
+- Web and Desktop now show a visible warning instead of silently implying layer-corrected performance
+
+No unsupported correction factor is invented.
+
+### 6. Stability — M_O = 0 is no longer presented as “infinite real safety”
+The internal mathematical sentinel remains available for comparison logic,
+but the user-facing FBD now shows:
+
+**N/A (M_O = 0)**
+
+when no overturning moment exists in that direction.
+
+For a Critical Case with no overturning anywhere in the allowed crane range -90°…+90°:
+- angle = N/A
+- no_overturning_in_range = true
+- the UI states that no overturning was found in the permitted range
+
+This is especially relevant to Rear tipping when the boom cannot rotate behind the rear tipping axis.
+
+### 7. Component Mass mode wording clarified
+For Side/Front/Rear lifting stability:
+- Boom/Payload position is derived from crane geometry x_C, L, and θ
+
+The x/y values entered in the Component Mass table are primarily used for the combined CG / travel-slope configuration.
+The Web now states this explicitly to avoid double interpretation of Boom/Payload location.
+
+### 8. Battery report formulas corrected everywhere
+Desktop report/STEP text now matches the corrected full-runtime Auxiliary model.
+
+Old displayed wording:
+E_total = E_cycle × N_cycle
+
+New displayed wording:
+E_total = E_drive,cycle × N_cycle + P_aux × t_runtime
+
+The numerical result, variable table, STEP-BY-STEP report, and simple explanation now use the same definition.
+
+### 9. Regression coverage expanded
+The release build now verifies:
+- Motor rated-power PASS/FAIL fields exist and are numerically valid
+- 50 W Auxiliary × 3 h = 150 Wh
+- I_aux = 50/72 A
+- Continuous current includes I_aux
+- Winch Layer > 1 generates a First-Layer-performance warning
+- Rear no-overturning Critical Case returns angle=None and no_overturning_in_range=True
+- Stability directional case remains:
+  Side Right Critical M_O ≈ 774.99 N·m
+  M_R ≈ 971.19 N·m
+  SF ≈ 1.253
+- Desktop↔Web numerical parity remains enabled
+
+### Unchanged because already correct
+The audit confirmed these calculations did not need formula changes:
+- Ramp geometry: Pythagoras, atan(h/x), Slope %
+- Winch 64 jobs vs 128 winch movements
+- Winch Battery: one job = UP + DOWN
+- Side Left/Right moment balance
+- Front/Rear tipping-axis logic
+- Uphill Slope Stability quasi-static model
+- Differential/Pivot preliminary energy model (still explicitly empirical)
+- No regenerative-energy credit in the simple Main Battery model
