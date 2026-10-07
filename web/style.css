@@ -284,7 +284,7 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
   padding:13px 16px;margin:0 0 16px;border-radius:14px;border:1px solid #c9d8e5;
   background:#f5f9fd;color:#274760;box-shadow:0 5px 14px rgba(19,48,73,.05)
 }
-.power-separation-banner>div,.power-separation-banner:not(:has(>div)){line-height:1.55}
+.power-separation-banner>div{line-height:1.55}
 .power-separation-banner b{font-size:13px;letter-spacing:.04em}
 .power-separation-banner span:not(.system-chip){display:block;font-size:12.5px;color:#5c7285;margin-top:3px}
 .winch-mech-banner{border-color:#c9d7e4;background:#f6f9fc}
