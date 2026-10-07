@@ -1,6 +1,8 @@
-# Crane Vehicle Engineering Tool V53.8.42
+# Crane Vehicle Engineering Tool V53.8.43
 
 ## Engineering Decision Tools
+
+**V53.8.43 final package:** includes all V53.8.42 decision tools plus hardened Desktop Final Design Lock mutation guards.
 
 This release implements the requested items 2, 3, 5, 6 and 7:
 Sensitivity Analysis, Worst-Case Summary, Calculation Trace, Final Design Input Lock,
