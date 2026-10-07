@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Crane Vehicle Engineering Tool — Web</title>
-  <link rel="stylesheet" href="/static/style.css?v=53.8.47">
+  <link rel="stylesheet" href="/static/style.css?v=53.8.48">
 </head>
 <body>
   <header class="topbar">
@@ -671,36 +671,57 @@
 
         <div class="toolbox-grid">
           <section class="toolbox-card whatif-card">
-            <h3>What-if ทั้งระบบ / Coupled Scenario</h3>
-            <p class="check">เปลี่ยนหลายค่าใน Scenario เดียว แล้วคำนวณ Drive + Battery + Winch + Stability ใหม่พร้อมกัน โดยไม่แก้ Design จริง</p>
-            <div class="whatif-grid">
-              <label>Base vehicle mass (kg)<input id="wiBaseMass" type="number" step="1"></label>
-              <label>Payload system (kg)<input id="wiPayload" type="number" step="1"></label>
-              <label>Boom mass (kg)<input id="wiBoomMass" type="number" step="1"></label>
-              <label>Total mass (Auto)<input id="wiTotalMass" type="text" readonly></label>
-              <label>Wheel track W (m)<input id="wiTrack" type="number" step="0.01"></label>
-              <label>Wheelbase WB (m)<input id="wiWheelbase" type="number" step="0.01"></label>
-              <label>Boom length L (m)<input id="wiBoomLength" type="number" step="0.01"></label>
-              <label>Crane x_C from rear (m)<input id="wiCraneX" type="number" step="0.01"></label>
-              <label>Base vehicle CG x (m)<input id="wiBaseCgX" type="number" step="0.01"></label>
-              <label>Combined CG from rear (m)<input id="wiCombinedCgRear" type="number" step="0.01"></label>
-              <label>Combined hCG (m)<input id="wiHcg" type="number" step="0.01"></label>
-              <label>Slope (deg)<input id="wiSlope" type="number" step="0.1"></label>
-              <label>Drive design speed (km/h)<input id="wiDriveSpeed" type="number" step="0.1"></label>
-              <label>Operation speed (km/h)<input id="wiOperationSpeed" type="number" step="0.1"></label>
-              <label>Lift distance (m)<input id="wiLift" type="number" step="0.05"></label>
-              <label class="whatif-link"><input id="wiLinkWinchPayload" type="checkbox"> Link Winch load = Payload</label>
-              <label>Winch load (kg)<input id="wiWinchLoad" type="number" step="1"></label>
+            <h3>What-if แบบง่าย</h3>
+            <p class="check">เลือกสิ่งที่อยากลองเปลี่ยน 1 เรื่อง → ใส่ค่าใหม่ → ดูผลก่อน/หลังทั้งระบบ</p>
+
+            <div class="simple-whatif">
+              <label>1) อยากลองเปลี่ยนอะไร
+                <select id="wiQuickParam">
+                  <option value="payload">น้ำหนักบรรทุก / Payload</option>
+                  <option value="track">ความกว้างฐานล้อ / Track width W</option>
+                  <option value="boom_length">ความยาวแขนเครน / Boom length L</option>
+                  <option value="crane_x">ตำแหน่งฐานเครน / Crane x_C</option>
+                  <option value="slope">มุมทางลาด / Slope</option>
+                  <option value="operation_speed">ความเร็วใช้งาน / Operation speed</option>
+                  <option value="lift">ระยะยก Winch / Lift distance</option>
+                </select>
+              </label>
+              <div class="whatif-current">ค่าปัจจุบัน: <b id="wiQuickCurrent">-</b></div>
+              <label>2) ลองเปลี่ยนเป็น
+                <input id="wiQuickValue" type="number" step="0.01">
+              </label>
+              <div id="wiQuickImpact" class="notice small-note"></div>
             </div>
-            <div class="notice small-note">
-              <b>Auto-link:</b> Total mass = Base + Boom + Payload • mass ส่งไป Torque/Battery/Stability • Slope ส่งไป Drive/Battery/Stability • W ส่งไป Stability/Turning Energy • Operation speed ส่งไป Battery/Winch Cycle.<br>
-              <b>ไม่เดาเอง:</b> W/WB ใหญ่ขึ้นแล้วโครงหนักขึ้นเท่าไร, L ยาวขึ้นแล้ว Boom หนักขึ้นเท่าไร, CG ขยับเท่าไร — ต้องมีข้อมูลโครงสร้าง/ตำแหน่งมวลจริง
-            </div>
+
             <div class="revision-buttons">
-              <button id="loadWebWhatIfBaseline" type="button">โหลดค่าปัจจุบันเป็น Baseline</button>
-              <button id="runWebSensitivity" type="button">คำนวณ What-if ทั้งระบบ</button>
+              <button id="loadWebWhatIfBaseline" type="button">รีเซ็ตเป็นค่าปัจจุบัน</button>
+              <button id="runWebSensitivity" type="button">ดูผลกระทบทั้งระบบ</button>
             </div>
-            <div id="webSensitivityResult" class="result"><p class="check">เริ่มจากกด “โหลดค่าปัจจุบันเป็น Baseline”</p></div>
+
+            <details class="whatif-advanced">
+              <summary>ค่าขั้นสูง / ปรับหลายค่าพร้อมกัน</summary>
+              <div class="whatif-grid">
+                <label>Base vehicle mass (kg)<input id="wiBaseMass" type="number" step="1"></label>
+                <label>Payload system (kg)<input id="wiPayload" type="number" step="1"></label>
+                <label>Boom mass (kg)<input id="wiBoomMass" type="number" step="1"></label>
+                <label>Total mass (Auto)<input id="wiTotalMass" type="text" readonly></label>
+                <label>Wheel track W (m)<input id="wiTrack" type="number" step="0.01"></label>
+                <label>Wheelbase WB (m)<input id="wiWheelbase" type="number" step="0.01"></label>
+                <label>Boom length L (m)<input id="wiBoomLength" type="number" step="0.01"></label>
+                <label>Crane x_C from rear (m)<input id="wiCraneX" type="number" step="0.01"></label>
+                <label>Base vehicle CG x (m)<input id="wiBaseCgX" type="number" step="0.01"></label>
+                <label>Combined CG from rear (m)<input id="wiCombinedCgRear" type="number" step="0.01"></label>
+                <label>Combined hCG (m)<input id="wiHcg" type="number" step="0.01"></label>
+                <label>Slope (deg)<input id="wiSlope" type="number" step="0.1"></label>
+                <label>Drive design speed (km/h)<input id="wiDriveSpeed" type="number" step="0.1"></label>
+                <label>Operation speed (km/h)<input id="wiOperationSpeed" type="number" step="0.1"></label>
+                <label>Lift distance (m)<input id="wiLift" type="number" step="0.05"></label>
+                <label class="whatif-link"><input id="wiLinkWinchPayload" type="checkbox"> ให้ Winch load เปลี่ยนตาม Payload</label>
+                <label>Winch load (kg)<input id="wiWinchLoad" type="number" step="1"></label>
+              </div>
+            </details>
+
+            <div id="webSensitivityResult" class="result"><p class="check">เลือกค่าที่อยากลอง แล้วกด “ดูผลกระทบทั้งระบบ”</p></div>
           </section>
 
           <section class="toolbox-card">
@@ -746,7 +767,7 @@
     <span>CVET Web • Local Server • HTTPS Public Access ผ่าน Tailscale Funnel / Quick Tunnel</span>
   </footer>
 
-  <script src="/static/app.js?v=53.8.47"></script>
-  <script src="/static/details.js?v=53.8.47"></script>
+  <script src="/static/app.js?v=53.8.48"></script>
+  <script src="/static/details.js?v=53.8.48"></script>
 </body>
 </html>
