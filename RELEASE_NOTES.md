@@ -1,61 +1,72 @@
-# Crane Vehicle Engineering Tool V53.8.32
+# Crane Vehicle Engineering Tool V53.8.33
 
-## Winch Linear Interpolation — Show Full Calculation
+## Easier Stability Report + Durable Save Values
 
-### Why this update
-The Winch calculator previously showed the interpolated result only, for example:
-- Speed ≈ 3.124 m/min
-- Current ≈ 22.57 A
+### 1. Stability PDF redesigned for easier reading
+The main Stability report is now presentation-first instead of table-first.
 
-This release now shows exactly how those values are obtained from the supplied 4500LB First Layer datasheet.
+Each critical case now follows the same reading flow:
+1. What is being checked
+2. Where the tipping axis P is
+3. Force calculation
+4. Moment-arm calculation showing where each d⊥ value comes from
+5. Overturning moment M_O
+6. Resisting moment M_R
+7. Safety Factor and a large PASS / FAIL result
 
-### Desktop
-Added a visible LINEAR INTERPOLATION calculation section on the Winch Spec / Datasheet page.
+Moment-arm values are no longer shown as unexplained numbers. Example format:
+- d_V = |y_V - y_P| = |0.000 - (-0.550)| = 0.550 m
+- The report explicitly states whether that force contributes to M_O or M_R
+- It explicitly explains that d⊥ is the distance from the force line to the tipping axis, not the crane boom length
 
-For the current Load, the program now shows:
-1. The two datasheet rows used
-2. Interpolation fraction
-3. Speed interpolation
-4. Current interpolation
-5. The resulting Speed and Current that are passed to later calculations
+The detailed engineering tables and full substitution pages are moved to:
+- Appendix A — Detailed Engineering Calculation
+- Appendix B — Other Figures
 
-Example for 100 kg:
-- Datasheet interval: 0 kg → 454 kg
-- v1 = 3.3 m/min, v2 = 2.5 m/min
-- I1 = 12 A, I2 = 60 A
-- r = (100 - 0) / (454 - 0) = 0.220264
-- v = 3.3 + r(2.5 - 3.3) = 3.124 m/min
-- I = 12 + r(60 - 12) = 22.57 A
+### 2. Save Values button
+Added a visible Save Values control:
+- On the Stability input page
+- In the global bottom status bar so it is available from every module
 
-The section also explains:
-- interpolated speed is used to calculate UP time
-- interpolated current is used in Winch Battery Wh calculations
+Button behavior:
+- "กำลังบันทึก..." while saving
+- Green "บันทึกแล้ว ✓" / "เซฟแล้ว ✓" when complete
 
-### PDF / Report
-The exported Winch PDF now includes the full interpolation derivation before the operating-cycle and battery calculations.
+### 3. More durable persistence
+Current project values are now written to two locations:
+- Primary AppData autosave: last_values.json
+- Backup copy: Documents/CVET_Data/saved_values_backup.json
 
-### Web
-The Winch result now shows:
-- First Layer interval used
-- STEP 1 interpolation ratio
-- STEP 2 line-speed interpolation
-- STEP 3 motor-current interpolation
-- substituted values and final units
+On startup the program restores the newest valid copy and repairs the other copy automatically.
 
-### Calculation source
-The interpolation remains based only on the supplied First Layer table:
-- 0 kg: 3.3 m/min, 12 A
-- 454 kg: 2.5 m/min, 60 A
-- 907 kg: 1.1 m/min, 100 A
-- 2041 kg: 0.8 m/min, 140 A
+### 4. Autosave bug fixes
+Previously, some state could change without triggering autosave.
 
-No new performance values were invented.
+Fixed autosave coverage for:
+- Mode A / Mode B selection
+- Mass_CG component-table edits
+- Device/BOM/validation table edits
+- Existing SpinBox / ComboBox / CheckBox / LineEdit inputs remain covered
 
-### Regression
-Added tests for the 100 kg case:
-- r = 100/454
-- Speed = 3.3 + r(2.5 - 3.3)
-- Current = 12 + r(60 - 12)
-- Desktop visible interpolation section
-- PDF interpolation section
-- Web interpolation fields and formula rendering
+Save state includes:
+- All normal input widgets
+- Hidden mass-mode state
+- Component Mass & CG table
+- Hardware I/O rows
+- Integration tables and revisions
+
+### 5. Mode A wording
+Updated the Stability card text to match the current workflow:
+- Mode A now says Total Mass + Payload + Boom + Geometry
+- It no longer says the user must enter CG manually
+
+### Regression coverage
+The release test now verifies:
+- Save to both primary and backup files
+- Change values after save
+- Restore saved values correctly
+- Component table values restore correctly
+- Mode A/B changes schedule autosave
+- Easy Stability report contains the moment-arm derivation and simplified case flow
+- All five FBD images are still generated
+- Full PDF export still succeeds
