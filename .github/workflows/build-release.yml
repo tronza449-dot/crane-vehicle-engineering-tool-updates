@@ -79,6 +79,16 @@ jobs:
           assert "def _winch_interp_first_layer_details" in source
           assert "def winch_interpolation_html" in source
 
+          # ---------- Updater / installer file-lock regression ----------
+          installer_source = Path("installer/CraneEngineeringTool.iss").read_text(encoding="utf-8-sig")
+          assert '"/CLOSEAPPLICATIONS","/NORESTARTAPPLICATIONS"' in source
+          assert '"/RESTARTAPPLICATIONS"' not in source
+          assert "CloseApplications=yes" in installer_source
+          assert "RestartApplications=no" in installer_source
+          assert "RestartIfNeededByRun=no" in installer_source
+          assert '[Run]' in installer_source and '{#MyAppExeName}' in installer_source
+          assert source.count("self.save_last_values(silent=True)") >= 2
+
           # ---------- Web engine regression ----------
           web_winch=webcalc.calculate_winch({
               "load_kg":100.0,"lift_m":1.5,
