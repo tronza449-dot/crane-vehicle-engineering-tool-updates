@@ -1,46 +1,65 @@
-# Crane Vehicle Engineering Tool V53.8.38
+# Crane Vehicle Engineering Tool V53.8.39
 
-## Fix QtWidgets DLL File-Lock Crash During Update
+## Stability FBD Direction Fix — Critical Case Is Now the Default
 
-### 1. Root cause addressed
-The built-in updater previously launched Inno Setup with both:
-- /RESTARTAPPLICATIONS
-- an installer [Run] entry that launches the application after installation
+### 1. Why Side Right showed M_O = 0
+The calculation itself was not globally zero.
 
-That could cause the application to be restarted more than once around the same update window and could race with replacement/loading of PySide6 / Qt files.
+The Web and Desktop FBD pages previously opened in **Current Angle Snapshot** mode by default.
+For example, when the current crane angle is -90° (boom points left):
+- Side Left has an overturning moment
+- Side Right correctly has no overturning moment at that same snapshot angle
+- Front/Rear may also show M_O = 0 depending on geometry
 
-Typical symptom:
-- DLL load failed while importing QtWidgets
-- The process cannot access the file because it is being used by another process
+That behavior is mathematically correct for a snapshot, but it is confusing when the user selects “Side Right / Front / Rear” expecting the directional tipping design case.
 
-### 2. Safe updater sequence
-The updater now uses:
-- /CLOSEAPPLICATIONS
-- /NORESTARTAPPLICATIONS
-- /NORESTART
+### 2. Critical Case is now the default
+Both Desktop and Web Stability FBD now open in:
 
-The intended sequence is now:
-1. Save current project values
-2. Close the running application
-3. Replace all application / Qt / PySide6 files
-4. Let the installer [Run] section start exactly one fresh application instance
+**Critical Case / มุมวิกฤตของด้านที่เลือก**
 
-### 3. Installer hardening
-Inno Setup now explicitly uses:
-- CloseApplications=yes
-- RestartApplications=no
-- RestartIfNeededByRun=no
+So:
+- Side Left automatically uses its worst angle
+- Side Right automatically uses its worst angle
+- Front automatically uses its worst angle
+- Rear searches the permitted crane range -90° to +90°
+- Current Angle Snapshot remains available as a separate view
 
-This prevents Windows Restart Manager from launching an extra old application instance while the installer is still finishing.
+### 3. Directional validation using the project geometry
+Regression now validates this exact engineering example:
 
-### 4. Save protection before update
-Before handing control to the installer, the Desktop app writes Save Values once more so an update-related forced close cannot lose the current project inputs.
+Inputs:
+- total mass = 300 kg
+- base vehicle = 180 kg
+- boom = 20 kg
+- payload = 100 kg
+- track = 1.10 m
+- boom length = 1.20 m
+- dynamic factor = 1.20
 
-### 5. Regression coverage
-The release build now fails if:
-- /RESTARTAPPLICATIONS returns to the updater
-- /NORESTARTAPPLICATIONS is missing
-- installer CloseApplications / RestartApplications safety directives are removed
-- installer no longer has exactly the intended post-install application launch path
+At current crane angle -90°:
+- Side Right current M_O = 0 — correct because the boom is pointing left
+- Side Left current M_O > 0
 
-All previous Desktop/Web parity, PDF, Save/Restore, FBD, and Web Sync regressions remain enabled.
+For Side Right **Critical Case**, the scanner must find +90° and produce approximately:
+- M_O = 774.99 N·m
+- M_R = 971.19 N·m
+- SF = 1.253
+
+The release build fails if this directional behavior changes.
+
+### 4. Clear zero-M_O explanation
+When M_O = 0:
+- Current view now says the current crane angle does not create overturning in that direction and recommends switching to Critical Case.
+- Critical view says no overturning was found in that direction within the permitted crane range -90° to +90°.
+
+This is especially important for Rear tipping: with a crane restricted to ±90°, a rear-mounted axis that remains inside the rear support line may legitimately have no rear overturning moment from the boom/payload.
+
+### 5. Desktop/Web consistency
+Desktop FBD default:
+- Critical Case
+
+Web FBD default:
+- Critical Case
+
+All previous Desktop ↔ Web numerical parity tests remain enabled.
