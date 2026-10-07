@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.34"
+APP_VERSION = "53.8.35"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -1334,6 +1334,39 @@ class App(QMainWindow):
             raise
         self._finish_action_button(button, success_text)
         return result
+
+    def _make_module_save_bar(self,key,module_name):
+        """Visible Save Values control placed directly inside important calculation modules."""
+        bar=QFrame();bar.setObjectName("moduleSaveBar")
+        bar.setStyleSheet(
+            "QFrame#moduleSaveBar{background:#f7fbff;border:1px solid #cddceb;"
+            "border-radius:9px;} QLabel{background:transparent;}"
+        )
+        lay=QHBoxLayout(bar);lay.setContentsMargins(10,7,10,7);lay.setSpacing(9)
+        title=QLabel(f"{module_name} • Save / บันทึก")
+        title.setStyleSheet("font-weight:850;color:#294760;font-size:10pt;")
+        lay.addWidget(title)
+        note=QLabel("บันทึกค่าปัจจุบันทั้งหมดของโปรเจกต์ รวมค่าหน้านี้ • Auto Save ยังทำงานตามปกติ")
+        note.setWordWrap(True);note.setStyleSheet("color:#60758b;font-size:9.3pt;")
+        lay.addWidget(note,1)
+        btn=QPushButton("💾 Save Values")
+        btn.setObjectName("primaryButton");btn.setMinimumWidth(150);btn.setMinimumHeight(36)
+        btn.setToolTip("บันทึกค่าปัจจุบันทั้งหมดทันที พร้อมไฟล์สำรองใน Documents/CVET_Data")
+        btn.clicked.connect(
+            lambda _checked=False,b=btn:self._run_button_action(
+                b,self.save_values_now,"กำลังบันทึก...","บันทึกแล้ว ✓"
+            )
+        )
+        status=QLabel("พร้อมบันทึก")
+        status.setMinimumWidth(105);status.setAlignment(Qt.AlignCenter)
+        status.setStyleSheet("color:#667b8e;font-size:9pt;font-weight:700;")
+        lay.addWidget(btn);lay.addWidget(status)
+        setattr(self,f"{key}SaveValuesButton",btn)
+        setattr(self,f"{key}SaveStatus",status)
+        if not hasattr(self,"moduleSaveStatusLabels"):
+            self.moduleSaveStatusLabels=[]
+        self.moduleSaveStatusLabels.append(status)
+        return bar
 
     def _thai_formula_text(self, title):
         """Return a plain-Thai equation before the engineering-symbol equation."""
@@ -4516,6 +4549,7 @@ void loop() {{
     def make_stability_hub(self):
         hub=QWidget();self.stabilityHubPage=hub;lay=QVBoxLayout(hub);lay.setContentsMargins(16,16,16,16);lay.setSpacing(12)
         lay.addWidget(make_page_header("STABILITY ANALYSIS","วิเคราะห์การคว่ำ • ทางลาด • FBD • Mass & CG • Worst Case",self.show_home_mode,"SF / FBD","#eee8ff","#6542a5"))
+        lay.addWidget(self._make_module_save_bar("stabilityHub","S • STABILITY"))
         self.stabilityTabs=QTabWidget();lay.addWidget(self.stabilityTabs)
         pages=[(getattr(self,"cranePage",None),"Stability"),(getattr(self,"slopePage",None),"Slope"),
                (getattr(self,"fbdPage",None),"Engineering FBD"),(getattr(self,"componentsPage",None),"Mass & CG"),
@@ -5948,6 +5982,12 @@ void loop() {{
         if hasattr(self,"stabilitySaveStatus"):
             self.stabilitySaveStatus.setText(str(text))
             self.stabilitySaveStatus.setStyleSheet(f"color:{color};font-size:9.2pt;font-weight:700;")
+        for label in getattr(self,"moduleSaveStatusLabels",[]):
+            try:
+                label.setText(str(text))
+                label.setStyleSheet(f"color:{color};font-size:9pt;font-weight:750;")
+            except Exception:
+                pass
 
     def save_last_values(self,silent=True):
         """Save every captured input to both primary AppData and a Documents backup."""
@@ -6830,6 +6870,7 @@ void loop() {{
         nav.addWidget(make_chip("SPEC + 2 INPUTS","#fff1dd","#9a5800"))
         export=QPushButton("Export PDF");export.setObjectName("primaryButton");export.setMinimumWidth(140);export.clicked.connect(self.export_winch_pdf);nav.addWidget(export)
         root.addWidget(header)
+        root.addWidget(self._make_module_save_bar("winch","W • WINCH"))
 
         # Two editable design inputs on Datasheet: load and lift distance. Cycle count comes from Operating Cycles.
         self.wmass=QDoubleSpinBox(w);self.wmass.setRange(1.0,2041.0);self.wmass.setDecimals(1);self.wmass.setValue(100.0);self.wmass.setSuffix(" kg");self.wmass.setMinimumWidth(180)
@@ -7716,6 +7757,7 @@ void loop() {{
         w=QWidget();self.electricalPage=w
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
         root.addWidget(make_page_header("ELECTRICAL / BATTERY CALCULATION","Trip Summary • Route Energy • Wh • Ah • Peak Current • BMS check",self.show_home_mode,"72 V DRIVE","#e5faf4","#0b7665","Export PDF / ส่งออกรายงาน",self.export_electrical_pdf))
+        root.addWidget(self._make_module_save_bar("battery","B • MAIN BATTERY 72 V"))
         self.eTabs=QTabWidget();root.addWidget(self.eTabs)
 
         def ds(v,lo,hi,dec=2):
@@ -8833,6 +8875,7 @@ void loop() {{
         w=QWidget();self.torquePage=w
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
         root.addWidget(make_page_header("DRIVE TORQUE CALCULATION","แรงขับ • แรงบิดล้อ • กำลังมอเตอร์ • Traction • Engineering FBD",self.show_home_mode,"2 × HUB MOTOR","#e7efff","#2457a6"))
+        root.addWidget(self._make_module_save_bar("torque","T • DRIVE TORQUE"))
 
         self.torqueTabs=QTabWidget()
         root.addWidget(self.torqueTabs)
@@ -10317,37 +10360,38 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             raise RuntimeError("PDF file was not created correctly")
 
     def stability_fbd_variable_legend_html(self,key,d=None,bal=None):
-        """Compact bilingual legend for the symbols that are visibly drawn in each FBD."""
+        """Readable bilingual symbol table sized for a full-width A4 report block."""
         d=d or self.inputs();key=str(key or "geometry")
         rows=[]
         def add(symbol,meaning,value=""):
             rows.append(
-                f"<tr><td style='white-space:nowrap'><b>{symbol}</b></td>"
-                f"<td>{meaning}</td><td>{value}</td></tr>"
+                f"<tr><td width='18%' style='white-space:nowrap'><b>{symbol}</b></td>"
+                f"<td width='55%'>{meaning}</td>"
+                f"<td width='27%'><b>{value}</b></td></tr>"
             )
 
         if key=="geometry":
-            add("W","Wheel track / ระยะศูนย์กลางล้อซ้าย-ขวา",f"{d['W']:.3f} m")
-            add("WB","Wheelbase / ระยะศูนย์กลางเพลาหน้า-หลัง",f"{d['WB']:.3f} m")
-            add("L","Boom length / ความยาวแขนเครน",f"{d['L']:.3f} m")
-            add("θ","Crane angle / มุมหมุนเครน",f"{d['th']:.1f}°")
-            add("x_C","Crane column position / ตำแหน่งแกนเสาเครนจากเพลาหลัง",f"{d['xC']:.3f} m")
-            add("CG_V","Vehicle CG / จุดศูนย์ถ่วงส่วนรถหลัก",
+            add("W","ระยะศูนย์กลางล้อซ้าย-ขวา / Wheel track",f"{d['W']:.3f} m")
+            add("WB","ระยะฐานล้อหน้า-หลัง / Wheelbase",f"{d['WB']:.3f} m")
+            add("L","ความยาวแขนเครน / Boom length",f"{d['L']:.3f} m")
+            add("θ","มุมหมุนเครน / Crane angle",f"{d['th']:.1f}°")
+            add("x_C","ตำแหน่งแกนเสาเครนจากเพลาหลัง / Crane axis from rear axle",f"{d['xC']:.3f} m")
+            add("CG_V","CG ของส่วนรถหลัก / Base-vehicle CG",
                 f"x={d.get('xCG',0.0):.3f}, y={d.get('yCG',0.0):.3f} m")
-            add("CG_B","Boom CG / จุดศูนย์ถ่วงแขนเครน","กึ่งกลางแขนเครน")
-            add("CG_L","Payload CG / จุดศูนย์ถ่วงโหลด","ปลายแขนเครน")
+            add("CG_B","CG ของแขนเครน / Boom CG","กึ่งกลางแขน")
+            add("CG_L","CG ของโหลด / Payload CG","ปลายแขน")
         elif key=="slope":
             bal=bal or self.slope_stability_results(d)
             sftext="∞" if bal["sf"]>=999 else f"{bal['sf']:.3f}"
-            add("P","Rear tipping axis / แกนคว่ำที่แนวล้อหลัง","จุดอ้างอิงโมเมนต์")
-            add("N_R","Rear normal reaction / แรงปฏิกิริยาตั้งฉากที่ล้อหลัง","รองรับที่ P")
-            add("N_F = 0","Front reaction at impending tip / แรงล้อหน้าเมื่อเริ่มคว่ำ","0 N")
-            add("W_parallel","Weight component down slope / องค์ประกอบน้ำหนักตามทางลาด",f"{bal['w_parallel']:.2f} N")
-            add("W_normal","Weight component normal to slope / องค์ประกอบน้ำหนักตั้งฉากทางลาด",f"{bal['w_normal']:.2f} N")
-            add("F_I = ma","D'Alembert inertia force / แรงเฉื่อยตรงข้ามการเร่ง",f"{bal['inertia']:.2f} N")
-            add("d_R","Resisting moment arm / แขนโมเมนต์ต้านจาก P",f"{max(0.0,bal['rear_arm']):.3f} m")
-            add("h_CG","CG height normal to road / ความสูง CG จากผิวทาง",f"{bal['h']:.3f} m")
-            add("M_O / M_R / SF","Overturning / resisting moment / safety factor",
+            add("P","แกนคว่ำที่แนวล้อหลัง / Rear tipping axis","จุดอ้างอิงโมเมนต์")
+            add("N_R","แรงปฏิกิริยาตั้งฉากที่ล้อหลัง / Rear normal reaction","รองรับที่ P")
+            add("N_F","แรงปฏิกิริยาล้อหน้าเมื่อเริ่มคว่ำ / Front reaction at tip","0 N")
+            add("W∥","องค์ประกอบน้ำหนักตามทางลาด / Weight along slope",f"{bal['w_parallel']:.2f} N")
+            add("W⊥","องค์ประกอบน้ำหนักตั้งฉากทางลาด / Normal weight component",f"{bal['w_normal']:.2f} N")
+            add("F_I","แรงเฉื่อย D'Alembert = ma / Inertia force",f"{bal['inertia']:.2f} N")
+            add("d_R","แขนโมเมนต์ต้านจาก P / Resisting arm",f"{max(0.0,bal['rear_arm']):.3f} m")
+            add("h_CG","ความสูง CG จากผิวทาง / CG height",f"{bal['h']:.3f} m")
+            add("M_O / M_R / SF","โมเมนต์คว่ำ / โมเมนต์ต้าน / Safety Factor",
                 f"{bal['mo']:.2f} / {bal['mr']:.2f} N·m • SF {sftext}")
         else:
             if bal is None:
@@ -10359,38 +10403,41 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             comp={q["name"]:q for q in bal["components"]}
             v=comp.get("Vehicle",{});b=comp.get("Boom",{});l=comp.get("Payload",{})
             sftext="∞" if bal["sf"]>=999 else f"{bal['sf']:.3f}"
-            payload_note=(" • Kdyn applied" if abs(l.get("factor",1.0)-1.0)>1e-9 else "")
-            add("P","Tipping axis / แนวล้อที่รถจะหมุนรอบเมื่อเริ่มคว่ำ",f"{coord}_P={bal['pivot']:.3f} m")
-            add("CG_V / CG_B / CG_L","แนวแรงผ่าน CG ของ Vehicle / Boom / Payload",
-                f"{coord}_V={v.get(coord,0.0):.3f}, {coord}_B={b.get(coord,0.0):.3f}, {coord}_L={l.get(coord,0.0):.3f} m")
-            add("W_V / W_B / W_L","น้ำหนัก/แรงออกแบบที่กระทำลงในแนวดิ่ง",
+            payload_note=" (Kdyn)" if abs(l.get("factor",1.0)-1.0)>1e-9 else ""
+            add("P","แกนคว่ำ / Tipping axis",f"{coord}_P = {bal['pivot']:.3f} m")
+            add("CG_V/B/L","ตำแหน่งแนวแรงของ Vehicle / Boom / Payload",
+                f"{coord}: {v.get(coord,0.0):.3f} / {b.get(coord,0.0):.3f} / {l.get(coord,0.0):.3f} m")
+            add("W_V/B/L","แรงน้ำหนักออกแบบของ Vehicle / Boom / Payload",
                 f"{v.get('force',0.0):.1f} / {b.get('force',0.0):.1f} / {l.get('force',0.0):.1f} N{payload_note}")
-            add("R_P","Ground reaction at tipping axis / แรงปฏิกิริยาที่แกน P","รองรับที่ P")
-            add("R_opposite = 0","แรงปฏิกิริยาฝั่งตรงข้ามเมื่อเริ่มคว่ำ","0 N")
-            add("d_V / d_B / d_L","Perpendicular moment arms from each force line to P / แขนโมเมนต์ตั้งฉากถึง P",
+            add("R_P","แรงปฏิกิริยาที่แกนคว่ำ / Reaction at P","รองรับที่ P")
+            add("R_opp","แรงปฏิกิริยาฝั่งตรงข้ามเมื่อเริ่มคว่ำ / Opposite reaction","0 N")
+            add("d_V/B/L","แขนโมเมนต์ตั้งฉากจากแนวแรงถึง P / Moment arms",
                 f"{v.get('arm',0.0):.3f} / {b.get('arm',0.0):.3f} / {l.get('arm',0.0):.3f} m")
-            add("M_O","Overturning moment / โมเมนต์คว่ำ",f"{bal['mo']:.2f} N·m")
-            add("M_R","Resisting moment / โมเมนต์ต้าน",f"{bal['mr']:.2f} N·m")
-            add("SF","Safety Factor = M_R/M_O / ค่าความปลอดภัย",sftext)
+            add("M_O / M_R","โมเมนต์คว่ำ / โมเมนต์ต้าน",f"{bal['mo']:.2f} / {bal['mr']:.2f} N·m")
+            add("SF","Safety Factor = M_R / M_O",sftext)
 
         return (
-            "<div style='font-size:8.2pt'>"
+            "<div style='font-size:8.8pt;margin-top:4px'>"
             "<div style='background:#eef6ff;border:1px solid #b8d4ee;padding:6px'><b>"
-            "ตัวแปรในรูป / Figure Variable Legend</b></div>"
+            "ตัวแปรในรูป / Figure Variable Legend</b>"
+            " — ตารางนี้อธิบายเฉพาะสัญลักษณ์ที่ใช้ในรูปด้านบน</div>"
             "<table border='1' cellspacing='0' cellpadding='4' "
             "style='border-collapse:collapse;width:100%'>"
-            "<tr><th>Symbol</th><th>ความหมาย / Meaning</th><th>ค่า / Value</th></tr>"
+            "<tr><th width='18%'>ตัวแปร / Symbol</th>"
+            "<th width='55%'>ความหมาย / Meaning</th>"
+            "<th width='27%'>ค่า / Value</th></tr>"
             +"".join(rows)+"</table></div>"
         )
 
     def stability_fbd_figure_with_legend_html(self,uri,key,d=None,bal=None):
-        """Place the FBD and its symbol legend together so the reader never has to hunt for definitions."""
+        """Use a large figure first and a full-width legend below it for legible A4 output."""
         legend=self.stability_fbd_variable_legend_html(key,d,bal)
         return (
-            "<table border='0' cellspacing='0' cellpadding='5' style='width:100%;border-collapse:collapse'>"
-            "<tr><td style='width:62%;vertical-align:top;text-align:center'>"
-            f"<img src='{uri}' width='430'></td>"
-            "<td style='width:38%;vertical-align:top'>"+legend+"</td></tr></table>"
+            "<div style='page-break-inside:avoid'>"
+            "<p style='text-align:center;margin:4px 0 6px 0'>"
+            f"<img src='{uri}' width='600'></p>"
+            +legend+
+            "</div>"
         )
 
     def stability_mode_export_html(self,key,tmpdir,d=None):
