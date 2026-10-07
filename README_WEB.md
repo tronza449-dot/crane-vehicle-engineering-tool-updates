@@ -52,12 +52,18 @@ Crane Vehicle Engineering Tool สามารถรันเป็น Web App �
 ## Web Calculators
 
 - Drive Torque
-- Main Battery 72 V
-- Winch Datasheet interpolation
-- Operating Cycles / 3 h
-- Winch Battery Auto / Manual lift events
+- Main Battery 72 V — แบตรถ: Drive + Auxiliary เท่านั้น
+- Winch / Lift — Datasheet interpolation + UP/DOWN + Operating Cycles
+- Winch Battery 12 V — แบตแยกสำหรับวินช์, Auto / Manual lift events
 - Crane Stability / Tipping
 - ตารางสูตร / แทนค่า / ผลลัพธ์ / หน่วย / คำอธิบายแบบละเอียด
+
+### Battery systems are separate
+
+- **Main Battery 72 V:** ใช้กับระบบขับเคลื่อนรถและ Auxiliary
+- **Winch Battery 12 V:** ใช้กับวินช์ขึ้น/ลง
+- พลังงาน Wh/Ah ของวินช์ **ไม่ถูกบวก** เข้า Main Battery 72 V
+- ข้อมูลที่แชร์กันมีเฉพาะ **เวลา UP/DOWN / เวลา 1 งานยก** เพื่อใช้หา Operating Cycle ของรถให้สมจริง
 
 ## Security
 
