@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.39"
+APP_VERSION = "53.8.40"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -8089,8 +8089,10 @@ void loop() {{
 
         Emech_total=Emech_cycle*cycles
         Edrive=Edrive_cycle*cycles
-        Eaux=Eaux_cycle*cycles
-        Eload=Ecycle*cycles
+        # Auxiliary electronics are assumed ON for the full requested runtime,
+        # including the fractional time remaining after the last completed cycle.
+        Eaux=self.eaux.value()*runtime_h
+        Eload=Edrive+Eaux
 
         dod=max(self.edod.value()/100.0,.01)
         reserve=max(0.0,self.ereserve.value()/100.0)
@@ -8109,6 +8111,7 @@ void loop() {{
 
         # Simple current references.
         Icalc_up=(Pup_mech/eff)/V if V>0 else 0.0
+        Iaux=(self.eaux.value()/V) if V>0 else 0.0
 
         # Compatibility-only peak indicator: retained for old BMS regression/project files,
         # but it is not included in the cycle ENERGY sizing shown to the user.
@@ -8634,10 +8637,11 @@ void loop() {{
     def battery_selection_results(self):
         e=self.electrical_results();t=self.torque_results()
         energy_min=max(0.0,e.get("Ah_recommended",e["Ah"]))
-        # Continuous = steady operating demand. Peak also covers the Drive Torque
-        # design-current reference, which includes acceleration/design allowance.
-        cont_req=max(0.0,e["Icalc_up"],e.get("Iturn_avg",0.0))
-        peak_calc=max(cont_req,max(0.0,t["Ibatt"]))
+        # Continuous = steady traction/pivot + simultaneous Auxiliary current.
+        # Peak also covers the Drive Torque design-current reference + Auxiliary.
+        iaux=max(0.0,e.get("Iaux",0.0))
+        cont_req=max(0.0,e["Icalc_up"],e.get("Iturn_avg",0.0))+iaux
+        peak_calc=max(cont_req,max(0.0,t["Ibatt"])+iaux)
         controller_indicator=self.controllerCurrent.value()*max(1,t["n"]) if hasattr(self,"controllerCurrent") else 0.0
         target_cont=max(0.1,self.bselTargetContC.value()) if hasattr(self,"bselTargetContC") else 3.0
         target_peak=max(0.1,self.bselTargetPeakC.value()) if hasattr(self,"bselTargetPeakC") else 5.0
@@ -8898,15 +8902,16 @@ void loop() {{
         self.tm=ds(300,1,5000,1); self.tgrade=ds(19,0,45,2)
         self.tspeed=ds(5,.1,50,2); self.tmu=ds(.02,0,1,3)
         self.tmotors=QSpinBox();self.tmotors.setRange(1,8);self.tmotors.setValue(2)
-        self.twheelInch=ds(10.0,1.0,60.0,2)
-        self.tradius=ds(.127,.0127,.762,4); self.tradius.setReadOnly(True)
+        self.twheelInch=ds(16.0,1.0,60.0,2)
+        self.twheelInch.setToolTip("ใช้เส้นผ่านศูนย์กลางนอกของยางจริง (effective rolling/outside diameter) ไม่ใช่เลขขอบล้อ เช่น 3.0-10 ไม่ควรใส่ 10 นิ้วโดยอัตโนมัติ")
+        self.tradius=ds(.2032,.0127,.762,4); self.tradius.setReadOnly(True)
         self.tsf=ds(1.30,1,3,2)
         self.taccel=ds(5,.1,60,2); self.teff=ds(85,1,100,1)
         self.ttraction=ds(.70,.05,2,2); self.tDriveLoadFrac=ds(50,10,100,1); self.tvoltage=ds(72,12,120,1)
         for lab,q in [
             ("มวลรวม m (kg)",self.tm),("ความชัน θ (deg)",self.tgrade),
             ("ความเร็ว v (km/h)",self.tspeed),("Rolling resistance μr",self.tmu),
-            ("จำนวนมอเตอร์ขับ n",self.tmotors),("เส้นผ่านศูนย์กลางล้อ D (inch)",self.twheelInch),
+            ("จำนวนมอเตอร์ขับ n",self.tmotors),("Effective wheel OD D (inch) — วัดนอกยางจริง",self.twheelInch),
             ("รัศมีล้อ r (m) — Auto",self.tradius),
             ("Safety Factor",self.tsf),("เวลาเร่ง 0→v (s)",self.taccel),
             ("ประสิทธิภาพ η (%)",self.teff),("สัมประสิทธิ์ยึดเกาะ μ",self.ttraction),
@@ -9035,6 +9040,9 @@ void loop() {{
         Ptotal=Pwheel/eta
         Pelec_per=Ptotal/n
         Ibatt=Ptotal/max(self.tvoltage.value(),.1)
+        motor_rated_w=float(self.motorRatedPower.value()) if hasattr(self,"motorRatedPower") else 0.0
+        motor_power_margin=(motor_rated_w/Pmech_per) if Pmech_per>1e-12 else 999.0
+        motor_power_ok=(motor_rated_w+1e-9>=Pmech_per) if motor_rated_w>0 else False
 
         # Traction limit must use normal load carried by the driven wheels,
         # not the total vehicle normal load. Default assumption = 50% for
@@ -9048,6 +9056,7 @@ void loop() {{
                     Pwheel=Pwheel,Pmech_per=Pmech_per,
                     omega=omega,Ptorque_per=Ptorque_per,Ptorque_total=Ptorque_total,
                     Ptotal=Ptotal,Pelec_per=Pelec_per,Ibatt=Ibatt,
+                    motor_rated_w=motor_rated_w,motor_power_margin=motor_power_margin,motor_power_ok=motor_power_ok,
                     Ntotal=Ntotal,Ndrive=Ndrive,drive_load_fraction=drive_load_fraction,
                     Ftraction=Ftraction,n=n,eta=eta)
 
