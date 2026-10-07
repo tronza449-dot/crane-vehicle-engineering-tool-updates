@@ -84,7 +84,7 @@ const CVET_INPUT_STORE="cvet_web_inputs_v1";
 
 function storedInputElements(){
   const els=[];
-  ["driveForm","rampForm","batteryForm","winchForm","stabilityForm"].forEach(id=>{
+  ["driveForm","rampForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"].forEach(id=>{
     const form=$("#"+id);
     if(form) els.push(...$$("input,select",form));
   });
@@ -166,7 +166,7 @@ function syncVehicleParameters(){
   const runtime=formValue("batteryForm","runtime_h",3);
   const arm=formValue("stabilityForm","boom_length_m",1.2);
   const trackM=formValue("stabilityForm","track_width_m",0.7);
-  const winchV=formValue("winchForm","winch_voltage_v",12);
+  const winchV=formValue("winchBatteryForm","winch_voltage_v",12);
 
   setParam("paramVehicleSize",smart(width,0)+" × "+smart(length,0)+" mm");
   setParam("paramMass",smart(mass,1)+" kg");
@@ -708,13 +708,22 @@ $("#calcWinch").addEventListener("click",async(evt)=>{
   if(interactive) buttonBusy(btn,"กำลังคำนวณ...");
   const out=$("#winchResult");setLoading(out);
   try{
-    const r=await api("/api/calc/winch",formObject($("#winchForm"))),c=r.core,o=r.operation,b=r.battery;
+    const r=await api("/api/calc/winch",formObject($("#winchForm"))),c=r.core,o=r.operation;
     const liftTime=$("#batteryLiftEventTime"), liftEvents=$("#batteryLiftEvents"), otherStop=$("#batteryOtherStop");
     if(liftTime) liftTime.value=Number(o.event_time_s).toFixed(2);
     if(liftEvents) liftEvents.value=o.events_per_round;
     if(otherStop) otherStop.value=Number(o.other_stop_s).toFixed(1);
+
+    const source=$("#winchBatterySource");
+    if(source){
+      source.innerHTML='<b>Source from Winch:</b> Load '+f(c.load_kg,1)+' kg • Lift '+f(c.lift_m,2)+' m • '+
+        'UP '+f(o.up_time_s,2)+' s • DOWN '+f(o.down_time_s,2)+' s • '+
+        'Auto events '+o.lift_events+' งาน';
+    }
+
     out.innerHTML=
-      '<h3>Winch Datasheet</h3><div class="metric-grid">'+
+      '<div class="system-result-head"><span class="system-chip neutral">WINCH MECHANICS</span><b>ไม่รวมการเลือกขนาดแบตเตอรี่ในหน้านี้</b></div>'+
+      '<h3>Winch Datasheet / Load</h3><div class="metric-grid">'+
       '<div class="metric"><div class="k">First-layer speed</div><div class="v">'+f(c.up_speed_m_min,3)+' m/min</div></div>'+
       '<div class="metric"><div class="k">Current @ load</div><div class="v">'+f(c.up_current_a,2)+' A</div></div>'+
       '<div class="metric"><div class="k">เวลา UP</div><div class="v">'+f(c.up_time_s,2)+' s</div></div></div>'+
@@ -722,21 +731,68 @@ $("#calcWinch").addEventListener("click",async(evt)=>{
       '<h3>Operating Cycles</h3><div class="metric-grid">'+
       '<div class="metric"><div class="k">รอบไป-กลับ</div><div class="v">'+o.completed_round_trips+'</div></div>'+
       '<div class="metric"><div class="k">เที่ยวทางเดียว</div><div class="v">'+o.one_way_trips+'</div></div>'+
-      '<div class="metric"><div class="k">งานยกจาก 3h</div><div class="v">'+o.lift_events+'</div></div></div>'+
+      '<div class="metric"><div class="k">งานยกจากเวลาทำงาน</div><div class="v">'+o.lift_events+'</div></div></div>'+
       '<div class="formula"><b>t_event = t_up + t_down</b><br><b>สูตรภาษาไทย:</b> เวลา 1 งานยก = เวลาขึ้น + เวลาลง<br><b>แทนค่า:</b> '+f(o.up_time_s,2)+' + '+f(o.down_time_s,2)+' = <b>'+f(o.event_time_s,2)+' s</b></div>'+
       '<div class="formula"><b>Nround = floor(t_available ÷ t_round)</b><br><b>สูตรภาษาไทย:</b> จำนวนรอบที่ทำได้ครบ = ปัดลง(เวลาทำงานทั้งหมด ÷ เวลาต่อรอบ)<br><b>ผล:</b> '+o.completed_round_trips+' รอบ</div>'+
+      '<div class="notice"><b>ต่อไป:</b> ถ้าต้องการหา Ah / Wh / BMS ของวินช์ ให้เปิดแท็บ <b>Winch Battery 12 V</b>. พลังงานส่วนนั้นแยกจาก Main Battery 72 V.</div>';
+    if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Winch / Operating Cycle เสร็จแล้ว");
+  }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Winch ไม่สำเร็จ");}
+});
+
+function winchBatteryPayload(){
+  return Object.assign({},formObject($("#winchForm")),formObject($("#winchBatteryForm")));
+}
+
+$("#calcWinchBattery").addEventListener("click",async(evt)=>{
+  const btn=$("#calcWinchBattery"),interactive=!!evt.isTrusted;
+  if(interactive) buttonBusy(btn,"กำลังคำนวณแบต 12 V...");
+  const out=$("#winchBatteryResult");setLoading(out);
+  try{
+    const r=await api("/api/calc/winch",winchBatteryPayload()),c=r.core,o=r.operation,b=r.battery;
+    const source=$("#winchBatterySource");
+    if(source){
+      source.innerHTML='<b>ใช้ค่าจากหน้า Winch:</b> Load '+f(c.load_kg,1)+' kg • Lift '+f(c.lift_m,2)+' m • '+
+        'UP '+f(o.up_time_s,2)+' s • DOWN '+f(o.down_time_s,2)+' s • '+
+        (b.event_mode==="Auto"?'Auto '+b.events+' งาน':'Manual '+b.events+' งาน');
+    }
+
+    out.innerHTML=
+      '<div class="system-result-head separate-12v"><span class="system-chip orange">12 V WINCH ONLY</span>'+
+      '<b>แบตชุดนี้ไม่รวมกับ Main Battery 72 V</b></div>'+
       '<h3>Winch Battery — '+b.event_mode+'</h3><div class="metric-grid">'+
+      '<div class="metric"><div class="k">แรงดัน</div><div class="v">'+f(b.voltage_v,1)+' V</div></div>'+
       '<div class="metric"><div class="k">งานยกที่ใช้คำนวณ</div><div class="v">'+b.events+'</div></div>'+
       '<div class="metric"><div class="k">UP / DOWN</div><div class="v">'+b.up_count+' / '+b.down_count+'</div></div>'+
       '<div class="metric"><div class="k">E / งาน</div><div class="v">'+f(b.e_event_wh,3)+' Wh</div></div>'+
       '<div class="metric"><div class="k">E total</div><div class="v">'+f(b.e_total_wh,2)+' Wh</div></div>'+
-      '<div class="metric"><div class="k">Ah used</div><div class="v">'+f(b.ah_used,2)+' Ah</div></div>'+
       '<div class="metric"><div class="k">Ah design</div><div class="v">'+f(b.ah_design,2)+' Ah</div></div></div>'+
-      '<div class="formula"><b>Etotal = Nevent × Eevent</b><br><b>สูตรภาษาไทย:</b> พลังงานรวม = จำนวนงานยก × พลังงานต่อ 1 งาน<br><b>แทนค่า:</b> '+b.events+' × '+f(b.e_event_wh,3)+' = <b>'+f(b.e_total_wh,2)+' Wh</b></div>'+
-      '<div class="formula"><b>Ahdesign = Etotal × (1 + Reserve) ÷ (V × DoD)</b><br><b>สูตรภาษาไทย:</b> ความจุแบตออกแบบ = พลังงานรวม × (1 + สำรอง) ÷ (แรงดัน × DoD)<br><b>ผล:</b> <b>'+f(b.ah_design,2)+' Ah</b> → Standard ≥ '+f(b.standard_ah,0)+' Ah</div>'+
-      '<p>Candidate '+f(b.candidate_ah,1)+' Ah: '+statusSpan(b.candidate_energy_ok)+' • BMS continuous: '+(b.bms_cont_a>0?statusSpan(b.bms_cont_ok):'<span class="check">CHECK</span>')+' • Peak: <span class="check">CHECK</span> (datasheet ไม่มี Starting/Stall surge)</p>';
-    if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Winch เสร็จแล้ว");
-  }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Winch เสร็จแล้ว ไม่สำเร็จ");}
+      '<div class="formula"><b>E_up = V × I_up × t_up ÷ 3600</b><br>'+
+      '<b>สูตรภาษาไทย:</b> พลังงานยกขึ้น = แรงดันแบตวินช์ × กระแสตอนยก × เวลายก ÷ 3600<br>'+
+      '<b>ผล:</b> '+f(b.e_up_wh,3)+' Wh</div>'+
+      '<div class="formula"><b>E_down = V × I_down × t_down ÷ 3600</b><br>'+
+      '<b>สูตรภาษาไทย:</b> พลังงานลดลง = แรงดันแบตวินช์ × กระแสตอนลด × เวลาลด ÷ 3600<br>'+
+      '<b>ผล:</b> '+f(b.e_down_wh,3)+' Wh</div>'+
+      '<div class="formula"><b>E_event = E_up + E_down</b><br>'+
+      '<b>สูตรภาษาไทย:</b> พลังงานต่อ 1 งานยก = พลังงานยกขึ้น + พลังงานลดลง<br>'+
+      '<b>แทนค่า:</b> '+f(b.e_up_wh,3)+' + '+f(b.e_down_wh,3)+' = <b>'+f(b.e_event_wh,3)+' Wh</b></div>'+
+      '<div class="formula"><b>E_total = N_event × E_event</b><br>'+
+      '<b>สูตรภาษาไทย:</b> พลังงานรวมของแบตวินช์ = จำนวนงานยก × พลังงานต่อ 1 งานยก<br>'+
+      '<b>แทนค่า:</b> '+b.events+' × '+f(b.e_event_wh,3)+' = <b>'+f(b.e_total_wh,2)+' Wh</b></div>'+
+      '<div class="formula"><b>Ah_design = E_total × (1 + Reserve) ÷ (V × DoD)</b><br>'+
+      '<b>สูตรภาษาไทย:</b> ความจุแบตวินช์ที่ออกแบบ = พลังงานรวม × (1 + พลังงานสำรอง) ÷ (แรงดันแบตวินช์ × DoD)<br>'+
+      '<b>ผล:</b> <b>'+f(b.ah_design,2)+' Ah</b> → Standard ≥ <b>'+f(b.standard_ah,0)+' Ah @ '+f(b.voltage_v,0)+' V</b></div>'+
+      '<h3>Battery / BMS Check</h3>'+
+      '<table><tr><th>รายการ</th><th>Required</th><th>Candidate</th><th>Status</th></tr>'+
+      '<tr><td>Capacity</td><td>≥ '+f(b.ah_design,2)+' Ah</td><td>'+f(b.candidate_ah,1)+' Ah</td><td>'+statusSpan(b.candidate_energy_ok)+'</td></tr>'+
+      '<tr><td>BMS Continuous</td><td>≥ '+f(b.operating_current_a,1)+' A</td><td>'+f(b.bms_cont_a,1)+' A</td><td>'+(b.bms_cont_a>0?statusSpan(b.bms_cont_ok):'<span class="check">CHECK</span>')+'</td></tr>'+
+      '<tr><td>BMS Peak</td><td>Datasheet ไม่มี Starting/Stall surge</td><td>'+f(b.bms_peak_a,1)+' A</td><td><span class="check">CHECK DATASHEET</span></td></tr></table>'+
+      '<div class="battery-separation-note result-separation"><b>ย้ำการแยกระบบ:</b>'+
+      '<span>12 V Winch Battery: '+f(b.e_total_wh,2)+' Wh / '+f(b.ah_design,2)+' Ah design</span>'+
+      '<span>72 V Main Battery: คำนวณอีกหน้า และไม่บวก Wh/Ah ชุดนี้เข้าไป</span>'+
+      '<span>แชร์เฉพาะเวลา UP/DOWN เพื่อให้ Main Battery นับจำนวน Operating Cycle ได้สมจริง</span></div>';
+    syncVehicleParameters();
+    if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Winch Battery 12 V เสร็จแล้ว");
+  }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Winch Battery 12 V ไม่สำเร็จ");}
 });
 
 
@@ -1006,4 +1062,5 @@ setupDynamicProjectParameters();
 checkHealth();
 setTimeout(()=>$("#calcRamp").click(),180);
 setTimeout(()=>$("#calcWinch").click(),300);
-setTimeout(()=>$("#calcStability").click(),420);
+setTimeout(()=>$("#calcWinchBattery").click(),360);
+setTimeout(()=>$("#calcStability").click(),440);
