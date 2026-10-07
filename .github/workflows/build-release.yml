@@ -229,8 +229,8 @@ jobs:
           assert "def setSimpleMode" in source
           assert "โหมดง่ายมาก (แนะนำสำหรับนำเสนอ)" in source
           assert "ดูรูปนี้แค่ 4 อย่าง" in source
-          assert "ฝั่งพยายามทำให้คว่ำ" in source
-          assert "ฝั่งช่วยต้านการคว่ำ" in source
+          assert "ทำให้คว่ำ (M_O)" in source
+          assert "ต้านการคว่ำ (M_R)" in source
           assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in source
           assert "def stability_easy_report_html" in source
           assert "วิธีอ่านรายงาน Stability แบบง่าย" in source
