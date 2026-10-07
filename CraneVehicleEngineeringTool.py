@@ -102,7 +102,19 @@ QPushButton {
 }
 QPushButton:hover { background:#f2f7fc; border-color:#84a9ce; }
 QPushButton:pressed { background:#dbeafe; border:2px solid #2f6fd1; padding:6px 14px; }
-QPushButton[feedbackState="pressed"] { background:#dbeafe; border:2px solid #2f6fd1; color:#17456b; }
+QPushButton[feedbackState="pressed"] {
+    background:#dbeafe; border:2px solid #2f6fd1; color:#17456b;
+    padding:9px 13px 5px 17px;
+}
+QPushButton#primaryButton[feedbackState="pressed"] {
+    background:#174f96; border:2px solid #8cc7ff; color:white;
+    padding:9px 13px 5px 17px;
+}
+QPushButton#secondaryButton[feedbackState="pressed"],
+QPushButton#navButton[feedbackState="pressed"] {
+    background:#dbeafe; border:2px solid #2f6fd1;
+    padding:9px 10px 5px 14px;
+}
 QPushButton[feedbackState="busy"] { background:#fff4d6; border:2px solid #d69e00; color:#7a5200; font-weight:900; }
 QPushButton[feedbackState="success"] { background:#e7f8ee; border:2px solid #22a05a; color:#176337; font-weight:900; }
 QPushButton[feedbackState="error"] { background:#fff0f0; border:2px solid #d64545; color:#a12620; font-weight:900; }
@@ -1147,37 +1159,49 @@ class App(QMainWindow):
         button.setProperty("feedbackState", state)
         self._repolish_feedback_button(button)
 
-    def _animate_button_geometry(self, button, pressed):
-        """Small physical push animation so clicks are obvious on Desktop."""
-        if button is None or not button.isVisible():
+    def _ensure_button_opacity_effect(self, button):
+        """Create a reusable opacity effect for button press animation."""
+        if button is None:
+            return None
+        effect=getattr(button,"_cvetOpacityEffect",None)
+        if effect is not None:
+            return effect
+        try:
+            # Do not overwrite an existing custom effect from another UI feature.
+            existing=button.graphicsEffect()
+            if existing is not None and isinstance(existing,QGraphicsOpacityEffect):
+                effect=existing
+            elif existing is None:
+                effect=QGraphicsOpacityEffect(button)
+                effect.setOpacity(1.0)
+                button.setGraphicsEffect(effect)
+            else:
+                return None
+            button._cvetOpacityEffect=effect
+            return effect
+        except Exception:
+            return None
+
+    def _animate_button_press(self, button, pressed):
+        """Visible press/release animation that is not overridden by Qt layouts."""
+        effect=self._ensure_button_opacity_effect(button)
+        if effect is None:
             return
         try:
-            current=button.geometry()
-            # Capture the layout position on every new press. The animation is only
-            # 1 px so it does not fight layouts or make neighbouring controls jump.
-            if pressed:
-                button._cvetPressBaseGeometry=current
-                start=current
-                end=current.adjusted(1,1,-1,-1)
-                duration=75
-                easing=QEasingCurve.OutCubic
-            else:
-                base=getattr(button,"_cvetPressBaseGeometry",None)
-                if base is None:
-                    return
-                start=current
-                end=base
-                duration=110
-                easing=QEasingCurve.OutBack
             old=getattr(button,"_cvetPressAnimation",None)
             if old is not None:
                 try: old.stop()
                 except Exception: pass
-            anim=QPropertyAnimation(button,b"geometry",button)
-            anim.setDuration(duration)
-            anim.setStartValue(start)
-            anim.setEndValue(end)
-            anim.setEasingCurve(easing)
+            anim=QPropertyAnimation(effect,b"opacity",button)
+            anim.setStartValue(float(effect.opacity()))
+            if pressed:
+                anim.setEndValue(0.66)
+                anim.setDuration(65)
+                anim.setEasingCurve(QEasingCurve.OutCubic)
+            else:
+                anim.setEndValue(1.0)
+                anim.setDuration(145)
+                anim.setEasingCurve(QEasingCurve.OutCubic)
             button._cvetPressAnimation=anim
             anim.start()
         except Exception:
@@ -1187,12 +1211,12 @@ class App(QMainWindow):
         if button is None or not button.isEnabled():
             return
         self._set_button_feedback_state(button, "pressed")
-        self._animate_button_geometry(button, True)
+        self._animate_button_press(button, True)
 
     def _button_release_feedback(self, button):
         if button is None:
             return
-        self._animate_button_geometry(button, False)
+        self._animate_button_press(button, False)
         if button.property("feedbackState") == "pressed":
             self._set_button_feedback_state(button, "")
 
