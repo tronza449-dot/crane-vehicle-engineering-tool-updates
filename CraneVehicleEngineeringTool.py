@@ -4154,6 +4154,7 @@ void loop() {{
         self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def apply_design_revision(self):
+        if not self._require_design_unlocked("Apply Design Revision"):return
         r=self.revisionTable.currentRow()
         if r<0 or r>=len(self.designRevisions):return
         rev=self.designRevisions[r]
@@ -6357,6 +6358,7 @@ void loop() {{
         except Exception as exc:QMessageBox.critical(self,"Save Project ไม่สำเร็จ",str(exc))
 
     def load_project(self):
+        if not self._require_design_unlocked("Open Project File"):return
         filename,_=QFileDialog.getOpenFileName(self,"Load Engineering Project","","Project JSON (*.json)")
         if not filename:return
         try:
@@ -6489,6 +6491,7 @@ void loop() {{
                     current=current,slew_margin=slew_margin,req=req)
 
     def apply_scenario_preset(self,key):
+        if not self._require_design_unlocked("Apply Scenario Preset"):return
         if key=="baseline":
             self.tm.setValue(300);self.emass.setValue(290);self.mt.setValue(300);self.ml.setValue(100);self.mb.setValue(20)
             self.tgrade.setValue(19);self.eslopeDeg.setValue(12);self.slope.setValue(19);self.W.setValue(1.0);self.WB.setValue(1.10);self.L.setValue(1.20);self.th.setValue(0)
@@ -6510,6 +6513,17 @@ void loop() {{
         names=("mt","ml","mb","W","WB","L","xC","xCG","yCG","driveXCG","slope","acc",
                "tgrade","eslopeDeg","rampRiseCm","rampRunCm","rampMeasuredCm")
         return [getattr(self,n) for n in names if hasattr(self,n)]
+
+    def _design_inputs_locked(self):
+        return bool(hasattr(self,"designLockButton") and self.designLockButton.isChecked())
+
+    def _require_design_unlocked(self,action="แก้ไข Design Inputs"):
+        if not self._design_inputs_locked():return True
+        QMessageBox.information(
+            self,"Final Design Locked",
+            f"ไม่สามารถ {action} ได้ขณะ Final Design Input Lock ทำงาน\n\nกรุณากด 🔒 Design Inputs Locked เพื่อปลดล็อกก่อน"
+        )
+        return False
 
     def apply_design_lock_state(self,checked=None):
         if not hasattr(self,"designLockButton"):return
@@ -6662,6 +6676,7 @@ void loop() {{
         self.compareView.setHtml(f"<h3>Captured Design {which}</h3><p>ปรับค่าที่หน้า Torque / Battery / Winch / Stability แล้ว Capture อีกแบบเพื่อเปรียบเทียบ</p>")
 
     def apply_compare_design(self,which):
+        if not self._require_design_unlocked(f"Apply Design {which}"):return
         state=self.compareA if which=="A" else self.compareB
         if not state:
             QMessageBox.information(self,"Compare Design",f"ยังไม่ได้ Capture Design {which}");return
