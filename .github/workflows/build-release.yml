@@ -246,6 +246,14 @@ jobs:
           assert "function renderWebFbd" in web_js
           assert "function stabilityPayload" in web_js
           assert "function stabilityComponentRows" in web_js
+          assert 'return $("tr",body).map' in web_js
+          assert '$(".mass-mode-card",$("#stabilityForm")).forEach' in web_js
+          assert '$(\'input[name="mass_mode"]\',stabilityForm).forEach' in web_js
+          assert '$("#stabilityComponentBody input").forEach' in web_js
+          assert 'return $("tr",body).map' not in web_js
+          assert '  $(".mass-mode-card",$("#stabilityForm")).forEach' not in web_js
+          assert '    $(\'input[name="mass_mode"]\',stabilityForm).forEach' not in web_js
+          assert '    $("#stabilityComponentBody input").forEach' not in web_js
           assert "function stabilityVariableTableHtml" in web_js
           assert "Unit Convention / มาตรฐานหน่วย" in web_js
           assert "N·m" in web_js and "m/s²" in web_js
@@ -353,6 +361,18 @@ jobs:
           app.setApplicationName(cvet.APP_NAME)
           w = cvet.App()
           w.show()
+          QApplication.processEvents()
+
+          # ---------- Desktop press-animation regression ----------
+          press_buttons=w.findChildren(QPushButton)
+          assert press_buttons, "No desktop buttons found"
+          press_button=next((b for b in press_buttons if b.isEnabled()),press_buttons[0])
+          w._button_press_feedback(press_button)
+          QApplication.processEvents()
+          assert getattr(press_button,"_cvetOpacityEffect",None) is not None
+          assert getattr(press_button,"_cvetPressAnimation",None) is not None
+          assert str(press_button.property("feedbackState") or "")=="pressed"
+          w._button_release_feedback(press_button)
           QApplication.processEvents()
 
           # ---------- Web launcher visibility regression ----------
@@ -1096,8 +1116,10 @@ jobs:
           assert "OFFICIAL_UPDATE_MANIFEST_API_URL" in source
           assert "def setup_button_feedback" in source
           assert "feedbackState" in source
-          assert "def _animate_button_geometry" in source
+          assert "def _animate_button_press" in source
+          assert "def _ensure_button_opacity_effect" in source
           assert "QPropertyAnimation" in source and "QEasingCurve" in source
+          assert "QGraphicsOpacityEffect" in source
           assert "def _run_button_action" in source
           assert "rampApplyAngleButton" in source
           assert "def _read_official_manifest_api" in source
