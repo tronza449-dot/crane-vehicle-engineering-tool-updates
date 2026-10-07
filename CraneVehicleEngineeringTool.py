@@ -19,6 +19,14 @@ except Exception:
 
 APP_NAME = "Crane Vehicle Engineering Tool"
 APP_VERSION = "53.8.30"
+
+# Confirmed project geometry
+VEHICLE_WIDTH_M = 1.00
+CRANE_BASE_WIDTH_M = 0.25
+CRANE_BASE_LENGTH_M = 0.25
+CRANE_LATERAL_Y_M = 0.0
+CRANE_SIDE_CLEARANCE_M = (VEHICLE_WIDTH_M - CRANE_BASE_WIDTH_M) / 2.0
+
 DEFAULT_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/tronza449-dot/crane-vehicle-engineering-tool-updates/main/latest.json"
 OFFICIAL_UPDATE_MANIFEST_API_URL = "https://api.github.com/repos/tronza449-dot/crane-vehicle-engineering-tool-updates/contents/latest.json?ref=main"
 
@@ -1391,6 +1399,8 @@ class App(QMainWindow):
                     th=self.th.value(),kd=self.kd.value(),req=self.req.value(),WB=self.WB.value(),xC=self.xC.value(),
                     xCG=self.xCG.value(),yCG=self.yCG.value() if hasattr(self,"yCG") else 0.0,
                     driveXCG=self.driveXCG.value() if hasattr(self,"driveXCG") else self.xCG.value(),
+                    vehicleWidth=VEHICLE_WIDTH_M,craneBaseW=CRANE_BASE_WIDTH_M,craneBaseL=CRANE_BASE_LENGTH_M,
+                    craneY=CRANE_LATERAL_Y_M,craneSideClearance=CRANE_SIDE_CLEARANCE_M,
                     massMode=mode)
 
 
@@ -5215,7 +5225,12 @@ void loop() {{
             ("F_L,d","Equivalent adverse payload design force = Kdyn m_L g","N",f"{FLd:.2f}","ไม่ใช่น้ำหนักจริงเพิ่ม"),
             ("SF_req","Safety Factor ที่กำหนด","-",f"{d['req']:.3f}","PASS เมื่อ SF ≥ SF_req"),
 
-            ("W","Track width","m",f"{d['W']:.3f}","ระยะศูนย์กลางแนวล้อซ้าย-ขวา"),
+            ("VehicleWidth","ความกว้างตัวรถ","m",f"{d['vehicleWidth']:.3f}","ค่าจริงของโครงรถ; ไม่ใช่ Wheel track"),
+            ("CraneBaseW","ความกว้างฐานเครน","m",f"{d['craneBaseW']:.3f}","ฐานสี่เหลี่ยม 250 mm"),
+            ("CraneBaseL","ความยาวฐานเครน","m",f"{d['craneBaseL']:.3f}","ฐานสี่เหลี่ยม 250 mm"),
+            ("y_C","ตำแหน่งศูนย์กลางฐานเครนตามแนวซ้าย-ขวา","m",f"{d['craneY']:.3f}","อยู่กึ่งกลางความกว้างรถ"),
+            ("Clearance_side","พื้นที่เหลือจากขอบฐานเครนถึงขอบรถแต่ละข้าง","m",f"{d['craneSideClearance']:.3f}","(VehicleWidth - CraneBaseW)/2"),
+            ("W","Wheel track / Track width","m",f"{d['W']:.3f}","ระยะศูนย์กลางแนวล้อซ้าย-ขวา; ไม่ใช่ความกว้างตัวรถ"),
             ("WB","Wheelbase","m",f"{d['WB']:.3f}","ระยะศูนย์กลางแนวล้อหลัง-หน้า"),
             ("L","Boom radius ถึง Payload","m",f"{d['L']:.3f}","ระยะจากแกนหมุนถึง Payload"),
             ("H","Column height","m",f"{d['H']:.3f}","ใช้ใน geometry/3D"),
@@ -9184,15 +9199,27 @@ void loop() {{
         self.massModeInfo.setWordWrap(True)
         self.massModeInfo.setStyleSheet("background:#f3f7fb;border:1px solid #d7e3ee;border-radius:8px;padding:8px;color:#526b80")
         f.addRow("",self.massModeInfo)
-        rows=[("Total mass m_total / มวลรวมทั้งระบบ (kg)",self.mt),("Payload system m_L / สัตว์+ตะกร้า (kg)",self.ml),("Boom mass m_B / น้ำหนักแขนเครน (kg)",self.mb),("Track width W / ระยะศูนย์กลางล้อซ้าย-ขวา (m)",self.W),
+
+        self.craneGeometryInfo=QLabel(
+            f"Vehicle width = {VEHICLE_WIDTH_M:.2f} m  |  Crane base = {CRANE_BASE_WIDTH_M:.2f} × {CRANE_BASE_LENGTH_M:.2f} m\n"
+            f"Crane lateral center y_C = {CRANE_LATERAL_Y_M:.2f} m  |  เหลือพื้นที่ข้างฐาน = {CRANE_SIDE_CLEARANCE_M*1000:.0f} mm/ข้าง"
+        )
+        self.craneGeometryInfo.setWordWrap(True)
+        self.craneGeometryInfo.setStyleSheet(
+            "background:#eefaf4;border:1px solid #a9d7ba;border-radius:8px;padding:9px;color:#176337;font-weight:700"
+        )
+        f.addRow("Vehicle / Crane Base Geometry",self.craneGeometryInfo)
+        rows=[("Total mass m_total / มวลรวมทั้งระบบ (kg)",self.mt),("Payload system m_L / สัตว์+ตะกร้า (kg)",self.ml),("Boom mass m_B / น้ำหนักแขนเครน (kg)",self.mb),("Wheel track W / ระยะศูนย์กลางล้อซ้าย-ขวา (m) [ไม่ใช่ความกว้างตัวรถ]",self.W),
               ("Wheelbase WB / ระยะฐานล้อหน้า-หลัง (m)",self.WB),("Boom length L / ความยาวแขนเครน (m)",self.L),("Column height H / ความสูงเสาเครน (m)",self.H),
-              ("Crane x from rear axle x_C / ตำแหน่งเครนจากเพลาหลัง (m)",self.xC),
+              ("Crane center x_C from rear axle / ศูนย์กลางฐานเครนจากเพลาหลัง (+หน้า / -ท้าย) (m)",self.xC),
               ("Base vehicle CG x / x_CG,V (m)",self.xCG),
               ("Base vehicle CG y / y_CG,V (m)",self.yCG),
               ("Driving combined CG x / x_CG,drive (m)",self.driveXCG),
               ("Rotation angle θ / มุมหมุนเครน (deg)",self.th),("Dynamic factor Kdyn / ตัวคูณแรงไดนามิก",self.kd),("Required SF / ค่า SF ที่ต้องการ",self.req)]
         f.setVerticalSpacing(7);f.setHorizontalSpacing(10);f.setRowWrapPolicy(QFormLayout.WrapLongRows)
         for a,b in rows:f.addRow(a,b);b.valueChanged.connect(self.calc_all)
+        self.W.setToolTip("Wheel track = ระยะศูนย์กลางล้อซ้ายถึงศูนย์กลางล้อขวา ไม่ใช่ Vehicle width 1.00 m")
+        self.xC.setToolTip("วัดจากศูนย์กลางเพลาหลังถึงศูนย์กลางฐานเครน: + = ไปด้านหน้ารถ, - = ไปทางท้ายรถ")
         self.massCalcMode.currentIndexChanged.connect(self.set_mass_mode_from_combo)
         self.sl=QSlider(Qt.Horizontal);self.sl.setRange(-90,90);self.sl.setValue(90);self.sl.valueChanged.connect(lambda v:self.th.setValue(v));self.th.valueChanged.connect(lambda v:self.sl.setValue(int(v)));f.addRow("Rotate crane / เลื่อนเพื่อหมุนเครน",self.sl)
         craneInputScroll=QScrollArea();craneInputScroll.setWidgetResizable(True);craneInputScroll.setFrameShape(QFrame.NoFrame)
@@ -10545,6 +10572,13 @@ WIDTH / COUNTERWEIGHT
 
 Mass / CG source:
 {("Mode B Component Mass → CG derived automatically from Mass_CG table" if d.get("massMode")=="components" else "Mode A Total Mass → base vehicle CG assumed centered automatically: x_CG,V=0 m, y_CG,V=0 m")}
+
+Confirmed vehicle / crane-base geometry:
+Vehicle width = {d['vehicleWidth']:.3f} m
+Crane base = {d['craneBaseW']:.3f} × {d['craneBaseL']:.3f} m
+Crane lateral center y_C = {d['craneY']:.3f} m
+Side clearance = {d['craneSideClearance']*1000:.0f} mm/side
+NOTE: Wheel track W is center-to-center of left/right wheels and is NOT the 1.00 m vehicle width.
 
 Coordinate convention:
 +x forward, +y right, +z up
