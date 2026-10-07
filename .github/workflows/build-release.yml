@@ -50,6 +50,7 @@ jobs:
           @'
           import ast
           import hashlib
+          import json
           import math
           import socket
           import time
@@ -231,6 +232,14 @@ jobs:
           assert "ฝั่งพยายามทำให้คว่ำ" in source
           assert "ฝั่งช่วยต้านการคว่ำ" in source
           assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in source
+          assert "def stability_easy_report_html" in source
+          assert "วิธีอ่านรายงาน Stability แบบง่าย" in source
+          assert "d⊥ คือระยะจากแรงถึงแนวล้อที่เป็นแกนคว่ำ" in source
+          assert "APPENDIX A — DETAILED ENGINEERING CALCULATION" in source
+          assert "def backup_values_path" in source
+          assert "def save_values_now" in source
+          assert "saved_values_backup.json" in source
+          assert "💾 Save Values" in source
           assert "สูตร + แทนค่าแบบทีละขั้น" in source
           assert "def battery_report_html" in source
           assert "Executive Summary / สรุปคำตอบก่อน" in source
@@ -1259,17 +1268,63 @@ jobs:
           with tempfile.TemporaryDirectory() as fbd_td:
               fbd_td=Path(fbd_td)
               html=w.stability_fbd_report_html(fbd_td,w.inputs())
-              assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in html
-              assert "FBD reading guide" in html
-              assert "FBD 1:" in html and "FBD 5:" in html
-              assert "Overturning side" in html
-              assert "Resisting side" in html
-              assert "Estimated minimum track" in html
-              assert "Estimated safe slew range" in html
-              assert "Critical-case FBDs" in html
+              assert "EASY READING GUIDE" in html
+              assert "อ่านแต่ละ Case ตาม 5 ขั้นนี้" in html
+              assert "d⊥ / Moment arm" in html
+              assert "ไม่ใช่ความยาวแขนเครน" in html
+              assert "STEP 2 — หาแขนโมเมนต์ d⊥ ว่าเลขแต่ละตัวมาจากไหน" in html
+              assert "CASE 1" in html and "CASE 5" in html
+              assert "Design guidance" in html
+              assert "ช่วงมุมที่แนะนำโดยประมาณ" in html
+              assert "Critical Case" in html
               for key in ("side_left","side_right","front","rear","slope"):
                   img=fbd_td/f"fbd_{key}.png"
                   assert img.exists() and img.stat().st_size>1000, f"Missing FBD image {key}"
+
+          # ---------- Durable Save Values regression ----------
+          with tempfile.TemporaryDirectory() as save_td:
+              save_td=Path(save_td)
+              original_last_path=w.last_values_path
+              original_backup_path=w.backup_values_path
+              w.last_values_path=lambda: save_td/"last_values.json"
+              w.backup_values_path=lambda: save_td/"saved_values_backup.json"
+
+              w.set_mass_mode_from_radio("total")
+              w.mt.setValue(333.0);w.ml.setValue(88.0);w.W.setValue(1.23);w.xC.setValue(-0.22)
+              w.comp.setItem(0,1,QTableWidgetItem("57.5"))
+              QApplication.processEvents()
+              assert w.save_values_now() is True
+              assert w.last_values_path().exists() and w.backup_values_path().exists()
+
+              primary=json.loads(w.last_values_path().read_text(encoding="utf-8"))
+              backup=json.loads(w.backup_values_path().read_text(encoding="utf-8"))
+              assert primary["widgets"]["mt"]["value"]==333.0
+              assert primary["widgets"]["ml"]["value"]==88.0
+              assert primary["widgets"]["W"]["value"]==1.23
+              assert primary["widgets"]["xC"]["value"]==-0.22
+              assert primary["components"][0][1]=="57.5"
+              assert primary["widgets"]==backup["widgets"]
+              assert primary["components"]==backup["components"]
+
+              # Change values, then prove restore brings the saved values back.
+              w.mt.setValue(250.0);w.ml.setValue(50.0);w.W.setValue(.90);w.xC.setValue(.10)
+              assert w.restore_last_values(silent=True) is True
+              assert abs(w.mt.value()-333.0)<1e-9
+              assert abs(w.ml.value()-88.0)<1e-9
+              assert abs(w.W.value()-1.23)<1e-9
+              assert abs(w.xC.value()+0.22)<1e-9
+              assert w.comp.item(0,1).text()=="57.5"
+
+              # Mass-mode button changes must schedule autosave even though the hidden combo signal is blocked.
+              w.set_mass_mode_from_radio("components")
+              assert w.easyAutoSaveDebounce.isActive()
+              w.easyAutoSaveDebounce.stop()
+              w.set_mass_mode_from_radio("total")
+              assert w.easyAutoSaveDebounce.isActive()
+              w.easyAutoSaveDebounce.stop()
+
+              w.last_values_path=original_last_path
+              w.backup_values_path=original_backup_path
 
           # ---------- Screenshot regression ----------
           with tempfile.TemporaryDirectory() as shot_td:
