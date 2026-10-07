@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.41"
+APP_VERSION = "53.8.42"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -4171,13 +4171,26 @@ void loop() {{
             QMessageBox.information(self,"Compare Revisions","เลือก 2 Revision ก่อน");return
         a,b=[self.designRevisions[i] for i in rows]
         av=self._revision_summary_values(a["state"]);bv=self._revision_summary_values(b["state"])
-        trs=[]
+        input_rows=[]
         for key in av:
             va=av[key];vb=bv[key]
-            trs.append(f"<tr><td>{key}</td><td>{va}</td><td>{vb}</td><td>{'CHANGED' if va!=vb else 'same'}</td></tr>")
+            input_rows.append(f"<tr><td>{key}</td><td>{va}</td><td>{vb}</td><td>{'CHANGED' if va!=vb else 'same'}</td></tr>")
+        current=self.capture_project_state()
+        try:
+            self.apply_project_state(a["state"],False);self._core_recalculate();am=self.engineering_metrics()
+            self.apply_project_state(b["state"],False);self._core_recalculate();bm=self.engineering_metrics()
+        finally:
+            self.apply_project_state(current,False);self._core_recalculate()
+        metric_rows=[]
+        for key in am:
+            va=am[key];vb=bm[key]
+            if isinstance(va,(int,float)) and isinstance(vb,(int,float)):
+                metric_rows.append(f"<tr><td>{key}</td><td>{va:.3f}</td><td>{vb:.3f}</td><td>{vb-va:+.3f}</td></tr>")
+            else:metric_rows.append(f"<tr><td>{key}</td><td>{va}</td><td>{vb}</td><td>-</td></tr>")
         self.revisionCompare.setHtml(
-            f"<h2>{a['name']} ↔ {b['name']}</h2><table border='1' cellspacing='0' cellpadding='6'>"
-            f"<tr><th>Parameter</th><th>{a['name']}</th><th>{b['name']}</th><th>Status</th></tr>{''.join(trs)}</table>"
+            f"<h1>{a['name']} ↔ {b['name']}</h1><h2>Input Revision Diff</h2>"
+            f"<table border='1' cellspacing='0' cellpadding='6'><tr><th>Parameter</th><th>{a['name']}</th><th>{b['name']}</th><th>Status</th></tr>{''.join(input_rows)}</table>"
+            f"<h2>Engineering Output Diff</h2><table border='1' cellspacing='0' cellpadding='6'><tr><th>Metric</th><th>{a['name']}</th><th>{b['name']}</th><th>Δ B-A</th></tr>{''.join(metric_rows)}</table>"
         )
 
     # ---------------- FINAL VERIFICATION ----------------
@@ -5851,7 +5864,7 @@ void loop() {{
         w=QWidget();self.projectToolsPage=w
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
         root.addWidget(make_page_header("PROJECT TOOLS / ENGINEERING SUITE",
-            "Save/Load • Presets • Compare Design • Design Check • Motor • BMS • Winch Duty • Final Report",
+            "Save/Load • Lock • Compare • Summary • Sensitivity • Calculation Trace • Final Report",
             self.show_home_mode,"V53 TOOLS","#e8f4ff","#174a74"))
         self.projectTabs=QTabWidget();root.addWidget(self.projectTabs)
         self.compareA=None;self.compareB=None
@@ -5863,6 +5876,17 @@ void loop() {{
         info.setWordWrap(True)
         info.setStyleSheet("background:#eef6ff;color:#274c77;padding:10px;border:1px solid #cfe2f5;border-radius:8px")
         pl.addWidget(info)
+
+        lockBox=QGroupBox("Final Design Input Lock / ล็อกค่าหลักของแบบ")
+        lockLay=QHBoxLayout(lockBox)
+        self.designLockButton=QPushButton("🔓 Design Inputs Unlocked")
+        self.designLockButton.setCheckable(True)
+        self.designLockButton.setMinimumHeight(38)
+        self.designLockButton.toggled.connect(self.apply_design_lock_state)
+        self.designLockStatus=QLabel("แก้ไข W, WB, L, x_C, Mass, Payload, Boom, CG, Slope ได้")
+        self.designLockStatus.setWordWrap(True)
+        lockLay.addWidget(self.designLockButton);lockLay.addWidget(self.designLockStatus,1)
+        pl.addWidget(lockBox)
 
         advancedBox=QGroupBox("Project File — Save/Load เป็นไฟล์ JSON")
         advancedLay=QHBoxLayout(advancedBox)
@@ -5939,7 +5963,35 @@ void loop() {{
         for obj in (self.wDutyAllowed,self.wDutyRest,self.wMaxContinuous):obj.valueChanged.connect(self.update_winch_duty)
         self.projectTabs.addTab(wp,"Winch Duty Cycle")
 
-        # 7) FINAL REPORT
+        # 7) ENGINEERING WORST-CASE SUMMARY
+        sp=QWidget();sl=QVBoxLayout(sp)
+        sb=QPushButton("Refresh Engineering Summary");sb.setObjectName("primaryButton");sb.clicked.connect(self.update_engineering_summary)
+        sl.addWidget(sb)
+        self.engineeringSummaryView=QTextEdit();self.engineeringSummaryView.setReadOnly(True);sl.addWidget(self.engineeringSummaryView,1)
+        self.projectTabs.addTab(sp,"Engineering Summary")
+
+        # 8) SENSITIVITY / WHAT-IF
+        senp=QWidget();senl=QVBoxLayout(senp)
+        senbar=QHBoxLayout()
+        senrun=QPushButton("Run Sensitivity / What-if");senrun.setObjectName("primaryButton");senrun.clicked.connect(self.update_sensitivity_analysis)
+        self.sensitivitySpan=QSpinBox();self.sensitivitySpan.setRange(5,50);self.sensitivitySpan.setValue(20);self.sensitivitySpan.setSuffix(" %")
+        senbar.addWidget(senrun);senbar.addWidget(QLabel("ช่วงทดสอบ ±"));senbar.addWidget(self.sensitivitySpan);senbar.addStretch(1)
+        senl.addLayout(senbar)
+        note=QLabel("วิเคราะห์ W, Boom length, Payload, x_C และ x_CG รอบค่าปัจจุบัน โดยใช้สูตร Stability เดียวกับหน้าหลัก")
+        note.setWordWrap(True);note.setStyleSheet("background:#eef6ff;color:#274c77;padding:9px;border-radius:8px");senl.addWidget(note)
+        self.sensitivityView=QTextEdit();self.sensitivityView.setReadOnly(True);senl.addWidget(self.sensitivityView,1)
+        self.projectTabs.addTab(senp,"Sensitivity / What-if")
+
+        # 9) CALCULATION TRACE
+        tp=QWidget();tl=QVBoxLayout(tp)
+        tbar=QHBoxLayout()
+        self.traceMode=QComboBox();self.traceMode.addItems(["ALL","Drive Torque","Main Battery","Winch","Stability"])
+        trun=QPushButton("Refresh Calculation Trace");trun.setObjectName("primaryButton");trun.clicked.connect(self.update_calculation_trace)
+        tbar.addWidget(QLabel("Module"));tbar.addWidget(self.traceMode);tbar.addWidget(trun);tbar.addStretch(1);tl.addLayout(tbar)
+        self.calculationTraceView=QTextEdit();self.calculationTraceView.setReadOnly(True);tl.addWidget(self.calculationTraceView,1)
+        self.projectTabs.addTab(tp,"Calculation Trace")
+
+        # 10) FINAL REPORT
         rp=QWidget();rl=QVBoxLayout(rp)
         rr=QHBoxLayout();refresh=QPushButton("Refresh Preview");refresh.clicked.connect(self.update_final_report_preview)
         exp=QPushButton("Export FINAL Engineering PDF");exp.setObjectName("primaryButton");exp.clicked.connect(self.export_final_engineering_report)
@@ -6290,6 +6342,7 @@ void loop() {{
         # Sync derived wheel radius and mass mode after blocking signals.
         self.update_wheel_from_inches()
         if hasattr(self,"massModeSum") and self.massModeSum.isChecked(): self.apply_mass_mode()
+        if hasattr(self,"designLockButton"):self.apply_design_lock_state(self.designLockButton.isChecked())
         if recalculate:
             self._core_recalculate();self.update_project_tools()
             if hasattr(self,"integrationPage"):self.refresh_integration_suite()
@@ -6452,6 +6505,154 @@ void loop() {{
             self.wmass.setValue(100);self.wheight.setValue(1.0);self.wvolt.setValue(12);self.wcycles.setValue(50)
         self._core_recalculate();self.update_project_tools()
         self.projectStatus.setHtml(f"<h3>Applied preset: {key}</h3><p>Preset เป็นค่าช่วยสาธิตเท่านั้น โปรดตรวจ Input ก่อนนำผลไปใช้ในรายงาน</p>")
+
+    def _design_lock_widgets(self):
+        names=("mt","ml","mb","W","WB","L","xC","xCG","yCG","driveXCG","slope","acc",
+               "tgrade","eslopeDeg","rampRiseCm","rampRunCm","rampMeasuredCm")
+        return [getattr(self,n) for n in names if hasattr(self,n)]
+
+    def apply_design_lock_state(self,checked=None):
+        if not hasattr(self,"designLockButton"):return
+        locked=self.designLockButton.isChecked() if checked is None else bool(checked)
+        for obj in self._design_lock_widgets():
+            try:obj.setEnabled(not locked)
+            except Exception:pass
+        self.designLockButton.setText("🔒 Design Inputs Locked" if locked else "🔓 Design Inputs Unlocked")
+        if hasattr(self,"designLockStatus"):
+            self.designLockStatus.setText(
+                "FINAL LOCK: ค่าหลักถูกล็อก ปลดล็อกก่อนแก้ Design Inputs"
+                if locked else
+                "แก้ไข W, WB, L, x_C, Mass, Payload, Boom, CG, Slope ได้"
+            )
+            self.designLockStatus.setStyleSheet("color:#176337;font-weight:800;" if locked else "color:#60758b;")
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
+
+    def _stability_critical_for_data(self,d,key):
+        best=None
+        for ang in range(-90,91):
+            if key=="side_left":bal=self.side_moment_balance(d,ang,"left")
+            elif key=="side_right":bal=self.side_moment_balance(d,ang,"right")
+            else:bal=self.longitudinal_moment_balance(d,ang,key)
+            sf=bal["sf"]
+            if best is None or sf<best["sf"]:
+                best=dict(sf=sf,angle=ang,mo=bal["mo"],mr=bal["mr"])
+        return best or dict(sf=999.0,angle=None,mo=0.0,mr=0.0)
+
+    def _stability_worst_for_data(self,d):
+        rows=[]
+        for key,label in (("side_left","Side Left"),("side_right","Side Right"),("front","Front"),("rear","Rear")):
+            x=self._stability_critical_for_data(d,key);rows.append((x["sf"],x["angle"],label,x["mo"],x["mr"]))
+        rows.sort(key=lambda x:x[0])
+        return rows
+
+    @staticmethod
+    def _sf_text(v):
+        return "N/A (M_O=0)" if float(v)>=999 else f"{float(v):.3f}"
+
+    def engineering_summary_html(self):
+        t=self.torque_results();e=self.electrical_results();w=self.winch_results();d=self.inputs()
+        crit=self._stability_worst_for_data(d)
+        slope=self.slope_stability_results(d)
+        req=d["req"]
+        rows=[]
+        def add(system,item,value,status,detail=""):
+            color="#176337" if status=="PASS" else "#b42318" if status=="FAIL" else "#b54708"
+            rows.append(f"<tr><td>{system}</td><td>{item}</td><td><b>{value}</b></td><td style='color:{color};font-weight:900'>{status}</td><td>{detail}</td></tr>")
+        add("Drive","Required torque / motor",f"{t['T']:.2f} N·m","PASS","Design force after SF")
+        add("Drive","Motor rated power",f"{t.get('motor_rated_w',0):.0f} W / motor","PASS" if t.get("motor_power_ok",False) else "FAIL",
+            f"required {t['Pmech_per']:.1f} W • margin {t.get('motor_power_margin',0):.2f}×")
+        add("Drive","Traction margin",f"{t.get('traction_margin',0):.2f}×","PASS" if t.get("traction_margin",0)>=1 else "FAIL","≥ 1.00 required")
+        add("Battery","Main battery minimum",f"{e['Ah']:.2f} Ah","PASS",f"practical {e.get('Ah_recommended',e['Ah']):.2f} Ah")
+        add("Battery","72 V energy load",f"{e['Eload']:.1f} Wh","PASS",f"{e['cycles']} complete Cycle")
+        add("Winch","12 V battery design",f"{w['ah']:.2f} Ah","PASS",f"{w['n']} jobs • UP+DOWN/job")
+        add("Winch","Lift time UP",f"{w['tu']:.2f} s","PASS",f"load {w['m']:.1f} kg")
+        for sf,ang,label,mo,mr in crit:
+            status="PASS" if sf>=req else "FAIL"
+            detail=("No overturning within ±90°" if sf>=999 else f"critical θ={ang}° • M_O={mo:.2f} • M_R={mr:.2f} N·m")
+            add("Stability",label+" SF",self._sf_text(sf),status,detail)
+        ssf=slope["sf"];add("Stability","Uphill slope SF",self._sf_text(ssf),"PASS" if ssf>=req else "FAIL",f"target ≥ {req:.2f}")
+        valid=[x for x in crit if x[0]<999]
+        governing=min(valid,key=lambda x:x[0]) if valid else None
+        gov=(f"{governing[2]} • SF {governing[0]:.3f} @ {governing[1]}°" if governing else "No overturning case")
+        return ("<h1>ENGINEERING WORST-CASE SUMMARY</h1>"
+                f"<p><b>Governing lifting case:</b> {gov} • Required SF ≥ {req:.2f}</p>"
+                "<table border='1' cellspacing='0' cellpadding='6'><tr><th>System</th><th>Check</th><th>Result</th><th>Status</th><th>Detail</th></tr>"
+                +"".join(rows)+"</table>")
+
+    def update_engineering_summary(self):
+        if hasattr(self,"engineeringSummaryView"):self.engineeringSummaryView.setHtml(self.engineering_summary_html())
+
+    def sensitivity_analysis_html(self):
+        d0=self.inputs();span=(self.sensitivitySpan.value()/100.0) if hasattr(self,"sensitivitySpan") else .20
+        specs=[
+            ("Track width W","W",max(.05,d0["W"]), "m"),
+            ("Boom length L","L",max(.05,d0["L"]), "m"),
+            ("Payload mass","ml",max(1.0,d0["ml"]), "kg"),
+            ("Crane from rear axle x_C","xC",max(.01,abs(d0["xC"])) or .15, "m"),
+            ("Vehicle CG x","xCG",max(.05,abs(d0["xCG"])) or .10, "m"),
+        ]
+        html=["<h1>SENSITIVITY / WHAT-IF ANALYSIS</h1>",
+              f"<p>ทดสอบรอบค่าปัจจุบัน ±{span*100:.0f}% • ค่า SF ใช้ Critical scan -90°…+90° ทุกกรณี</p>"]
+        factors=(1-span,1-span/2,1.0,1+span/2,1+span)
+        for label,key,base,unit in specs:
+            current=float(d0[key])
+            vals=[]
+            if key in ("xC","xCG") and abs(current)<1e-9:
+                delta=base*span
+                candidates=(-delta,-delta/2,0.0,delta/2,delta)
+            else:candidates=tuple(current*f for f in factors)
+            for val in candidates:
+                d=dict(d0);d[key]=float(val)
+                worst=self._stability_worst_for_data(d)[0]
+                vals.append((val,worst))
+            rows="".join(
+                f"<tr><td>{v:.3f} {unit}</td><td>{w[2]}</td><td>{self._sf_text(w[0])}</td><td>{'PASS' if w[0]>=d0['req'] else 'FAIL'}</td></tr>"
+                for v,w in vals
+            )
+            html.append(f"<h2>{label}</h2><table border='1' cellspacing='0' cellpadding='6'><tr><th>Value</th><th>Governing case</th><th>Worst SF</th><th>Status</th></tr>{rows}</table>")
+        html.append("<p><b>ใช้เพื่อดูแนวโน้มการออกแบบ:</b> ไม่ใช่การแทน FEA หรือการทดสอบรถจริง</p>")
+        return "".join(html)
+
+    def update_sensitivity_analysis(self):
+        if hasattr(self,"sensitivityView"):self.sensitivityView.setHtml(self.sensitivity_analysis_html())
+
+    def calculation_trace_html(self,mode="ALL"):
+        t=self.torque_results();e=self.electrical_results();w=self.winch_results();d=self.inputs()
+        blocks=[]
+        if mode in ("ALL","Drive Torque"):
+            blocks.append(f"""<h2>DRIVE TORQUE TRACE</h2>
+            <p><b>Input:</b> m={t['m']:.2f} kg, θ={math.degrees(t['theta']):.2f}°, r={t['r']:.4f} m, n={t['n']}</p>
+            <p><b>Formula:</b> F_design=(mg sinθ + Crr·mg cosθ + ma)×SF</p>
+            <p><b>Substitute:</b> ({t['Fg']:.2f}+{t['Frr']:.2f}+{t['Fa']:.2f})×{t['SF']:.2f}=<b>{t['Fdesign']:.2f} N</b></p>
+            <p><b>Formula:</b> T=(F_design/n)r → <b>{t['T']:.2f} N·m/motor</b></p>
+            <p><b>Power check:</b> required {t['Pmech_per']:.1f} W vs rated {t.get('motor_rated_w',0):.1f} W → <b>{'PASS' if t.get('motor_power_ok') else 'FAIL'}</b></p>""")
+        if mode in ("ALL","Main Battery"):
+            blocks.append(f"""<h2>MAIN BATTERY TRACE</h2>
+            <p><b>Input:</b> V={e['V']:.1f} V, runtime={e['runtime_h']:.2f} h, Cycle={e['cycle_total_s']:.2f} s</p>
+            <p><b>Drive:</b> E_drive,cycle={e['Edrive_cycle']:.3f} Wh × {e['cycles']} = <b>{e['Edrive']:.2f} Wh</b></p>
+            <p><b>Aux:</b> P_aux×runtime = {self.eaux.value():.1f}×{e['runtime_h']:.2f} = <b>{e['Eaux']:.2f} Wh</b></p>
+            <p><b>Total:</b> E_total={e['Edrive']:.2f}+{e['Eaux']:.2f}=<b>{e['Eload']:.2f} Wh</b></p>
+            <p><b>Capacity:</b> E_total/DoD×(1+Reserve)/V = <b>{e['Ah']:.2f} Ah minimum</b></p>""")
+        if mode in ("ALL","Winch"):
+            blocks.append(f"""<h2>WINCH TRACE</h2>
+            <p><b>Input:</b> load={w['m']:.1f} kg, lift={w['h']:.2f} m</p>
+            <p><b>Interpolation:</b> v_up={w['up_speed']:.3f} m/min, I_up={w['iup']:.2f} A</p>
+            <p><b>Time:</b> t_up=(h/v)×60=({w['h']:.2f}/{w['up_speed']:.3f})×60=<b>{w['tu']:.2f} s</b></p>
+            <p><b>Jobs:</b> {w['n']} jobs • 1 job = UP + DOWN • battery=<b>{w['ah']:.2f} Ah</b></p>""")
+        if mode in ("ALL","Stability"):
+            crit=self._stability_worst_for_data(d)
+            rows=[]
+            for sf,ang,label,mo,mr in crit:
+                rows.append(f"<tr><td>{label}</td><td>{'N/A' if sf>=999 else str(ang)+'°'}</td><td>{mo:.2f}</td><td>{mr:.2f}</td><td>{self._sf_text(sf)}</td></tr>")
+            blocks.append("<h2>STABILITY TRACE</h2><p><b>Formula:</b> M_O=Σ(F_i d_i), M_R=Σ(F_i d_i), SF=M_R/M_O</p>"
+                          "<table border='1' cellspacing='0' cellpadding='6'><tr><th>Case</th><th>Critical angle</th><th>M_O N·m</th><th>M_R N·m</th><th>SF</th></tr>"
+                          +"".join(rows)+"</table>")
+        return "<h1>CALCULATION TRACE</h1><p>Input → Formula → Substitute → Result → PASS/FAIL</p>"+"".join(blocks)
+
+    def update_calculation_trace(self):
+        if hasattr(self,"calculationTraceView"):
+            mode=self.traceMode.currentText() if hasattr(self,"traceMode") else "ALL"
+            self.calculationTraceView.setHtml(self.calculation_trace_html(mode))
 
     def capture_compare_design(self,which):
         state=self.capture_project_state()
