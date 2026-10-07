@@ -202,7 +202,7 @@ def _desktop_web_values(state: Dict[str, Any]) -> Dict[str, Any]:
         "forms": {
             "driveForm": {
                 "mass_kg": drive_mass,
-                "wheel_diameter_in": n("twheelInch", 10.0),
+                "wheel_diameter_in": n("twheelInch", 16.0),
                 "slope_deg": n("tgrade", 19.0),
                 "speed_kmh": n("tspeed", 5.0),
                 "accel_time_s": n("taccel", 5.0),
