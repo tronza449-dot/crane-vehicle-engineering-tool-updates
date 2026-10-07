@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser, base64
 from datetime import datetime
-from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal
+from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon,QPixmap
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter
@@ -1147,14 +1147,52 @@ class App(QMainWindow):
         button.setProperty("feedbackState", state)
         self._repolish_feedback_button(button)
 
+    def _animate_button_geometry(self, button, pressed):
+        """Small physical push animation so clicks are obvious on Desktop."""
+        if button is None or not button.isVisible():
+            return
+        try:
+            current=button.geometry()
+            # Capture the layout position on every new press. The animation is only
+            # 1 px so it does not fight layouts or make neighbouring controls jump.
+            if pressed:
+                button._cvetPressBaseGeometry=current
+                start=current
+                end=current.adjusted(1,1,-1,-1)
+                duration=75
+                easing=QEasingCurve.OutCubic
+            else:
+                base=getattr(button,"_cvetPressBaseGeometry",None)
+                if base is None:
+                    return
+                start=current
+                end=base
+                duration=110
+                easing=QEasingCurve.OutBack
+            old=getattr(button,"_cvetPressAnimation",None)
+            if old is not None:
+                try: old.stop()
+                except Exception: pass
+            anim=QPropertyAnimation(button,b"geometry",button)
+            anim.setDuration(duration)
+            anim.setStartValue(start)
+            anim.setEndValue(end)
+            anim.setEasingCurve(easing)
+            button._cvetPressAnimation=anim
+            anim.start()
+        except Exception:
+            pass
+
     def _button_press_feedback(self, button):
         if button is None or not button.isEnabled():
             return
         self._set_button_feedback_state(button, "pressed")
+        self._animate_button_geometry(button, True)
 
     def _button_release_feedback(self, button):
         if button is None:
             return
+        self._animate_button_geometry(button, False)
         if button.property("feedbackState") == "pressed":
             self._set_button_feedback_state(button, "")
 
