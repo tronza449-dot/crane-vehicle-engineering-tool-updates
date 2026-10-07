@@ -380,6 +380,10 @@ jobs:
           assert 'id="rampForm"' in Path("web/index.html").read_text(encoding="utf-8")
           assert "/api/calc/ramp-geometry" in Path("web_server.py").read_text(encoding="utf-8")
           assert "calculateRampGeometry" in web_js
+          for step_fn in ("driveStepsHtml","rampStepsHtml","batteryStepsHtml","winchStepsHtml","winchBatteryStepsHtml"):
+              assert ("function "+step_fn) in web_js, f"Missing web step renderer: {step_fn}"
+          assert "STEP-BY-STEP ทุก Stability Mode" in web_js
+          assert web_js.count("calcStepCard(") >= 25
           assert "applyRampAngle" in Path("web/index.html").read_text(encoding="utf-8")
           assert "SHARED_PARAMETER_GROUPS" in web_js
           assert "syncSharedProjectParameter" in web_js
@@ -500,6 +504,83 @@ jobs:
               assert abs(pd["mo"]-pw["overturning_moment_nm"])<1e-8
               assert abs(pd["mr"]-pw["resisting_moment_nm"])<1e-8
               assert abs(pd["sf"]-pw["sf"])<1e-8
+
+          # Drive Torque parity — same inputs must produce the same engineering result.
+          w.tUseMain.setChecked(False)
+          w.tm.setValue(300.0);w.tgrade.setValue(19.0);w.tspeed.setValue(1.0)
+          w.tmu.setValue(0.02);w.tmotors.setValue(2);w.tsf.setValue(1.5)
+          w.taccel.setValue(5.0);w.teff.setValue(85.0);w.tDriveLoadFrac.setValue(50.0)
+          w.ttraction.setValue(0.7);w.tvoltage.setValue(72.0)
+          parity_radius=10.0*0.0254/2.0
+          dt=w.torque_results(radius=parity_radius)
+          wt=webcalc.calculate_drive_torque({
+              "mass_kg":300.0,"wheel_diameter_in":10.0,"slope_deg":19.0,"speed_kmh":1.0,
+              "accel_time_s":5.0,"rolling_coeff":0.02,"motors":2,"safety_factor":1.5,
+              "drive_eff_pct":85.0,"voltage_v":72.0,"driven_load_pct":50.0,"traction_coeff":0.7
+          })
+          assert abs(dt["T"]-wt["torque_per_motor_nm"])<1e-9
+          assert abs(dt["Ibatt"]-wt["battery_current_a"])<1e-9
+          assert abs(dt["Fdesign"]-wt["design_force_n"])<1e-9
+          assert abs(dt["Ftraction"]-wt["traction_limit_n"])<1e-9
+
+          # Ramp Geometry parity.
+          w.rampUseMainMass.setChecked(False)
+          w.rampRiseCm.setValue(55.0);w.rampRunCm.setValue(280.0);w.rampMeasuredCm.setValue(290.0);w.rampMass.setValue(300.0)
+          dr=w.ramp_geometry_results()
+          wrp=webcalc.calculate_ramp_geometry({"rise_cm":55.0,"run_cm":280.0,"measured_slant_cm":290.0,"mass_kg":300.0})
+          assert abs(dr["L"]-wrp["theoretical_slant_cm"])<1e-9
+          assert abs(dr["angle"]-wrp["angle_deg"])<1e-9
+          assert abs(dr["slope_pct"]-wrp["slope_percent"])<1e-9
+          assert abs(dr["f_slope"]-wrp["f_slope_n"])<1e-9
+
+          # Winch mechanics / operating-cycle / battery parity.
+          w.wmass.setValue(100.0);w.wheight.setValue(1.5)
+          w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
+          w.wopEvents.setValue(2);w.wopOther.setValue(0.0)
+          w.wbDownMode.setCurrentIndex(0);w.wbEventMode.setCurrentIndex(0)
+          w.wbVoltage.setValue(12.0);w.wbDoD.setValue(80.0);w.wbReserve.setValue(20.0);w.wbCandidateAh.setValue(40.0)
+          dwc=w.winch_core_results();dwo=w.winch_operation_results();dwb=w.winch_battery_results()
+          ww=webcalc.calculate_winch({
+              "load_kg":100.0,"lift_m":1.5,"vehicle_speed_kmh":1.0,"one_way_m":30.0,
+              "operating_hours":3.0,"events_per_round":2,"other_stop_s":0.0,
+              "event_mode":"auto","down_mode":"conservative","winch_voltage_v":12.0,
+              "dod_pct":80.0,"reserve_pct":20.0,"candidate_ah":40.0
+          })
+          assert abs(dwc["up_speed"]-ww["core"]["up_speed_m_min"])<1e-9
+          assert abs(dwc["iup"]-ww["core"]["up_current_a"])<1e-9
+          assert abs(dwc["tu"]-ww["core"]["up_time_s"])<1e-9
+          assert dwo["rounds"]==ww["operation"]["completed_round_trips"]
+          assert dwo["lift_events"]==ww["operation"]["lift_events"]
+          assert abs(dwo["t_round"]-ww["operation"]["round_time_s"])<1e-9
+          assert abs(dwb["total"]-ww["battery"]["e_total_wh"])<1e-9
+          assert abs(dwb["ah_design"]-ww["battery"]["ah_design"])<1e-9
+
+          # Main Battery 72 V parity, including Battery Selection current logic.
+          w.euseTorqueMass.setChecked(False);w.emass.setValue(300.0);w.evolt.setValue(72.0)
+          w.espeed.setValue(1.0);w.eoneway.setValue(30.0);w.eslopeLen.setValue(2.9);w.eslopeDeg.setValue(11.11)
+          w.eruntime.setValue(3.0);w.err.setValue(0.02);w.edriveEff.setValue(60.0);w.eaux.setValue(50.0)
+          w.edod.setValue(80.0);w.ereserve.setValue(20.0);w.ebatteryFactor.setValue(3.0)
+          w.estopTime.setValue(0.0);w.euseOperationCycle.setChecked(True);w.eTurnEnable.setChecked(False)
+          w.bselTargetContC.setValue(3.0);w.bselTargetPeakC.setValue(5.0)
+          de=w.electrical_results();dbs=w.battery_selection_results()
+          wb=webcalc.calculate_drive_battery({
+              "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,"one_way_m":30.0,
+              "slope_length_m":2.9,"slope_deg":11.11,"runtime_h":3.0,
+              "lift_time_per_event_s":dwo["t_event"],"lift_events_per_round":dwo["events_per_round"],
+              "other_stop_time_per_round_s":0.0,"rolling_coeff":0.02,"drive_eff_pct":60.0,
+              "aux_power_w":50.0,"dod_pct":80.0,"reserve_pct":20.0,"battery_design_factor":3.0,
+              "turn_enabled":False,"track_width_m":w.W.value(),"target_cont_c":3.0,"target_peak_c":5.0,
+              "drive_reference_current_a":dt["Ibatt"],"candidate_ah":40.0
+          })
+          assert de["cycles"]==wb["completed_round_trips"]
+          assert abs(de["cycle_total_s"]-wb["round_time_s"])<1e-9
+          assert abs(de["Ecycle"]-wb["total_energy_per_cycle_wh"])<1e-9
+          assert abs(de["Eload"]-wb["load_energy_wh"])<1e-9
+          assert abs(de["Ah"]-wb["design_ah"])<1e-9
+          assert abs(de["Ah_recommended"]-wb["recommended_ah"])<1e-9
+          assert abs(dbs["cont_req"]-wb["continuous_current_required_a"])<1e-9
+          assert abs(dbs["peak_calc"]-wb["peak_current_required_a"])<1e-9
+          assert abs(dbs["suggested"]-wb["suggested_ah"])<1e-9
 
           # ---------- Visible T / B / W / S Save Values controls ----------
           for name in ("torqueSaveValuesButton","batterySaveValuesButton","winchSaveValuesButton","stabilityHubSaveValuesButton"):
