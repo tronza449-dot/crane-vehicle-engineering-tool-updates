@@ -5208,7 +5208,7 @@ void loop() {{
             ("E_aux,cycle","พลังงานอุปกรณ์เสริมต่อ Cycle","Wh",f"{q['Eaux_cycle']:.3f}","P_aux × t_cycle"),
             ("E_cycle","พลังงานรวมต่อ Cycle","Wh",f"{q['Ecycle']:.3f}","E_drive,cycle + E_aux,cycle"),
             ("N_cycle","จำนวน Cycle เต็ม","Cycle",str(q["cycles"]),"floor(t_runtime/t_cycle)"),
-            ("E_total","พลังงานรวมทุก Cycle","Wh",f"{q['Eload']:.2f}","E_cycle × N_cycle"),
+            ("E_total","พลังงานรวมช่วงเวลาทำงาน","Wh",f"{q['Eload']:.2f}","E_drive,cycle × N_cycle + P_aux × t_runtime"),
             ("DoD","สัดส่วนความจุที่ใช้ได้","%",f"{q['dod']*100:.1f}","เผื่อไม่ใช้แบตจนหมด"),
             ("Reserve","พลังงานสำรอง","%",f"{q['reserve']*100:.1f}","เผื่อความคลาดเคลื่อน"),
             ("E_design","พลังงานแบตที่ควรมี","Wh",f"{q['Edesign']:.2f}","หลัง DoD + Reserve"),
@@ -7226,7 +7226,13 @@ void loop() {{
             interp_fraction=interp["fraction"],
             max_spec_current=140.0,spec_source="4500LB WINCH SPECIFICATION — user supplied",
             rope_layer=layer,layer_capacity_m=layer_capacity_m,layer_pull_kg=layer_pull_kg,
-            layer_pull_ok=(m<=layer_pull_kg)
+            layer_pull_ok=(m<=layer_pull_kg),
+            performance_basis="First-layer speed/current interpolation",
+            layer_correction_available=False,
+            first_layer_performance_warning=(
+                "" if int(layer)<=1 else
+                "Lift distance reaches rope layer > 1; speed/current still use First Layer datasheet interpolation because no layer-specific performance table was supplied."
+            )
         )
 
     def winch_results(self):
@@ -7716,6 +7722,7 @@ void loop() {{
         current = <b>{core['iup']:.2f} A</b>, t_up = <b>{core['tu']:.2f} s</b></p>
         <p>Estimated rope layer = <b>{core['rope_layer']}</b> • sheet line-pull = <b>{core['layer_pull_kg']:.0f} kg</b> →
         <b>{'PASS' if core['layer_pull_ok'] else 'CHECK'}</b></p>
+        {("<p style='color:#b42318'><b>WARNING:</b> "+core['first_layer_performance_warning']+"</p>") if core['first_layer_performance_warning'] else ""}
         <p><b>Battery totals are intentionally not calculated in this Datasheet section.</b> ใช้แท็บ Battery เป็นตัวคำนวณหลักเพียงจุดเดียว.</p>
         </body></html>
         """
@@ -7729,6 +7736,7 @@ void loop() {{
                 f"Load {core['m']:.1f} kg • Lift {core['h']:.2f} m\n"
                 f"First Layer: speed {core['up_speed']:.3f} m/min • current {core['iup']:.2f} A • t_up {core['tu']:.2f} s\n"
                 f"Rope Layer {core['rope_layer']} • sheet line-pull {core['layer_pull_kg']:.0f} kg • {'PASS' if core['layer_pull_ok'] else 'CHECK LOAD'}"
+                + (f"\nWARNING: {core['first_layer_performance_warning']}" if core['first_layer_performance_warning'] else "")
             )
         if hasattr(self,"wInterpDetails"):
             self.wInterpDetails.setHtml(self.winch_interpolation_html(core))
@@ -8265,10 +8273,11 @@ void loop() {{
         h+=box("8) หาพลังงานรวมที่ต้องใช้ทั้งหมด",f"""
         <p><b>กำลังหาอะไร:</b> หาพลังงานที่รถต้องใช้ตลอดจำนวน Cycle ที่ทำได้</p>
         <p><b>สูตร:</b> E_total = E_cycle × N_cycle<br>
-        <b>อ่านสูตรแบบภาษาคน:</b> พลังงานรวม = พลังงานที่ใช้ต่อ 1 Cycle × จำนวน Cycle ทั้งหมด<br>
-        <b>ตัวแปร:</b> E_total = พลังงานรวม, E_cycle = พลังงานต่อ Cycle, N_cycle = จำนวน Cycle</p>
-        <p><b>แทนค่า:</b> E_total = {q['Ecycle']:.3f} × {q['cycles']}
-        = <b>{q['Eload']:.2f} Wh</b></p>""")
+        <b>อ่านสูตรแบบภาษาคน:</b> พลังงานรวม = พลังงานขับของ Cycle เต็ม + Auxiliary ที่เปิดตลอดเวลาทำงาน<br>
+        <b>ตัวแปร:</b> E_total = E_drive,total + E_aux,total</p>
+        <p><b>แทนค่า:</b> E_drive,total = {q['Edrive_cycle']:.3f} × {q['cycles']} = {q['Edrive']:.2f} Wh<br>
+        E_aux,total = {self.eaux.value():.1f} × {q['runtime_h']:.2f} = {q['Eaux']:.2f} Wh<br>
+        E_total = {q['Edrive']:.2f} + {q['Eaux']:.2f} = <b>{q['Eload']:.2f} Wh</b></p>""")
 
         h+=box("9) เผื่อ DoD และ Reserve",f"""
         <p><b>กำลังหาอะไร:</b> ปรับความจุแบตให้ไม่ใช้งานจนหมดและมีพลังงานสำรอง</p>
@@ -8513,9 +8522,10 @@ void loop() {{
         <div class='stepbox'>
           <div class='stephead'>STEP 5 — แปลงพลังงานรวมจาก Wh เป็น Ah</div>
           <div class='stepbody'>
-            <div class='formula'><b>สูตรพลังงานรวม:</b> E_total = E_cycle × N_cycle</div>
-            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานรวมที่ใช้ = พลังงานต่อ 1 Cycle × จำนวน Cycle ทั้งหมด</div>
-            <div class='substitute'><b>แทนค่า:</b> {q['Ecycle']:.3f} × {q['cycles']} = <b>{q['Eload']:.2f} Wh</b></div>
+            <div class='formula'><b>สูตรพลังงานรวม:</b> E_total = E_drive,cycle × N_cycle + P_aux × t_runtime</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานขับคิดจาก Cycle เต็ม แต่ Auxiliary คิดให้ครบเวลาทำงานเป้าหมายทั้งหมด</div>
+            <div class='substitute'><b>แทนค่า:</b> ({q['Edrive_cycle']:.3f} × {q['cycles']}) + ({self.eaux.value():.1f} × {q['runtime_h']:.2f})
+            = {q['Edrive']:.2f} + {q['Eaux']:.2f} = <b>{q['Eload']:.2f} Wh</b></div>
 
             <div class='formula'><b>สูตรเผื่อ DoD:</b> E_nominal = E_total ÷ DoD</div>
             <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานแบตพิกัดที่ต้องมี = พลังงานที่ใช้จริง ÷ สัดส่วนความจุที่อนุญาตให้ใช้</div>
@@ -8565,7 +8575,7 @@ void loop() {{
         <table>
         <tr><th>หัวข้อ</th><th>สถานะ</th><th>รายละเอียด</th></tr>
         <tr><td>Drive traction energy</td><td>INCLUDED</td><td>Flat + uphill + downhill model</td></tr>
-        <tr><td>Auxiliary energy</td><td>INCLUDED</td><td>P_aux × t_cycle</td></tr>
+        <tr><td>Auxiliary energy</td><td>INCLUDED</td><td>P_aux × t_runtime สำหรับ sizing รวม; E_aux,cycle แสดงเพื่ออธิบายต่อ Cycle</td></tr>
         <tr><td>Winch 12 V energy</td><td>NOT INCLUDED</td><td>ใช้แบต 12 V แยก แต่เวลายกสามารถรวมใน t_cycle</td></tr>
         <tr><td>Regenerative energy credit</td><td>NOT INCLUDED</td><td>ไม่หักพลังงานคืนจากช่วงลงลาด</td></tr>
         <tr><td>Acceleration/start energy in Ah sizing</td><td>NOT INCLUDED</td><td>ใช้สำหรับ current/peak check แยก</td></tr>
@@ -8823,8 +8833,10 @@ void loop() {{
         <p>Auxiliary ต่อรอบ = {q['Eaux_cycle']:.3f} Wh → พลังงานรวมต่อ Cycle = <b>{q['Ecycle']:.3f} Wh</b></p>
         <p>เวลา 1 Cycle = รถวิ่ง {q['drive_cycle_s']:.1f} s + งานยก {q['lift_round_s']:.1f} s + หยุดอื่น {q['other_stop_s']:.1f} s + หมุน Pivot {q['turn_time_cycle_s']:.1f} s
         = <b>{q['cycle_total_s']:.1f} s</b></p>
-        <p>ใน {q['runtime_h']:.2f} h ทำได้ <b>{q['cycles']} Cycle เต็ม</b> → E_total = {q['Ecycle']:.3f} × {q['cycles']}
-        = <b>{q['Eload']:.1f} Wh</b></p>
+        <p>ใน {q['runtime_h']:.2f} h ทำได้ <b>{q['cycles']} Cycle เต็ม</b>.<br>
+        E_drive,total = {q['Edrive_cycle']:.3f} × {q['cycles']} = {q['Edrive']:.1f} Wh<br>
+        E_aux,total = {self.eaux.value():.1f} × {q['runtime_h']:.2f} = {q['Eaux']:.1f} Wh<br>
+        ดังนั้น E_total = <b>{q['Eload']:.1f} Wh</b></p>
         <p>หลัง DoD {q['dod']*100:.0f}% + Reserve {q['reserve']*100:.0f}% →
         ขั้นต่ำ <b>{q['Ah']:.2f} Ah</b>. จากนั้นใช้ Battery Design Factor Kb={q['Kb']:.1f}
         → <b style='color:#b42318'>{q['Ah_recommended']:.2f} Ah</b>
@@ -8877,7 +8889,7 @@ void loop() {{
         <tr><td>Calculated minimum</td><td>{q['Ah']:.2f} Ah @ {q['V']:.1f} V</td></tr>
         <tr><td>Battery Design Factor</td><td>× {q['Kb']:.2f}</td></tr>
         <tr><td>Practical recommendation</td><td><b>{q['Ah_recommended']:.2f} Ah → {q['recommended_standard']:.0f} Ah standard</b></td></tr>
-        <tr><td>Uphill / Turning current reference</td><td>{q['Icalc_up']:.1f} / {q['Iturn_avg']:.1f} A</td></tr>
+        <tr><td>Uphill / Turning / Auxiliary current reference</td><td>{q['Icalc_up']:.1f} / {q['Iturn_avg']:.1f} / {q['Iaux']:.1f} A</td></tr>
         </table>
         <p>Ah ใช้เลือกความจุพลังงาน; BMS/สาย/Controller ยังต้องตรวจกระแสแยกอีกครั้ง.</p>
         """)
