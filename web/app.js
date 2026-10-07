@@ -1562,20 +1562,23 @@ async function runWebSensitivity(){
 async function refreshWebCalculationTrace(){
   const out=$("#webTraceResult"),btn=$("#refreshWebTrace"),mode=$("#webTraceMode")?.value||"ALL";
   if(!out)return;
-  buttonBusy(btn,"กำลังสร้าง Trace...");
+  buttonBusy(btn,"กำลังหาที่มาของคำตอบ...");
   try{
     const x=await calculateWebDecisionSnapshot(),blocks=[];
-    if(mode==="ALL"||mode==="Drive Torque")blocks.push(driveStepsHtml(x.drive));
-    if(mode==="ALL"||mode==="Ramp Geometry")blocks.push(rampStepsHtml(x.ramp));
-    if(mode==="ALL"||mode==="Main Battery")blocks.push(batteryStepsHtml(x.battery,x.battery.candidate||{}));
-    if(mode==="ALL"||mode==="Winch")blocks.push(winchStepsHtml(x.winch)+winchBatteryStepsHtml(x.winch));
+    if(mode==="ALL"||mode==="Drive Torque")blocks.push('<h3>แรงขับและทอร์ค — ค่าที่ใช้ → สูตร → แทนค่า → คำตอบ</h3>'+driveStepsHtml(x.drive));
+    if(mode==="ALL"||mode==="Ramp Geometry")blocks.push('<h3>ทางลาด — ค่าที่ใช้ → สูตร → แทนค่า → คำตอบ</h3>'+rampStepsHtml(x.ramp));
+    if(mode==="ALL"||mode==="Main Battery")blocks.push('<h3>แบตเตอรี่หลัก 72 V — ค่าที่ใช้ → สูตร → แทนค่า → คำตอบ</h3>'+batteryStepsHtml(x.battery,x.battery.candidate||{}));
+    if(mode==="ALL"||mode==="Winch")blocks.push('<h3>วินช์ 12 V — ค่าที่ใช้ → สูตร → แทนค่า → คำตอบ</h3>'+winchStepsHtml(x.winch)+winchBatteryStepsHtml(x.winch));
     if(mode==="ALL"||mode==="Stability"){
       const key=x.stability.critical_governing.key;
-      blocks.push('<h3>Stability Critical Governing Trace</h3>'+fbdFormulaHtml(key,x.stability.critical_cases[key],x.stability));
+      blocks.push('<h3>การคว่ำ / Stability — โมเมนต์คว่ำ → โมเมนต์ต้าน → SF → PASS/FAIL</h3>'+fbdFormulaHtml(key,x.stability.critical_cases[key],x.stability));
     }
-    out.innerHTML='<div class="notice"><b>Calculation Trace:</b> Input → Formula → Substitute → Result → PASS/FAIL</div>'+blocks.join("");
-    buttonSuccess(btn,"Trace ✓","Calculation Trace พร้อมแล้ว");
-  }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","สร้าง Trace ไม่สำเร็จ");}
+    out.innerHTML=
+      '<div class="notice"><b>ดูที่มาของคำตอบ:</b> หน้านี้ไม่ได้คำนวณด้วยสูตรใหม่ แต่เปิดขั้นตอนของผลลัพธ์เดิมให้ดู<br>'+
+      '<b>อ่านตามนี้:</b> 1) ค่าที่ใช้ → 2) สูตร → 3) แทนค่าจริง → 4) คำตอบ → 5) ตรวจสอบ</div>'+
+      blocks.join("");
+    buttonSuccess(btn,"แสดงแล้ว ✓","แสดงที่มาของคำตอบแล้ว");
+  }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","แสดงที่มาของคำตอบไม่สำเร็จ");}
 }
 
 function webRevisionInputs(){
