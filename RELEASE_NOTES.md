@@ -1,48 +1,99 @@
-# Crane Vehicle Engineering Tool V53.8.36
+# Crane Vehicle Engineering Tool V53.8.37
 
-## Web Step-by-Step Every Calculation Mode + Desktop/Web Parity Audit
+## Desktop Save Values ↔ Web Project Sync
 
-### 1. Step-by-step calculation on every Web calculation mode
-The Web UI now adds a consistent engineering sequence:
-- STEP title
-- Formula
-- Substitution using the current inputs
-- Result with unit
-- Meaning / design check
+### 1. Desktop is the Web source of truth
+The Web interface can now load the latest saved Desktop project values from the same Windows user account.
 
-Covered calculation modes:
+The Web Server checks the newest valid Desktop Save Values from:
+- Desktop AppData last_values.json
+- Documents/CVET_Data/saved_values_backup.json
+- OneDrive Documents/CVET_Data backup when applicable
+
+The Web never exposes the full local path; it only reports the source type, saved time, and Desktop version.
+
+### 2. New sticky “Sync Desktop” button
+A visible **↻ Sync Desktop** control is added to the Web navigation.
+
+It imports current Desktop values into:
 - Drive Torque
 - Ramp Geometry
 - Main Battery 72 V
 - Winch / Operating Cycle
 - Winch Battery 12 V
-- Stability: Side Left, Side Right, Front, Rear, and Slope in Current/Critical views
+- Stability
 
-### 2. Desktop is the calculation reference
-Regression now directly compares Desktop calculations against the Web Engine using the same input values.
+The Web also attempts one silent Desktop sync when the page first opens. If no Desktop save exists, the existing browser values remain untouched.
 
-Parity checks include:
-- Drive force, torque, battery current and traction limit
-- Ramp length, angle, slope percentage and slope force
-- Winch interpolation, UP time, operating rounds, lift count and 12 V battery energy
-- Main Battery cycle time, Wh/Cycle, total energy, Ah, Continuous/Peak current and suggested battery size
-- Stability Left / Right / Front / Rear moment balance
+### 3. Stability geometry and CG sync
+The Stability Web page now receives the same saved Desktop inputs:
+- Total mass
+- Payload mass
+- Boom mass
+- Mass mode A / B
+- Track width W
+- Wheelbase WB
+- Boom length L
+- Crane angle θ
+- Dynamic factor
+- Required SF
+- Crane base position x_C from rear axle
+- Base vehicle CG x / y
+- Combined driving CG height
+- Combined driving CG distance from rear axle
+- Slope angle
+- Slope acceleration
+- Component Mass & CG table
 
-The release build fails if Desktop and Web calculations drift apart.
+For slope stability, Web combined_cg_from_rear_m is derived from the Desktop driveXCG and wheelbase using:
+combined_cg_from_rear = driveXCG + WB/2
 
-### 3. Transparent substitutions
-Web Engine responses now expose the values needed for readable substitutions:
-- Rolling coefficient
-- Safety factor
-- Voltage
-- Drive efficiency
-- Traction coefficient / driven-load fraction
-- DoD / Reserve
-- Auxiliary power
+### 4. Other module values also sync
+Drive Torque:
+- effective mass source
+- wheel diameter
+- slope
+- speed
+- acceleration time
+- Crr
+- motor count
+- rated motor power
+- Safety Factor
+- efficiency
+- voltage
+- driven-wheel load fraction
+- traction coefficient
 
-### 4. Stability Step-by-Step
-The existing Web Engineering FBD remains Step-by-Step by selected case.
-The interface now explicitly identifies that all five Stability modes have their own calculation steps.
+Main Battery:
+- effective mass source
+- voltage, speed, route, slope
+- runtime
+- Crr, efficiency, auxiliary power
+- DoD, reserve, Kb
+- Differential/Pivot settings
+- Battery selection and BMS candidate inputs
 
-### 5. Browser cache
-Static asset cache tags were bumped so an updated Web Server does not keep the previous calculation interface in the browser.
+Winch:
+- load and lift height
+- operating speed/distance/time
+- lift events per round
+- DOWN mode and measured/custom values
+- 12 V battery design inputs and BMS candidate
+
+### 5. Automatic recalculation after sync
+After importing Desktop values, the Web automatically recalculates in a safe sequence:
+Ramp → Drive → Winch → Winch Battery → Main Battery → Stability.
+
+This ensures Winch UP/DOWN time is refreshed before Main Battery uses it for cycle-time calculation.
+
+### 6. Regression coverage
+The release test now creates a real Desktop-style project JSON and verifies that the Web API maps:
+- W, WB, x_C, L
+- mass / payload / boom
+- CG values
+- slope
+- Winch values
+- Main Battery / BMS values
+- Component Mass rows
+
+The existing Desktop ↔ Web numerical parity tests remain enabled.
