@@ -246,10 +246,10 @@ jobs:
           assert "function renderWebFbd" in web_js
           assert "function stabilityPayload" in web_js
           assert "function stabilityComponentRows" in web_js
-          assert 'return $("tr",body).map' in web_js
-          assert '$(".mass-mode-card",$("#stabilityForm")).forEach' in web_js
-          assert '$(\'input[name="mass_mode"]\',stabilityForm).forEach' in web_js
-          assert '$("#stabilityComponentBody input").forEach' in web_js
+          assert 'Array.from(body.querySelectorAll("tr")).map' in web_js
+          assert 'querySelectorAll(".mass-mode-card")' in web_js
+          assert "querySelectorAll('input[name=\"mass_mode\"]')" in web_js
+          assert 'querySelectorAll("#stabilityComponentBody input")' in web_js
           assert 'return $("tr",body).map' not in web_js
           assert '  $(".mass-mode-card",$("#stabilityForm")).forEach' not in web_js
           assert '    $(\'input[name="mass_mode"]\',stabilityForm).forEach' not in web_js
@@ -1120,6 +1120,9 @@ jobs:
           assert "def _ensure_button_opacity_effect" in source
           assert "QPropertyAnimation" in source and "QEasingCurve" in source
           assert "QGraphicsOpacityEffect" in source
+          assert 'QPushButton#modeCardButton:checked' in source
+          assert "craneMassModeTotal" in source and "craneMassModeComponents" in source
+          assert 'feedbackState="ack"' in source
           assert "def _run_button_action" in source
           assert "rampApplyAngleButton" in source
           assert "def _read_official_manifest_api" in source
