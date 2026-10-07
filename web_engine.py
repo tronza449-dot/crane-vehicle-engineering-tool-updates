@@ -112,6 +112,12 @@ def winch_core(data: Dict[str, Any]) -> Dict[str, Any]:
         "layer_line_pull_kg": layer["line_pull_kg"],
         "layer_rope_m": layer["cumulative_rope_m"],
         "layer_pull_ok": load <= layer["line_pull_kg"],
+        "performance_basis": "First-layer speed/current interpolation",
+        "layer_correction_available": False,
+        "first_layer_performance_warning": (
+            "" if int(layer["layer"]) <= 1
+            else "Lift distance reaches rope layer > 1. Speed/current still use first-layer datasheet interpolation because no layer-specific performance table was supplied."
+        ),
         "max_spec_current_a": 140.0,
     }
 
@@ -323,6 +329,7 @@ def calculate_drive_torque(data: Dict[str, Any]) -> Dict[str, Any]:
     a = v / accel_time
     rolling = max(0.0, _f(data, "rolling_coeff", 0.02))
     motors = max(1, _i(data, "motors", 2))
+    motor_rated_w = max(0.0, _f(data, "motor_rated_w", 1500.0))
     sf = max(0.01, _f(data, "safety_factor", 1.5))
     eff = _clamp(_f(data, "drive_eff_pct", 85.0) / 100.0, 0.01, 1.0)
     voltage = max(0.1, _f(data, "voltage_v", 72.0))
@@ -344,6 +351,8 @@ def calculate_drive_torque(data: Dict[str, Any]) -> Dict[str, Any]:
     ptotal = pwheel / eff
     pelec_per = ptotal / motors
     ibatt = ptotal / voltage
+    motor_power_margin = (motor_rated_w / pmech_per) if pmech_per > 1e-12 else 999.0
+    motor_power_ok = motor_rated_w + 1e-9 >= pmech_per
     ntotal = m * G * math.cos(th)
     ndrive = ntotal * drive_load_fraction
     ftraction = traction_coeff * ndrive
@@ -356,7 +365,10 @@ def calculate_drive_torque(data: Dict[str, Any]) -> Dict[str, Any]:
         "electrical_power_total_w": ptotal, "electrical_power_per_motor_w": pelec_per,
         "battery_current_a": ibatt, "driven_normal_load_n": ndrive,
         "traction_limit_n": ftraction, "traction_margin": (ftraction / fdesign if fdesign > 0 else 999.0),
-        "motors": motors, "efficiency": eff,
+        "motors": motors, "motor_rated_w": motor_rated_w,
+        "motor_rated_total_w": motor_rated_w * motors,
+        "motor_power_margin": motor_power_margin, "motor_power_ok": motor_power_ok,
+        "efficiency": eff,
         "rolling_coeff": rolling, "safety_factor": sf, "voltage_v": voltage,
         "drive_load_fraction": drive_load_fraction, "traction_coeff": traction_coeff,
     }
@@ -462,8 +474,10 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
 
     emech_total = emech_cycle * completed_rounds
     edrive = edrive_cycle * completed_rounds
-    eaux = eaux_cycle * completed_rounds
-    eload = ecycle * completed_rounds
+    # Auxiliary electronics are assumed ON for the full requested runtime, not
+    # only during completed integer route cycles.
+    eaux = aux_w * runtime_h
+    eload = edrive + eaux
     enom = eload / dod
     edesign = enom * (1.0 + reserve)
     ah = edesign / voltage
@@ -471,15 +485,14 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     ah_recommended = ah * battery_factor
 
     icalc_up = (pup_mech / eff) / voltage
+    iaux = aux_w / voltage if voltage > 0 else 0.0
     # Battery energy sizing remains the simple-cycle model, but BMS/current checks
-    # must also respect the Drive Torque design-current reference when the web UI
-    # supplies it. This prevents the web purchase checker from understating current.
+    # must also respect simultaneous Auxiliary load and the Drive Torque design reference.
     drive_reference_current = max(0.0, _f(data, "drive_reference_current_a", 0.0))
-    # Continuous current represents steady operating demand only.
-    # The Drive Torque reference includes acceleration/design allowance, so it
-    # belongs in the peak/design check instead of inflating continuous current.
-    cont_req = max(0.0, icalc_up, iturn_avg)
-    peak_req = max(cont_req, drive_reference_current)
+    # Continuous = largest steady traction/pivot demand + Auxiliary current.
+    # Peak = Drive Torque design reference + Auxiliary current when that is larger.
+    cont_req = max(0.0, icalc_up, iturn_avg) + iaux
+    peak_req = max(cont_req, drive_reference_current + iaux)
 
     ah_by_cont = cont_req / target_cont_c
     ah_by_peak = peak_req / target_peak_c
@@ -488,12 +501,15 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
 
     cycle_h = cycle_total_s / 3600.0 if cycle_total_s > 0 else 0.0
     load_per_cycle_wh = ecycle
+    drive_load_per_cycle_wh = edrive_cycle
 
     def reverse_for(capacity_ah: float) -> Dict[str, Any]:
         cap = max(0.0, float(capacity_ah))
         rated_wh = voltage * cap
         load_budget_wh = rated_wh * dod / (1.0 + reserve) if (1.0 + reserve) > 0 else 0.0
-        avg_load_w = load_per_cycle_wh / cycle_h if cycle_h > 0 else 0.0
+        # Average traction energy follows the route-cycle rate; Auxiliary is continuous.
+        avg_drive_w = drive_load_per_cycle_wh / cycle_h if cycle_h > 0 else 0.0
+        avg_load_w = avg_drive_w + aux_w
         runtime_est_h = load_budget_wh / avg_load_w if avg_load_w > 0 else 0.0
         full_rounds = int(math.floor(runtime_est_h / cycle_h + 1e-12)) if cycle_h > 0 else 0
         margin_wh = rated_wh - erecommended
@@ -515,6 +531,8 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
             ),
             "load_budget_wh": load_budget_wh,
             "load_per_cycle_wh": load_per_cycle_wh,
+            "drive_load_per_cycle_wh": drive_load_per_cycle_wh,
+            "aux_power_w": aux_w,
         }
 
     comparison = []
@@ -601,6 +619,7 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "standard_ah": next_standard_capacity(ah_recommended),
 
         "uphill_current_calc_a": icalc_up,
+        "aux_current_a": iaux,
         # Compatibility fields retained; the simplified energy model does not use acceleration.
         "accel_current_calc_a": icalc_up,
         "calculated_peak_current_a": icalc_up,
@@ -662,10 +681,12 @@ def _longitudinal_balance(total_mass: float, payload_mass: float, boom_mass: flo
             "force_n": force, "arm_m": arm, "moment_nm": moment, "role": role,
         })
 
-    sf = mr / mo if mo > 1e-12 else 999.0
+    overturning_found = mo > 1e-12
+    sf = mr / mo if overturning_found else 999.0
     return {
         "case": case,
         "angle_deg": angle_deg,
+        "overturning_found": overturning_found,
         "pivot_m": pivot,
         "rear_x_m": rear,
         "front_x_m": front,
@@ -822,9 +843,11 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
                 "name": name, "mass_kg": mass, "y_m": y, "factor": factor,
                 "force_n": force, "arm_m": arm, "moment_nm": moment, "role": role,
             })
-        sf = mr / mo if mo > 1e-12 else 999.0
+        overturning_found = mo > 1e-12
+        sf = mr / mo if overturning_found else 999.0
         return {
             "case": f"side_{side}", "side": side, "angle_deg": angle_deg,
+            "overturning_found": overturning_found,
             "pivot_m": pivot, "load_lateral_m": y_load, "boom_lateral_m": y_boom,
             "overturning_moment_nm": mo, "resisting_moment_nm": mr,
             "sf": sf, "pass": sf >= req, "components": components,
@@ -864,6 +887,7 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
 
     def critical_for(key: str) -> Dict[str, Any]:
         best = None
+        any_overturning = False
         for deg in range(-90, 91):
             if key == "side_left":
                 bal = side_balance("left", float(deg))
@@ -877,9 +901,20 @@ def calculate_stability(data: Dict[str, Any]) -> Dict[str, Any]:
                 bal = _longitudinal_balance(
                     mt, ml, mb, wb, boom, float(deg), crane_from_rear, vehicle_cg_x, kd, "rear", req
                 )
+            if bal.get("overturning_found", False):
+                any_overturning = True
             if best is None or bal["sf"] < best["sf"]:
                 best = bal
-        return best or {}
+        if best is None:
+            return {}
+        if not any_overturning:
+            best = dict(best)
+            best["angle_deg"] = None
+            best["overturning_found"] = False
+            best["no_overturning_in_range"] = True
+        else:
+            best["no_overturning_in_range"] = False
+        return best
 
     critical_cases = {
         "side_left": critical_for("side_left"),
