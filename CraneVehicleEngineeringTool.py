@@ -5983,14 +5983,32 @@ void loop() {{
         self.sensitivityView=QTextEdit();self.sensitivityView.setReadOnly(True);senl.addWidget(self.sensitivityView,1)
         self.projectTabs.addTab(senp,"Sensitivity / What-if")
 
-        # 9) CALCULATION TRACE
+        # 9) ANSWER ORIGIN / STEP-BY-STEP CALCULATION
         tp=QWidget();tl=QVBoxLayout(tp)
+        traceIntro=QLabel(
+            "หน้านี้ใช้ตอบว่า ‘ตัวเลขนี้มาจากไหน?’ โดยแสดง 5 ขั้น: "
+            "ค่าที่ใช้ → สูตรที่ใช้ → แทนค่าจริง → คำตอบ → ผ่าน/ไม่ผ่าน "
+            "ไม่ได้ใช้สูตรใหม่ แต่แสดงขั้นตอนจาก Calculation Engine เดิม"
+        )
+        traceIntro.setWordWrap(True)
+        traceIntro.setStyleSheet("background:#eef6ff;color:#274c77;padding:10px;border-radius:8px;font-weight:650")
+        tl.addWidget(traceIntro)
         tbar=QHBoxLayout()
-        self.traceMode=QComboBox();self.traceMode.addItems(["ALL","Drive Torque","Ramp Geometry","Main Battery","Winch","Stability"])
-        trun=QPushButton("Refresh Calculation Trace");trun.setObjectName("primaryButton");trun.clicked.connect(self.update_calculation_trace)
-        tbar.addWidget(QLabel("Module"));tbar.addWidget(self.traceMode);tbar.addWidget(trun);tbar.addStretch(1);tl.addLayout(tbar)
+        self.traceMode=QComboBox()
+        for label,key in (
+            ("ทั้งหมด / All","ALL"),
+            ("แรงขับและทอร์ค / Drive","Drive Torque"),
+            ("ทางลาด / Ramp","Ramp Geometry"),
+            ("แบตเตอรี่หลัก 72 V / Main Battery","Main Battery"),
+            ("วินช์ 12 V / Winch","Winch"),
+            ("การคว่ำและเสถียรภาพ / Stability","Stability"),
+        ):
+            self.traceMode.addItem(label,key)
+        trun=QPushButton("แสดงที่มาของคำตอบ / Show Calculation Steps")
+        trun.setObjectName("primaryButton");trun.clicked.connect(self.update_calculation_trace)
+        tbar.addWidget(QLabel("เลือกผลที่ต้องการดู"));tbar.addWidget(self.traceMode);tbar.addWidget(trun);tbar.addStretch(1);tl.addLayout(tbar)
         self.calculationTraceView=QTextEdit();self.calculationTraceView.setReadOnly(True);tl.addWidget(self.calculationTraceView,1)
-        self.projectTabs.addTab(tp,"Calculation Trace")
+        self.projectTabs.addTab(tp,"ที่มาคำตอบ / สูตรทีละขั้น")
 
         # 10) FINAL REPORT
         rp=QWidget();rl=QVBoxLayout(rp)
@@ -6640,48 +6658,79 @@ void loop() {{
     def calculation_trace_html(self,mode="ALL"):
         t=self.torque_results();e=self.electrical_results();w=self.winch_results();d=self.inputs()
         blocks=[]
+        def card(title,technical,body):
+            return (
+                "<div style='border:1px solid #d6e3ef;border-radius:10px;padding:12px 14px;margin:10px 0;background:#fbfdff'>"
+                f"<h2 style='color:#17456b;margin-top:0'>{title}</h2>"
+                f"<p style='color:#6b7f91'><small>{technical}</small></p>{body}</div>"
+            )
         if mode in ("ALL","Drive Torque"):
-            blocks.append(f"""<h2>DRIVE TORQUE TRACE</h2>
-            <p><b>Input:</b> m={t['m']:.2f} kg, θ={t['deg']:.2f}°, r={t['r']:.4f} m, n={t['n']}</p>
-            <p><b>Formula:</b> F_design=(mg sinθ + Crr·mg cosθ + ma)×SF</p>
-            <p><b>Substitute:</b> ({t['Fg']:.2f}+{t['Fr']:.2f}+{t['Fa']:.2f})×{self.tsf.value():.2f}=<b>{t['Fdesign']:.2f} N</b></p>
-            <p><b>Formula:</b> T=(F_design/n)r → <b>{t['T']:.2f} N·m/motor</b></p>
-            <p><b>Power check:</b> required {t['Pmech_per']:.1f} W vs rated {t.get('motor_rated_w',0):.1f} W → <b>{'PASS' if t.get('motor_power_ok') else 'FAIL'}</b></p>""")
+            status="PASS" if t.get("motor_power_ok") else "FAIL"
+            body=f"""
+            <p><b>1) ค่าที่ใช้:</b> m={t['m']:.2f} kg, มุมทางลาด={t['deg']:.2f}°, รัศมีล้อ={t['r']:.4f} m, มอเตอร์={t['n']} ตัว</p>
+            <p><b>2) สูตรที่ใช้:</b> F_design = (mg sinθ + Crr·mg cosθ + ma) × SF</p>
+            <p><b>3) แทนค่าจริง:</b> ({t['Fg']:.2f} + {t['Fr']:.2f} + {t['Fa']:.2f}) × {self.tsf.value():.2f} = <b>{t['Fdesign']:.2f} N</b></p>
+            <p><b>4) คำตอบ:</b> T = (F_design ÷ n) × r = <b>{t['T']:.2f} N·m ต่อมอเตอร์</b></p>
+            <p><b>5) ตรวจสอบ:</b> ต้องการ {t['Pmech_per']:.1f} W/มอเตอร์ เทียบมอเตอร์ {t.get('motor_rated_w',0):.1f} W → <b>{status}</b></p>"""
+            blocks.append(card("แรงขับและทอร์ค — ตัวเลขมาจากไหน?","DRIVE TORQUE TRACE",body))
         if mode in ("ALL","Ramp Geometry"):
             r=self.ramp_geometry_results()
-            blocks.append(f"""<h2>RAMP GEOMETRY TRACE</h2>
-            <p><b>Input:</b> rise={r['h']:.2f} cm, run={r['x']:.2f} cm, measured slant={r['lm']:.2f} cm</p>
-            <p><b>Formula:</b> L=√(h²+x²) → √({r['h']:.2f}²+{r['x']:.2f}²)=<b>{r['L']:.3f} cm</b></p>
-            <p><b>Formula:</b> θ=atan(h/x) → <b>{r['angle']:.3f}°</b></p>
-            <p><b>Slope %:</b> (h/x)×100 = <b>{r['slope_pct']:.3f}%</b></p>
-            <p><b>Measured check:</b> |L_measured-L_calc| = <b>{r['diff_abs']:.3f} cm</b></p>""")
+            body=f"""
+            <p><b>1) ค่าที่ใช้:</b> สูง={r['h']:.2f} cm, ระยะราบ={r['x']:.2f} cm, ความยาวลาดที่วัด={r['lm']:.2f} cm</p>
+            <p><b>2) สูตรที่ใช้:</b> L = √(h²+x²), &nbsp; θ = atan(h/x)</p>
+            <p><b>3) แทนค่าจริง:</b> L = √({r['h']:.2f}²+{r['x']:.2f}²) = <b>{r['L']:.3f} cm</b></p>
+            <p><b>4) คำตอบ:</b> มุมทางลาด = <b>{r['angle']:.3f}°</b>, Slope = <b>{r['slope_pct']:.3f}%</b></p>
+            <p><b>5) ตรวจสอบค่าที่วัด:</b> |Lวัด − Lคำนวณ| = <b>{r['diff_abs']:.3f} cm</b></p>"""
+            blocks.append(card("ทางลาด — มุมและระยะมาจากไหน?","RAMP GEOMETRY TRACE",body))
         if mode in ("ALL","Main Battery"):
-            blocks.append(f"""<h2>MAIN BATTERY TRACE</h2>
-            <p><b>Input:</b> V={e['V']:.1f} V, runtime={e['runtime_h']:.2f} h, Cycle={e['cycle_total_s']:.2f} s</p>
-            <p><b>Drive:</b> E_drive,cycle={e['Edrive_cycle']:.3f} Wh × {e['cycles']} = <b>{e['Edrive']:.2f} Wh</b></p>
-            <p><b>Aux:</b> P_aux×runtime = {self.eaux.value():.1f}×{e['runtime_h']:.2f} = <b>{e['Eaux']:.2f} Wh</b></p>
-            <p><b>Total:</b> E_total={e['Edrive']:.2f}+{e['Eaux']:.2f}=<b>{e['Eload']:.2f} Wh</b></p>
-            <p><b>Capacity:</b> E_total/DoD×(1+Reserve)/V = <b>{e['Ah']:.2f} Ah minimum</b></p>""")
+            body=f"""
+            <p><b>1) ค่าที่ใช้:</b> V={e['V']:.1f} V, เวลาทำงาน={e['runtime_h']:.2f} h, เวลา 1 Cycle={e['cycle_total_s']:.2f} s</p>
+            <p><b>2) สูตรที่ใช้:</b> E_total = E_drive + E_aux</p>
+            <p><b>3) แทนค่าจริง:</b> {e['Edrive']:.2f} + {e['Eaux']:.2f} = <b>{e['Eload']:.2f} Wh</b></p>
+            <p><b>4) คำตอบ:</b> Ah_min = E_total ÷ DoD × (1+Reserve) ÷ V = <b>{e['Ah']:.2f} Ah</b></p>
+            <p><b>5) ความหมาย:</b> ค่านี้คือความจุขั้นต่ำจากโมเดล ก่อนเลือกขนาดใช้งานจริง/ขนาดมาตรฐาน</p>"""
+            blocks.append(card("แบตเตอรี่หลัก 72 V — Ah มาจากไหน?","MAIN BATTERY TRACE",body))
         if mode in ("ALL","Winch"):
-            blocks.append(f"""<h2>WINCH TRACE</h2>
-            <p><b>Input:</b> load={w['m']:.1f} kg, lift={w['h']:.2f} m</p>
-            <p><b>Interpolation:</b> v_up={w['up_speed']:.3f} m/min, I_up={w['iup']:.2f} A</p>
-            <p><b>Time:</b> t_up=(h/v)×60=({w['h']:.2f}/{w['up_speed']:.3f})×60=<b>{w['tu']:.2f} s</b></p>
-            <p><b>Jobs:</b> {w['n']} jobs • 1 job = UP + DOWN • battery=<b>{w['ah']:.2f} Ah</b></p>""")
+            body=f"""
+            <p><b>1) ค่าที่ใช้:</b> Load={w['m']:.1f} kg, ระยะยก={w['h']:.2f} m</p>
+            <p><b>2) ค่าจากใบสเปก:</b> Interpolate ได้ v_up={w['up_speed']:.3f} m/min และ I_up={w['iup']:.2f} A</p>
+            <p><b>3) แทนค่าจริง:</b> t_up=(h÷v)×60 = ({w['h']:.2f}÷{w['up_speed']:.3f})×60</p>
+            <p><b>4) คำตอบ:</b> เวลายกขึ้น = <b>{w['tu']:.2f} s</b></p>
+            <p><b>5) ผลต่อแบตวินช์:</b> {w['n']} งานยก → แบตออกแบบ <b>{w['ah']:.2f} Ah @ 12 V</b></p>"""
+            blocks.append(card("วินช์ 12 V — เวลาและ Ah มาจากไหน?","WINCH TRACE",body))
         if mode in ("ALL","Stability"):
             crit=self._stability_worst_for_data(d)
             rows=[]
             for sf,ang,label,mo,mr in crit:
-                rows.append(f"<tr><td>{label}</td><td>{'N/A' if sf>=999 else str(ang)+'°'}</td><td>{mo:.2f}</td><td>{mr:.2f}</td><td>{self._sf_text(sf)}</td></tr>")
-            blocks.append("<h2>STABILITY TRACE</h2><p><b>Formula:</b> M_O=Σ(F_i d_i), M_R=Σ(F_i d_i), SF=M_R/M_O</p>"
-                          "<table border='1' cellspacing='0' cellpadding='6'><tr><th>Case</th><th>Critical angle</th><th>M_O N·m</th><th>M_R N·m</th><th>SF</th></tr>"
-                          +"".join(rows)+"</table>")
-        return "<h1>CALCULATION TRACE</h1><p>Input → Formula → Substitute → Result → PASS/FAIL</p>"+"".join(blocks)
+                sf_text=self._sf_text(sf)
+                status="PASS" if sf>=d["req"] else "FAIL"
+                rows.append(
+                    f"<tr><td>{label}</td><td>{'N/A' if sf>=999 else str(ang)+'°'}</td>"
+                    f"<td>{mo:.2f}</td><td>{mr:.2f}</td><td>{sf_text}</td><td><b>{status}</b></td></tr>"
+                )
+            body=(
+                "<p><b>1) ค่าที่ใช้:</b> น้ำหนักแต่ละส่วน + ระยะตั้งฉากถึงแกนคว่ำ P</p>"
+                "<p><b>2) สูตรที่ใช้:</b> M_O = Σ(F×d) ฝั่งทำให้คว่ำ, M_R = Σ(F×d) ฝั่งต้านคว่ำ</p>"
+                "<p><b>3) สูตร Safety Factor:</b> SF = M_R ÷ M_O</p>"
+                "<p><b>4) โปรแกรมทำอะไร:</b> หมุนเครน -90° ถึง +90° แล้วหา SF ต่ำสุดของแต่ละด้าน</p>"
+                f"<p><b>5) เกณฑ์:</b> PASS เมื่อ SF ≥ {d['req']:.2f}</p>"
+                "<table border='1' cellspacing='0' cellpadding='6'><tr><th>ด้าน</th><th>มุมวิกฤต</th>"
+                "<th>M_O (N·m)</th><th>M_R (N·m)</th><th>SF</th><th>ผล</th></tr>"
+                +"".join(rows)+"</table>"
+            )
+            blocks.append(card("การคว่ำ / Stability — SF มาจากไหน?","STABILITY TRACE",body))
+        return (
+            "<h1>ดูที่มาของคำตอบ / สูตรทีละขั้น</h1>"
+            "<p><b>หน้าจอนี้ไม่ใช่สูตรอีกชุดหนึ่ง</b> แต่เปิดให้ดูว่าผลที่โปรแกรมคำนวณอยู่มาจากค่าไหนและสูตรใด</p>"
+            "<p>อ่านตามลำดับ: <b>ค่าที่ใช้ → สูตรที่ใช้ → แทนค่าจริง → คำตอบ → ตรวจสอบ</b></p>"
+            "<p style='color:#6b7f91'><small>Technical name: CALCULATION TRACE</small></p>"
+            +"".join(blocks)
+        )
 
     def update_calculation_trace(self):
         if hasattr(self,"calculationTraceView"):
-            mode=self.traceMode.currentText() if hasattr(self,"traceMode") else "ALL"
-            self.calculationTraceView.setHtml(self.calculation_trace_html(mode))
+            mode=self.traceMode.currentData() if hasattr(self,"traceMode") else "ALL"
+            self.calculationTraceView.setHtml(self.calculation_trace_html(mode or "ALL"))
 
     def capture_compare_design(self,which):
         state=self.capture_project_state()
