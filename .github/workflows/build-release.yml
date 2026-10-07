@@ -438,14 +438,14 @@ jobs:
           assert "N/A (M_O=0)" in web_js
           assert "Effective wheel OD" in web_index
           # V53.8.43 Engineering Decision Tools
-          for web_id in ("refreshEngineeringSummary","runWebSensitivity","refreshWebTrace","webDesignLock","captureWebRevisionA","captureWebRevisionB","compareWebRevisions"):
+          for web_id in ("refreshEngineeringSummary","loadWebWhatIfBaseline","runWebSensitivity","refreshWebTrace","webDesignLock","captureWebRevisionA","captureWebRevisionB","compareWebRevisions"):
               assert f'id="{web_id}"' in web_index, f"Missing Web engineering tool: {web_id}"
-          for fn in ("refreshEngineeringDecisionSummary","runWebSensitivity","refreshWebCalculationTrace","applyWebDesignLock","compareWebRevisionData"):
+          for fn in ("refreshEngineeringDecisionSummary","loadWebWhatIfBaseline","calculateWebCoupledScenario","runWebSensitivity","refreshWebCalculationTrace","applyWebDesignLock","compareWebRevisionData"):
               assert ("function "+fn) in web_js, f"Missing Web engineering function: {fn}"
           assert "Engineering Decision Tools" in web_index
-          assert "Sensitivity / What-if" in web_index
+          assert "What-if ทั้งระบบ / Coupled Scenario" in web_index
           assert "ดูที่มาของคำตอบ / สูตรทีละขั้น" in web_index and "Calculation Trace" in web_index
-          assert "<option>Ramp Geometry</option>" in web_index
+          assert '<option value="Ramp Geometry">ทางลาด / Ramp</option>' in web_index
           assert "Overall governing stability" in web_js
           assert "Input Revision Diff" in web_js and "Engineering Output Diff" in web_js
           assert "flattenRevisionInputs" in web_js
@@ -888,17 +888,29 @@ jobs:
 
           # ---------- V53.8.43 Engineering Decision Tools ----------
           tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
-          for expected in ("Engineering Summary","Sensitivity / What-if","ที่มาคำตอบ / สูตรทีละขั้น","Compare Design"):
+          for expected in ("Engineering Summary","What-if ทั้งระบบ / Coupled Scenario","ที่มาคำตอบ / สูตรทีละขั้น","Compare Design"):
               assert expected in tab_names, f"Missing Project Tools tab: {expected}"
           summary_html=w.engineering_summary_html()
           assert "ENGINEERING WORST-CASE SUMMARY" in summary_html
           assert "Overall governing stability" in summary_html
           assert "Governing lifting case" in summary_html
           assert "Motor rated power" in summary_html
+
+          # Coupled What-if regression: changing Payload must change derived Total mass.
+          assert hasattr(w,"whatIfPayload") and hasattr(w,"whatIfBaseMass") and hasattr(w,"whatIfBoomMass")
+          w.load_what_if_baseline(silent=True)
+          wi0=dict(w.whatIfBaseline)
+          base_total=wi0["base_mass"]+wi0["boom_mass"]+wi0["payload"]
+          w.whatIfPayload.setValue(max(0.0,wi0["payload"]-20.0))
+          wi1=w._what_if_values_from_fields()
+          scenario_total=wi1["base_mass"]+wi1["boom_mass"]+wi1["payload"]
+          assert abs((base_total-scenario_total)-20.0)<1e-6
           sensitivity_html=w.sensitivity_analysis_html()
-          assert "SENSITIVITY / WHAT-IF ANALYSIS" in sensitivity_html
-          for expected in ("Track width W","Boom length L","Payload mass","Crane from rear axle x_C","Vehicle CG x"):
+          assert "COUPLED SYSTEM WHAT-IF" in sensitivity_html
+          assert "Total mass = Base vehicle + Boom + Payload" in sensitivity_html
+          for expected in ("Required torque / motor","Main battery minimum","Winch battery","Worst lifting SF","Overall governing"):
               assert expected in sensitivity_html
+          w.load_what_if_baseline(silent=True)
           trace_html=w.calculation_trace_html("ALL")
           assert "CALCULATION TRACE" in trace_html
           for expected in ("DRIVE TORQUE TRACE","RAMP GEOMETRY TRACE","MAIN BATTERY TRACE","WINCH TRACE","STABILITY TRACE"):
