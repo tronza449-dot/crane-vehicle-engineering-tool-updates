@@ -545,6 +545,13 @@ async function syncDesktopProjectValues(options={}){
   const automatic=!!options.automatic;
   const btn=$("#syncDesktopValues");
   const status=$("#desktopSyncStatus");
+  let locked=false;
+  try{locked=localStorage.getItem("cvet_web_design_lock_v1")==="1";}catch(e){}
+  if(locked){
+    if(status)status.textContent="Design Inputs Locked — ปลดล็อกก่อน Sync Desktop";
+    if(!automatic)actionToast("ปลดล็อก Design Inputs ก่อน Sync Desktop","error");
+    return null;
+  }
   if(!automatic) buttonBusy(btn,"กำลัง Sync...");
   if(status) status.textContent="กำลังอ่าน Desktop Save Values...";
 
