@@ -444,7 +444,7 @@ jobs:
               assert ("function "+fn) in web_js, f"Missing Web engineering function: {fn}"
           assert "Engineering Decision Tools" in web_index
           assert "Sensitivity / What-if" in web_index
-          assert "Calculation Trace" in web_index
+          assert "ดูที่มาของคำตอบ / สูตรทีละขั้น" in web_index and "Calculation Trace" in web_index
           assert "<option>Ramp Geometry</option>" in web_index
           assert "Overall governing stability" in web_js
           assert "Input Revision Diff" in web_js and "Engineering Output Diff" in web_js
@@ -888,7 +888,7 @@ jobs:
 
           # ---------- V53.8.43 Engineering Decision Tools ----------
           tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
-          for expected in ("Engineering Summary","Sensitivity / What-if","Calculation Trace","Compare Design"):
+          for expected in ("Engineering Summary","Sensitivity / What-if","ที่มาคำตอบ / สูตรทีละขั้น","Compare Design"):
               assert expected in tab_names, f"Missing Project Tools tab: {expected}"
           summary_html=w.engineering_summary_html()
           assert "ENGINEERING WORST-CASE SUMMARY" in summary_html
