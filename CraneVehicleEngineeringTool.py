@@ -10493,10 +10493,204 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
         <tr><th>#</th><th>Case</th><th>Critical angle</th><th>SF</th><th>Status</th></tr>{''.join(summary)}</table>"""
         return head+"".join(pages)
 
-    def stability_fbd_report_html(self,tmpdir,d=None):
-        """Compatibility entry point for the formal report used by the release regression."""
+    def stability_easy_report_html(self,tmpdir,d=None):
+        """Presentation-first Stability report: explain geometry/arms before detailed appendix."""
         d=d or self.inputs()
-        html=self.formal_fbd_report_html(tmpdir,d)
+        cases=self.stability_fbd_cases(d)
+        td=Path(tmpdir)
+
+        geom=td/"fbd_geometry.png"
+        self._render_stability_fbd_png(0,geom,d["th"])
+
+        guide=self.stability_design_guidance(d)
+        track_text=("No track-width-only solution within 5.0 m"
+                    if guide["required_track"] is None else f"{guide['required_track']:.3f} m")
+        margin_note=(f"มุมปัจจุบัน θ={d['th']:.1f}° อยู่ในช่วงแนะนำ โดยเหลือประมาณ {guide['slew_margin']:.1f}°"
+                     if guide["slew_margin"]>=0 else
+                     f"มุมปัจจุบัน θ={d['th']:.1f}° อยู่นอกช่วงแนะนำประมาณ {abs(guide['slew_margin']):.1f}°")
+
+        summary_rows=[]
+        for i,case in enumerate(cases,1):
+            sftext="∞" if case["sf"]>=999 else f"{case['sf']:.3f}"
+            status="PASS / ผ่าน" if case["sf"]>=d["req"] else "FAIL / ไม่ผ่าน"
+            angle="-" if case["angle"] is None else f"{case['angle']:.1f}°"
+            summary_rows.append(
+                f"<tr><td>{i}</td><td>{case['thai']}</td><td>{angle}</td><td><b>{sftext}</b></td><td>{status}</td></tr>"
+            )
+
+        intro=f"""<div style='page-break-before:always'></div>
+        <h1>วิธีอ่านรายงาน Stability แบบง่าย / EASY READING GUIDE</h1>
+        <div style='background:#eef6ff;border:1px solid #b8d4ee;padding:12px;border-radius:8px'>
+        <b>อ่านแต่ละ Case ตาม 5 ขั้นนี้:</b><br>
+        1) ดูว่าแกนคว่ำ P อยู่ตรงไหน<br>
+        2) หาตำแหน่งแนวแรงของ Vehicle / Boom / Payload<br>
+        3) หาแขนโมเมนต์ d⊥ = |ตำแหน่งแรง - ตำแหน่งแกน P|<br>
+        4) แยกแรงที่ทำให้คว่ำเป็น M_O และแรงที่ช่วยต้านเป็น M_R<br>
+        5) หา SF = M_R / M_O แล้วเทียบกับเกณฑ์ {d['req']:.2f}
+        </div>
+        <p><b>คำสำคัญที่ต้องจำ:</b></p>
+        <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
+        <tr><th>คำ</th><th>ความหมายแบบสั้น</th></tr>
+        <tr><td>P / Tipping Axis</td><td>แนวล้อที่รถจะหมุนรอบเมื่อเริ่มคว่ำ</td></tr>
+        <tr><td>d⊥ / Moment arm</td><td><b>ระยะจากแนวแรงถึงแกน P</b> ไม่ใช่ความยาวแขนเครน</td></tr>
+        <tr><td>M_O</td><td>โมเมนต์ที่พยายามทำให้รถคว่ำ</td></tr>
+        <tr><td>M_R</td><td>โมเมนต์ที่ช่วยต้านไม่ให้รถคว่ำ</td></tr>
+        <tr><td>SF</td><td>M_R ÷ M_O; ต้อง ≥ {d['req']:.2f}</td></tr>
+        </table>
+
+        <h2>สรุป Critical Case ก่อนอ่านรายละเอียด</h2>
+        <table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%'>
+        <tr><th>#</th><th>กรณี</th><th>มุมวิกฤต</th><th>SF</th><th>ผล</th></tr>
+        {''.join(summary_rows)}
+        </table>
+
+        <div style='background:#f7fbff;border:1px solid #d8e5ef;padding:10px;margin-top:10px'>
+        <b>Design guidance:</b><br>
+        • Wheel track ปัจจุบัน W = {d['W']:.3f} m<br>
+        • Track โดยประมาณสำหรับหมุนเต็ม ±90° และ SF ≥ {d['req']:.2f}: <b>{track_text}</b><br>
+        • ช่วงมุมที่แนะนำโดยประมาณ: <b>{guide['left_limit']:.1f}° ถึง +{guide['right_limit']:.1f}°</b><br>
+        • {margin_note}
+        </div>
+
+        <h2>Geometry ที่ใช้</h2>
+        <p style='text-align:center'><img src='{geom.as_uri()}' width='680'></p>
+        <p><b>หมายเหตุ:</b> หน้าหลักต่อจากนี้ใช้ <b>Critical Case</b> ของแต่ละด้านเพื่ออธิบายกรณีเลวร้ายสุด.
+        ตารางและสูตรละเอียดทุกพจน์ถูกย้ายไป <b>Appendix</b> ท้ายรายงานเพื่อไม่ให้หน้าหลักรก.</p>
+        <!-- FORMAL FBD CASE SUMMARY — CRITICAL-CASE SECTION -->
+        """
+
+        pages=[]
+        name_th={"Vehicle":"ตัวรถ","Boom":"แขนเครน","Payload":"น้ำหนักบรรทุก"}
+        symbol={"Vehicle":"V","Boom":"B","Payload":"L"}
+
+        for i,case in enumerate(cases,1):
+            fp=td/f"formal_{case['key']}.png"
+            self._render_stability_fbd_png(case["mode"],fp,case["angle"])
+            sf=case["sf"]
+            sftext="∞" if sf>=999 else f"{sf:.3f}"
+            passed=sf>=d["req"]
+            status="PASS / ผ่าน" if passed else "FAIL / ไม่ผ่าน"
+            status_color="#176337" if passed else "#b42318"
+            status_bg="#eefaf4" if passed else "#fff1f0"
+
+            if case["key"]=="slope":
+                bal=self.slope_stability_results(d)
+                detail=f"""
+                <div style='background:#f7fbff;border:1px solid #d7e5ef;padding:10px'>
+                <b>กำลังตรวจอะไร:</b> รถมีโอกาสหมุนคว่ำไปด้านหลังขณะเร่งขึ้นทางลาดหรือไม่
+                </div>
+                <h3>STEP 1 — แตกน้ำหนักตามแนวทางลาด</h3>
+                <p><b>W_parallel = mg sinα</b><br>
+                = {d['mt']:.2f} × 9.81 × sin({math.degrees(bal['alpha']):.2f}°)
+                = <b>{bal['w_parallel']:.2f} N</b></p>
+                <p><b>W_normal = mg cosα</b><br>
+                = {d['mt']:.2f} × 9.81 × cos({math.degrees(bal['alpha']):.2f}°)
+                = <b>{bal['w_normal']:.2f} N</b></p>
+
+                <h3>STEP 2 — หาแรงเฉื่อยจากการเร่ง</h3>
+                <p><b>F_I = ma</b> = {d['mt']:.2f} × {bal['acc']:.3f}
+                = <b>{bal['inertia']:.2f} N</b></p>
+
+                <h3>STEP 3 — หาโมเมนต์คว่ำและโมเมนต์ต้าน</h3>
+                <p><b>M_O = (W_parallel + F_I)h_CG</b><br>
+                = ({bal['w_parallel']:.2f} + {bal['inertia']:.2f}) × {bal['h']:.3f}
+                = <b>{bal['mo']:.2f} N·m</b></p>
+                <p><b>M_R = W_normal d_R</b><br>
+                = {bal['w_normal']:.2f} × {max(0.0,bal['rear_arm']):.3f}
+                = <b>{bal['mr']:.2f} N·m</b></p>
+
+                <h3>STEP 4 — Safety Factor</h3>
+                <p><b>SF = M_R/M_O</b> = {bal['mr']:.2f}/{bal['mo']:.2f}
+                = <b>{sftext}</b></p>
+                """
+                case_context=f"α={math.degrees(bal['alpha']):.2f}° • h_CG={bal['h']:.3f} m"
+            else:
+                if case["key"]=="side_left":
+                    bal=self.side_moment_balance(d,case["angle"],"left");coord="y"
+                elif case["key"]=="side_right":
+                    bal=self.side_moment_balance(d,case["angle"],"right");coord="y"
+                elif case["key"]=="front":
+                    bal=self.longitudinal_moment_balance(d,case["angle"],"front");coord="x"
+                else:
+                    bal=self.longitudinal_moment_balance(d,case["angle"],"rear");coord="x"
+
+                axis="ด้านข้าง (แกน y)" if coord=="y" else "หน้า-หลัง (แกน x)"
+                pivot=bal["pivot"]
+                arm_lines=[]
+                force_lines=[]
+                mo_parts=[];mr_parts=[]
+                for q in bal["components"]:
+                    sym=symbol.get(q["name"],"i")
+                    pos=q[coord]
+                    arm_lines.append(
+                        f"<b>d_{sym}</b> = |{coord}_{sym} - {coord}_P| = "
+                        f"|{pos:.3f} - ({pivot:.3f})| = <b>{q['arm']:.3f} m</b> "
+                        f"→ {'ทำให้คว่ำ (M_O)' if q['role']=='overturning' else 'ต้านการคว่ำ (M_R)' if q['role']=='resisting' else 'อยู่บนแกน P'}"
+                    )
+                    if abs(q.get("factor",1.0)-1.0)>1e-9:
+                        force_lines.append(
+                            f"<b>F_{sym}</b> = Kdyn × m × g = {q['factor']:.2f} × {q['mass']:.2f} × 9.81 "
+                            f"= <b>{q['force']:.2f} N</b>"
+                        )
+                    else:
+                        force_lines.append(
+                            f"<b>F_{sym}</b> = m × g = {q['mass']:.2f} × 9.81 = <b>{q['force']:.2f} N</b>"
+                        )
+                    if q["role"]=="overturning":mo_parts.append(q)
+                    elif q["role"]=="resisting":mr_parts.append(q)
+
+                mo_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in mo_parts) or "0"
+                mr_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in mr_parts) or "0"
+                sf_sub="∞ (ไม่มีโมเมนต์คว่ำ)" if bal["mo"]<=1e-12 else f"{bal['mr']:.2f}/{bal['mo']:.2f} = {sftext}"
+
+                detail=f"""
+                <div style='background:#f7fbff;border:1px solid #d7e5ef;padding:10px'>
+                <b>กำลังตรวจอะไร:</b> ตรวจว่ารถจะคว่ำในกรณี <b>{case['thai']}</b> หรือไม่<br>
+                <b>แกนที่ใช้วัด:</b> {axis}<br>
+                <b>แกนคว่ำ P:</b> {coord}_P = <b>{pivot:.3f} m</b>
+                </div>
+
+                <h3>STEP 1 — หาแรงของแต่ละส่วน</h3>
+                <p>{'<br>'.join(force_lines)}</p>
+
+                <h3>STEP 2 — หาแขนโมเมนต์ d⊥ ว่าเลขแต่ละตัวมาจากไหน</h3>
+                <div style='background:#fff8e8;border:1px solid #ead8a8;padding:10px'>
+                <b>สูตรหลัก:</b> d⊥ = |ตำแหน่งแนวแรง - ตำแหน่งแกนคว่ำ P|<br>
+                <b>จำง่าย:</b> d⊥ คือระยะจากแรงถึงแนวล้อที่เป็นแกนคว่ำ <u>ไม่ใช่ความยาวแขนเครน</u>
+                </div>
+                <p>{'<br><br>'.join(arm_lines)}</p>
+
+                <h3>STEP 3 — หาโมเมนต์คว่ำ M_O</h3>
+                <p><b>สูตร:</b> M_O = Σ(F_i d_i)<br>
+                <b>แทนค่า:</b> M_O = {mo_terms} = <b>{bal['mo']:.2f} N·m</b></p>
+
+                <h3>STEP 4 — หาโมเมนต์ต้าน M_R</h3>
+                <p><b>สูตร:</b> M_R = Σ(F_i d_i)<br>
+                <b>แทนค่า:</b> M_R = {mr_terms} = <b>{bal['mr']:.2f} N·m</b></p>
+
+                <h3>STEP 5 — หา Safety Factor</h3>
+                <p><b>SF = M_R / M_O</b><br>
+                <b>แทนค่า:</b> SF = {sf_sub}</p>
+                """
+                case_context=f"Critical θ={case['angle']:.1f}° • {coord}_P={pivot:.3f} m"
+
+            pages.append(f"""<div style='page-break-before:always'></div>
+            <h1>CASE {i} — {case['thai']} / {case['title']}</h1>
+            <p><b>กรณีที่กำลังแสดง:</b> {case_context}</p>
+            <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>
+            {detail}
+            <div style='background:{status_bg};border:2px solid {status_color};padding:12px;margin-top:12px'>
+            <b style='font-size:15pt;color:{status_color}'>ผล: SF = {sftext} → {status}</b><br>
+            เกณฑ์ที่ต้องการ: SF ≥ {d['req']:.2f}
+            </div>
+            """)
+
+        return intro+"".join(pages)
+
+    def stability_fbd_report_html(self,tmpdir,d=None):
+        """Presentation-first report used by the PDF export; detailed tables are moved to Appendix."""
+        d=d or self.inputs()
+        html=self.stability_easy_report_html(tmpdir,d)
         td=Path(tmpdir)
         # Keep legacy image names for installer regression and external scripts.
         for key in ("side_left","side_right","front","rear","slope"):
@@ -10504,30 +10698,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             dst=td/f"fbd_{key}.png"
             if src.exists() and not dst.exists():
                 shutil.copyfile(src,dst)
-        guide=self.stability_design_guidance(d)
-        track_text="No track-width-only solution within 5.0 m" if guide["required_track"] is None else f"{guide['required_track']:.3f} m"
-        margin_note=(f"Current θ={d['th']:.1f}° is inside the preliminary safe range by about {guide['slew_margin']:.1f}°."
-                     if guide["slew_margin"]>=0 else
-                     f"Current θ={d['th']:.1f}° is outside the preliminary safe range by about {abs(guide['slew_margin']):.1f}°.")
-        intro=f"""<div style='page-break-before:always'></div>
-        <h1>DESIGN GUIDANCE & CRITICAL-CASE SUMMARY</h1>
-        <p><b>FBD reading guide:</b> ดู 4 อย่าง — Tipping Axis, external forces, Reaction และ perpendicular moment arm.
-        &nbsp; SF = M_R / M_O.</p>
-        <p><b>Overturning side</b> = ฝั่งพยายามทำให้คว่ำ &nbsp; | &nbsp;
-        <b>Resisting side</b> = ฝั่งช่วยต้านการคว่ำ.</p>
-        <div style='background:#eef6ff;border:1px solid #cfe2f5;padding:9px'>
-        <b>Preliminary design guidance from the same rigid-body model:</b><br>
-        • Current track W = {d['W']:.3f} m<br>
-        • Estimated minimum track for full -90°...+90° slew at SF ≥ {d['req']:.2f}: <b>{track_text}</b><br>
-        • Estimated safe slew range at current track: <b>{guide['left_limit']:.1f}° to +{guide['right_limit']:.1f}°</b><br>
-        • {margin_note}<br>
-        <i>Guidance is preliminary; verify measured CG, compliance, dynamic shock and structural limits before fabrication/use.</i>
-        </div>
-        <p><b>Critical-case FBDs:</b> each FBD page uses its own searched critical angle.
-        The Current-angle Snapshot later in the report uses the present θ input.</p>
-        <!-- SIDE TIPPING - LEFT | SIDE TIPPING - RIGHT | FRONT TIPPING | REAR TIPPING | SLOPE STABILITY -->
-        """
-        return intro+html
+        return html
 
     def export_pdf_report(self):
         docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
@@ -10587,8 +10758,13 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             Dynamic factor is an equivalent design multiplier on adverse payload moment only.</p>"""
             html=("<html><body style=\"font-family:'Leelawadee UI','Tahoma','Segoe UI',Arial;font-size:10pt\">"
                   +summary+fbd_html
-                  +"<div style='page-break-before:always'></div>"+self.stability_formula_html()
-                  +"<div style='page-break-before:always'></div><h1>OTHER FIGURES</h1>"+fig_html
+                  +"<div style='page-break-before:always'></div>"
+                  +"<h1>APPENDIX A — DETAILED ENGINEERING CALCULATION</h1>"
+                  +"<p style='background:#f3f7fb;border:1px solid #d7e3ee;padding:9px'>"
+                   "ส่วนนี้เก็บตารางตัวแปรและการคำนวณละเอียดสำหรับตรวจสอบย้อนหลัง "
+                   "หน้าหลักก่อนหน้านี้เป็นเวอร์ชันอ่านง่ายสำหรับนำเสนอ.</p>"
+                  +self.stability_formula_html()
+                  +"<div style='page-break-before:always'></div><h1>APPENDIX B — OTHER FIGURES</h1>"+fig_html
                   +"</body></html>")
             doc=QTextDocument();doc.setDefaultFont(QFont(choose_ui_font_family(),10));doc.setHtml(html)
             printer=QPrinter(QPrinter.HighResolution);printer.setOutputFormat(QPrinter.PdfFormat)
