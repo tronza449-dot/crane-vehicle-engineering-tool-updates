@@ -437,7 +437,7 @@ jobs:
           assert "Auxiliary current = P_aux/V" in web_js
           assert "N/A (M_O=0)" in web_js
           assert "Effective wheel OD" in web_index
-          # V53.8.42 Engineering Decision Tools
+          # V53.8.43 Engineering Decision Tools
           for web_id in ("refreshEngineeringSummary","runWebSensitivity","refreshWebTrace","webDesignLock","captureWebRevisionA","captureWebRevisionB","compareWebRevisions"):
               assert f'id="{web_id}"' in web_index, f"Missing Web engineering tool: {web_id}"
           for fn in ("refreshEngineeringDecisionSummary","runWebSensitivity","refreshWebCalculationTrace","applyWebDesignLock","compareWebRevisionData"):
@@ -445,6 +445,12 @@ jobs:
           assert "Engineering Decision Tools" in web_index
           assert "Sensitivity / What-if" in web_index
           assert "Calculation Trace" in web_index
+          assert "<option>Ramp Geometry</option>" in web_index
+          assert "Overall governing stability" in web_js
+          assert "Input Revision Diff" in web_js and "Engineering Output Diff" in web_js
+          assert "flattenRevisionInputs" in web_js
+          assert '["winchForm",["load_kg","lift_m"]]' in web_js
+          assert '["driveForm",["mass_kg","wheel_diameter_in","slope_deg"]]' in web_js
           for step_fn in ("driveStepsHtml","rampStepsHtml","batteryStepsHtml","winchStepsHtml","winchBatteryStepsHtml"):
               assert ("function "+step_fn) in web_js, f"Missing web step renderer: {step_fn}"
           assert "STEP-BY-STEP ทุก Stability Mode" in web_js
@@ -880,12 +886,13 @@ jobs:
           QApplication.processEvents()
           assert "READY TO VERIFY DATASHEET" in w.batterySelectionView.toPlainText()
 
-          # ---------- V53.8.42 Engineering Decision Tools ----------
+          # ---------- V53.8.43 Engineering Decision Tools ----------
           tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
           for expected in ("Engineering Summary","Sensitivity / What-if","Calculation Trace","Compare Design"):
               assert expected in tab_names, f"Missing Project Tools tab: {expected}"
           summary_html=w.engineering_summary_html()
           assert "ENGINEERING WORST-CASE SUMMARY" in summary_html
+          assert "Overall governing stability" in summary_html
           assert "Governing lifting case" in summary_html
           assert "Motor rated power" in summary_html
           sensitivity_html=w.sensitivity_analysis_html()
@@ -894,11 +901,13 @@ jobs:
               assert expected in sensitivity_html
           trace_html=w.calculation_trace_html("ALL")
           assert "CALCULATION TRACE" in trace_html
-          for expected in ("DRIVE TORQUE TRACE","MAIN BATTERY TRACE","WINCH TRACE","STABILITY TRACE"):
+          for expected in ("DRIVE TORQUE TRACE","RAMP GEOMETRY TRACE","MAIN BATTERY TRACE","WINCH TRACE","STABILITY TRACE"):
               assert expected in trace_html
+          assert "RAMP GEOMETRY TRACE" in w.calculation_trace_html("Ramp Geometry")
           assert hasattr(w,"designLockButton")
           w.designLockButton.setChecked(True);QApplication.processEvents()
           assert not w.W.isEnabled() and not w.WB.isEnabled() and not w.L.isEnabled() and not w.mt.isEnabled()
+          assert not w.twheelInch.isEnabled() and not w.wmass.isEnabled() and not w.emass.isEnabled()
           assert "Locked" in w.designLockButton.text()
           with patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok):
               assert w._require_design_unlocked("Regression mutation") is False
@@ -909,7 +918,11 @@ jobs:
           w.designLockButton.setChecked(False);QApplication.processEvents()
           assert w._require_design_unlocked("Regression mutation") is True
           assert w.W.isEnabled() and w.WB.isEnabled() and w.L.isEnabled() and w.mt.isEnabled()
+          assert w.twheelInch.isEnabled() and w.wmass.isEnabled() and w.emass.isEnabled()
           assert "Engineering Output Diff" in source
+          metrics=w.engineering_metrics()
+          for metric_key in ("Side Left critical SF","Side Right critical SF","Front critical SF","Rear critical SF","Slope SF","Overall governing SF","Overall governing case"):
+              assert metric_key in metrics
           assert "def compare_design_revisions" in source
 
           # Project Tools and Electrical candidate fields must stay synchronized both ways.
