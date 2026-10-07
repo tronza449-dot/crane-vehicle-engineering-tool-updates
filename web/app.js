@@ -955,7 +955,9 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
       f(r.drive_time_per_round_s,2)+' + '+f(r.lift_time_per_round_s,2)+' + '+f(r.other_stop_time_per_round_s,2)+' + '+f(r.turn_time_per_round_s,2)+
       ' = <b>'+f(r.round_time_s,2)+' s</b><br>'+
       'N = floor(runtime/t_cycle) = <b>'+r.completed_round_trips+' Cycle</b><br>'+
-      'Etotal = Ecycle × N = <b>'+f(r.load_energy_wh,2)+' Wh</b><br>'+
+      'Edrive,total = Edrive,cycle × N = <b>'+f(r.drive_energy_wh,2)+' Wh</b><br>'+
+      'Eaux,total = Paux × runtime = <b>'+f(r.aux_energy_wh,2)+' Wh</b><br>'+
+      'Etotal = Edrive,total + Eaux,total = <b>'+f(r.load_energy_wh,2)+' Wh</b><br>'+
       'Edesign = (Etotal/DoD)×(1+Reserve) = <b>'+f(r.design_energy_wh,2)+' Wh</b><br>'+
       'Ah_min = Edesign/V = <b>'+f(r.design_ah,2)+' Ah</b><br>'+
       'Ah_practical = Ah_min × Kb = '+f(r.design_ah,2)+' × '+f(r.battery_design_factor,2)+
