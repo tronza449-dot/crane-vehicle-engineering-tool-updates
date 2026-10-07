@@ -6882,6 +6882,8 @@ void loop() {{
             if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
             if hasattr(self,"wDutyView"):self.wDutyView.setHtml(self.winch_duty_html())
             self.update_design_check()
+            if hasattr(self,"engineeringSummaryView"):self.update_engineering_summary()
+            if hasattr(self,"calculationTraceView"):self.update_calculation_trace()
             self.update_final_report_preview()
             if hasattr(self,"projectStatus") and not self.projectStatus.toPlainText().strip():
                 self.projectStatus.setHtml("<h3>Project Tools พร้อมใช้งาน</h3><p>บันทึก/เปิด Project, ใช้ Preset, Capture Design A/B และสร้าง Final PDF ได้จากหน้านี้</p>")
