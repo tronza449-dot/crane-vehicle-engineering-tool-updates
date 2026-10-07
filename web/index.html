@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Crane Vehicle Engineering Tool — Web</title>
-  <link rel="stylesheet" href="/static/style.css?v=53.8.36">
+  <link rel="stylesheet" href="/static/style.css?v=53.8.37">
 </head>
 <body>
   <header class="topbar">
@@ -44,6 +44,9 @@
     <button class="tab" data-tab="parameters">Vehicle Parameters</button>
     <button class="tab" data-tab="telemetry">Live Telemetry</button>
     <button class="tab" data-tab="summary">Project Summary</button>
+    <span class="nav-spacer"></span>
+    <button id="syncDesktopValues" class="desktop-sync-button" type="button">↻ Sync Desktop</button>
+    <span id="desktopSyncStatus" class="desktop-sync-status">ยังไม่ได้ Sync</span>
   </nav>
 
   <main>
@@ -676,7 +679,7 @@
     <span>CVET Web • Local Server • HTTPS Public Access ผ่าน Tailscale Funnel / Quick Tunnel</span>
   </footer>
 
-  <script src="/static/app.js?v=53.8.36"></script>
-  <script src="/static/details.js?v=53.8.36"></script>
+  <script src="/static/app.js?v=53.8.37"></script>
+  <script src="/static/details.js?v=53.8.37"></script>
 </body>
 </html>
