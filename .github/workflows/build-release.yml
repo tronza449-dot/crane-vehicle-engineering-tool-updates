@@ -437,6 +437,14 @@ jobs:
           assert "Auxiliary current = P_aux/V" in web_js
           assert "N/A (M_O=0)" in web_js
           assert "Effective wheel OD" in web_index
+          # V53.8.42 Engineering Decision Tools
+          for web_id in ("refreshEngineeringSummary","runWebSensitivity","refreshWebTrace","webDesignLock","captureWebRevisionA","captureWebRevisionB","compareWebRevisions"):
+              assert f'id="{web_id}"' in web_index, f"Missing Web engineering tool: {web_id}"
+          for fn in ("refreshEngineeringDecisionSummary","runWebSensitivity","refreshWebCalculationTrace","applyWebDesignLock","compareWebRevisionData"):
+              assert ("function "+fn) in web_js, f"Missing Web engineering function: {fn}"
+          assert "Engineering Decision Tools" in web_index
+          assert "Sensitivity / What-if" in web_index
+          assert "Calculation Trace" in web_index
           for step_fn in ("driveStepsHtml","rampStepsHtml","batteryStepsHtml","winchStepsHtml","winchBatteryStepsHtml"):
               assert ("function "+step_fn) in web_js, f"Missing web step renderer: {step_fn}"
           assert "STEP-BY-STEP ทุก Stability Mode" in web_js
@@ -871,6 +879,31 @@ jobs:
           w.update_battery_selection()
           QApplication.processEvents()
           assert "READY TO VERIFY DATASHEET" in w.batterySelectionView.toPlainText()
+
+          # ---------- V53.8.42 Engineering Decision Tools ----------
+          tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
+          for expected in ("Engineering Summary","Sensitivity / What-if","Calculation Trace","Compare Design"):
+              assert expected in tab_names, f"Missing Project Tools tab: {expected}"
+          summary_html=w.engineering_summary_html()
+          assert "ENGINEERING WORST-CASE SUMMARY" in summary_html
+          assert "Governing lifting case" in summary_html
+          assert "Motor rated power" in summary_html
+          sensitivity_html=w.sensitivity_analysis_html()
+          assert "SENSITIVITY / WHAT-IF ANALYSIS" in sensitivity_html
+          for expected in ("Track width W","Boom length L","Payload mass","Crane from rear axle x_C","Vehicle CG x"):
+              assert expected in sensitivity_html
+          trace_html=w.calculation_trace_html("ALL")
+          assert "CALCULATION TRACE" in trace_html
+          for expected in ("DRIVE TORQUE TRACE","MAIN BATTERY TRACE","WINCH TRACE","STABILITY TRACE"):
+              assert expected in trace_html
+          assert hasattr(w,"designLockButton")
+          w.designLockButton.setChecked(True);QApplication.processEvents()
+          assert not w.W.isEnabled() and not w.WB.isEnabled() and not w.L.isEnabled() and not w.mt.isEnabled()
+          assert "Locked" in w.designLockButton.text()
+          w.designLockButton.setChecked(False);QApplication.processEvents()
+          assert w.W.isEnabled() and w.WB.isEnabled() and w.L.isEnabled() and w.mt.isEnabled()
+          assert "Engineering Output Diff" in source
+          assert "def compare_design_revisions" in source
 
           # Project Tools and Electrical candidate fields must stay synchronized both ways.
           candidate_test=min(200.0,max(br["suggested"],20.0))
