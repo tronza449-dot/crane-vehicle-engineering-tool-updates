@@ -1,42 +1,45 @@
-# Crane Vehicle Engineering Tool V53.8.30
+# Crane Vehicle Engineering Tool V53.8.31
 
-## Simpler Stability Inputs + Green Desktop Completion Feedback
+## Confirmed Vehicle Width + Centered 250×250 mm Crane Base
 
-### Stability Mode A — Total Mass
-ปรับให้ใช้งานง่ายขึ้นสำหรับผู้ใช้ที่ไม่ทราบตำแหน่ง CG:
-- กรอกเฉพาะ Total mass, Payload, Boom และ Geometry
-- ไม่ต้องกรอก Base vehicle CG x / y
-- ไม่ต้องกรอก Driving combined CG x ในหน้า Stability
-- โปรแกรมใช้ preliminary assumption อัตโนมัติ:
-  - x_CG,V = 0 m
-  - y_CG,V = 0 m
-  - x_CG,drive = 0 m
-- แสดงคำอธิบายว่ากำลังใช้ centered-CG assumption
+### Confirmed project geometry
+- Vehicle width = 1.00 m
+- Crane base = 0.25 × 0.25 m
+- Crane base is centered left-right
+- Crane lateral center y_C = 0.00 m
+- Side clearance = (1.00 - 0.25)/2 = 0.375 m = 375 mm per side
 
-### Stability Mode B — Component Mass
-- ซ่อน Total mass / Payload / Boom manual inputs ที่ไม่ได้ใช้
-- ซ่อน CG manual inputs
-- ใช้มวลและ CG จาก Mass_CG table อัตโนมัติ
-- หน้า Mass_CG จะแสดง Component table เฉพาะเมื่อ Mode B ทำงาน
+### Important distinction
+- Vehicle width = actual frame/body width
+- Wheel track W = center-to-center distance of left/right wheels
+- These are separate values and are no longer presented as the same dimension
 
-### Unused-mode cleanup
-- Mode A: Component table ถูกซ่อน เพราะไม่ได้เป็นแหล่งข้อมูล
-- Mode B: manual mass fields ถูกซ่อน เพราะไม่ได้เป็นแหล่งข้อมูล
-- เหลือเฉพาะ Input ที่เกี่ยวข้องกับโหมดปัจจุบัน
+### Desktop Stability
+- Added a green geometry summary card
+- Wheel track label explicitly says it is not vehicle width
+- Crane x from rear axle now states sign convention:
+  - + = toward vehicle front
+  - - = toward vehicle tail
+- x_C remains user/measured input because rear-axle-to-tail distance is not yet confirmed
+- Stability variable table and formal summary now include:
+  - VehicleWidth
+  - CraneBaseW / CraneBaseL
+  - y_C
+  - side clearance
 
-### Desktop button feedback
-ปรับให้เห็นผลชัดเหมือน Web:
-- Press: opacity animation
-- Completed action: ปุ่มเปลี่ยนเป็นสีเขียว
-- เพิ่มเครื่องหมาย ✓ ชั่วคราวบนข้อความปุ่ม
-- Status bar แสดง “เสร็จแล้ว ✓”
-- หลังประมาณ 0.9 s ปุ่มกลับเป็นหน้าตาเดิม
-- ปุ่ม Mode / Navigation ไม่โดน completion flash เพื่อคง selected-state styling
+### 3D Crane View
+- Vehicle body is now drawn using the confirmed 1.00 m body width
+- Wheels remain positioned by Wheel track W
+- Crane base is drawn as 0.25 × 0.25 m instead of the previous generic 0.38 × 0.38 m block
+- Crane pivot remains centered laterally at y_C = 0
+- Live Data panel shows Vehicle width, Wheel track and Crane base separately
 
-### Regression
-เพิ่มการตรวจว่า:
-- Mode B ซ่อน manual fields และแสดง Component table
-- Mode A แสดงเฉพาะ manual mass fields
-- CG manual rows ถูกซ่อนทั้งสองโหมด
-- Mode A บังคับ centered CG = 0 อัตโนมัติ
-- Generic desktop action ต้องเข้าสถานะ success สีเขียวและมี ✓
+### Web
+- Stability Geometry section shows the confirmed 1.00 m / 0.25 × 0.25 m dimensions
+- Shows 375 mm clearance each side
+- Wheel track label is explicitly center-to-center
+- x_C label shows +front / -tail convention
+- Vehicle Parameters now includes Crane Base = 250 × 250 mm
+
+### Note
+The longitudinal crane location x_C is intentionally not auto-calculated yet because the actual rear-axle-to-tail distance has not been confirmed.
