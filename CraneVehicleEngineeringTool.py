@@ -329,7 +329,11 @@ class Model3D(QWidget):
             p.drawText(self.rect(),Qt.AlignCenter,"3D CRANE VIEW")
             return
 
-        W=max(.4,float(self.d["W"]))
+        W=max(.4,float(self.d["W"]))  # wheel track, center-to-center
+        vehicle_w=max(.4,float(self.d.get("vehicleWidth",W)))
+        crane_base_w=max(.05,float(self.d.get("craneBaseW",.25)))
+        crane_base_l=max(.05,float(self.d.get("craneBaseL",.25)))
+        crane_y=float(self.d.get("craneY",0.0))
         WB=max(.5,float(self.d["WB"]))
         L=max(.1,float(self.d["L"]))
         H=max(.2,float(self.d["H"]))
@@ -337,7 +341,7 @@ class Model3D(QWidget):
         th=math.radians(self._display_angle)
 
         # scene/camera scale
-        scene=max(2.0,WB*1.55,L*1.55,W*1.8,H*1.5)
+        scene=max(2.0,WB*1.55,L*1.55,max(W,vehicle_w)*1.8,H*1.5)
         scale=min(self.width()/scene,self.height()/scene)*.47*self.zoom
         cx=self.width()*.49
         cy=self.height()*.63
@@ -400,7 +404,7 @@ class Model3D(QWidget):
         shadow=[]
         for deg in range(0,361,12):
             a=math.radians(deg)
-            shadow.append((math.cos(a)*max(WB,1.1)*.82,math.sin(a)*W*.82,.008))
+            shadow.append((math.cos(a)*max(WB,1.1)*.82,math.sin(a)*max(W,vehicle_w)*.82,.008))
         pts=[project(v)[0] for v in shadow]
         sh=QColor("#33516b");sh.setAlpha(24)
         p.setPen(Qt.NoPen);p.setBrush(sh);p.drawPolygon(QPolygonF(pts))
@@ -420,7 +424,7 @@ class Model3D(QWidget):
 
         # vehicle
         half_body=max(.78,WB*.68)
-        body_w=max(.62,W*.82)
+        body_w=vehicle_w
         cuboid((0,0,.27),(half_body*2,body_w,.24),"#536170","#263746")
         cuboid((0,0,.43),(half_body*1.72,body_w*.92,.12),"#758493","#2d3748")
         # deck slats
@@ -441,42 +445,42 @@ class Model3D(QWidget):
         # crane mount and slewing bearing
         bx=rear+xC
         base_z=.56
-        cuboid((bx,0,base_z),(0.38,0.38,.16),"#273444","#111827")
-        ring3((bx,0,0),.26,base_z+.09,"#3b82f6",3,Qt.SolidLine,220)
+        cuboid((bx,crane_y,base_z),(crane_base_l,crane_base_w,.16),"#273444","#111827")
+        ring3((bx,crane_y,0),min(crane_base_w,crane_base_l)*.48,base_z+.09,"#3b82f6",3,Qt.SolidLine,220)
 
         # permitted rotation arc + end stops.
         # Use LIMIT labels instead of angle numbers so report screenshots cannot be
         # mistaken for the active crane angle shown in CRANE LIVE DATA.
-        ring3((bx,0,0),max(.48,L*.58),base_z+.13,"#60a5fa",2,Qt.DashLine,145,-90,90)
+        ring3((bx,crane_y,0),max(.48,L*.58),base_z+.13,"#60a5fa",2,Qt.DashLine,145,-90,90)
         for deg,label in [(-90,"LEFT LIMIT"),(0,"CENTER"),(90,"RIGHT LIMIT")]:
             a=math.radians(deg)
             rr=max(.48,L*.58)
-            pt=(bx+rr*math.cos(a),rr*math.sin(a),base_z+.13)
+            pt=(bx+rr*math.cos(a),crane_y+rr*math.sin(a),base_z+.13)
             q,_=project(pt)
             p.setPen(QPen(QColor("#6d86a0"),1.5));p.setBrush(QColor("#ffffff"))
             p.drawEllipse(q,3.5,3.5)
 
         # column
         column_z=base_z+.16+H/2
-        cuboid((bx,0,column_z),(.18,.18,H),"#364657","#1f2937")
+        cuboid((bx,crane_y,column_z),(.18,.18,H),"#364657","#1f2937")
 
         # slewing head
         top=base_z+.16+H
-        cuboid((bx,0,top),(.28,.28,.16),"#1f2f3f","#111827")
+        cuboid((bx,crane_y,top),(.28,.28,.16),"#1f2f3f","#111827")
 
         # ghost boom positions to explain rotation envelope
         for ghost_deg in (-90,0,90):
             ga=math.radians(ghost_deg)
-            gx=bx+L*math.cos(ga);gy=L*math.sin(ga)
-            line3((bx,0,top),(gx,gy,top),"#8aa4bd",5,Qt.DashLine,62)
+            gx=bx+L*math.cos(ga);gy=crane_y+L*math.sin(ga)
+            line3((bx,crane_y,top),(gx,gy,top),"#8aa4bd",5,Qt.DashLine,62)
 
         # active boom as a true oriented 3D beam
-        boom_center=(bx+(L/2)*math.cos(th),(L/2)*math.sin(th),top)
+        boom_center=(bx+(L/2)*math.cos(th),crane_y+(L/2)*math.sin(th),top)
         cuboid(boom_center,(L,.15,.15),"#e87518","#7c3d08",yaw=th)
 
         # boom inner highlight
-        ex=bx+L*math.cos(th);ey=L*math.sin(th)
-        line3((bx,0,top+.045),(ex,ey,top+.045),"#ffc078",2,Qt.SolidLine,230)
+        ex=bx+L*math.cos(th);ey=crane_y+L*math.sin(th)
+        line3((bx,crane_y,top+.045),(ex,ey,top+.045),"#ffc078",2,Qt.SolidLine,230)
 
         # winch rope, hook and basket/load
         hook_z=max(.37,top-.70)
@@ -487,11 +491,11 @@ class Model3D(QWidget):
         cuboid((ex,ey,max(.12,hook_z-.18)),(.38,.28,.16),"#b9c5d0","#475569",yaw=th,alpha=235)
 
         # crane pivot axis highlight
-        line3((bx,0,base_z+.08),(bx,0,top+.20),"#3b82f6",2,Qt.DashLine,185)
+        line3((bx,crane_y,base_z+.08),(bx,crane_y,top+.20),"#3b82f6",2,Qt.DashLine,185)
 
         # current-angle marker
         arm_r=max(.48,L*.58)
-        marker=(bx+arm_r*math.cos(th),arm_r*math.sin(th),base_z+.13)
+        marker=(bx+arm_r*math.cos(th),crane_y+arm_r*math.sin(th),base_z+.13)
         mq,_=project(marker)
         p.setBrush(QColor("#2463eb"));p.setPen(QPen(QColor("white"),2));p.drawEllipse(mq,6,6)
         if not self.reportMode:
@@ -508,7 +512,7 @@ class Model3D(QWidget):
             p.drawText(18,49,"ลากเมาส์ = หมุนมุมมอง  •  Scroll = Zoom  •  Double-click = Reset")
 
         # top-right info panel
-        panel=QRectF(self.width()-245,16,226,124)
+        panel=QRectF(self.width()-260,16,241,164)
         p.setPen(QPen(QColor("#cbd8e6"),1))
         p.setBrush(QColor(255,255,255,235))
         p.drawRoundedRect(panel,11,11)
@@ -519,7 +523,9 @@ class Model3D(QWidget):
             ("Rotation",f"{self._display_angle:+.1f}°"),
             ("Boom length",f"{L:.2f} m"),
             ("Column height",f"{H:.2f} m"),
-            ("Track width",f"{W:.2f} m"),
+            ("Vehicle width",f"{vehicle_w:.2f} m"),
+            ("Wheel track",f"{W:.2f} m"),
+            ("Crane base",f"{crane_base_w:.2f} × {crane_base_l:.2f} m"),
         ]
         yy=panel.y()+47
         for name,val in rows:
