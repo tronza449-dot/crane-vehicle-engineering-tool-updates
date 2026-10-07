@@ -275,3 +275,43 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
   .variable-table-head{align-items:flex-start;flex-direction:column}
   .variable-table-head span{align-self:flex-start}
 }
+
+
+/* V53.8.28 — Separate Main/Winch battery systems + clearer power-source UI */
+.winch-battery-card .card-icon{background:#c96a18;font-size:10px;letter-spacing:-.02em}
+.power-separation-banner{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:13px 16px;margin:0 0 16px;border-radius:14px;border:1px solid #c9d8e5;
+  background:#f5f9fd;color:#274760;box-shadow:0 5px 14px rgba(19,48,73,.05)
+}
+.power-separation-banner>div,.power-separation-banner:not(:has(>div)){line-height:1.55}
+.power-separation-banner b{font-size:13px;letter-spacing:.04em}
+.power-separation-banner span:not(.system-chip){display:block;font-size:12.5px;color:#5c7285;margin-top:3px}
+.winch-mech-banner{border-color:#c9d7e4;background:#f6f9fc}
+.winch-battery-banner{border-color:#f0c99e;background:#fff7ed}
+.system-chip{
+  display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;
+  border-radius:999px;padding:7px 10px;font-size:10.5px!important;font-weight:950;
+  letter-spacing:.05em;margin:0!important
+}
+.system-chip.neutral{background:#e7eef5;color:#486075;border:1px solid #cbd8e4}
+.system-chip.orange{background:#fff0dc;color:#a6530b;border:1px solid #efc392}
+.source-preview{
+  padding:11px 12px;border-radius:10px;border:1px solid #d4e1ec;background:#f8fbfe;
+  color:#4b6478;font-size:12.5px;line-height:1.55
+}
+.battery-separation-note{
+  display:flex;flex-direction:column;gap:5px;padding:12px 14px;border-radius:11px;
+  border:1px solid #f0c99e;background:#fff8ef;color:#7c4a18;font-size:12.5px;line-height:1.55
+}
+.battery-separation-note b{color:#9a4c09}
+.system-result-head{
+  display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:wrap;
+  padding:10px 12px;margin-bottom:14px;border-radius:10px;background:#f4f8fb;border:1px solid #d5e1ea
+}
+.system-result-head b{font-size:12.5px;color:#536b7e}
+.system-result-head.separate-12v{background:#fff7ed;border-color:#f0c99e}
+.result-separation{margin-top:14px}
+@media(max-width:620px){
+  .power-separation-banner{align-items:flex-start;flex-direction:column}
+}
