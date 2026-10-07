@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.38"
+APP_VERSION = "53.8.39"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -9709,7 +9709,10 @@ void loop() {{
         self.fbdViewMode.addItem("Current Angle Snapshot / มุมปัจจุบัน","current")
         self.fbdViewMode.addItem("Critical Case / มุมวิกฤตของด้านที่เลือก","critical")
         self.fbdViewMode.addItem("Auto Current Worst / ด้านแย่สุด ณ มุมปัจจุบัน","auto")
-        self.fbdViewMode.setCurrentIndex(0)
+        # Default to the directional critical case. This matches what a user
+        # expects after selecting "Side Right", "Front", etc. Current Angle
+        # remains available as a snapshot mode.
+        self.fbdViewMode.setCurrentIndex(1)
         self.fbdViewMode.setToolTip(
             "Current Angle = ใช้มุม θ ปัจจุบันจาก Input\n"
             "Critical Case = ใช้มุมวิกฤตที่โปรแกรมค้นหาให้สำหรับด้านที่เลือก\n"
