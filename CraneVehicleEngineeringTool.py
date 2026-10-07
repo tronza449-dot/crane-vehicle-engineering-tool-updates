@@ -2805,6 +2805,18 @@ void loop() {{
         capture.clicked.connect(self.capture_current_page)
         bar.addWidget(capture)
 
+        self.globalSaveValuesButton=QPushButton("💾 Save Values")
+        self.globalSaveValuesButton.setObjectName("primaryButton")
+        self.globalSaveValuesButton.setToolTip("บันทึกค่าปัจจุบันทั้งหมดแบบถาวร พร้อมสำเนาสำรอง")
+        self.globalSaveValuesButton.setFixedSize(122,30)
+        self.globalSaveValuesButton.clicked.connect(
+            lambda:self._run_button_action(
+                self.globalSaveValuesButton,self.save_values_now,
+                "กำลังเซฟ...","เซฟแล้ว ✓"
+            )
+        )
+        bar.addWidget(self.globalSaveValuesButton)
+
         # Keep font controls inside one fixed panel so QStatusBar cannot squeeze
         # individual buttons into unreadable symbols on smaller Windows displays.
         fontPanel=QFrame();fontPanel.setObjectName("metricPanel")
@@ -5905,55 +5917,115 @@ void loop() {{
     # V44 — EASY AUTO SAVE
     # =====================================================================
     def last_values_path(self):
-        """Writable per-user location that also works after installation in Program Files."""
+        """Primary per-user autosave location (survives normal application updates)."""
         base=QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
         folder=Path(base) if base else (Path.home()/".CraneVehicleEngineeringTool")
         folder.mkdir(parents=True,exist_ok=True)
         return folder/"last_values.json"
 
+    def backup_values_path(self):
+        """Human-visible redundant copy so a broken installer/AppData path cannot lose project inputs."""
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        folder=Path(docs)/"CVET_Data"
+        folder.mkdir(parents=True,exist_ok=True)
+        return folder/"saved_values_backup.json"
+
+    def _write_state_file(self,path,state):
+        path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+        tmp=path.with_suffix(path.suffix+".tmp")
+        tmp.write_text(json.dumps(state,ensure_ascii=False,indent=2),encoding="utf-8")
+        # Verify before replacing the working copy.
+        check=json.loads(tmp.read_text(encoding="utf-8"))
+        if check.get("format")!="CraneVehicleEngineeringToolProject":
+            raise RuntimeError("Saved state verification failed")
+        tmp.replace(path)
+        return path
+
     def _set_quick_save_status(self,text,color="#66788a"):
         if hasattr(self,"quickSaveStatus"):
             self.quickSaveStatus.setText(str(text))
             self.quickSaveStatus.setStyleSheet(f"color:{color};font-size:8.5pt;")
+        if hasattr(self,"stabilitySaveStatus"):
+            self.stabilitySaveStatus.setText(str(text))
+            self.stabilitySaveStatus.setStyleSheet(f"color:{color};font-size:9.2pt;font-weight:700;")
 
     def save_last_values(self,silent=True):
-        """Save current inputs without asking for a filename."""
+        """Save every captured input to both primary AppData and a Documents backup."""
         try:
-            path=self.last_values_path()
             state=self.capture_project_state()
-            path.write_text(json.dumps(state,ensure_ascii=False,indent=2),encoding="utf-8")
+            primary=self._write_state_file(self.last_values_path(),state)
+            backup=self._write_state_file(self.backup_values_path(),state)
             stamp=datetime.now().strftime("%H:%M:%S")
-            self._set_quick_save_status(f"บันทึกค่าล่าสุดแล้ว • {stamp} • เปิดโปรแกรมครั้งหน้าจะโหลดให้อัตโนมัติ","#176337")
+            self._set_quick_save_status(
+                f"บันทึกแล้ว ✓ {stamp} • Auto Save + Backup พร้อมใช้งาน","#176337"
+            )
             if hasattr(self,"projectStatus") and not silent:
-                self.projectStatus.setHtml(f"<h3>บันทึกค่าปัจจุบันแล้ว</h3><p>โปรแกรมจะโหลดชุดค่านี้อัตโนมัติครั้งถัดไป</p><p>{path}</p>")
+                self.projectStatus.setHtml(
+                    f"<h3>บันทึกค่าปัจจุบันแล้ว ✓</h3>"
+                    f"<p>Primary: {primary}</p><p>Backup: {backup}</p>"
+                    "<p>Input, Mode A/B, Mass_CG และค่าหลักถูกบันทึกแล้ว</p>"
+                )
             return True
         except Exception as exc:
-            self._set_quick_save_status("บันทึกอัตโนมัติไม่สำเร็จ: "+str(exc),"#b42318")
+            self._set_quick_save_status("บันทึกไม่สำเร็จ: "+str(exc),"#b42318")
             if not silent:
                 QMessageBox.warning(self,"บันทึกค่าล่าสุดไม่สำเร็จ",str(exc))
             return False
 
+    def save_values_now(self):
+        """Explicit user save: flush any pending autosave and verify both persistent copies."""
+        if hasattr(self,"easyAutoSaveDebounce"):
+            self.easyAutoSaveDebounce.stop()
+        if not self.save_last_values(silent=True):
+            raise RuntimeError("ไม่สามารถบันทึกค่าปัจจุบันได้")
+        state=self.capture_project_state()
+        for p in (self.last_values_path(),self.backup_values_path()):
+            check=json.loads(Path(p).read_text(encoding="utf-8"))
+            if check.get("widgets")!=state.get("widgets") or check.get("components")!=state.get("components"):
+                raise RuntimeError(f"ตรวจสอบไฟล์ Save ไม่ผ่าน: {p}")
+        if hasattr(self,"statusBar"):
+            self.statusBar().showMessage(
+                f"💾 บันทึกค่าปัจจุบันแล้ว ✓ • Backup: {self.backup_values_path()}",7000
+            )
+        return True
+
+    def _load_saved_state_candidates(self):
+        candidates=[]
+        for p in (self.last_values_path(),self.backup_values_path()):
+            try:
+                if not Path(p).exists():continue
+                state=json.loads(Path(p).read_text(encoding="utf-8"))
+                if state.get("format")!="CraneVehicleEngineeringToolProject":continue
+                ts=str(state.get("saved_at",""))
+                candidates.append((ts,Path(p).stat().st_mtime,Path(p),state))
+            except Exception:
+                continue
+        return sorted(candidates,key=lambda q:(q[0],q[1]),reverse=True)
+
     def restore_last_values(self,silent=True):
-        """Restore the last saved inputs automatically or by one click."""
+        """Restore the newest valid state from AppData or the redundant Documents backup."""
         try:
-            path=self.last_values_path()
-            if not path.exists():
-                self._set_quick_save_status("ยังไม่มีค่าที่บันทึกไว้ • กรอกค่าตามต้องการ โปรแกรมจะจำให้อัตโนมัติ")
+            candidates=self._load_saved_state_candidates()
+            if not candidates:
+                self._set_quick_save_status("ยังไม่มีค่าที่บันทึกไว้ • กด 💾 Save Values หลังตั้งค่าครั้งแรก")
                 if not silent:
                     QMessageBox.information(self,"โหลดค่าล่าสุด","ยังไม่มีค่าที่บันทึกไว้")
                 return False
-            state=json.loads(path.read_text(encoding="utf-8"))
+            _ts,_mtime,path,state=candidates[0]
             self.apply_project_state(state,True)
-            # V52.6 project migration: the user's main controller target is now classic ESP32.
-            # Apply only to automatic last-values restore; manually opened old project files keep their board choice.
+            # Heal both copies after a successful restore.
+            self._write_state_file(self.last_values_path(),state)
+            self._write_state_file(self.backup_values_path(),state)
             if hasattr(self,"hwBoardProfile") and self._version_tuple(state.get("version","0")) < self._version_tuple("52.6.0"):
                 self.hwBoardProfile.setCurrentIndex(3)
                 self.refresh_gpio_combo_items()
                 self.update_hardware_manager()
             saved_at=state.get("saved_at","-")
-            self._set_quick_save_status(f"โหลดค่าครั้งล่าสุดแล้ว • Saved at {saved_at}","#176337")
+            self._set_quick_save_status(f"โหลดค่าที่บันทึกล่าสุดแล้ว ✓ • {saved_at}","#176337")
             if hasattr(self,"projectStatus") and not silent:
-                self.projectStatus.setHtml(f"<h3>โหลดค่าล่าสุดแล้ว</h3><p>Saved at: {saved_at}</p><p>{path}</p>")
+                self.projectStatus.setHtml(
+                    f"<h3>โหลดค่าล่าสุดแล้ว ✓</h3><p>Saved at: {saved_at}</p><p>Source: {path}</p>"
+                )
             return True
         except Exception as exc:
             self._set_quick_save_status("โหลดค่าล่าสุดไม่สำเร็จ: "+str(exc),"#b42318")
@@ -5969,10 +6041,10 @@ void loop() {{
         if ans!=QMessageBox.Yes:
             return
         try:
-            path=self.last_values_path()
-            if path.exists():
-                path.unlink()
-            self._set_quick_save_status("ล้างค่าที่จำแล้ว • โปรแกรมจะเริ่มจากค่ามาตรฐานในการเปิดครั้งถัดไป")
+            for path in (self.last_values_path(),self.backup_values_path()):
+                if path.exists():
+                    path.unlink()
+            self._set_quick_save_status("ล้างค่าที่จำแล้ว • Auto Save และ Backup ถูกล้างเรียบร้อย")
         except Exception as exc:
             QMessageBox.warning(self,"ล้างค่าที่จำไม่สำเร็จ",str(exc))
 
@@ -5999,6 +6071,16 @@ void loop() {{
                     obj.editingFinished.connect(self.schedule_easy_autosave)
             except Exception:
                 pass
+
+        # QTableWidget cell edits are not covered by vars(self) scalar-widget scan.
+        if hasattr(self,"comp"):
+            try:self.comp.itemChanged.connect(self.schedule_easy_autosave)
+            except Exception:pass
+        for table_name in ("deviceLibraryTable","validationTable","bomTable"):
+            table=getattr(self,table_name,None)
+            if table is not None:
+                try:table.itemChanged.connect(self.schedule_easy_autosave)
+                except Exception:pass
 
         # Hardware I/O row widgets live inside self.hwRows dictionaries, not directly in vars(self).
         if hasattr(self,"hwRows"):
@@ -9262,7 +9344,7 @@ void loop() {{
         self.craneMassModeCards=QWidget()
         massCardLayout=QHBoxLayout(self.craneMassModeCards)
         massCardLayout.setContentsMargins(0,0,0,0);massCardLayout.setSpacing(9)
-        self.craneMassModeTotal=QPushButton("A   Total Mass\nกรอกมวลรวม, Payload, Boom และ CG เอง")
+        self.craneMassModeTotal=QPushButton("A   Total Mass\nกรอกมวลรวม, Payload, Boom และ Geometry")
         self.craneMassModeComponents=QPushButton("B   Component Mass\nกรอกน้ำหนักรายชิ้น แล้วโปรแกรมรวม CG อัตโนมัติ")
         for b in (self.craneMassModeTotal,self.craneMassModeComponents):
             b.setObjectName("modeCardButton");b.setCheckable(True);b.setAutoExclusive(True)
@@ -9292,6 +9374,24 @@ void loop() {{
             "background:#eefaf4;border:1px solid #a9d7ba;border-radius:8px;padding:9px;color:#176337;font-weight:700"
         )
         f.addRow("Vehicle / Crane Base Geometry",self.craneGeometryInfo)
+
+        saveRow=QWidget();saveLay=QHBoxLayout(saveRow);saveLay.setContentsMargins(0,0,0,0);saveLay.setSpacing(8)
+        self.stabilitySaveValuesButton=QPushButton("💾 Save Values / บันทึกค่าปัจจุบัน")
+        self.stabilitySaveValuesButton.setObjectName("primaryButton")
+        self.stabilitySaveValuesButton.setToolTip(
+            "บันทึก Input, Mode A/B, ตาราง Mass_CG และค่าหลักทั้งหมดไว้ถาวร\n"
+            "เปิดโปรแกรมครั้งถัดไปจะโหลดค่าที่บันทึกล่าสุดให้อัตโนมัติ"
+        )
+        self.stabilitySaveValuesButton.clicked.connect(
+            lambda:self._run_button_action(
+                self.stabilitySaveValuesButton,self.save_values_now,
+                "กำลังบันทึก...","บันทึกแล้ว ✓"
+            )
+        )
+        self.stabilitySaveStatus=QLabel("ยังไม่มีการกด Save ในรอบนี้")
+        self.stabilitySaveStatus.setStyleSheet("color:#667b8e;font-size:9.2pt;")
+        saveLay.addWidget(self.stabilitySaveValuesButton);saveLay.addWidget(self.stabilitySaveStatus,1)
+        f.addRow("Save / บันทึก",saveRow)
         rows=[("Total mass m_total / มวลรวมทั้งระบบ (kg)",self.mt),("Payload system m_L / สัตว์+ตะกร้า (kg)",self.ml),("Boom mass m_B / น้ำหนักแขนเครน (kg)",self.mb),("Wheel track W / ระยะศูนย์กลางล้อซ้าย-ขวา (m) [ไม่ใช่ความกว้างตัวรถ]",self.W),
               ("Wheelbase WB / ระยะฐานล้อหน้า-หลัง (m)",self.WB),("Boom length L / ความยาวแขนเครน (m)",self.L),("Column height H / ความสูงเสาเครน (m)",self.H),
               ("Crane center x_C from rear axle / ศูนย์กลางฐานเครนจากเพลาหลัง (+หน้า / -ท้าย) (m)",self.xC),
@@ -9789,6 +9889,7 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
             self.massModeFixed.blockSignals(False);self.massModeSum.blockSignals(False)
         self.sync_mass_mode_controls()
         self.apply_mass_mode()
+        self.schedule_easy_autosave()
 
     def set_mass_mode_from_radio(self,key):
         if not hasattr(self,"massCalcMode"):return
@@ -9796,6 +9897,7 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
         self.massCalcMode.blockSignals(True);self.massCalcMode.setCurrentIndex(idx);self.massCalcMode.blockSignals(False)
         self.sync_mass_mode_controls()
         self.apply_mass_mode()
+        self.schedule_easy_autosave()
 
     def sync_mass_mode_controls(self):
         component_mode=hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1
