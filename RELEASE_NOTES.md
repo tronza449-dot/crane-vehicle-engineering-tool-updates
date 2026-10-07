@@ -58,6 +58,7 @@ Stability:
 - Rear critical SF / no-overturning indication
 - Slope SF
 - governing lifting case
+- overall governing stability including Slope
 
 ### 3. Calculation Trace
 Desktop Project Tools now includes a **Calculation Trace** tab.
@@ -69,6 +70,7 @@ Input → Formula → Substitute → Result → PASS/FAIL
 Modules:
 - ALL
 - Drive Torque
+- Ramp Geometry
 - Main Battery
 - Winch
 - Stability
@@ -82,12 +84,16 @@ Desktop Project Tools now has a persistent:
 
 The lock protects core design values from accidental editing:
 - total / payload / boom mass
+- manual Torque / Battery / Ramp mass inputs
+- Winch load
+- Effective wheel OD
 - W
 - WB
 - L
 - x_C
 - vehicle CG
 - slope and slope geometry inputs
+- mass-source selector controls
 
 The lock state is included in Save Values / Project state.
 
@@ -126,6 +132,8 @@ Web Project Summary now supports:
 - Compare A ↔ B
 
 Each captured Web revision stores both input values and calculated engineering metrics.
+The comparison now contains both **Input Revision Diff** and **Engineering Output Diff**,
+including Ramp inputs as part of the captured design snapshot.
 
 ### 6. No duplicate calculation engine
 These tools intentionally reuse the existing audited calculation functions.
@@ -135,7 +143,7 @@ They do not introduce separate Stability, Torque, Battery or Winch equations.
 The release regression now verifies:
 - Desktop Engineering Summary tab exists and renders
 - Sensitivity tables exist for all requested parameters
-- Calculation Trace contains all four engineering modules
+- Calculation Trace contains Drive, Ramp, Main Battery, Winch and Stability modules
 - Design Lock disables and restores the core Desktop inputs
 - Design Revision comparison contains Engineering Output Diff
 - all new Web controls and functions exist
