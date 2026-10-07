@@ -753,6 +753,9 @@ $("#eventMode").addEventListener("change",()=>{$("#manualEventsWrap").classList.
 $("#downMode").addEventListener("change",()=>{$$(".customDown").forEach(x=>x.classList.toggle("hidden",$("#downMode").value!=="custom"));});
 
 let lastDriveResult=null;
+let lastBatteryResult=null;
+let lastWinchResult=null;
+let lastWinchBatteryResult=null;
 
 $("#calcDrive").addEventListener("click",async(evt)=>{
   const btn=$("#calcDrive"),interactive=!!evt.isTrusted;
@@ -891,6 +894,7 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
     const batteryPayload=formObject($("#batteryForm"));
     batteryPayload.drive_reference_current_a=driveRef.battery_current_a;
     const r=await api("/api/calc/drive-battery",batteryPayload);
+    lastBatteryResult=r;
     const c=r.candidate||{};
     const bmsCont=(c.bms_cont_a>0?statusSpan(c.bms_cont_ok):'<span class="check">NOT SET</span>');
     const bmsPeak=(c.bms_peak_a>0?statusSpan(c.bms_peak_ok):'<span class="check">NOT SET</span>');
@@ -992,6 +996,7 @@ $("#calcWinch").addEventListener("click",async(evt)=>{
   const out=$("#winchResult");setLoading(out);
   try{
     const r=await api("/api/calc/winch",formObject($("#winchForm"))),c=r.core,o=r.operation;
+    lastWinchResult=r;
     const liftTime=$("#batteryLiftEventTime"), liftEvents=$("#batteryLiftEvents"), otherStop=$("#batteryOtherStop");
     if(liftTime) liftTime.value=Number(o.event_time_s).toFixed(2);
     if(liftEvents) liftEvents.value=o.events_per_round;
@@ -1049,6 +1054,7 @@ $("#calcWinchBattery").addEventListener("click",async(evt)=>{
   const out=$("#winchBatteryResult");setLoading(out);
   try{
     const r=await api("/api/calc/winch",winchBatteryPayload()),c=r.core,o=r.operation,b=r.battery;
+    lastWinchBatteryResult=r;
     const source=$("#winchBatterySource");
     if(source){
       source.innerHTML='<b>ใช้ค่าจากหน้า Winch:</b> Load '+f(c.load_kg,1)+' kg • Lift '+f(c.lift_m,2)+' m • '+
@@ -1372,6 +1378,224 @@ $("#calcStability").addEventListener("click",async(evt)=>{
     if(interactive) buttonSuccess(btn,"คำนวณเสร็จ ✓","คำนวณ Stability + FBD เสร็จแล้ว");
   }catch(e){setError(out,e);if(interactive) buttonError(btn,"ไม่สำเร็จ","คำนวณ Stability + FBD เสร็จแล้ว ไม่สำเร็จ");}
 });
+
+
+const CVET_WEB_LOCK_STORE="cvet_web_design_lock_v1";
+const CVET_WEB_REV_A="cvet_web_revision_a_v1";
+const CVET_WEB_REV_B="cvet_web_revision_b_v1";
+
+function webDesignLockElements(){
+  const specs=[
+    ["driveForm",["mass_kg","slope_deg"]],
+    ["rampForm",["rise_cm","run_cm","measured_slant_cm","mass_kg"]],
+    ["batteryForm",["mass_kg","slope_deg","track_width_m"]],
+    ["stabilityForm",["total_mass_kg","payload_mass_kg","boom_mass_kg","track_width_m","wheelbase_m","boom_length_m","crane_from_rear_m","vehicle_cg_x_from_center_m","vehicle_cg_y_m","combined_cg_from_rear_m","combined_cg_height_m","slope_deg","slope_accel_mps2"]]
+  ];
+  const out=[];
+  specs.forEach(([formId,names])=>{
+    const form=$("#"+formId); if(!form)return;
+    names.forEach(name=>{const el=form.elements[name];if(el&&el.tagName)out.push(el);});
+  });
+  return [...new Set(out)];
+}
+
+function applyWebDesignLock(locked,save=true){
+  webDesignLockElements().forEach(el=>{
+    el.classList.toggle("design-input-locked",!!locked);
+    if(locked){
+      if(el.dataset.cvetTabindex===undefined)el.dataset.cvetTabindex=el.getAttribute("tabindex")??"";
+      el.setAttribute("tabindex","-1");
+      el.setAttribute("aria-readonly","true");
+    }else{
+      const old=el.dataset.cvetTabindex;
+      if(old===undefined||old==="")el.removeAttribute("tabindex");else el.setAttribute("tabindex",old);
+      delete el.dataset.cvetTabindex;el.removeAttribute("aria-readonly");
+    }
+  });
+  const btn=$("#webDesignLock"),status=$("#webDesignLockStatus");
+  if(btn)btn.textContent=locked?"🔒 Design Inputs Locked":"🔓 Design Inputs Unlocked";
+  if(status)status.textContent=locked?"FINAL LOCK: ปลดล็อกก่อนแก้ W, WB, L, x_C, Mass, CG, Slope":"ค่าหลักยังแก้ไขได้";
+  if(save){try{localStorage.setItem(CVET_WEB_LOCK_STORE,locked?"1":"0");}catch(e){}}
+}
+
+async function calculateWebDecisionSnapshot(){
+  const drive=await api("/api/calc/drive-torque",formObject($("#driveForm")));
+  const winch=await api("/api/calc/winch",winchBatteryPayload());
+  const bp=formObject($("#batteryForm"));
+  bp.drive_reference_current_a=drive.battery_current_a;
+  if(winch?.operation){
+    bp.lift_time_per_event_s=winch.operation.event_time_s;
+    bp.lift_events_per_round=winch.operation.events_per_round;
+    bp.other_stop_time_per_round_s=winch.operation.other_stop_s;
+  }
+  const battery=await api("/api/calc/drive-battery",bp);
+  const stability=await api("/api/calc/stability",stabilityPayload());
+  const ramp=await api("/api/calc/ramp-geometry",formObject($("#rampForm")));
+  return {drive,winch,battery,stability,ramp};
+}
+
+function sfDecisionText(bal){
+  if(!bal)return "—";
+  if(Number(bal.overturning_moment_nm)<=1e-9)return "N/A (M_O=0)";
+  return f(bal.sf,3);
+}
+function passDecision(bal,req){return !bal||Number(bal.overturning_moment_nm)<=1e-9||Number(bal.sf)>=Number(req);}
+
+function webSummaryMetrics(x){
+  const s=x.stability,req=s.required_sf||1.5,c=s.critical_cases||{},wb=x.winch?.battery||{};
+  const cases=["side_left","side_right","front","rear"].map(k=>({key:k,bal:c[k]}));
+  const valid=cases.filter(q=>q.bal&&Number(q.bal.overturning_moment_nm)>1e-9);
+  valid.sort((a,b)=>Number(a.bal.sf)-Number(b.bal.sf));
+  const gov=valid[0];
+  return {
+    "Torque required / motor (N·m)":x.drive.torque_per_motor_nm,
+    "Motor power margin (×)":x.drive.motor_power_margin,
+    "Main battery minimum (Ah)":x.battery.design_ah,
+    "Main battery practical (Ah)":x.battery.recommended_ah,
+    "Winch battery design (Ah)":wb.ah_design??0,
+    "Side Left critical SF":c.side_left?.sf??999,
+    "Side Right critical SF":c.side_right?.sf??999,
+    "Front critical SF":c.front?.sf??999,
+    "Rear critical SF":c.rear?.overturning_moment_nm>1e-9?c.rear.sf:"N/A",
+    "Slope SF":s.slope?.sf??999,
+    "Governing case":gov?fbdName(gov.key):"No overturning case",
+    "Governing SF":gov?gov.bal.sf:"N/A"
+  };
+}
+
+async function refreshEngineeringDecisionSummary(){
+  const out=$("#engineeringWorstSummary"),btn=$("#refreshEngineeringSummary");
+  if(!out)return;
+  buttonBusy(btn,"กำลังสรุป...");
+  try{
+    const x=await calculateWebDecisionSnapshot();
+    lastDriveResult=x.drive;lastBatteryResult=x.battery;lastWinchBatteryResult=x.winch;lastStabilityResult=x.stability;lastRampResult=x.ramp;
+    const s=x.stability,c=s.critical_cases||{},req=s.required_sf||1.5;
+    const rows=[];
+    const add=(sys,item,value,ok,detail)=>rows.push('<tr><td>'+sys+'</td><td>'+item+'</td><td><b>'+value+'</b></td><td>'+statusSpan(ok)+'</td><td>'+detail+'</td></tr>');
+    add("Drive","Torque / motor",f(x.drive.torque_per_motor_nm,2)+" N·m",true,"Design requirement");
+    add("Drive","Motor rated power",f(x.drive.motor_rated_w,0)+" W",!!x.drive.motor_power_ok,"required "+f(x.drive.design_mech_power_per_motor_w,1)+" W • margin "+f(x.drive.motor_power_margin,2)+"×");
+    add("Drive","Traction margin",f(x.drive.traction_margin,2)+"×",Number(x.drive.traction_margin)>=1,"≥ 1.00");
+    add("Battery","Main battery minimum",f(x.battery.design_ah,2)+" Ah",true,"practical "+f(x.battery.recommended_ah,2)+" Ah");
+    add("Battery","72 V load energy",f(x.battery.load_energy_wh,1)+" Wh",true,x.battery.completed_round_trips+" full Cycle");
+    add("Winch","12 V battery design",f(x.winch.battery.ah_design,2)+" Ah",true,x.winch.battery.events+" jobs");
+    ["side_left","side_right","front","rear"].forEach(k=>{
+      const b=c[k],ok=passDecision(b,req);
+      const detail=Number(b?.overturning_moment_nm)<=1e-9?"No overturning within permitted range":"θ="+f(b.angle_deg,0)+"° • M_O="+f(b.overturning_moment_nm,2)+" • M_R="+f(b.resisting_moment_nm,2)+" N·m";
+      add("Stability",fbdName(k),sfDecisionText(b),ok,detail);
+    });
+    add("Stability","Slope SF",f(s.slope.sf,3),Number(s.slope.sf)>=req,"Required SF ≥ "+f(req,2));
+    const valid=["side_left","side_right","front","rear"].map(k=>({key:k,b:c[k]})).filter(q=>q.b&&Number(q.b.overturning_moment_nm)>1e-9).sort((a,b)=>Number(a.b.sf)-Number(b.b.sf));
+    const gov=valid[0];
+    out.innerHTML='<h3>Engineering Worst-Case Summary</h3>'+
+      '<div class="notice"><b>Governing:</b> '+(gov?fbdName(gov.key)+' • SF '+f(gov.b.sf,3)+' @ '+f(gov.b.angle_deg,0)+'°':'No overturning case')+'</div>'+
+      '<div style="overflow:auto"><table><tr><th>System</th><th>Check</th><th>Result</th><th>Status</th><th>Detail</th></tr>'+rows.join("")+'</table></div>';
+    buttonSuccess(btn,"Summary ✓","สรุป Worst Case แล้ว");
+    return x;
+  }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","สรุปผลไม่สำเร็จ");return null;}
+}
+
+async function runWebSensitivity(){
+  const out=$("#webSensitivityResult"),btn=$("#runWebSensitivity");
+  if(!out)return;
+  buttonBusy(btn,"กำลังวิเคราะห์...");
+  try{
+    const span=Math.max(.05,Math.min(.50,num($("#webSensitivitySpan")?.value,20)/100));
+    const base=stabilityPayload();
+    const baseRes=await api("/api/calc/stability",base);
+    const equivalent=Object.assign({},base,{
+      mass_mode:"total",
+      total_mass_kg:baseRes.total_mass_kg,
+      payload_mass_kg:baseRes.payload_mass_kg,
+      boom_mass_kg:baseRes.boom_mass_kg,
+      vehicle_cg_x_from_center_m:baseRes.vehicle_cg_x_m,
+      vehicle_cg_y_m:baseRes.vehicle_cg_y_m,
+      combined_cg_from_rear_m:baseRes.slope.combined_cg_from_rear_m,
+      combined_cg_height_m:baseRes.slope.combined_cg_height_m
+    });
+    delete equivalent.components;
+    const specs=[
+      ["Track width W","track_width_m","m"],
+      ["Boom length L","boom_length_m","m"],
+      ["Payload mass","payload_mass_kg","kg"],
+      ["Crane x_C from rear axle","crane_from_rear_m","m"],
+      ["Vehicle CG x","vehicle_cg_x_from_center_m","m"]
+    ];
+    let html='<h3>Sensitivity / What-if ±'+f(span*100,0)+'%</h3><p class="check">ทุกจุดใช้ Critical scan -90°…+90°. Component mode ใช้ equivalent mass/CG snapshot เพื่อไม่แก้ Component table จริง</p>';
+    for(const [label,key,unit] of specs){
+      const cur=num(equivalent[key],0),baseScale=Math.max(Math.abs(cur),key==="vehicle_cg_x_from_center_m"?.10:.05);
+      const values=Math.abs(cur)<1e-12
+        ? [-baseScale*span,-baseScale*span/2,0,baseScale*span/2,baseScale*span]
+        : [1-span,1-span/2,1,1+span/2,1+span].map(q=>cur*q);
+      const results=await Promise.all(values.map(async value=>{
+        const p=Object.assign({},equivalent,{[key]:value});
+        const r=await api("/api/calc/stability",p);
+        return {value,r};
+      }));
+      html+='<h4>'+label+'</h4><div style="overflow:auto"><table><tr><th>Value</th><th>Governing</th><th>Worst SF</th><th>Status</th></tr>'+
+        results.map(({value,r})=>'<tr><td>'+f(value,3)+' '+unit+'</td><td>'+fbdName(r.critical_governing.key)+'</td><td>'+f(r.critical_governing.sf,3)+'</td><td>'+statusSpan(r.critical_governing.pass)+'</td></tr>').join("")+
+        '</table></div>';
+    }
+    out.innerHTML=html;buttonSuccess(btn,"Sensitivity ✓","Sensitivity เสร็จแล้ว");
+  }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","Sensitivity ไม่สำเร็จ");}
+}
+
+async function refreshWebCalculationTrace(){
+  const out=$("#webTraceResult"),btn=$("#refreshWebTrace"),mode=$("#webTraceMode")?.value||"ALL";
+  if(!out)return;
+  buttonBusy(btn,"กำลังสร้าง Trace...");
+  try{
+    const x=await calculateWebDecisionSnapshot(),blocks=[];
+    if(mode==="ALL"||mode==="Drive Torque")blocks.push(driveStepsHtml(x.drive));
+    if(mode==="ALL")blocks.push(rampStepsHtml(x.ramp));
+    if(mode==="ALL"||mode==="Main Battery")blocks.push(batteryStepsHtml(x.battery,x.battery.candidate||{}));
+    if(mode==="ALL"||mode==="Winch")blocks.push(winchStepsHtml(x.winch)+winchBatteryStepsHtml(x.winch));
+    if(mode==="ALL"||mode==="Stability"){
+      const key=x.stability.critical_governing.key;
+      blocks.push('<h3>Stability Critical Governing Trace</h3>'+fbdFormulaHtml(key,x.stability.critical_cases[key],x.stability));
+    }
+    out.innerHTML='<div class="notice"><b>Calculation Trace:</b> Input → Formula → Substitute → Result → PASS/FAIL</div>'+blocks.join("");
+    buttonSuccess(btn,"Trace ✓","Calculation Trace พร้อมแล้ว");
+  }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","สร้าง Trace ไม่สำเร็จ");}
+}
+
+function webRevisionInputs(){
+  const o={};
+  ["driveForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"].forEach(id=>{o[id]=formObject($("#"+id));});
+  o.stabilityComponents=stabilityComponentRows();
+  return o;
+}
+async function captureWebRevision(slot){
+  const key=slot==="A"?CVET_WEB_REV_A:CVET_WEB_REV_B;
+  const label=$("#webRevision"+slot+"Label")?.value||("Design "+slot);
+  const snapshot=await calculateWebDecisionSnapshot();
+  const data={label,created:new Date().toISOString(),inputs:webRevisionInputs(),metrics:webSummaryMetrics(snapshot)};
+  localStorage.setItem(key,JSON.stringify(data));
+  $("#webRevisionResult").innerHTML='<div class="notice"><b>Captured '+label+'</b> • '+data.created.replace("T"," ").slice(0,19)+'</div>';
+}
+function compareWebRevisionData(){
+  const out=$("#webRevisionResult");
+  let a,b;
+  try{a=JSON.parse(localStorage.getItem(CVET_WEB_REV_A)||"null");b=JSON.parse(localStorage.getItem(CVET_WEB_REV_B)||"null");}catch(e){}
+  if(!a||!b){out.innerHTML='<p class="check">Capture A และ B ก่อน</p>';return;}
+  const keys=[...new Set([...Object.keys(a.metrics||{}),...Object.keys(b.metrics||{})])];
+  const rows=keys.map(k=>{
+    const av=a.metrics[k],bv=b.metrics[k];
+    const delta=(typeof av==="number"&&typeof bv==="number")?(bv-av):null;
+    return '<tr><td>'+k+'</td><td>'+((typeof av==="number")?f(av,3):av)+'</td><td>'+((typeof bv==="number")?f(bv,3):bv)+'</td><td>'+(delta===null?"—":(delta>=0?"+":"")+f(delta,3))+'</td></tr>';
+  }).join("");
+  out.innerHTML='<h3>'+a.label+' ↔ '+b.label+'</h3><p class="check">เปรียบเทียบ Output วิศวกรรมที่ Capture ณ เวลานั้น</p>'+
+    '<div style="overflow:auto"><table><tr><th>Metric</th><th>'+a.label+'</th><th>'+b.label+'</th><th>Δ B-A</th></tr>'+rows+'</table></div>';
+}
+
+$("#refreshEngineeringSummary")?.addEventListener("click",refreshEngineeringDecisionSummary);
+$("#runWebSensitivity")?.addEventListener("click",runWebSensitivity);
+$("#refreshWebTrace")?.addEventListener("click",refreshWebCalculationTrace);
+$("#webDesignLock")?.addEventListener("click",()=>applyWebDesignLock(!(localStorage.getItem(CVET_WEB_LOCK_STORE)==="1")));
+$("#captureWebRevisionA")?.addEventListener("click",async()=>{try{await captureWebRevision("A");}catch(e){setError($("#webRevisionResult"),e);}});
+$("#captureWebRevisionB")?.addEventListener("click",async()=>{try{await captureWebRevision("B");}catch(e){setError($("#webRevisionResult"),e);}});
+$("#compareWebRevisions")?.addEventListener("click",compareWebRevisionData);
+try{applyWebDesignLock(localStorage.getItem(CVET_WEB_LOCK_STORE)==="1",false);}catch(e){}
 
 setupDynamicProjectParameters();
 checkHealth();
