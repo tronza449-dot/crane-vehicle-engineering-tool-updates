@@ -1240,16 +1240,30 @@ class App(QMainWindow):
     def _button_clicked_feedback(self, button):
         if button is None:
             return
+        # Mode cards / navigation keep their selected-state styling instead of a
+        # temporary completion state.
+        if button.isCheckable() or button.objectName() in ("navButton","modeCardButton"):
+            return
         # Dedicated action wrappers may already be showing Busy/Success/Error.
         if str(button.property("feedbackState") or "") in ("busy", "success", "error"):
             return
-        # Match the Web button acknowledgement: a short blue flash after release.
-        self._set_button_feedback_state(button, "ack")
-        label=button.text().split("\n",1)[0].strip()
+        # Web-style completion feedback: make every completed desktop action
+        # visibly green and append a checkmark for a short time.
+        original=getattr(button,"_cvetClickOriginalText",None) or button.text()
+        button._cvetClickOriginalText=original
+        if original and "✓" not in original:
+            button.setText(original+"   ✓")
+        self._set_button_feedback_state(button, "success")
+        label=original.split("\n",1)[0].strip()
         if label and hasattr(self, "statusBar"):
-            self.statusBar().showMessage(f"รับคำสั่งแล้ว ✓  {label}", 1400)
-        QTimer.singleShot(420, lambda b=button: self._set_button_feedback_state(b, "")
-                          if str(b.property("feedbackState") or "")=="ack" else None)
+            self.statusBar().showMessage(f"เสร็จแล้ว ✓  {label}", 1400)
+
+        def restore_click_feedback(b=button):
+            if getattr(b,"_cvetClickOriginalText",None) is not None:
+                b.setText(b._cvetClickOriginalText)
+            if str(b.property("feedbackState") or "")=="success":
+                self._set_button_feedback_state(b, "")
+        QTimer.singleShot(900, restore_click_feedback)
 
     def setup_button_feedback(self):
         """Give every desktop button immediate press/click feedback."""
@@ -9164,7 +9178,12 @@ void loop() {{
         self.W=spin(1,.1,5,.05);self.WB=spin(1.10,.2,5,.05);self.L=spin(1.2,.1,5,.05);self.H=spin(1,.2,3,.05)
         self.xC=spin(.15,-2,2,.05);self.xCG=spin(0,-2,2,.05);self.yCG=spin(0,-2,2,.01,3);self.driveXCG=spin(0,-2,2,.05)
         self.th=spin(90,-90,90,5,0);self.kd=spin(1.2,1,3,.05);self.req=spin(1.5,1,5,.1)
+        self.craneInputForm=f
         f.addRow("Mass calculation mode / โหมดน้ำหนัก",self.craneMassModeCards)
+        self.massModeInfo=QLabel()
+        self.massModeInfo.setWordWrap(True)
+        self.massModeInfo.setStyleSheet("background:#f3f7fb;border:1px solid #d7e3ee;border-radius:8px;padding:8px;color:#526b80")
+        f.addRow("",self.massModeInfo)
         rows=[("Total mass m_total / มวลรวมทั้งระบบ (kg)",self.mt),("Payload system m_L / สัตว์+ตะกร้า (kg)",self.ml),("Boom mass m_B / น้ำหนักแขนเครน (kg)",self.mb),("Track width W / ระยะศูนย์กลางล้อซ้าย-ขวา (m)",self.W),
               ("Wheelbase WB / ระยะฐานล้อหน้า-หลัง (m)",self.WB),("Boom length L / ความยาวแขนเครน (m)",self.L),("Column height H / ความสูงเสาเครน (m)",self.H),
               ("Crane x from rear axle x_C / ตำแหน่งเครนจากเพลาหลัง (m)",self.xC),
@@ -9598,16 +9617,20 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
         self.comp.itemChanged.connect(self.on_component_table_changed)
         l.addWidget(self.comp)
 
-        legend=QLabel("การจัดกลุ่มอัตโนมัติ: ชื่อที่มี Boom/แขนเครน → m_B | Basket/ตะกร้า/Payload/ซากสัตว์ → m_L | ที่เหลือ → Base vehicle. "
+        self.compLegend=QLabel("การจัดกลุ่มอัตโนมัติ: ชื่อที่มี Boom/แขนเครน → m_B | Basket/ตะกร้า/Payload/ซากสัตว์ → m_L | ที่เหลือ → Base vehicle. "
                       "ใน Crane tipping ตำแหน่ง Boom/Payload จะใช้ geometry L, θ และ x_C; ค่า x/y/z ในตารางใช้สำหรับ CG ตอนวิ่งและตรวจมวลรวม")
-        legend.setWordWrap(True);legend.setStyleSheet("color:#52606d");l.addWidget(legend)
+        self.compLegend.setWordWrap(True);self.compLegend.setStyleSheet("color:#52606d");l.addWidget(self.compLegend)
+        self.compModeNote=QLabel()
+        self.compModeNote.setWordWrap(True)
+        self.compModeNote.setStyleSheet("background:#f3f7fb;border:1px solid #d7e3ee;border-radius:8px;padding:9px;color:#526b80")
+        l.addWidget(self.compModeNote)
 
         row=QHBoxLayout()
-        b=QPushButton("คำนวณ CG รวม / Calculate Combined CG");b.clicked.connect(self.calc_components);row.addWidget(b)
+        self.calcComponentsBtn=QPushButton("คำนวณ CG รวม / Calculate Combined CG");self.calcComponentsBtn.clicked.connect(self.calc_components);row.addWidget(self.calcComponentsBtn)
         self.applyMassBtn=QPushButton("Apply Component Mode / ใช้ค่าจากตาราง")
         self.applyMassBtn.setObjectName("primaryButton");self.applyMassBtn.clicked.connect(self.apply_mass_mode);row.addWidget(self.applyMassBtn)
-        exportComp=QPushButton("Export All Stability Modes")
-        exportComp.clicked.connect(self.export_pdf_report);row.addWidget(exportComp)
+        self.exportCompBtn=QPushButton("Export All Stability Modes")
+        self.exportCompBtn.clicked.connect(self.export_pdf_report);row.addWidget(self.exportCompBtn)
         l.addLayout(row)
         self.compout=QPlainTextEdit();self.compout.setReadOnly(True);self.compout.setMaximumHeight(240);l.addWidget(self.compout)
         self.tabs.addTab(w,"4. Component CG / ตาราง CG")
@@ -9666,6 +9689,7 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
 
     def sync_mass_mode_controls(self):
         component_mode=hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1
+
         # Keep both web-like card selectors synchronized with the hidden state combo.
         for total_name,comp_name in (("craneMassModeTotal","craneMassModeComponents"),("massModeFixed","massModeSum")):
             total_btn=getattr(self,total_name,None);comp_btn=getattr(self,comp_name,None)
@@ -9673,13 +9697,67 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
                 total_btn.blockSignals(True);comp_btn.blockSignals(True)
                 total_btn.setChecked(not component_mode);comp_btn.setChecked(component_mode)
                 total_btn.blockSignals(False);comp_btn.blockSignals(False)
-        # Derived fields are locked in Component Mode to prevent two conflicting sources of truth.
+
+        # User-facing simplification:
+        # Mode A does not ask the user for CG coordinates. For preliminary tipping
+        # calculations the base vehicle is assumed centered: x_CG,V=0, y_CG,V=0,
+        # and the driving longitudinal CG is at vehicle center x=0.
+        if not component_mode:
+            for obj in (getattr(self,"xCG",None),getattr(self,"yCG",None),getattr(self,"driveXCG",None)):
+                if obj is not None:
+                    obj.blockSignals(True);obj.setValue(0.0);obj.blockSignals(False)
+
+        # On the main Stability page, only show manual mass fields in Mode A.
+        form=getattr(self,"craneInputForm",None)
+        if form is not None:
+            def set_row(field,visible):
+                if field is None:return
+                try:
+                    form.setRowVisible(field,visible)
+                except Exception:
+                    field.setVisible(visible)
+                    try:
+                        lab=form.labelForField(field)
+                        if lab is not None:lab.setVisible(visible)
+                    except Exception:
+                        pass
+            for name in ("mt","ml","mb"):
+                set_row(getattr(self,name,None),not component_mode)
+            # CG inputs are intentionally hidden in both modes:
+            # Mode A uses centered-CG assumption, Mode B derives CG from components.
+            for name in ("xCG","yCG","driveXCG"):
+                set_row(getattr(self,name,None),False)
+
+        if hasattr(self,"massModeInfo"):
+            if component_mode:
+                self.massModeInfo.setText(
+                    "MODE B — Component Mass: ไม่ต้องกรอก m_total / Payload / Boom / CG ในหน้านี้ • "
+                    "โปรแกรมดึงมวลและ CG จากตาราง Mass_CG อัตโนมัติ")
+            else:
+                self.massModeInfo.setText(
+                    "MODE A — Total Mass: กรอกเฉพาะมวลรวม, Payload, Boom และ Geometry • "
+                    "ไม่ต้องกรอกตำแหน่ง CG; โปรแกรมสมมติฐานรถฐานอยู่กึ่งกลาง (x=0, y=0) สำหรับ preliminary calculation")
+
+        # Derived fields remain internal/locked in Component Mode.
         for name in ("mt","ml","mb","xCG","yCG","driveXCG","hcg"):
             obj=getattr(self,name,None)
             if obj is not None:
                 obj.setEnabled(not component_mode)
-                obj.setToolTip("คำนวณจาก Component Mass table อัตโนมัติ" if component_mode else "กรอกค่าเองใน Total Mass Mode")
+                obj.setToolTip("คำนวณจาก Component Mass table อัตโนมัติ" if component_mode else "Mode A ใช้ค่าที่กรอกเอง; CG ใช้ค่ากึ่งกลางอัตโนมัติ")
+
+        # On Mass_CG page hide the entire component-only content in Mode A.
+        for name in ("comp","compLegend","calcComponentsBtn","applyMassBtn"):
+            obj=getattr(self,name,None)
+            if obj is not None:
+                obj.setVisible(component_mode)
         if hasattr(self,"applyMassBtn"):self.applyMassBtn.setEnabled(component_mode)
+        if hasattr(self,"compModeNote"):
+            self.compModeNote.setVisible(True)
+            self.compModeNote.setText(
+                "MODE B ทำงานอยู่ — ตาราง Component ด้านบนคือแหล่งข้อมูลมวลและ CG หลัก"
+                if component_mode else
+                "MODE A ทำงานอยู่ — ตาราง Component ไม่ได้ใช้ จึงซ่อนไว้ • กลับไปกรอกมวลรวมที่หน้า Stability ได้เลย")
+
 
     def on_component_table_changed(self,item):
         if hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1:
@@ -10464,6 +10542,9 @@ WIDTH / COUNTERWEIGHT
         yL_signed=d["L"]*math.sin(math.radians(d["th"]))
         yB_signed=(d["L"]/2)*math.sin(math.radians(d["th"]))
         self.craneout.setPlainText(f"""CRANE TIPPING CALCULATION — FORMAL SUMMARY
+
+Mass / CG source:
+{("Mode B Component Mass → CG derived automatically from Mass_CG table" if d.get("massMode")=="components" else "Mode A Total Mass → base vehicle CG assumed centered automatically: x_CG,V=0 m, y_CG,V=0 m")}
 
 Coordinate convention:
 +x forward, +y right, +z up
