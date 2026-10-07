@@ -739,6 +739,21 @@ $("#calcWinch").addEventListener("click",async(evt)=>{
       '<div class="metric"><div class="k">Current @ load</div><div class="v">'+f(c.up_current_a,2)+' A</div></div>'+
       '<div class="metric"><div class="k">เวลา UP</div><div class="v">'+f(c.up_time_s,2)+' s</div></div></div>'+
       '<p>Rope layer <b>'+c.layer+'</b> • Sheet line pull '+f(c.layer_line_pull_kg,0)+' kg • '+statusSpan(c.layer_pull_ok)+'</p>'+
+      '<h3>Linear Interpolation — จากตาราง First Layer</h3>'+
+      '<div class="formula"><b>ช่วงข้อมูลที่ใช้</b><br>'+
+      f(c.interp_lower_load_kg,0)+' kg → '+f(c.interp_upper_load_kg,0)+' kg<br>'+
+      'จุดล่าง: v₁ = '+f(c.interp_lower_speed_m_min,3)+' m/min, I₁ = '+f(c.interp_lower_current_a,2)+' A<br>'+
+      'จุดบน: v₂ = '+f(c.interp_upper_speed_m_min,3)+' m/min, I₂ = '+f(c.interp_upper_current_a,2)+' A</div>'+
+      '<div class="formula"><b>STEP 1 — r = (x − x₁) ÷ (x₂ − x₁)</b><br>'+
+      '<b>สูตรภาษาไทย:</b> สัดส่วน = (โหลดที่ต้องการ − โหลดจุดล่าง) ÷ (โหลดจุดบน − โหลดจุดล่าง)<br>'+
+      '<b>แทนค่า:</b> ('+f(c.load_kg,1)+' − '+f(c.interp_lower_load_kg,1)+') ÷ ('+f(c.interp_upper_load_kg,1)+' − '+f(c.interp_lower_load_kg,1)+') = <b>'+f(c.interp_alpha,6)+'</b> ('+f(c.interp_alpha*100,2)+'%)</div>'+
+      '<div class="formula"><b>STEP 2 — v = v₁ + r(v₂ − v₁)</b><br>'+
+      '<b>สูตรภาษาไทย:</b> ความเร็วสลิง = ความเร็วจุดล่าง + สัดส่วน × (ความเร็วจุดบน − ความเร็วจุดล่าง)<br>'+
+      '<b>แทนค่า:</b> '+f(c.interp_lower_speed_m_min,3)+' + '+f(c.interp_alpha,6)+' × ('+f(c.interp_upper_speed_m_min,3)+' − '+f(c.interp_lower_speed_m_min,3)+') = <b>'+f(c.up_speed_m_min,3)+' m/min</b></div>'+
+      '<div class="formula"><b>STEP 3 — I = I₁ + r(I₂ − I₁)</b><br>'+
+      '<b>สูตรภาษาไทย:</b> กระแส = กระแสจุดล่าง + สัดส่วน × (กระแสจุดบน − กระแสจุดล่าง)<br>'+
+      '<b>แทนค่า:</b> '+f(c.interp_lower_current_a,2)+' + '+f(c.interp_alpha,6)+' × ('+f(c.interp_upper_current_a,2)+' − '+f(c.interp_lower_current_a,2)+') = <b>'+f(c.up_current_a,2)+' A</b></div>'+
+      '<div class="notice"><b>ใช้ต่อ:</b> ความเร็ว '+f(c.up_speed_m_min,3)+' m/min ใช้หาเวลา UP และกระแส '+f(c.up_current_a,2)+' A ใช้หา Wh ของ Winch Battery 12 V.</div>'+
       '<h3>Operating Cycles</h3><div class="metric-grid">'+
       '<div class="metric"><div class="k">รอบไป-กลับ</div><div class="v">'+o.completed_round_trips+'</div></div>'+
       '<div class="metric"><div class="k">เที่ยวทางเดียว</div><div class="v">'+o.one_way_trips+'</div></div>'+
