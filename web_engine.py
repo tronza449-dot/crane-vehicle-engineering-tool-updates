@@ -67,10 +67,16 @@ def winch_interpolate(load_kg: float) -> Dict[str, float]:
                 "alpha": alpha,
                 "lower_load_kg": x0,
                 "upper_load_kg": x1,
+                "lower_speed_m_min": v0,
+                "upper_speed_m_min": v1,
+                "lower_current_a": i0,
+                "upper_current_a": i1,
             }
     x, v, current = WINCH_PERF[-1]
     return {"load_kg": m, "speed_m_min": v, "current_a": current, "alpha": 1.0,
-            "lower_load_kg": x, "upper_load_kg": x}
+            "lower_load_kg": x, "upper_load_kg": x,
+            "lower_speed_m_min": v, "upper_speed_m_min": v,
+            "lower_current_a": current, "upper_current_a": current}
 
 
 def winch_layer_for_distance(distance_m: float) -> Dict[str, float]:
@@ -96,6 +102,12 @@ def winch_core(data: Dict[str, Any]) -> Dict[str, Any]:
         "up_current_a": perf["current_a"],
         "up_time_s": t_up,
         "interp_alpha": perf["alpha"],
+        "interp_lower_load_kg": perf["lower_load_kg"],
+        "interp_upper_load_kg": perf["upper_load_kg"],
+        "interp_lower_speed_m_min": perf["lower_speed_m_min"],
+        "interp_upper_speed_m_min": perf["upper_speed_m_min"],
+        "interp_lower_current_a": perf["lower_current_a"],
+        "interp_upper_current_a": perf["upper_current_a"],
         "layer": int(layer["layer"]),
         "layer_line_pull_kg": layer["line_pull_kg"],
         "layer_rope_m": layer["cumulative_rope_m"],
