@@ -383,10 +383,33 @@ jobs:
           assert w.massCalcMode.currentIndex()==1
           assert w.craneMassModeComponents.isChecked() and w.massModeSum.isChecked()
           assert not w.craneMassModeTotal.isChecked() and not w.massModeFixed.isChecked()
+          # Mode B hides unused manual mass/CG rows and exposes Component table.
+          assert not w.craneInputForm.isRowVisible(w.mt)
+          assert not w.craneInputForm.isRowVisible(w.ml)
+          assert not w.craneInputForm.isRowVisible(w.mb)
+          assert not w.craneInputForm.isRowVisible(w.xCG)
+          assert w.comp.isVisible()
           w.set_mass_mode_from_radio("total")
           QApplication.processEvents()
           assert w.massCalcMode.currentIndex()==0
           assert w.craneMassModeTotal.isChecked() and w.massModeFixed.isChecked()
+          # Mode A shows only the three manual mass fields; CG stays automatic/hidden.
+          assert w.craneInputForm.isRowVisible(w.mt)
+          assert w.craneInputForm.isRowVisible(w.ml)
+          assert w.craneInputForm.isRowVisible(w.mb)
+          assert not w.craneInputForm.isRowVisible(w.xCG)
+          assert not w.craneInputForm.isRowVisible(w.yCG)
+          assert not w.craneInputForm.isRowVisible(w.driveXCG)
+          assert abs(w.xCG.value())<1e-12 and abs(w.yCG.value())<1e-12 and abs(w.driveXCG.value())<1e-12
+          assert not w.comp.isVisible()
+          assert "กึ่งกลาง" in w.massModeInfo.text()
+
+          # Generic desktop action feedback must visibly become green/success.
+          feedback_test=QPushButton("คำนวณทดสอบ",w)
+          w._button_clicked_feedback(feedback_test)
+          QApplication.processEvents()
+          assert str(feedback_test.property("feedbackState") or "")=="success"
+          assert "✓" in feedback_test.text()
 
           # ---------- Web launcher visibility regression ----------
           assert hasattr(w,"openWebServerButton")
@@ -1136,6 +1159,9 @@ jobs:
           assert 'QPushButton#modeCardButton:checked' in source
           assert "craneMassModeTotal" in source and "craneMassModeComponents" in source
           assert 'feedbackState="ack"' in source
+          assert "Web-style completion feedback" in source
+          assert "MODE A — Total Mass: กรอกเฉพาะมวลรวม" in source
+          assert "โปรแกรมสมมติฐานรถฐานอยู่กึ่งกลาง" in source
           assert "def _run_button_action" in source
           assert "rampApplyAngleButton" in source
           assert "def _read_official_manifest_api" in source
