@@ -1,55 +1,52 @@
-# Crane Vehicle Engineering Tool V53.8.27
+# Crane Vehicle Engineering Tool V53.8.28
 
-## Battery PDF — Guided STEP Cards + Thai Formula Reading
+## Desktop Button Press Animation + Separate Web Battery Systems
 
-ปรับส่วนคำนวณใน Battery PDF ให้มองง่ายขึ้นด้วยกรอบ STEP ใหญ่ และเพิ่มคำอธิบายภาษาไทยใต้สูตรทุกสูตรหลัก
+### Desktop — Press animation
+เพิ่ม animation ตอนกดปุ่มในโปรแกรม Desktop ให้รู้สึกเหมือนปุ่มถูกกดจริง:
+- กดแล้วปุ่มยุบ/เลื่อนเล็กน้อย
+- ปล่อยแล้วเด้งกลับแบบ smooth
+- ยังคงสถานะ Pressed / Busy / Success / Error เดิม
+- ใช้ QPropertyAnimation + QEasingCurve
 
-### New STEP layout
-รายงานหลักเรียงเป็น:
-- STEP 1 — แบ่งเส้นทางของ 1 Cycle
-- STEP 2 — หาแรงและพลังงานของแต่ละช่วง
-- STEP 3 — รวมพลังงานให้เป็น 1 Cycle
-- STEP 4 — หาเวลา 1 Cycle และจำนวน Cycle
-- STEP 5 — แปลงพลังงานรวมจาก Wh เป็น Ah
-- STEP 6 — ตรวจ Continuous / Peak Current และ BMS
+### Web — แยกแบตรถและแบตวินช์
+ปรับ Web จากเดิมที่หน้า Winch มีทั้งกลไกและ Battery อยู่รวมกัน ให้แยกเป็น 3 โมดูลชัดเจน:
+1. Main Battery 72 V
+2. Winch / Lift
+3. Winch Battery 12 V
 
-### Formula presentation inside each STEP
-ทุกสูตรหลักเรียงรูปแบบเดียวกัน:
-1. สูตร
-2. อ่านสูตรแบบภาษาไทย
-3. แทนค่า
-4. ผลลัพธ์ + หน่วย
-5. ผล STEP
+### Main Battery 72 V
+- ใช้พลังงาน Drive + Auxiliary ของรถ
+- ใช้เวลา UP/DOWN จาก Winch เพื่อหา Cycle time เท่านั้น
+- ไม่รวม Wh/Ah ของ Winch Battery
+- มี badge: 72 V VEHICLE ONLY / WINCH ENERGY EXCLUDED
 
-ตัวอย่าง:
-F_flat = Crr × m × g
-อ่านสูตรแบบภาษาไทย:
-แรงต้านทางราบ = ค่าสัมประสิทธิ์แรงต้านการกลิ้ง × มวลรถ × แรงโน้มถ่วง
+### Winch / Lift
+- Load interpolation
+- UP/DOWN time
+- Current @ load
+- Rope layer
+- Operating Cycles
+- ไม่มี Battery sizing ในหน้านี้
 
-### Thai explanations added
-ครอบคลุม:
-- แรงต้านทางราบ
-- พลังงานทางราบ
-- แรงขึ้นทางลาด
-- พลังงานขึ้นลาด
-- แรงลงทางลาด
-- พลังงานลงลาด
-- พลังงานเที่ยวไป / เที่ยวกลับ
-- Drive energy / Auxiliary energy / Total Cycle energy
-- เวลา Cycle / จำนวน Cycle
-- E_total / DoD / Reserve
-- Ah_min / Ah_practical
-- Continuous current / Peak current / BMS
+### Winch Battery 12 V
+- แบตแยกสำหรับวินช์
+- E_up / E_down / E_event / E_total
+- Ah design
+- Auto / Manual lift events
+- Candidate capacity
+- BMS Continuous / Peak check
+- มี badge: 12 V WINCH ONLY
 
-### Visual hierarchy
-- กรอบใหญ่ 1 กรอบต่อ STEP
-- สูตรเป็นแถบสีน้ำเงินอ่อน
-- คำอธิบายภาษาไทยเป็นแถบสีเหลืองอ่อน
-- แทนค่าเป็นแถบสีม่วงอ่อน
-- ผล STEP เป็นกล่องสีเขียวอ่อน
+### Data sharing
+Main Battery และ Winch Battery ไม่แชร์พลังงานกัน
+ข้อมูลที่แชร์จาก Winch → Main Battery มีเฉพาะ:
+- เวลา UP
+- เวลา DOWN
+- เวลา 1 งานยก
+- จำนวนงานยกต่อ Operating Cycle
+เพื่อให้จำนวน Cycle ใน 3 ชั่วโมงสมจริง
 
-### Engineering logic
-- BMS Continuous/Peak semantics ยังคงตาม V53.8.26
-- Downhill ≈ 0 Wh ยังอธิบายแยกชัดเจน
-- Kb ยังระบุว่าเป็น Preliminary Design Allowance
-- Appendix สูตรเต็มยังคงอยู่สำหรับตรวจสอบรายละเอียด
+### Compatibility
+- Web input เดิมของ Winch Battery จะถูก migrate ไป form ใหม่อัตโนมัติ
+- Main Battery calculation engine ยังคง winch_energy_included = false
