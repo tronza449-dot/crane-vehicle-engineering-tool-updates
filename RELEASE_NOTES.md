@@ -1,65 +1,48 @@
-# Crane Vehicle Engineering Tool V53.8.35
+# Crane Vehicle Engineering Tool V53.8.36
 
-## Readable FBD Legend + Visible Save Buttons on T / B / W / S
+## Web Step-by-Step Every Calculation Mode + Desktop/Web Parity Audit
 
-### 1. Stability PDF legend redesigned
-The V53.8.34 side-by-side FBD legend was too narrow on A4 and caused words and values to wrap vertically across multiple pages.
+### 1. Step-by-step calculation on every Web calculation mode
+The Web UI now adds a consistent engineering sequence:
+- STEP title
+- Formula
+- Substitution using the current inputs
+- Result with unit
+- Meaning / design check
 
-V53.8.35 changes the report layout to:
-- Large FBD figure first
-- Full-width variable legend directly below the figure
-- Wider fixed table columns
-- Shorter Thai-first bilingual descriptions
-- Current value and unit kept in a dedicated wide column
+Covered calculation modes:
+- Drive Torque
+- Ramp Geometry
+- Main Battery 72 V
+- Winch / Operating Cycle
+- Winch Battery 12 V
+- Stability: Side Left, Side Right, Front, Rear, and Slope in Current/Critical views
 
-The old 62% figure / 38% legend side-by-side layout has been removed.
+### 2. Desktop is the calculation reference
+Regression now directly compares Desktop calculations against the Web Engine using the same input values.
 
-The compact legend now uses readable symbols such as:
-- P
-- CG_V/B/L
-- W_V/B/L
-- R_P
-- R_opp
-- d_V/B/L
-- M_O / M_R
-- SF
+Parity checks include:
+- Drive force, torque, battery current and traction limit
+- Ramp length, angle, slope percentage and slope force
+- Winch interpolation, UP time, operating rounds, lift count and 12 V battery energy
+- Main Battery cycle time, Wh/Cycle, total energy, Ah, Continuous/Peak current and suggested battery size
+- Stability Left / Right / Front / Rear moment balance
 
-Slope legend uses:
-- P
-- N_R
-- N_F
-- W∥
-- W⊥
-- F_I
-- d_R
-- h_CG
-- M_O / M_R / SF
+The release build fails if Desktop and Web calculations drift apart.
 
-### 2. Visible Save Values on T / B / W / S
-Added a large visible Save Values bar directly at the top of:
-- T — Drive Torque
-- B — Main Battery 72 V
-- W — Winch
-- S — Stability
+### 3. Transparent substitutions
+Web Engine responses now expose the values needed for readable substitutions:
+- Rolling coefficient
+- Safety factor
+- Voltage
+- Drive efficiency
+- Traction coefficient / driven-load fraction
+- DoD / Reserve
+- Auxiliary power
 
-Each button saves the complete current project state, including the values on the current page, to both:
-- AppData/last_values.json
-- Documents/CVET_Data/saved_values_backup.json
+### 4. Stability Step-by-Step
+The existing Web Engineering FBD remains Step-by-Step by selected case.
+The interface now explicitly identifies that all five Stability modes have their own calculation steps.
 
-The save-status label on each T/B/W/S module updates after a successful save.
-
-### 3. Winch save button stays visible
-The Winch Save Values bar is outside the Winch sub-tabs, so it stays visible when switching between:
-- Spec / Datasheet
-- Operating Cycles
-- Battery
-- Summary
-
-### 4. Regression checks
-Release tests now verify:
-- All four T/B/W/S Save Values buttons exist
-- Winch save remains visible across every W sub-tab
-- All module save-status labels update after saving
-- The old narrow side-by-side FBD layout is absent
-- FBD image width and full-width legend structure are present
-- All existing Stability FBD PNG/PDF generation still passes
+### 5. Browser cache
+Static asset cache tags were bumped so an updated Web Server does not keep the previous calculation interface in the browser.
