@@ -238,6 +238,13 @@ jobs:
           assert "def stability_fbd_variable_legend_html" in source
           assert "def stability_fbd_figure_with_legend_html" in source
           assert "ตัวแปรในรูป / Figure Variable Legend" in source
+          assert "ตารางนี้อธิบายเฉพาะสัญลักษณ์ที่ใช้ในรูปด้านบน" in source
+          assert "width='600'" in source
+          assert "width:62%" not in source and "width:38%" not in source
+          assert '_make_module_save_bar("torque"' in source
+          assert '_make_module_save_bar("battery"' in source
+          assert '_make_module_save_bar("winch"' in source
+          assert '_make_module_save_bar("stabilityHub"' in source
           assert "kind\":\"slider" in source and "kind\":\"toggle_button" in source
           assert "APPENDIX A — DETAILED ENGINEERING CALCULATION" in source
           assert "def backup_values_path" in source
@@ -493,6 +500,17 @@ jobs:
               assert abs(pd["mo"]-pw["overturning_moment_nm"])<1e-8
               assert abs(pd["mr"]-pw["resisting_moment_nm"])<1e-8
               assert abs(pd["sf"]-pw["sf"])<1e-8
+
+          # ---------- Visible T / B / W / S Save Values controls ----------
+          for name in ("torqueSaveValuesButton","batterySaveValuesButton","winchSaveValuesButton","stabilityHubSaveValuesButton"):
+              assert hasattr(w,name), f"Missing visible module Save Values button: {name}"
+              btn=getattr(w,name)
+              assert "Save Values" in btn.text()
+              assert btn.minimumHeight()>=36
+          # Winch Save must stay outside the sub-tab pages so it remains visible on every W tab.
+          for index in range(w.wTabs.count()):
+              w.wTabs.setCurrentIndex(index);QApplication.processEvents()
+              assert not w.winchSaveValuesButton.isHidden()
 
           # ---------- Responsive UI / all main modes ----------
           modes = (
@@ -1282,9 +1300,12 @@ jobs:
               assert "ช่วงมุมที่แนะนำโดยประมาณ" in html
               assert "Critical Case" in html
               assert "ตัวแปรในรูป / Figure Variable Legend" in html
-              assert "W_V / W_B / W_L" in html
-              assert "d_V / d_B / d_L" in html
-              assert "N_F = 0" in html
+              assert "ตารางนี้อธิบายเฉพาะสัญลักษณ์ที่ใช้ในรูปด้านบน" in html
+              assert "W_V/B/L" in html
+              assert "d_V/B/L" in html
+              assert "N_F" in html
+              assert "width='600'" in html
+              assert "width:62%" not in html and "width:38%" not in html
               for key in ("side_left","side_right","front","rear","slope"):
                   img=fbd_td/f"fbd_{key}.png"
                   assert img.exists() and img.stat().st_size>1000, f"Missing FBD image {key}"
@@ -1304,6 +1325,9 @@ jobs:
               QApplication.processEvents()
               assert w.save_values_now() is True
               assert w.last_values_path().exists() and w.backup_values_path().exists()
+              for status_name in ("torqueSaveStatus","batterySaveStatus","winchSaveStatus","stabilityHubSaveStatus"):
+                  assert hasattr(w,status_name)
+                  assert "บันทึกแล้ว" in getattr(w,status_name).text()
 
               primary=json.loads(w.last_values_path().read_text(encoding="utf-8"))
               backup=json.loads(w.backup_values_path().read_text(encoding="utf-8"))
