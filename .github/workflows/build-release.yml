@@ -180,6 +180,26 @@ jobs:
           assert set(web_stability["current_cases"])=={"side_left","side_right","front","rear","slope"}
           assert set(web_stability["critical_cases"])=={"side_left","side_right","front","rear","slope"}
           assert web_stability["critical_cases"]["side_left"]["angle_deg"] is not None
+          # Directional tipping sanity: a crane at -90° tips toward left, not right.
+          # Critical scan must then find the opposite +90° case for Side Right.
+          directional=webcalc.calculate_stability({
+              "total_mass_kg":300.0,"payload_mass_kg":100.0,"boom_mass_kg":20.0,
+              "track_width_m":1.1,"wheelbase_m":1.1,"boom_length_m":1.2,
+              "crane_angle_deg":-90.0,"dynamic_factor":1.2,"required_sf":1.5,
+              "crane_from_rear_m":0.15,"vehicle_cg_x_from_center_m":0.0,
+              "vehicle_cg_y_m":0.0,"slope_deg":19.0,"slope_accel_mps2":0.278,
+              "combined_cg_from_rear_m":0.55,"combined_cg_height_m":0.55
+          })
+          assert directional["current_cases"]["side_right"]["overturning_moment_nm"]==0.0
+          assert directional["current_cases"]["side_left"]["overturning_moment_nm"]>0.0
+          assert directional["critical_cases"]["side_left"]["overturning_moment_nm"]>0.0
+          assert directional["critical_cases"]["side_right"]["overturning_moment_nm"]>0.0
+          assert directional["critical_cases"]["front"]["overturning_moment_nm"]>0.0
+          assert directional["critical_cases"]["side_left"]["angle_deg"]==-90.0
+          assert directional["critical_cases"]["side_right"]["angle_deg"]==90.0
+          assert abs(directional["critical_cases"]["side_right"]["overturning_moment_nm"]-774.99)<0.02
+          assert abs(directional["critical_cases"]["side_right"]["resisting_moment_nm"]-971.19)<0.02
+          assert 1.25 < directional["critical_cases"]["side_right"]["sf"] < 1.26
           assert web_stability["slope"]["sf"]>=0
           assert web_stability["front"]["components"] and web_stability["rear"]["components"]
 
@@ -390,7 +410,11 @@ jobs:
           assert 'id="rampForm"' in Path("web/index.html").read_text(encoding="utf-8")
           assert "/api/calc/ramp-geometry" in Path("web_server.py").read_text(encoding="utf-8")
           assert "calculateRampGeometry" in web_js
-          assert 'id="syncDesktopValues"' in Path("web/index.html").read_text(encoding="utf-8")
+          web_index = Path("web/index.html").read_text(encoding="utf-8")
+          assert 'id="syncDesktopValues"' in web_index
+          assert '<option value="critical" selected>' in web_index
+          assert "Critical Case / มุมวิกฤตของด้านที่เลือก (แนะนำ)" in web_index
+          assert "self.fbdViewMode.setCurrentIndex(1)" in source
           assert "/api/project-values" in Path("web_server.py").read_text(encoding="utf-8")
           assert "def _desktop_web_values" in Path("web_server.py").read_text(encoding="utf-8")
           assert "syncDesktopProjectValues" in web_js
