@@ -475,13 +475,18 @@
           </div>
 
           <div class="full stability-input-step"><span>2</span><div><b>กำหนด Geometry และเงื่อนไข</b><small>ค่าฐานล้อ แขนเครน มุมหมุน และ Safety Factor</small></div></div>
-          <label>Track width (m)<input name="track_width_m" type="number" value="1.1" step="0.05"></label>
+          <div class="full notice compact-note crane-geometry-note">
+            <b>Geometry ที่ยืนยันแล้ว:</b> Vehicle width = 1.00 m • Crane base = 0.25 × 0.25 m •
+            ฐานเครนอยู่กึ่งกลางซ้าย–ขวา y<sub>C</sub> = 0 • เหลือพื้นที่ข้างฐาน 375 mm/ข้าง<br>
+            <b>หมายเหตุ:</b> Wheel track W ด้านล่างคือระยะศูนย์กลางล้อซ้าย–ขวา ไม่ใช่ความกว้างตัวรถ 1.00 m
+          </div>
+          <label>Wheel track W (m) — center-to-center<input name="track_width_m" type="number" value="1.1" step="0.05"></label>
           <label>Wheelbase (m)<input name="wheelbase_m" type="number" value="1.1" step="0.05"></label>
           <label>ความยาวแขนเครน (m)<input name="boom_length_m" type="number" value="1.2" step="0.1"></label>
           <label>มุมเครนปัจจุบัน θ (deg)<input name="crane_angle_deg" type="number" value="-66" min="-90" max="90" step="1"></label>
           <label>Dynamic Factor Kdyn<input name="dynamic_factor" type="number" value="1.2" step="0.1"></label>
           <label>SF ที่ต้องการ<input name="required_sf" type="number" value="1.5" step="0.1"></label>
-          <label>ตำแหน่งเครนจากเพลาหลัง (m)<input name="crane_from_rear_m" type="number" value="0.15" step="0.05"></label>
+          <label>ศูนย์กลางฐานเครนจากเพลาหลัง x_C (m) — +หน้า / −ท้าย<input name="crane_from_rear_m" type="number" value="0.15" step="0.05"></label>
 
           <h3 class="full section-label">Slope FBD / ทางลาด</h3>
           <label>มุมทางลาด α (deg)<input name="slope_deg" type="number" value="11.11" step="0.01"></label>
@@ -593,6 +598,11 @@
           <div class="parameter-k">Crane Arm</div>
           <div id="paramCraneArm" class="parameter-v">1.2 m</div>
           <div class="parameter-note">จาก Stability Input</div>
+        </article>
+        <article class="parameter-panel">
+          <div class="parameter-k">Crane Base</div>
+          <div id="paramCraneBase" class="parameter-v">250 × 250 mm</div>
+          <div class="parameter-note">Centered y_C = 0 • clearance 375 mm/side</div>
         </article>
         <article class="parameter-panel">
           <div class="parameter-k">Support / Track</div>
