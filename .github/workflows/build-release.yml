@@ -836,7 +836,7 @@ jobs:
           assert br["bms_cont"]+1e-9>=br["cont_req"]
           assert br["bms_peak"]+1e-9>=br["peak_calc"]
           assert br["peak_calc"]+1e-9>=br["cont_req"]
-          assert abs(br["cont_req"]-max(e["Icalc_up"],e.get("Iturn_avg",0.0)))<1e-9
+          assert abs(br["cont_req"]-(max(e["Icalc_up"],e.get("Iturn_avg",0.0))+e.get("Iaux",0.0)))<1e-9
           assert br["peak_calc"]+1e-9>=br["t"]["Ibatt"]
           battery_report=w.battery_report_html(e)
           assert "Executive Summary / สรุปคำตอบก่อน" in battery_report
