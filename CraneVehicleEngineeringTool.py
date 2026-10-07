@@ -5971,17 +5971,85 @@ void loop() {{
         self.engineeringSummaryView=QTextEdit();self.engineeringSummaryView.setReadOnly(True);sl.addWidget(self.engineeringSummaryView,1)
         self.projectTabs.addTab(sp,"Engineering Summary")
 
-        # 8) SENSITIVITY / WHAT-IF
+        # 8) SYSTEM WHAT-IF / COUPLED SCENARIO
         senp=QWidget();senl=QVBoxLayout(senp)
+        intro=QLabel(
+            "WHAT-IF แบบสัมพันธ์ทั้งระบบ: เปลี่ยนหลายค่าใน Scenario เดียว แล้วโปรแกรมส่งค่าที่สัมพันธ์กัน "
+            "ไปคำนวณ Drive + Main Battery + Winch + Stability ใหม่พร้อมกัน โดยไม่แก้ Design จริง"
+        )
+        intro.setWordWrap(True);intro.setStyleSheet("background:#eef6ff;color:#274c77;padding:10px;border-radius:8px;font-weight:700")
+        senl.addWidget(intro)
+
+        def wi_spin(v,lo,hi,step=.01,dec=3):
+            q=QDoubleSpinBox();q.setRange(lo,hi);q.setDecimals(dec);q.setSingleStep(step);q.setValue(v);q.setMinimumWidth(130);return q
+
+        dwi=self.inputs()
+        wiBox=QGroupBox("Scenario Input / ค่าที่ต้องการลองเปลี่ยนพร้อมกัน")
+        wiForm=QFormLayout(wiBox);wiForm.setRowWrapPolicy(QFormLayout.WrapLongRows)
+        self.whatIfBaseMass=wi_spin(max(0.0,dwi["mt"]-dwi["ml"]-dwi["mb"]),0,5000,5,1)
+        self.whatIfPayload=wi_spin(dwi["ml"],0,2000,5,1)
+        self.whatIfBoomMass=wi_spin(dwi["mb"],0,1000,1,1)
+        self.whatIfTrack=wi_spin(dwi["W"],.1,5,.05,3)
+        self.whatIfWheelbase=wi_spin(dwi["WB"],.2,5,.05,3)
+        self.whatIfBoomLength=wi_spin(dwi["L"],.1,5,.05,3)
+        self.whatIfCraneX=wi_spin(dwi["xC"],-2,2,.05,3)
+        self.whatIfBaseCGX=wi_spin(dwi.get("xCG",0.0),-2,2,.02,3)
+        self.whatIfDriveCGX=wi_spin(dwi.get("driveXCG",0.0),-2,2,.02,3)
+        self.whatIfHCG=wi_spin(self.hcg.value() if hasattr(self,"hcg") else .55,.05,3,.02,3)
+        self.whatIfSlope=wi_spin(self.slope.value() if hasattr(self,"slope") else 0,0,45,.5,2)
+        self.whatIfDriveSpeed=wi_spin(self.tspeed.value() if hasattr(self,"tspeed") else 5,.05,50,.1,2)
+        self.whatIfOperationSpeed=wi_spin(self.espeed.value() if hasattr(self,"espeed") else 1,.05,50,.1,2)
+        self.whatIfLift=wi_spin(self.wheight.value() if hasattr(self,"wheight") else 1,.05,10,.05,2)
+        self.whatIfWinchLoad=wi_spin(self.wmass.value() if hasattr(self,"wmass") else dwi["ml"],0,2041,5,1)
+        self.whatIfLinkWinchPayload=QCheckBox("ลิงก์ Winch load = Payload system mass")
+        self.whatIfLinkWinchPayload.setChecked(abs(self.whatIfWinchLoad.value()-self.whatIfPayload.value())<1e-6)
+        self.whatIfDerivedTotal=QLabel()
+        self.whatIfDerivedTotal.setStyleSheet("font-weight:900;color:#176337")
+
+        wiForm.addRow("Base vehicle mass / มวลรถฐาน (kg)",self.whatIfBaseMass)
+        wiForm.addRow("Payload system / น้ำหนักสัตว์+ตะกร้า (kg)",self.whatIfPayload)
+        wiForm.addRow("Boom mass / มวลแขนเครน (kg)",self.whatIfBoomMass)
+        wiForm.addRow("Total mass / มวลรวม (Auto)",self.whatIfDerivedTotal)
+        wiForm.addRow("Wheel track W (m)",self.whatIfTrack)
+        wiForm.addRow("Wheelbase WB (m)",self.whatIfWheelbase)
+        wiForm.addRow("Boom length L (m)",self.whatIfBoomLength)
+        wiForm.addRow("Crane x_C from rear axle (m)",self.whatIfCraneX)
+        wiForm.addRow("Base vehicle CG x (m)",self.whatIfBaseCGX)
+        wiForm.addRow("Combined driving CG x (m)",self.whatIfDriveCGX)
+        wiForm.addRow("Combined CG height hCG (m)",self.whatIfHCG)
+        wiForm.addRow("Route slope / มุมทางลาด (deg)",self.whatIfSlope)
+        wiForm.addRow("Drive design speed / ความเร็วใช้ตรวจมอเตอร์ (km/h)",self.whatIfDriveSpeed)
+        wiForm.addRow("Operation speed / ความเร็วใช้งานจริง (km/h)",self.whatIfOperationSpeed)
+        wiForm.addRow("Winch lift distance / ระยะยก (m)",self.whatIfLift)
+        wiForm.addRow(self.whatIfLinkWinchPayload)
+        wiForm.addRow("Winch lifted load (kg)",self.whatIfWinchLoad)
+
+        wiScroll=QScrollArea();wiScroll.setWidgetResizable(True);wiScroll.setFrameShape(QFrame.NoFrame)
+        wiScroll.setWidget(wiBox);wiScroll.setMaximumHeight(360);senl.addWidget(wiScroll)
+
+        rule=QLabel(
+            "กฎการเชื่อม: Total mass = Base + Boom + Payload → ส่งไป Torque/Battery/Stability • "
+            "Slope ส่งไป Drive/Battery/Slope stability • W ส่งไป Stability และ Pivot-turn energy • "
+            "Operation speed ส่งไป Battery + จำนวนรอบ Winch • Lift distance ส่งไปเวลา Winch และเวลาต่อ Cycle. "
+            "สิ่งที่ไม่เดาอัตโนมัติ: เพิ่ม W/WB แล้วโครงหนักขึ้นเท่าไร, เพิ่ม L แล้ว Boom หนักขึ้นเท่าไร, CG ขยับเท่าไร — ต้องมีข้อมูลโครงสร้าง/ตำแหน่งมวลก่อน"
+        )
+        rule.setWordWrap(True);rule.setStyleSheet("background:#fff8e9;color:#68420b;padding:10px;border:1px solid #ead39a;border-radius:8px")
+        senl.addWidget(rule)
+
         senbar=QHBoxLayout()
-        senrun=QPushButton("Run Sensitivity / What-if");senrun.setObjectName("primaryButton");senrun.clicked.connect(self.update_sensitivity_analysis)
-        self.sensitivitySpan=QSpinBox();self.sensitivitySpan.setRange(5,50);self.sensitivitySpan.setValue(20);self.sensitivitySpan.setSuffix(" %")
-        senbar.addWidget(senrun);senbar.addWidget(QLabel("ช่วงทดสอบ ±"));senbar.addWidget(self.sensitivitySpan);senbar.addStretch(1)
-        senl.addLayout(senbar)
-        note=QLabel("วิเคราะห์ W, Boom length, Payload, x_C และ x_CG รอบค่าปัจจุบัน โดยใช้สูตร Stability เดียวกับหน้าหลัก")
-        note.setWordWrap(True);note.setStyleSheet("background:#eef6ff;color:#274c77;padding:9px;border-radius:8px");senl.addWidget(note)
+        loadWi=QPushButton("โหลดค่าปัจจุบันเป็น Baseline");loadWi.clicked.connect(self.load_what_if_baseline)
+        senrun=QPushButton("คำนวณ What-if ทั้งระบบ");senrun.setObjectName("primaryButton");senrun.clicked.connect(self.update_sensitivity_analysis)
+        senbar.addWidget(loadWi);senbar.addWidget(senrun);senbar.addStretch(1);senl.addLayout(senbar)
+
+        for q in (self.whatIfBaseMass,self.whatIfPayload,self.whatIfBoomMass,self.whatIfTrack,self.whatIfWheelbase,
+                  self.whatIfBoomLength,self.whatIfCraneX,self.whatIfBaseCGX,self.whatIfDriveCGX,self.whatIfHCG,
+                  self.whatIfSlope,self.whatIfDriveSpeed,self.whatIfOperationSpeed,self.whatIfLift,self.whatIfWinchLoad):
+            q.valueChanged.connect(self._sync_what_if_linked_inputs)
+        self.whatIfLinkWinchPayload.toggled.connect(self._sync_what_if_linked_inputs)
+
         self.sensitivityView=QTextEdit();self.sensitivityView.setReadOnly(True);senl.addWidget(self.sensitivityView,1)
-        self.projectTabs.addTab(senp,"Sensitivity / What-if")
+        self.projectTabs.addTab(senp,"What-if ทั้งระบบ / Coupled Scenario")
+        self.load_what_if_baseline(silent=True)
 
         # 9) ANSWER ORIGIN / STEP-BY-STEP CALCULATION
         tp=QWidget();tl=QVBoxLayout(tp)
@@ -6621,39 +6689,196 @@ void loop() {{
     def update_engineering_summary(self):
         if hasattr(self,"engineeringSummaryView"):self.engineeringSummaryView.setHtml(self.engineering_summary_html())
 
-    def sensitivity_analysis_html(self):
-        d0=self.inputs();span=(self.sensitivitySpan.value()/100.0) if hasattr(self,"sensitivitySpan") else .20
-        specs=[
-            ("Track width W","W",max(.05,d0["W"]), "m"),
-            ("Boom length L","L",max(.05,d0["L"]), "m"),
-            ("Payload mass","ml",max(1.0,d0["ml"]), "kg"),
-            ("Crane from rear axle x_C","xC",max(.01,abs(d0["xC"])) or .15, "m"),
-            ("Vehicle CG x","xCG",max(.05,abs(d0["xCG"])) or .10, "m"),
-        ]
-        html=["<h1>SENSITIVITY / WHAT-IF ANALYSIS</h1>",
-              f"<p>ทดสอบรอบค่าปัจจุบัน ±{span*100:.0f}% • ค่า SF ใช้ Critical scan -90°…+90° ทุกกรณี</p>"]
-        factors=(1-span,1-span/2,1.0,1+span/2,1+span)
-        for label,key,base,unit in specs:
-            current=float(d0[key])
-            vals=[]
-            if key in ("xC","xCG") and abs(current)<1e-9:
-                delta=base*span
-                candidates=(-delta,-delta/2,0.0,delta/2,delta)
-            else:candidates=tuple(current*f for f in factors)
-            for val in candidates:
-                d=dict(d0);d[key]=float(val)
-                worst=self._stability_worst_for_data(d)[0]
-                vals.append((val,worst))
-            rows="".join(
-                f"<tr><td>{v:.3f} {unit}</td><td>{w[2]}</td><td>{self._sf_text(w[0])}</td><td>{'PASS' if w[0]>=d0['req'] else 'FAIL'}</td></tr>"
-                for v,w in vals
+    def _sync_what_if_linked_inputs(self,*_):
+        if not hasattr(self,"whatIfBaseMass"):return
+        total=self.whatIfBaseMass.value()+self.whatIfBoomMass.value()+self.whatIfPayload.value()
+        if hasattr(self,"whatIfDerivedTotal"):
+            self.whatIfDerivedTotal.setText(f"{total:.2f} kg = Base + Boom + Payload")
+        if hasattr(self,"whatIfLinkWinchPayload") and self.whatIfLinkWinchPayload.isChecked():
+            self.whatIfWinchLoad.blockSignals(True)
+            self.whatIfWinchLoad.setValue(self.whatIfPayload.value())
+            self.whatIfWinchLoad.blockSignals(False)
+            self.whatIfWinchLoad.setEnabled(False)
+        elif hasattr(self,"whatIfWinchLoad"):
+            self.whatIfWinchLoad.setEnabled(True)
+
+    def _what_if_values_from_fields(self):
+        self._sync_what_if_linked_inputs()
+        link=bool(self.whatIfLinkWinchPayload.isChecked()) if hasattr(self,"whatIfLinkWinchPayload") else False
+        payload=float(self.whatIfPayload.value())
+        return dict(
+            base_mass=float(self.whatIfBaseMass.value()),payload=payload,boom_mass=float(self.whatIfBoomMass.value()),
+            track=float(self.whatIfTrack.value()),wheelbase=float(self.whatIfWheelbase.value()),
+            boom_length=float(self.whatIfBoomLength.value()),crane_x=float(self.whatIfCraneX.value()),
+            base_cg_x=float(self.whatIfBaseCGX.value()),drive_cg_x=float(self.whatIfDriveCGX.value()),
+            hcg=float(self.whatIfHCG.value()),slope=float(self.whatIfSlope.value()),
+            drive_speed=float(self.whatIfDriveSpeed.value()),operation_speed=float(self.whatIfOperationSpeed.value()),
+            lift=float(self.whatIfLift.value()),winch_load=(payload if link else float(self.whatIfWinchLoad.value())),
+            link_winch_payload=link
+        )
+
+    def load_what_if_baseline(self,*_,silent=False):
+        if not hasattr(self,"whatIfBaseMass"):return
+        d=self.inputs()
+        values=dict(
+            base_mass=max(0.0,d["mt"]-d["ml"]-d["mb"]),payload=float(d["ml"]),boom_mass=float(d["mb"]),
+            track=float(d["W"]),wheelbase=float(d["WB"]),boom_length=float(d["L"]),crane_x=float(d["xC"]),
+            base_cg_x=float(d.get("xCG",0.0)),drive_cg_x=float(d.get("driveXCG",0.0)),
+            hcg=float(self.hcg.value() if hasattr(self,"hcg") else .55),
+            slope=float(self.slope.value() if hasattr(self,"slope") else 0.0),
+            drive_speed=float(self.tspeed.value() if hasattr(self,"tspeed") else 5.0),
+            operation_speed=float(self.espeed.value() if hasattr(self,"espeed") else 1.0),
+            lift=float(self.wheight.value() if hasattr(self,"wheight") else 1.0),
+            winch_load=float(self.wmass.value() if hasattr(self,"wmass") else d["ml"]),
+            link_winch_payload=False
+        )
+        values["link_winch_payload"]=abs(values["winch_load"]-values["payload"])<1e-6
+        mapping=(
+            ("whatIfBaseMass","base_mass"),("whatIfPayload","payload"),("whatIfBoomMass","boom_mass"),
+            ("whatIfTrack","track"),("whatIfWheelbase","wheelbase"),("whatIfBoomLength","boom_length"),
+            ("whatIfCraneX","crane_x"),("whatIfBaseCGX","base_cg_x"),("whatIfDriveCGX","drive_cg_x"),
+            ("whatIfHCG","hcg"),("whatIfSlope","slope"),("whatIfDriveSpeed","drive_speed"),
+            ("whatIfOperationSpeed","operation_speed"),("whatIfLift","lift"),("whatIfWinchLoad","winch_load")
+        )
+        for attr,key in mapping:
+            obj=getattr(self,attr,None)
+            if obj is not None:
+                obj.blockSignals(True);obj.setValue(values[key]);obj.blockSignals(False)
+        self.whatIfLinkWinchPayload.blockSignals(True)
+        self.whatIfLinkWinchPayload.setChecked(values["link_winch_payload"])
+        self.whatIfLinkWinchPayload.blockSignals(False)
+        self._sync_what_if_linked_inputs()
+        self.whatIfBaseline=dict(values)
+        if hasattr(self,"sensitivityView") and not silent:
+            self.sensitivityView.setHtml(
+                "<h2>Baseline loaded / โหลดแบบปัจจุบันแล้ว</h2>"
+                "<p>แก้ค่าที่ Scenario ได้หลายช่องพร้อมกัน แล้วกด <b>คำนวณ What-if ทั้งระบบ</b>. "
+                "การคำนวณจะไม่เขียนทับ Design จริงของคุณ</p>"
             )
-            html.append(f"<h2>{label}</h2><table border='1' cellspacing='0' cellpadding='6'><tr><th>Value</th><th>Governing case</th><th>Worst SF</th><th>Status</th></tr>{rows}</table>")
-        html.append("<p><b>ใช้เพื่อดูแนวโน้มการออกแบบ:</b> ไม่ใช่การแทน FEA หรือการทดสอบรถจริง</p>")
-        return "".join(html)
+
+    def _evaluate_coupled_scenario(self,v):
+        current=self.capture_project_state()
+        try:
+            total=max(0.0,float(v["base_mass"])+float(v["boom_mass"])+float(v["payload"]))
+            def setv(name,value):
+                obj=getattr(self,name,None)
+                if obj is None:return
+                obj.blockSignals(True)
+                try:obj.setValue(value)
+                finally:obj.blockSignals(False)
+            def setcheck(name,value):
+                obj=getattr(self,name,None)
+                if obj is None:return
+                obj.blockSignals(True)
+                try:obj.setChecked(bool(value))
+                finally:obj.blockSignals(False)
+
+            if hasattr(self,"massCalcMode"):
+                self.massCalcMode.blockSignals(True);self.massCalcMode.setCurrentIndex(0);self.massCalcMode.blockSignals(False)
+
+            for name,value in (
+                ("mt",total),("ml",v["payload"]),("mb",v["boom_mass"]),("W",v["track"]),("WB",v["wheelbase"]),
+                ("L",v["boom_length"]),("xC",v["crane_x"]),("xCG",v["base_cg_x"]),("driveXCG",v["drive_cg_x"]),
+                ("hcg",v["hcg"]),("slope",v["slope"]),("tgrade",v["slope"]),("eslopeDeg",v["slope"]),
+                ("tm",total),("emass",total),("rampMass",total),("tspeed",v["drive_speed"]),
+                ("espeed",v["operation_speed"]),("wopSpeed",v["operation_speed"]),
+                ("wmass",v["winch_load"]),("wheight",v["lift"])
+            ): setv(name,value)
+            setcheck("tUseMain",True);setcheck("euseTorqueMass",True)
+
+            t=self.torque_results();e=self.electrical_results();w=self.winch_results();d=self.inputs()
+            crit=self._stability_worst_for_data(d);slope=self.slope_stability_results(d)
+            lift_valid=[x for x in crit if x[0]<999]
+            lift=lift_valid[0] if lift_valid else (999,None,"No overturning",0,0)
+            overall_sf=float(lift[0]);overall_case=str(lift[2])
+            if float(slope["sf"])<overall_sf:
+                overall_sf=float(slope["sf"]);overall_case="Slope"
+            return dict(
+                total_mass=total,torque=t["T"],motor_margin=t.get("motor_power_margin",0.0),
+                motor_ok=bool(t.get("motor_power_ok",False)),main_ah=e["Ah"],
+                main_ah_practical=e.get("Ah_recommended",e["Ah"]),main_energy=e["Eload"],
+                cycles=e["cycles"],winch_load=v["winch_load"],winch_time=w["tu"],winch_ah=w["ah"],
+                worst_lift_sf=float(lift[0]),worst_lift_angle=lift[1],worst_lift_case=lift[2],
+                slope_sf=float(slope["sf"]),overall_sf=overall_sf,overall_case=overall_case,
+                required_sf=float(d["req"])
+            )
+        finally:
+            self.apply_project_state(current,False)
+            self._core_recalculate()
+
+    @staticmethod
+    def _what_if_delta(a,b,unit="",digits=3):
+        da=float(b)-float(a)
+        return f"{da:+.{digits}f} {unit}".strip()
+
+    def sensitivity_analysis_html(self):
+        if not hasattr(self,"whatIfBaseline"):
+            self.load_what_if_baseline(silent=True)
+        base=dict(self.whatIfBaseline)
+        scenario=self._what_if_values_from_fields()
+        b=self._evaluate_coupled_scenario(base);q=self._evaluate_coupled_scenario(scenario)
+
+        input_specs=[
+            ("Base vehicle mass","base_mass","kg"),("Payload system","payload","kg"),("Boom mass","boom_mass","kg"),
+            ("Wheel track W","track","m"),("Wheelbase WB","wheelbase","m"),("Boom length L","boom_length","m"),
+            ("Crane x_C","crane_x","m"),("Base CG x","base_cg_x","m"),("Combined drive CG x","drive_cg_x","m"),
+            ("hCG","hcg","m"),("Slope","slope","deg"),("Drive design speed","drive_speed","km/h"),
+            ("Operation speed","operation_speed","km/h"),("Lift distance","lift","m"),("Winch load","winch_load","kg")
+        ]
+        ir=[]
+        for label,key,unit in input_specs:
+            av=float(base[key]);bv=float(scenario[key])
+            ir.append(f"<tr><td>{label}</td><td>{av:.3f} {unit}</td><td>{bv:.3f} {unit}</td><td>{self._what_if_delta(av,bv,unit)}</td></tr>")
+        base_total=base["base_mass"]+base["boom_mass"]+base["payload"]
+        sc_total=scenario["base_mass"]+scenario["boom_mass"]+scenario["payload"]
+        ir.insert(3,f"<tr><td><b>Total mass (Auto)</b></td><td><b>{base_total:.2f} kg</b></td><td><b>{sc_total:.2f} kg</b></td><td><b>{self._what_if_delta(base_total,sc_total,'kg',2)}</b></td></tr>")
+
+        def sf_text(v):return "N/A" if float(v)>=999 else f"{float(v):.3f}"
+        def status(v,req):return "PASS" if float(v)>=float(req) else "FAIL"
+        result_rows=[
+            ("Required torque / motor",f"{b['torque']:.2f} N·m",f"{q['torque']:.2f} N·m",self._what_if_delta(b["torque"],q["torque"],"N·m",2)),
+            ("Motor power margin",f"{b['motor_margin']:.2f}×",f"{q['motor_margin']:.2f}×",self._what_if_delta(b["motor_margin"],q["motor_margin"],"×",2)),
+            ("Main battery minimum",f"{b['main_ah']:.2f} Ah",f"{q['main_ah']:.2f} Ah",self._what_if_delta(b["main_ah"],q["main_ah"],"Ah",2)),
+            ("Main battery practical",f"{b['main_ah_practical']:.2f} Ah",f"{q['main_ah_practical']:.2f} Ah",self._what_if_delta(b["main_ah_practical"],q["main_ah_practical"],"Ah",2)),
+            ("72 V modeled energy",f"{b['main_energy']:.1f} Wh",f"{q['main_energy']:.1f} Wh",self._what_if_delta(b["main_energy"],q["main_energy"],"Wh",1)),
+            ("Completed route cycles",str(b["cycles"]),str(q["cycles"]),f"{q['cycles']-b['cycles']:+d} cycles"),
+            ("Winch lift time",f"{b['winch_time']:.2f} s",f"{q['winch_time']:.2f} s",self._what_if_delta(b["winch_time"],q["winch_time"],"s",2)),
+            ("Winch battery",f"{b['winch_ah']:.2f} Ah",f"{q['winch_ah']:.2f} Ah",self._what_if_delta(b["winch_ah"],q["winch_ah"],"Ah",2)),
+            ("Worst lifting SF",sf_text(b["worst_lift_sf"]),sf_text(q["worst_lift_sf"]),self._what_if_delta(b["worst_lift_sf"],q["worst_lift_sf"],"",3) if b["worst_lift_sf"]<999 and q["worst_lift_sf"]<999 else "—"),
+            ("Worst lifting case",f"{b['worst_lift_case']} @ {b['worst_lift_angle']}°",f"{q['worst_lift_case']} @ {q['worst_lift_angle']}°","—"),
+            ("Slope SF",sf_text(b["slope_sf"]),sf_text(q["slope_sf"]),self._what_if_delta(b["slope_sf"],q["slope_sf"],"",3) if b["slope_sf"]<999 and q["slope_sf"]<999 else "—"),
+            ("Overall governing",f"{b['overall_case']} • SF {sf_text(b['overall_sf'])}",f"{q['overall_case']} • SF {sf_text(q['overall_sf'])}",status(q["overall_sf"],q["required_sf"]))
+        ]
+        rr="".join(f"<tr><td>{a}</td><td>{bv}</td><td>{sv}</td><td><b>{dv}</b></td></tr>" for a,bv,sv,dv in result_rows)
+        link_text="ON: Winch load ตาม Payload อัตโนมัติ" if scenario["link_winch_payload"] else "OFF: Winch load เป็น Scenario Input แยก"
+
+        return (
+            "<h1>COUPLED SYSTEM WHAT-IF / ถ้าเปลี่ยนแบบนี้ ทั้งระบบจะเป็นอย่างไร?</h1>"
+            "<p><b>หลักการ:</b> ไม่เปลี่ยนทีละค่าแบบแยกส่วนอีกแล้ว แต่ใช้ Scenario หนึ่งชุดแล้วคำนวณระบบที่เกี่ยวข้องใหม่พร้อมกัน</p>"
+            "<h2>1) Baseline ↔ Scenario Input</h2>"
+            "<table border='1' cellspacing='0' cellpadding='6'><tr><th>Parameter</th><th>Baseline</th><th>Scenario</th><th>Change</th></tr>"
+            +"".join(ir)+"</table>"
+            "<h2>2) ความสัมพันธ์ที่โปรแกรมใช้จริง</h2>"
+            "<ul>"
+            "<li><b>Total mass = Base vehicle + Boom + Payload</b> แล้วส่งมวลเดียวกันไป Torque, Main Battery และ Stability</li>"
+            "<li><b>Slope</b> เดียวกันถูกใช้ใน Drive Torque, Main Battery และ Slope Stability</li>"
+            "<li><b>Wheel track W</b> กระทบ Side tipping และ Pivot/Differential turning energy (เมื่อเปิด Turning Energy)</li>"
+            "<li><b>Operation speed</b> กระทบเวลาเดินทาง, จำนวน Cycle และจำนวนงานยก Auto</li>"
+            "<li><b>Lift distance</b> กระทบเวลา Winch → เวลา 1 Cycle → จำนวน Cycle/งานยก และแบต Winch</li>"
+            f"<li><b>{link_text}</b></li>"
+            "</ul>"
+            "<h3>สิ่งที่โปรแกรมไม่เดาเอง</h3>"
+            "<p>W/WB ที่ใหญ่ขึ้นไม่ได้แปลว่าน้ำหนักโครงเพิ่มเท่าใดแบบตายตัว, L ที่ยาวขึ้นไม่ได้บอก Boom mass ใหม่โดยอัตโนมัติ, "
+            "และ CG จะขยับเท่าใดต้องรู้ตำแหน่งมวลจริง. ดังนั้นค่าเหล่านี้ให้ผู้ใช้อัปเดตใน Scenario หรือใช้ Component Mass/CG เมื่อมีข้อมูลจริง.</p>"
+            "<h2>3) ผลทั้งระบบ</h2>"
+            "<table border='1' cellspacing='0' cellpadding='6'><tr><th>Engineering result</th><th>Baseline</th><th>Scenario</th><th>Δ / Status</th></tr>"
+            +rr+"</table>"
+            "<p><b>Design จริงไม่ถูกแก้:</b> What-if ใช้สำเนาค่าปัจจุบัน คำนวณชั่วคราว แล้วคืนค่าของโปรแกรมหลังจบทุกครั้ง.</p>"
+        )
 
     def update_sensitivity_analysis(self):
-        if hasattr(self,"sensitivityView"):self.sensitivityView.setHtml(self.sensitivity_analysis_html())
+        if hasattr(self,"sensitivityView"):
+            self.sensitivityView.setHtml(self.sensitivity_analysis_html())
 
     def calculation_trace_html(self,mode="ALL"):
         t=self.torque_results();e=self.electrical_results();w=self.winch_results();d=self.inputs()
