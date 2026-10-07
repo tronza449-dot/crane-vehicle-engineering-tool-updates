@@ -1516,6 +1516,34 @@ async function refreshEngineeringDecisionSummary(){
 
 let webWhatIfBaseline=null;
 
+const WEB_WHATIF_QUICK={
+  payload:{field:"wiPayload",unit:"kg",min:0,max:2000,step:5,impact:"Total mass → Torque → Main Battery → Stability และ Winch load ถ้าเปิดลิงก์"},
+  track:{field:"wiTrack",unit:"m",min:.1,max:5,step:.05,impact:"Side Stability และ Turning Energy เมื่อเปิดการคำนวณการหมุน"},
+  boom_length:{field:"wiBoomLength",unit:"m",min:.1,max:5,step:.05,impact:"ระยะแรงของเครน → Worst SF / Critical case"},
+  crane_x:{field:"wiCraneX",unit:"m",min:-2,max:2,step:.05,impact:"Front/Rear Stability และ Critical case"},
+  slope:{field:"wiSlope",unit:"deg",min:0,max:45,step:.5,impact:"Torque + Main Battery + Slope Stability"},
+  operation_speed:{field:"wiOperationSpeed",unit:"km/h",min:.05,max:50,step:.1,impact:"เวลาเดินทาง → จำนวน Cycle → งานยก Auto → Battery"},
+  lift:{field:"wiLift",unit:"m",min:.05,max:10,step:.05,impact:"เวลา Winch → เวลา Cycle → จำนวนงานยก + Winch Battery"}
+};
+
+function refreshWebSimpleWhatIf(){
+  const key=$("#wiQuickParam")?.value||"payload",spec=WEB_WHATIF_QUICK[key];
+  if(!spec)return;
+  const field=$("#"+spec.field),q=$("#wiQuickValue"),cur=num(field?.value,0);
+  if($("#wiQuickCurrent"))$("#wiQuickCurrent").textContent=f(cur,3)+" "+spec.unit;
+  if($("#wiQuickImpact"))$("#wiQuickImpact").innerHTML="<b>โปรแกรมจะคำนวณต่อให้:</b> "+spec.impact;
+  if(q){
+    q.min=String(spec.min);q.max=String(spec.max);q.step=String(spec.step);q.value=String(cur);
+  }
+}
+
+function applyWebSimpleWhatIf(){
+  const key=$("#wiQuickParam")?.value||"payload",spec=WEB_WHATIF_QUICK[key],q=$("#wiQuickValue");
+  if(!spec||!q)return;
+  const field=$("#"+spec.field);if(field)field.value=q.value;
+  syncWebWhatIfDerived();
+}
+
 function wiNum(id,fallback=0){return num($("#"+id)?.value,fallback);}
 function webWhatIfScenario(){
   const link=!!$("#wiLinkWinchPayload")?.checked;
@@ -1564,8 +1592,9 @@ async function loadWebWhatIfBaseline(silent=false){
   if($("#wiLinkWinchPayload"))$("#wiLinkWinchPayload").checked=link;
   syncWebWhatIfDerived();
   webWhatIfBaseline=webWhatIfScenario();
+  refreshWebSimpleWhatIf();
   if(!silent&&$("#webSensitivityResult")){
-    $("#webSensitivityResult").innerHTML='<div class="notice"><b>Baseline loaded.</b> แก้หลายค่าได้พร้อมกัน แล้วกด “คำนวณ What-if ทั้งระบบ”</div>';
+    $("#webSensitivityResult").innerHTML='<div class="notice"><b>รีเซ็ตแล้ว</b> เลือกสิ่งที่อยากลองเปลี่ยน ใส่ค่าใหม่ แล้วกด “ดูผลกระทบทั้งระบบ”</div>';
   }
   return webWhatIfBaseline;
 }
@@ -1633,6 +1662,7 @@ async function runWebSensitivity(){
   buttonBusy(btn,"กำลังคำนวณทั้งระบบ...");
   try{
     if(!webWhatIfBaseline)await loadWebWhatIfBaseline(true);
+    applyWebSimpleWhatIf();
     syncWebWhatIfDerived();
     const base=Object.assign({},webWhatIfBaseline);
     const scenario=webWhatIfScenario();
@@ -1666,19 +1696,30 @@ async function runWebSensitivity(){
       ["Overall governing",b.overall_case+" • SF "+sf(b.overall_sf),s.overall_case+" • SF "+sf(s.overall_sf),statusSpan(s.overall_sf>=s.required_sf)]
     ].map(r=>'<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td><b>'+r[3]+'</b></td></tr>');
 
+    const quickKey=$("#wiQuickParam")?.value||"payload",quickSpec=WEB_WHATIF_QUICK[quickKey];
+    const quickLabel=$("#wiQuickParam")?.selectedOptions?.[0]?.textContent||"Scenario";
+    const beforeVal=base[quickKey],afterVal=scenario[quickKey];
+    const quickText=(beforeVal!==undefined&&afterVal!==undefined)
+      ? '<p class="whatif-change"><b>'+quickLabel+'</b>: '+f(beforeVal,3)+' '+quickSpec.unit+' → <b>'+f(afterVal,3)+' '+quickSpec.unit+'</b></p>'
+      : '';
+
+    const compactRows=[
+      ["Torque / motor",f(b.torque,2)+" N·m",f(s.torque,2)+" N·m",whatIfDelta(b.torque,s.torque,2,"N·m")],
+      ["Main Battery",f(b.main_ah_practical,2)+" Ah",f(s.main_ah_practical,2)+" Ah",whatIfDelta(b.main_ah_practical,s.main_ah_practical,2,"Ah")],
+      ["Winch Battery",f(b.winch_ah,2)+" Ah",f(s.winch_ah,2)+" Ah",whatIfDelta(b.winch_ah,s.winch_ah,2,"Ah")],
+      ["Worst Stability SF",sf(b.overall_sf),sf(s.overall_sf),statusSpan(s.overall_sf>=s.required_sf)],
+      ["จุดวิกฤต",b.overall_case,s.overall_case,"—"]
+    ].map(r=>'<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td><b>'+r[2]+'</b></td><td>'+r[3]+'</td></tr>').join("");
+
     out.innerHTML=
-      '<h3>Coupled System What-if / ผลสัมพันธ์ทั้งระบบ</h3>'+
-      '<p><b>หลักการ:</b> Scenario เดียวถูกส่งไปคำนวณ Drive + Main Battery + Winch + Stability ใหม่พร้อมกัน ไม่ใช่การขยับทีละค่าแบบแยกส่วน</p>'+
-      '<h4>1) Baseline ↔ Scenario Input</h4><div style="overflow:auto"><table><tr><th>Parameter</th><th>Baseline</th><th>Scenario</th><th>Change</th></tr>'+inputRows.join("")+'</table></div>'+
-      '<h4>2) ความสัมพันธ์ที่ใช้</h4><ul>'+
-      '<li>Total mass = Base + Boom + Payload แล้วส่งมวลเดียวกันไป Torque/Battery/Stability</li>'+
-      '<li>Slope เดียวกันใช้กับ Drive/Battery/Slope Stability</li>'+
-      '<li>W กระทบ Side tipping และ Turning Energy เมื่อเปิดโหมดนั้น</li>'+
-      '<li>Operation speed กระทบเวลาเดินทาง, จำนวน Cycle และจำนวนงานยก Auto</li>'+
-      '<li>Lift distance กระทบเวลา Winch → เวลา Cycle → จำนวน Cycle/งานยก และแบต Winch</li>'+
-      '<li>'+(scenario.link_winch_payload?'Winch load linked to Payload':'Winch load แยกจาก Payload ตาม Scenario')+'</li></ul>'+
-      '<div class="notice"><b>ไม่เดาอัตโนมัติ:</b> การเพิ่ม W/WB ไม่สามารถรู้มวลโครงใหม่โดยไม่มีแบบโครงสร้าง, การเพิ่ม L ไม่รู้ Boom mass ใหม่โดยไม่มีหน้าตัด/วัสดุ, และ CG ต้องมาจากตำแหน่งมวลจริง</div>'+
-      '<h4>3) Engineering Output</h4><div style="overflow:auto"><table><tr><th>Result</th><th>Baseline</th><th>Scenario</th><th>Δ / Status</th></tr>'+resultRows.join("")+'</table></div>'+
+      '<h3>ผล What-if แบบง่าย</h3>'+quickText+
+      '<h4>สรุปที่ควรดูก่อน</h4><div style="overflow:auto"><table><tr><th>ผลสำคัญ</th><th>ก่อน</th><th>หลัง</th><th>Δ / Status</th></tr>'+compactRows+'</table></div>'+
+      '<div class="notice"><b>โปรแกรมคำนวณต่อให้อัตโนมัติ:</b> Total mass / Torque / Main Battery / Winch cycle / Stability ตามความสัมพันธ์ของค่าที่เลือก</div>'+
+      '<details class="whatif-result-details"><summary>ดูรายละเอียดวิศวกรรมทั้งหมด</summary>'+
+      '<h4>Baseline ↔ Scenario Input</h4><div style="overflow:auto"><table><tr><th>Parameter</th><th>Baseline</th><th>Scenario</th><th>Change</th></tr>'+inputRows.join("")+'</table></div>'+
+      '<h4>Engineering Output</h4><div style="overflow:auto"><table><tr><th>Result</th><th>Baseline</th><th>Scenario</th><th>Δ / Status</th></tr>'+resultRows.join("")+'</table></div>'+
+      '<div class="notice"><b>ไม่เดาอัตโนมัติ:</b> มวลโครงที่เพิ่มจาก W/WB, Boom mass ที่เปลี่ยนตาม L และตำแหน่ง CG ต้องมีข้อมูลโครงสร้างจริงก่อน</div>'+
+      '</details>'+
       '<p class="check">What-if ใช้สำเนาค่าเพื่อคำนวณ ไม่เขียนทับ Design จริง</p>';
     buttonSuccess(btn,"What-if ✓","คำนวณ What-if ทั้งระบบแล้ว");
   }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","What-if ทั้งระบบไม่สำเร็จ");}
@@ -1689,6 +1730,8 @@ $("#loadWebWhatIfBaseline")?.addEventListener("click",async()=>{
   try{await loadWebWhatIfBaseline(false);buttonSuccess(btn,"Baseline ✓","โหลด Baseline แล้ว");}
   catch(e){setError($("#webSensitivityResult"),e);buttonError(btn,"ไม่สำเร็จ","โหลด Baseline ไม่สำเร็จ");}
 });
+$("#wiQuickParam")?.addEventListener("change",refreshWebSimpleWhatIf);
+$("#wiQuickValue")?.addEventListener("input",applyWebSimpleWhatIf);
 ["wiBaseMass","wiPayload","wiBoomMass","wiTrack","wiWheelbase","wiBoomLength","wiCraneX","wiBaseCgX",
  "wiCombinedCgRear","wiHcg","wiSlope","wiDriveSpeed","wiOperationSpeed","wiLift","wiWinchLoad","wiLinkWinchPayload"]
  .forEach(id=>$("#"+id)?.addEventListener("input",syncWebWhatIfDerived));
