@@ -443,7 +443,9 @@ jobs:
           for fn in ("refreshEngineeringDecisionSummary","loadWebWhatIfBaseline","calculateWebCoupledScenario","runWebSensitivity","refreshWebCalculationTrace","applyWebDesignLock","compareWebRevisionData"):
               assert ("function "+fn) in web_js, f"Missing Web engineering function: {fn}"
           assert "Engineering Decision Tools" in web_index
-          assert "What-if ทั้งระบบ / Coupled Scenario" in web_index
+          assert "What-if แบบง่าย" in web_index
+          assert 'id="wiQuickParam"' in web_index and 'id="wiQuickValue"' in web_index
+          assert "WEB_WHATIF_QUICK" in web_js and "refreshWebSimpleWhatIf" in web_js
           assert "ดูที่มาของคำตอบ / สูตรทีละขั้น" in web_index and "Calculation Trace" in web_index
           assert '<option value="Ramp Geometry">ทางลาด / Ramp</option>' in web_index
           assert "Overall governing stability" in web_js
@@ -888,7 +890,7 @@ jobs:
 
           # ---------- V53.8.43 Engineering Decision Tools ----------
           tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
-          for expected in ("Engineering Summary","What-if ทั้งระบบ / Coupled Scenario","ที่มาคำตอบ / สูตรทีละขั้น","Compare Design"):
+          for expected in ("Engineering Summary","What-if แบบง่าย","ที่มาคำตอบ / สูตรทีละขั้น","Compare Design"):
               assert expected in tab_names, f"Missing Project Tools tab: {expected}"
           summary_html=w.engineering_summary_html()
           assert "ENGINEERING WORST-CASE SUMMARY" in summary_html
@@ -905,10 +907,16 @@ jobs:
           wi1=w._what_if_values_from_fields()
           scenario_total=wi1["base_mass"]+wi1["boom_mass"]+wi1["payload"]
           assert abs((base_total-scenario_total)-20.0)<1e-6
+          assert hasattr(w,"whatIfQuickParam") and hasattr(w,"whatIfQuickValue")
+          assert w.whatIfQuickParam.count()>=7
+          w.whatIfQuickParam.setCurrentIndex(0)
+          w._refresh_simple_what_if_editor()
+          w.whatIfQuickValue.setValue(max(0.0,wi0["payload"]-20.0))
+          assert abs(w.whatIfPayload.value()-max(0.0,wi0["payload"]-20.0))<1e-6
           sensitivity_html=w.sensitivity_analysis_html()
-          assert "COUPLED SYSTEM WHAT-IF" in sensitivity_html
-          assert "Total mass = Base vehicle + Boom + Payload" in sensitivity_html
-          for expected in ("Required torque / motor","Main battery minimum","Winch battery","Worst lifting SF","Overall governing"):
+          assert "WHAT-IF แบบง่าย" in sensitivity_html
+          assert "สรุปผลที่ควรดู" in sensitivity_html
+          for expected in ("Torque / motor","Main Battery","Winch Battery","Worst Stability SF","จุดวิกฤต"):
               assert expected in sensitivity_html
           w.load_what_if_baseline(silent=True)
           trace_html=w.calculation_trace_html("ALL")
