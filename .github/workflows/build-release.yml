@@ -75,6 +75,8 @@ jobs:
 
           assert "reportlab" not in source.lower(), "Unused ReportLab code remained"
           assert "UnicodeCIDFont" not in source, "Wrong CID PDF font code remained"
+          assert "def _winch_interp_first_layer_details" in source
+          assert "def winch_interpolation_html" in source
 
           # ---------- Web engine regression ----------
           web_winch=webcalc.calculate_winch({
@@ -90,6 +92,13 @@ jobs:
           assert web_winch["battery"]["events"]==64
           assert 34.0 < web_winch["battery"]["ah_design"] < 35.5
           assert web_winch["battery"]["candidate_energy_ok"]
+          wc=web_winch["core"]
+          assert abs(wc["interp_alpha"]-(100.0/454.0))<1e-12
+          assert wc["interp_lower_load_kg"]==0.0 and wc["interp_upper_load_kg"]==454.0
+          assert wc["interp_lower_speed_m_min"]==3.3 and wc["interp_upper_speed_m_min"]==2.5
+          assert wc["interp_lower_current_a"]==12.0 and wc["interp_upper_current_a"]==60.0
+          assert abs(wc["up_speed_m_min"]-(3.3+(2.5-3.3)*(100.0/454.0)))<1e-9
+          assert abs(wc["up_current_a"]-(12.0+(60.0-12.0)*(100.0/454.0)))<1e-9
 
           web_manual=webcalc.calculate_winch({
               "load_kg":100.0,"lift_m":1.5,"event_mode":"manual","manual_events":50,
@@ -282,6 +291,10 @@ jobs:
           assert "12 V SEPARATE BATTERY" in web_html
           assert "พลังงานวินช์ไม่ถูกรวมใน Main Battery 72 V" in web_html
           assert "function winchBatteryPayload" in web_js
+          assert "Linear Interpolation — จากตาราง First Layer" in web_js
+          assert "STEP 1 — r = (x − x₁) ÷ (x₂ − x₁)" in web_js
+          assert "STEP 2 — v = v₁ + r(v₂ − v₁)" in web_js
+          assert "STEP 3 — I = I₁ + r(I₂ − I₁)" in web_js
           assert 'formObject($("#winchForm")),formObject($("#winchBatteryForm"))' in web_js
           assert "72 V Main Battery: คำนวณอีกหน้า และไม่บวก Wh/Ah ชุดนี้เข้าไป" in web_js
           assert '["driveForm","rampForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"]' in web_js
@@ -670,9 +683,23 @@ jobs:
           assert abs(core["iup"]-expected_current)<1e-9
           assert abs(core["tu"]-28.811169087575802)<1e-6
           assert core["rope_layer"]==1 and core["layer_pull_kg"]==2041.0
+          assert core["interp_x0"]==0.0 and core["interp_x1"]==454.0
+          assert core["interp_v0"]==3.3 and core["interp_v1"]==2.5
+          assert core["interp_i0"]==12.0 and core["interp_i1"]==60.0
+          assert abs(core["interp_fraction"]-(100.0/454.0))<1e-12
           w.calc_winch()
           assert "First Layer" in w.wSpecResult.text()
           assert "Ah" not in w.wSpecResult.text()
+          assert hasattr(w,"wInterpDetails") and not w.wInterpDetails.isHidden()
+          interp_text=w.wInterpDetails.toPlainText()
+          assert "LINEAR INTERPOLATION" in interp_text
+          assert "0 kg" in interp_text and "454 kg" in interp_text
+          assert "3.124 m/min" in interp_text and "22.57 A" in interp_text
+          interp_html=w.winch_interpolation_html(core)
+          assert "r = (x − x₁)" in interp_html
+          assert "v = v₁ + r(v₂ − v₁)" in interp_html
+          assert "I = I₁ + r(I₂ − I₁)" in interp_html
+          assert "LINEAR INTERPOLATION" in w.winch_html()
 
           # Operating cycle is the only source for automatic event count.
           w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
