@@ -315,3 +315,7 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
 @media(max-width:620px){
   .power-separation-banner{align-items:flex-start;flex-direction:column}
 }
+
+.main-battery-banner{border-color:#a9d7ba;background:#f0fbf4}
+.system-chip.green{background:#e6f8ed;color:#176337;border:1px solid #a9d7ba}
+.system-result-head.main-72v{background:#f0fbf4;border-color:#a9d7ba}
