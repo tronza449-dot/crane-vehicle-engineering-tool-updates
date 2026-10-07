@@ -384,7 +384,7 @@ function applyComponentMassPreview(syncProject=true){
   }
 }
 
-function syncStabilityMassModeUI(){
+function syncStabilityMassModeUI(syncProject=true){
   const mode=stabilityMassMode();
   $("#stabilityTotalMassFields")?.classList.toggle("hidden",mode!=="total");
   $("#stabilityComponentMassFields")?.classList.toggle("hidden",mode!=="components");
@@ -392,7 +392,7 @@ function syncStabilityMassModeUI(){
     const radio=$('input[type="radio"]',card);
     card.classList.toggle("selected",!!radio?.checked);
   });
-  if(mode==="components") applyComponentMassPreview(true);
+  if(mode==="components") applyComponentMassPreview(syncProject);
 }
 
 function stabilityPayload(){
@@ -459,6 +459,133 @@ async function api(path,payload){
   }
   if(!res.ok||data.ok===false) throw new Error(data.message||"คำนวณไม่สำเร็จ");
   return data.result;
+}
+
+async function apiGet(path){
+  const headers={};
+  const pin=getPin(); if(pin) headers["X-CVET-PIN"]=pin;
+  const res=await fetch(path,{method:"GET",headers});
+  const data=await res.json().catch(()=>({ok:false,message:"Invalid server response"}));
+  if(res.status===401){
+    $("#pinBar").classList.remove("hidden");
+    $("#pinStatus").textContent="PIN ไม่ถูกต้อง";
+    throw new Error("ต้องกรอก Web PIN ที่ถูกต้อง");
+  }
+  if(!res.ok||data.ok===false) throw new Error(data.message||"โหลดข้อมูล Desktop ไม่สำเร็จ");
+  return data;
+}
+
+function applyDesktopFormValues(formId,values){
+  const form=$("#"+formId);
+  if(!form||!values) return 0;
+  let changed=0;
+  Object.entries(values).forEach(([name,value])=>{
+    const field=form.elements[name];
+    if(!field || value===undefined || value===null) return;
+
+    // RadioNodeList, e.g. Stability mass_mode.
+    if(typeof field.length==="number" && !field.tagName && field[0]){
+      Array.from(field).forEach(el=>{
+        if(el.type==="radio") el.checked=String(el.value)===String(value);
+      });
+      changed++;return;
+    }
+
+    if(field.type==="checkbox"){
+      field.checked=!!value;
+    }else if(field.type==="radio"){
+      field.checked=String(field.value)===String(value);
+    }else{
+      field.value=String(value);
+    }
+    changed++;
+  });
+  return changed;
+}
+
+function applyDesktopComponentRows(rows){
+  if(!Array.isArray(rows)||!rows.length) return 0;
+  const tableRows=Array.from(document.querySelectorAll("#stabilityComponentBody tr"));
+  let changed=0;
+  rows.slice(0,tableRows.length).forEach((row,index)=>{
+    const tr=tableRows[index];
+    const pairs=[
+      ["name",row.name],["mass",row.mass_kg],["x",row.x_m],["y",row.y_m],["z",row.z_m]
+    ];
+    pairs.forEach(([key,value])=>{
+      const el=$('[data-comp="'+key+'"]',tr);
+      if(el && value!==undefined && value!==null){el.value=String(value);changed++;}
+    });
+  });
+  return changed;
+}
+
+function refreshDependentWebControlsAfterDesktopSync(){
+  syncStabilityMassModeUI(false);
+  const eventMode=$("#eventMode");
+  if(eventMode) $("#manualEventsWrap").classList.toggle("hidden",eventMode.value!=="manual");
+  const downMode=$("#downMode");
+  if(downMode) $$(".customDown").forEach(x=>x.classList.toggle("hidden",downMode.value!=="custom"));
+  syncTurnEnergyControls();
+  saveWebInputs();
+  syncVehicleParameters();
+}
+
+function recalculateAfterDesktopSync(){
+  // Sequence avoids Main Battery running before Winch has refreshed its lift time.
+  setTimeout(()=>$("#calcRamp")?.click(),80);
+  setTimeout(()=>$("#calcDrive")?.click(),160);
+  setTimeout(()=>$("#calcWinch")?.click(),260);
+  setTimeout(()=>$("#calcWinchBattery")?.click(),520);
+  setTimeout(()=>$("#calcBattery")?.click(),680);
+  setTimeout(()=>$("#calcStability")?.click(),820);
+}
+
+async function syncDesktopProjectValues(options={}){
+  const automatic=!!options.automatic;
+  const btn=$("#syncDesktopValues");
+  const status=$("#desktopSyncStatus");
+  if(!automatic) buttonBusy(btn,"กำลัง Sync...");
+  if(status) status.textContent="กำลังอ่าน Desktop Save Values...";
+
+  try{
+    const data=await apiGet("/api/project-values");
+    let changed=0;
+    Object.entries(data.forms||{}).forEach(([formId,values])=>{
+      changed+=applyDesktopFormValues(formId,values);
+    });
+    changed+=applyDesktopComponentRows(data.components||[]);
+
+    // Desktop is the source of truth at this moment. Remove old cross-module
+    // browser sharing values so they cannot immediately overwrite imported data.
+    try{localStorage.removeItem(CVET_SHARED_STORE);}catch(e){}
+
+    refreshDependentWebControlsAfterDesktopSync();
+
+    const stamp=(data.saved_at&&data.saved_at!=="-")?String(data.saved_at).replace("T"," "):"-";
+    if(status){
+      status.textContent="Desktop V"+(data.desktop_version||"-")+" • "+stamp+" • "+data.source;
+      status.classList.remove("sync-error");
+      status.classList.add("sync-ok");
+    }
+    try{
+      localStorage.setItem("cvet_desktop_sync_meta",JSON.stringify({
+        desktop_version:data.desktop_version||"-",saved_at:data.saved_at||"-",source:data.source||"-"
+      }));
+    }catch(e){}
+
+    recalculateAfterDesktopSync();
+    if(!automatic) buttonSuccess(btn,"Synced ✓","โหลดค่าจาก Desktop แล้ว "+changed+" ค่า");
+    return data;
+  }catch(err){
+    if(status){
+      status.textContent=String(err.message||err);
+      status.classList.remove("sync-ok");
+      status.classList.add("sync-error");
+    }
+    if(!automatic) buttonError(btn,"Sync ไม่สำเร็จ","โหลด Desktop Save Values ไม่สำเร็จ");
+    return null;
+  }
 }
 function setLoading(el){el.classList.remove("empty");el.innerHTML="<p>กำลังคำนวณ...</p>";}
 function setError(el,err){el.classList.remove("empty");el.innerHTML='<div class="error">'+String(err.message||err)+'</div>';}
@@ -613,6 +740,7 @@ function openTab(tabName){
 $$(".tab").forEach(btn=>btn.addEventListener("click",()=>openTab(btn.dataset.tab)));
 $$("[data-open-tab]").forEach(card=>card.addEventListener("click",()=>openTab(card.dataset.openTab)));
 $("#savePin").addEventListener("click",()=>{localStorage.setItem("cvet_web_pin",$("#webPin").value.trim());$("#pinStatus").textContent="บันทึกแล้ว";});
+$("#syncDesktopValues")?.addEventListener("click",()=>syncDesktopProjectValues({automatic:false}));
 $("#eventMode").addEventListener("change",()=>{$("#manualEventsWrap").classList.toggle("hidden",$("#eventMode").value!=="manual");});
 $("#downMode").addEventListener("change",()=>{$$(".customDown").forEach(x=>x.classList.toggle("hidden",$("#downMode").value!=="custom"));});
 
@@ -1221,6 +1349,7 @@ $("#calcStability").addEventListener("click",async(evt)=>{
 
 setupDynamicProjectParameters();
 checkHealth();
+setTimeout(()=>syncDesktopProjectValues({automatic:true}),100);
 setTimeout(()=>$("#calcRamp").click(),180);
 setTimeout(()=>$("#calcWinch").click(),300);
 setTimeout(()=>$("#calcWinchBattery").click(),360);
