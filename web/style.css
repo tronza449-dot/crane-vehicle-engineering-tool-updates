@@ -325,3 +325,15 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
 .main-battery-banner{border-color:#a9d7ba;background:#f0fbf4}
 .system-chip.green{background:#e6f8ed;color:#176337;border:1px solid #a9d7ba}
 .system-result-head.main-72v{background:#f0fbf4;border-color:#a9d7ba}
+
+
+.engineering-toolbox{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:16px;background:#fff}
+.toolbox-head{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.toolbox-head h3{margin:0}.toolbox-head p{margin:3px 0 0;color:#64748b}
+.toolbox-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.toolbox-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fbfdff;min-width:0}
+.toolbox-card h3{margin-top:0}.toolbox-card .result{max-height:520px;overflow:auto;margin-top:10px}
+.revision-buttons{display:grid;grid-template-columns:1fr auto;gap:8px}
+.revision-buttons #compareWebRevisions{grid-column:1/-1}
+.design-input-locked{pointer-events:none!important;opacity:.72;background:#eef2f7!important}
+@media(max-width:900px){.toolbox-grid{grid-template-columns:1fr}.toolbox-head{align-items:flex-start;flex-direction:column}}
