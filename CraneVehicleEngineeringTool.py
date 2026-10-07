@@ -6590,17 +6590,79 @@ void loop() {{
             "force_sf":1.50,
         }
 
-    def _winch_interp_first_layer(self,load_kg):
+    def _winch_interp_first_layer_details(self,load_kg):
+        """Return the exact two datasheet points and linear-interpolation result."""
         spec=self._winch_locked_spec()
         pts=spec["perf"]
         x=max(pts[0][0],min(float(load_kg),pts[-1][0]))
+
         if x<=pts[0][0]:
-            return pts[0][1],pts[0][2]
-        for (x0,v0,i0,_),(x1,v1,i1,_) in zip(pts[:-1],pts[1:]):
-            if x<=x1:
-                frac=(x-x0)/(x1-x0) if x1>x0 else 0.0
-                return v0+(v1-v0)*frac, i0+(i1-i0)*frac
-        return pts[-1][1],pts[-1][2]
+            x0,v0,i0,_=pts[0]
+            x1,v1,i1,_=pts[1]
+        else:
+            x0=v0=i0=x1=v1=i1=None
+            for a,b in zip(pts[:-1],pts[1:]):
+                if x<=b[0]:
+                    x0,v0,i0,_=a
+                    x1,v1,i1,_=b
+                    break
+            if x0 is None:
+                x0,v0,i0,_=pts[-2]
+                x1,v1,i1,_=pts[-1]
+
+        frac=(x-x0)/(x1-x0) if x1>x0 else 0.0
+        frac=max(0.0,min(1.0,frac))
+        speed=v0+(v1-v0)*frac
+        current=i0+(i1-i0)*frac
+        return dict(
+            load_kg=x,
+            lower_load_kg=x0,upper_load_kg=x1,
+            lower_speed_m_min=v0,upper_speed_m_min=v1,
+            lower_current_a=i0,upper_current_a=i1,
+            fraction=frac,speed_m_min=speed,current_a=current,
+        )
+
+    def _winch_interp_first_layer(self,load_kg):
+        q=self._winch_interp_first_layer_details(load_kg)
+        return q["speed_m_min"],q["current_a"]
+
+    def winch_interpolation_html(self,core=None):
+        core=core or self.winch_core_results()
+        x=core["m"];x0=core["interp_x0"];x1=core["interp_x1"]
+        v0=core["interp_v0"];v1=core["interp_v1"]
+        i0=core["interp_i0"];i1=core["interp_i1"]
+        a=core["interp_fraction"]
+        return f"""
+        <div style="border:1px solid #b8cbe0;border-radius:10px;padding:12px;background:#f7fbff">
+        <h2 style="color:#17324d;margin-top:0">LINEAR INTERPOLATION — จากตาราง First Layer</h2>
+        <p><b>กำลังหาอะไร:</b> หาความเร็วสลิงและกระแสมอเตอร์ที่ Load = <b>{x:.1f} kg</b>
+        ซึ่งไม่มีแถวตรง ๆ ใน Datasheet</p>
+        <p><b>ช่วงข้อมูลที่ใช้:</b> {x0:.0f} kg → {x1:.0f} kg<br>
+        ที่ {x0:.0f} kg: v₁ = {v0:.3f} m/min, I₁ = {i0:.2f} A<br>
+        ที่ {x1:.0f} kg: v₂ = {v1:.3f} m/min, I₂ = {i1:.2f} A</p>
+
+        <h3>STEP 1 — หาสัดส่วนตำแหน่งของ Load</h3>
+        <p><b>สูตร:</b> r = (x − x₁) ÷ (x₂ − x₁)<br>
+        <b>อ่านสูตรแบบภาษาไทย:</b> สัดส่วน = (โหลดที่ต้องการ − โหลดจุดล่าง) ÷ (โหลดจุดบน − โหลดจุดล่าง)<br>
+        <b>แทนค่า:</b> r = ({x:.1f} − {x0:.1f}) ÷ ({x1:.1f} − {x0:.1f})
+        = <b>{a:.6f}</b> หรือ <b>{a*100:.2f}%</b></p>
+
+        <h3>STEP 2 — Interpolate ความเร็วสลิง</h3>
+        <p><b>สูตร:</b> v = v₁ + r(v₂ − v₁)<br>
+        <b>อ่านสูตรแบบภาษาไทย:</b> ความเร็วที่ต้องการ = ความเร็วจุดล่าง + สัดส่วน × (ความเร็วจุดบน − ความเร็วจุดล่าง)<br>
+        <b>แทนค่า:</b> v = {v0:.3f} + ({a:.6f})({v1:.3f} − {v0:.3f})
+        = <b>{core['up_speed']:.3f} m/min</b></p>
+
+        <h3>STEP 3 — Interpolate กระแสมอเตอร์</h3>
+        <p><b>สูตร:</b> I = I₁ + r(I₂ − I₁)<br>
+        <b>อ่านสูตรแบบภาษาไทย:</b> กระแสที่ต้องการ = กระแสจุดล่าง + สัดส่วน × (กระแสจุดบน − กระแสจุดล่าง)<br>
+        <b>แทนค่า:</b> I = {i0:.2f} + ({a:.6f})({i1:.2f} − {i0:.2f})
+        = <b>{core['iup']:.2f} A</b></p>
+
+        <p><b>ผลที่นำไปใช้ต่อ:</b> v = {core['up_speed']:.3f} m/min ใช้หาเวลา UP •
+        I = {core['iup']:.2f} A ใช้คำนวณพลังงานแบตวินช์</p>
+        </div>
+        """
 
     def _winch_layer_for_distance(self,distance_m):
         """Estimate ending rope layer from cumulative rope-on-drum values on the supplied sheet."""
@@ -6940,6 +7002,10 @@ void loop() {{
         self.wSpecResult=QLabel();self.wSpecResult.setWordWrap(True)
         self.wSpecResult.setStyleSheet("font-size:11pt;font-weight:700;background:#eefaf4;color:#155b2a;padding:14px;border:1px solid #a9d7ba;border-radius:10px")
         cg.addWidget(self.wSpecResult,3,0,1,3)
+        self.wInterpDetails=QTextEdit(w);self.wInterpDetails.setReadOnly(True)
+        self.wInterpDetails.setMinimumHeight(360)
+        self.wInterpDetails.setStyleSheet("font-size:10.8pt;padding:8px;background:#fbfdff")
+        cg.addWidget(self.wInterpDetails,4,0,1,3)
         # Old widgets remain hidden only for backward compatibility with reports/tools.
         self.wcycles=QSpinBox(w);self.wcycles.setRange(1,100000);self.wcycles.setValue(1);self.wcycles.setEnabled(False);self.wcycles.hide()
         self.wSummary=QLabel(w);self.wSummary.hide()
@@ -6978,10 +7044,12 @@ void loop() {{
                     current_a=current)
 
     def winch_speed_html(self,x):
-        return (f"<h2>First-layer performance</h2>"
+        core=self.winch_core_results()
+        return self.winch_interpolation_html(core)+(
+                f"<h2>First-layer performance — Result</h2>"
                 f"<p>Project load {self.wmass.value():.1f} kg → speed <b>{x['load_up']:.3f} m/min</b>, "
                 f"motor current <b>{x.get('current_a',self.wiup.value()):.2f} A</b>.</p>"
-                "<p>ได้จาก linear interpolation ของตาราง First Layer. ใบสเปกไม่ให้ performance ขาลงแยกต่างหาก.</p>")
+                "<p>ใบสเปกไม่ให้ performance ขาลงแยกต่างหาก.</p>")
 
     def apply_winch_speed(self):
         self.calc_winch()
@@ -7001,13 +7069,18 @@ void loop() {{
         self._sync_locked_winch_widgets()
         spec=self._winch_locked_spec()
         m=self.wmass.value();h=self.wheight.value()
-        speed,current=self._winch_interp_first_layer(m)
+        interp=self._winch_interp_first_layer_details(m)
+        speed,current=interp["speed_m_min"],interp["current_a"]
         layer,layer_capacity_m,layer_pull_kg=self._winch_layer_for_distance(h)
         tu=h/speed*60.0 if speed>0 else 0.0
         return dict(
             m=m,h=h,v=spec["project_voltage_v"],tu=tu,
             f=m*G,fd=m*G*spec["force_sf"],mechanical=m*G*h/3600.0,
             iup=current,up_speed=speed,
+            interp_x0=interp["lower_load_kg"],interp_x1=interp["upper_load_kg"],
+            interp_v0=interp["lower_speed_m_min"],interp_v1=interp["upper_speed_m_min"],
+            interp_i0=interp["lower_current_a"],interp_i1=interp["upper_current_a"],
+            interp_fraction=interp["fraction"],
             max_spec_current=140.0,spec_source="4500LB WINCH SPECIFICATION — user supplied",
             rope_layer=layer,layer_capacity_m=layer_capacity_m,layer_pull_kg=layer_pull_kg,
             layer_pull_ok=(m<=layer_pull_kg)
@@ -7494,6 +7567,8 @@ void loop() {{
         <p>Rated line pull 4500 lb (2041 kg), single line • Motor 1.4 kW / 1.9 hp • Gear ratio 136:1 • Cable Ø5 mm × 10 m • Drum Ø37 × 72 mm</p>
         <h2>Current design input</h2>
         <p>Load = <b>{core['m']:.1f} kg</b> • Lift Distance = <b>{core['h']:.2f} m</b></p>
+        {self.winch_interpolation_html(core)}
+        <h2>ผลที่ใช้คำนวณต่อ</h2>
         <p>First-layer interpolation → speed = <b>{core['up_speed']:.3f} m/min</b>,
         current = <b>{core['iup']:.2f} A</b>, t_up = <b>{core['tu']:.2f} s</b></p>
         <p>Estimated rope layer = <b>{core['rope_layer']}</b> • sheet line-pull = <b>{core['layer_pull_kg']:.0f} kg</b> →
@@ -7512,6 +7587,8 @@ void loop() {{
                 f"First Layer: speed {core['up_speed']:.3f} m/min • current {core['iup']:.2f} A • t_up {core['tu']:.2f} s\n"
                 f"Rope Layer {core['rope_layer']} • sheet line-pull {core['layer_pull_kg']:.0f} kg • {'PASS' if core['layer_pull_ok'] else 'CHECK LOAD'}"
             )
+        if hasattr(self,"wInterpDetails"):
+            self.wInterpDetails.setHtml(self.winch_interpolation_html(core))
         if hasattr(self,"wopSummary"):self.calc_winch_operation()
         if hasattr(self,"wbSummary"):self.calc_winch_battery()
         if hasattr(self,"wSteps"):self.wSteps.setHtml(self.winch_formula_html())
