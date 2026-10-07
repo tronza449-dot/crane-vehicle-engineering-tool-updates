@@ -187,6 +187,7 @@ function syncVehicleParameters(){
   setParam("paramRuntime",smart(runtime,2)+" h");
   setParam("paramCraneRotation","±"+smart(rotation,1)+"°");
   setParam("paramCraneArm",smart(arm,2)+" m");
+  setParam("paramCraneBase","250 × 250 mm");
   setParam("paramTrack",smart(trackM*1000,0)+" mm");
   setParam("paramWinchSupply",smart(winchV,1)+" V Separate");
 }
