@@ -231,7 +231,7 @@ jobs:
           assert "ดูรูปนี้แค่ 4 อย่าง" in source
           assert "ทำให้คว่ำ (M_O)" in source
           assert "ต้านการคว่ำ (M_R)" in source
-          assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in source
+          assert "Design guidance:" in source
           assert "def stability_easy_report_html" in source
           assert "วิธีอ่านรายงาน Stability แบบง่าย" in source
           assert "d⊥ คือระยะจากแรงถึงแนวล้อที่เป็นแกนคว่ำ" in source
@@ -344,7 +344,7 @@ jobs:
           assert "CVET_Screenshots" in source
           assert "📸 Capture All FBD" in source
           assert "Current-angle governing case" in source
-          assert "DESIGN GUIDANCE & CRITICAL-CASE SUMMARY" in source
+          assert "Design guidance:" in source
           assert "stability_design_guidance" in source
           assert "physical +y is drawn upward" in source
           assert "x_crane(global)" in source
