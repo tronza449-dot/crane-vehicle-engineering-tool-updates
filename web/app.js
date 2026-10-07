@@ -326,7 +326,7 @@ function migrateLegacyMeasuredSlopeDefault(){
 function stabilityComponentRows(){
   const body=$("#stabilityComponentBody");
   if(!body) return [];
-  return $("tr",body).map(row=>({
+  return Array.from(body.querySelectorAll("tr")).map(row=>({
     name:$('[data-comp="name"]',row)?.value||"",
     mass_kg:num($('[data-comp="mass"]',row)?.value,0),
     x_m:num($('[data-comp="x"]',row)?.value,0),
@@ -387,7 +387,7 @@ function syncStabilityMassModeUI(){
   const mode=stabilityMassMode();
   $("#stabilityTotalMassFields")?.classList.toggle("hidden",mode!=="total");
   $("#stabilityComponentMassFields")?.classList.toggle("hidden",mode!=="components");
-  $(".mass-mode-card",$("#stabilityForm")).forEach(card=>{
+  Array.from($("#stabilityForm").querySelectorAll(".mass-mode-card")).forEach(card=>{
     const radio=$('input[type="radio"]',card);
     card.classList.toggle("selected",!!radio?.checked);
   });
@@ -416,11 +416,11 @@ function setupDynamicProjectParameters(){
 
   const stabilityForm=$("#stabilityForm");
   if(stabilityForm){
-    $('input[name="mass_mode"]',stabilityForm).forEach(el=>el.addEventListener("change",()=>{
+    Array.from(stabilityForm.querySelectorAll('input[name="mass_mode"]')).forEach(el=>el.addEventListener("change",()=>{
       syncStabilityMassModeUI();
       saveWebInputs();
     }));
-    $("#stabilityComponentBody input").forEach(el=>["input","change"].forEach(evt=>el.addEventListener(evt,()=>{
+    Array.from(document.querySelectorAll("#stabilityComponentBody input")).forEach(el=>["input","change"].forEach(evt=>el.addEventListener(evt,()=>{
       if(stabilityMassMode()==="components") applyComponentMassPreview(true);
     })));
     const wb=stabilityForm.elements.wheelbase_m;
