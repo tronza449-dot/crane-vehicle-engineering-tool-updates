@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Crane Vehicle Engineering Tool — Web</title>
-  <link rel="stylesheet" href="/static/style.css?v=53.8.37">
+  <link rel="stylesheet" href="/static/style.css?v=53.8.39">
 </head>
 <body>
   <header class="topbar">
@@ -518,8 +518,8 @@
             </label>
             <label>View
               <select id="webFbdView">
-                <option value="current">Current Angle / มุมปัจจุบัน</option>
-                <option value="critical">Critical Case / มุมวิกฤต</option>
+                <option value="critical" selected>Critical Case / มุมวิกฤตของด้านที่เลือก (แนะนำ)</option>
+                <option value="current">Current Angle Snapshot / มุมปัจจุบัน</option>
               </select>
             </label>
           </div>
@@ -679,7 +679,7 @@
     <span>CVET Web • Local Server • HTTPS Public Access ผ่าน Tailscale Funnel / Quick Tunnel</span>
   </footer>
 
-  <script src="/static/app.js?v=53.8.37"></script>
-  <script src="/static/details.js?v=53.8.37"></script>
+  <script src="/static/app.js?v=53.8.39"></script>
+  <script src="/static/details.js?v=53.8.39"></script>
 </body>
 </html>
