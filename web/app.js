@@ -117,6 +117,15 @@ function saveWebInputs(){
 function restoreWebInputs(){
   try{
     const data=JSON.parse(localStorage.getItem(CVET_INPUT_STORE)||"{}");
+
+    // V53.8.28 migration: Winch Battery inputs moved from winchForm to a
+    // dedicated winchBatteryForm. Preserve values users already entered.
+    const moved=["event_mode","manual_events","winch_voltage_v","dod_pct","reserve_pct","candidate_ah","bms_cont_a","bms_peak_a"];
+    moved.forEach(name=>{
+      const oldKey="winchForm."+name,newKey="winchBatteryForm."+name;
+      if(!(newKey in data) && oldKey in data) data[newKey]=data[oldKey];
+    });
+
     storedInputElements().forEach(el=>{
       const key=inputStorageKey(el);
       if(!(key in data)) return;
