@@ -1,56 +1,53 @@
-# Crane Vehicle Engineering Tool V53.8.47
+# Crane Vehicle Engineering Tool V53.8.48
 
-## Coupled System What-if + clearer calculation explanation
+## Simpler What-if redesign
 
-V53.8.47 includes the Thai-first calculation explanation redesign and replaces the old one-variable-at-a-time What-if with a coupled system scenario model.
+This release keeps the coupled engineering calculation model from V53.8.47 but redesigns the user experience so What-if is much easier to understand and use.
 
-### What-if redesign
-The old Sensitivity / What-if changed one Stability input at a time while holding all other values fixed. That could be misleading for dependent quantities such as Payload and Total mass.
+### New default workflow
+The main What-if page now asks only:
+1. What do you want to change?
+2. What new value do you want to try?
+3. View the system impact.
 
-The new **What-if ทั้งระบบ / Coupled Scenario** compares a Baseline with one multi-variable Scenario and recalculates the connected engineering modules together.
+Available quick choices:
+- Payload
+- Track width W
+- Boom length L
+- Crane base position x_C
+- Slope
+- Operation speed
+- Winch lift distance
 
-### Deterministic relationships now propagated
-- Total mass = Base vehicle mass + Boom mass + Payload system mass.
-- The same derived Total mass is used by Drive Torque, Main Battery and Stability.
-- Route Slope is propagated to Drive Torque, Main Battery and Slope Stability.
-- Wheel track W affects Stability and Pivot/Differential turning energy when that energy mode is enabled.
-- Operation speed affects route time, completed cycles and automatic Winch job count.
-- Winch lift distance affects Winch time and therefore the operating-cycle timing.
-- Winch load can be linked to Payload system mass or left as an independent scenario input.
+### Result-first layout
+The first result table now shows only the most useful before/after outputs:
+- Torque per motor
+- Main Battery
+- Winch Battery
+- Worst Stability SF
+- Governing / critical case
 
-### Relationships the program intentionally does not invent
-The tool does not guess:
-- how much frame mass increases when W or WB grows,
-- how much Boom mass increases when Boom length L grows,
-- how CG moves when geometry changes without component positions.
+The full engineering input/output comparison is still available under a details section.
 
-Those quantities remain explicit Scenario inputs or should be derived from Component Mass / CG data when real geometry is available.
+### Advanced mode
+All coupled scenario inputs are still available for users who want to change several values at once, but they are hidden by default under:
+**ค่าขั้นสูง / ปรับหลายค่าพร้อมกัน**
 
-### Baseline vs Scenario output
-The What-if result now compares:
-- total mass,
-- torque per motor and motor power margin,
-- Main Battery minimum/practical Ah and modeled Wh,
-- completed route cycles,
-- Winch lift time and 12 V battery Ah,
-- worst lifting SF and critical case,
-- Slope SF,
-- overall governing stability.
+### Coupled calculation model retained
+The simpler UI does not remove system relationships.
+Derived mass, Torque, Main Battery, Winch cycle and Stability continue to recalculate from the same coupled scenario engine.
 
-The current project design is restored after every What-if evaluation; the scenario does not overwrite the saved design.
+The program still intentionally does not invent structural relationships that require real design data, such as:
+- additional frame mass caused by a wider W/WB,
+- Boom mass caused by a longer L,
+- CG movement without actual component positions.
 
-### Calculation explanation
-The former Calculation Trace is now presented primarily as:
-**ดูที่มาของคำตอบ / สูตรทีละขั้น**
-
-It explains:
-1. ค่าที่ใช้
-2. สูตรที่ใช้
-3. แทนค่าจริง
-4. คำตอบ
-5. ตรวจสอบ / PASS-FAIL
-
-The technical name Calculation Trace is retained only as a secondary description.
+### Desktop and Web
+The simplified guided What-if workflow is implemented in both Desktop and Web.
 
 ### Regression
-The release audit now verifies that reducing Payload also reduces derived Total mass by the same amount in the coupled scenario, and keeps the existing calculation, PDF, Save/Restore, updater and Desktop↔Web checks.
+Regression now checks:
+- the simplified What-if tab and controls exist,
+- quick Payload editing updates the coupled Payload field,
+- reducing Payload reduces derived Total mass,
+- the result-first summary includes Torque, Main Battery, Winch Battery, Stability SF and the governing case.
