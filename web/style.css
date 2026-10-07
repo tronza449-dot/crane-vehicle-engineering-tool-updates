@@ -337,3 +337,7 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
 .revision-buttons #compareWebRevisions{grid-column:1/-1}
 .design-input-locked{pointer-events:none!important;opacity:.72;background:#eef2f7!important}
 @media(max-width:900px){.toolbox-grid{grid-template-columns:1fr}.toolbox-head{align-items:flex-start;flex-direction:column}}
+
+.whatif-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:10px 0}
+.whatif-grid label{display:flex;flex-direction:column;gap:4px;font-size:.9rem}.whatif-link{grid-column:1/-1;flex-direction:row!important;align-items:center}.small-note{font-size:.9rem}
+@media(max-width:720px){.whatif-grid{grid-template-columns:1fr}}
