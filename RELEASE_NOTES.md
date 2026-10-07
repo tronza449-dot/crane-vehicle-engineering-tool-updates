@@ -1,121 +1,133 @@
-# Crane Vehicle Engineering Tool V53.8.41
+# Crane Vehicle Engineering Tool V53.8.42
 
-## Full Web Calculation Audit Fixes
+## Engineering Decision Tools
 
-This release follows a complete formula and UI audit of:
-Drive Torque, Ramp Geometry, Main Battery 72 V, Winch, Winch Battery 12 V,
-Side Left/Right, Front/Rear, Slope Stability, Component Mass mode, and Desktop↔Web parity.
+This release implements the requested items 2, 3, 5, 6 and 7:
+Sensitivity Analysis, Worst-Case Summary, Calculation Trace, Final Design Input Lock,
+and Compare Design Revision.
 
-### 1. Drive Torque — Motor rated power is now actually checked
-Previously the Web form accepted “Motor rated power / motor” but the calculation engine did not use it.
+### 1. Sensitivity / What-if Analysis
+Desktop Project Tools now includes a **Sensitivity / What-if** tab.
 
-Now the engine calculates:
-- Required mechanical design power / motor
-- Entered rated power / motor
-- Power margin = Rated / Required
+It evaluates these design variables around the current design:
+- Track width W
+- Boom length L
+- Payload mass
+- Crane base position x_C from rear axle
+- Vehicle CG x
+
+Default range is ±20% and can be changed from 5% to 50%.
+
+For every sample point the tool reuses the same Stability moment equations and performs
+the same -90°…+90° critical-angle scan used by the main Stability module.
+
+The result table reports:
+- tested value
+- governing tipping direction
+- worst SF
 - PASS / FAIL
 
-This is added to both the result card and STEP-BY-STEP calculation.
+The Web Project Summary now has the same Sensitivity / What-if tool.
 
-### 2. Wheel diameter input clarified
-The Drive Torque wheel input now explicitly means:
+### 2. Engineering Worst-Case Summary
+A new Desktop **Engineering Summary** tab and Web **Engineering Worst-Case Summary**
+combine the main design checks into one view:
 
-**Effective wheel outside / rolling diameter**
+Drive:
+- required torque per motor
+- rated motor power check
+- traction margin
 
-It is not the rim number printed in a tire size.
-Example: for 3.0-10, “10” refers to the rim size; it must not automatically be used as a 10-inch rolling diameter.
+Main Battery 72 V:
+- calculated minimum Ah
+- practical Ah
+- total modeled load energy
+- completed route cycles
 
-New-project Desktop default is changed from 10 in to 16 in, and the field includes a warning tooltip.
-Existing saved user values are not silently overwritten.
+Winch 12 V:
+- battery Ah
+- lift time
+- number of jobs
 
-### 3. Main Battery — Auxiliary energy now covers the full requested runtime
-Previously Auxiliary energy in forward sizing was multiplied only by completed integer Cycles.
-That omitted the final fractional time after the last full Cycle.
+Stability:
+- Side Left critical SF
+- Side Right critical SF
+- Front critical SF
+- Rear critical SF / no-overturning indication
+- Slope SF
+- governing lifting case
 
-Now:
-- Drive energy = E_drive,cycle × completed Cycles
-- Auxiliary energy = P_aux × requested runtime
-- E_total = E_drive,total + E_aux,total
+### 3. Calculation Trace
+Desktop Project Tools now includes a **Calculation Trace** tab.
+Web Project Summary includes the same feature.
 
-Therefore a 50 W Auxiliary load over 3 h contributes exactly 150 Wh,
-even when the route finishes with unused time after the last full Cycle.
+Trace format:
+Input → Formula → Substitute → Result → PASS/FAIL
 
-Per-Cycle Auxiliary energy is still shown for teaching/explanation purposes.
+Modules:
+- ALL
+- Drive Torque
+- Main Battery
+- Winch
+- Stability
 
-### 4. Main Battery / BMS current now includes Auxiliary current
-Auxiliary is supplied by the 72 V vehicle battery, so simultaneous current must be included.
+The Web reuses the existing audited Step-by-Step renderers instead of creating a second
+formula implementation.
 
-Now:
-- I_aux = P_aux / V
-- Continuous = max(I_uphill, I_pivot) + I_aux
-- Peak = max(Continuous, Drive Torque design reference + I_aux)
+### 4. Final Design Input Lock
+Desktop Project Tools now has a persistent:
+**🔒 Design Inputs Locked / 🔓 Design Inputs Unlocked**
 
-Desktop and Web use the same rule.
+The lock protects core design values from accidental editing:
+- total / payload / boom mass
+- W
+- WB
+- L
+- x_C
+- vehicle CG
+- slope and slope geometry inputs
 
-### 5. Winch — Rope-layer limitation is now explicit
-The supplied datasheet provides speed/current performance for First Layer.
+The lock state is included in Save Values / Project state.
 
-When lift distance reaches Layer > 1:
-- Line-pull limit is still checked using the layer table
-- Speed/current remain based on First-Layer interpolation because no layer-specific speed/current table was supplied
-- Web and Desktop now show a visible warning instead of silently implying layer-corrected performance
+Web has the same Final Design Input Lock.
+Locked Web inputs remain part of FormData calculations but are not editable by pointer/keyboard.
+Desktop Sync is blocked while the Web design lock is active so a locked final design cannot
+be silently overwritten.
 
-No unsupported correction factor is invented.
+### 5. Compare Design Revision upgraded
+The existing Design Revision Manager is retained and upgraded.
 
-### 6. Stability — M_O = 0 is no longer presented as “infinite real safety”
-The internal mathematical sentinel remains available for comparison logic,
-but the user-facing FBD now shows:
+Comparing two saved revisions now shows both:
+1. Input Revision Diff
+2. Engineering Output Diff
 
-**N/A (M_O = 0)**
+Engineering outputs include:
+- required torque
+- motor power
+- Main Battery Ah
+- Winch Battery Ah
+- Side / Front / Rear SF
+- Worst SF and angle
 
-when no overturning moment exists in that direction.
+The older Project Tools Design A / Design B comparison remains available.
 
-For a Critical Case with no overturning anywhere in the allowed crane range -90°…+90°:
-- angle = N/A
-- no_overturning_in_range = true
-- the UI states that no overturning was found in the permitted range
+Web Project Summary now supports:
+- Capture Design A
+- Capture Design B
+- Compare A ↔ B
 
-This is especially relevant to Rear tipping when the boom cannot rotate behind the rear tipping axis.
+Each captured Web revision stores both input values and calculated engineering metrics.
 
-### 7. Component Mass mode wording clarified
-For Side/Front/Rear lifting stability:
-- Boom/Payload position is derived from crane geometry x_C, L, and θ
+### 6. No duplicate calculation engine
+These tools intentionally reuse the existing audited calculation functions.
+They do not introduce separate Stability, Torque, Battery or Winch equations.
 
-The x/y values entered in the Component Mass table are primarily used for the combined CG / travel-slope configuration.
-The Web now states this explicitly to avoid double interpretation of Boom/Payload location.
-
-### 8. Battery report formulas corrected everywhere
-Desktop report/STEP text now matches the corrected full-runtime Auxiliary model.
-
-Old displayed wording:
-E_total = E_cycle × N_cycle
-
-New displayed wording:
-E_total = E_drive,cycle × N_cycle + P_aux × t_runtime
-
-The numerical result, variable table, STEP-BY-STEP report, and simple explanation now use the same definition.
-
-### 9. Regression coverage expanded
-The release build now verifies:
-- Motor rated-power PASS/FAIL fields exist and are numerically valid
-- 50 W Auxiliary × 3 h = 150 Wh
-- I_aux = 50/72 A
-- Continuous current includes I_aux
-- Winch Layer > 1 generates a First-Layer-performance warning
-- Rear no-overturning Critical Case returns angle=None and no_overturning_in_range=True
-- Stability directional case remains:
-  Side Right Critical M_O ≈ 774.99 N·m
-  M_R ≈ 971.19 N·m
-  SF ≈ 1.253
-- Desktop↔Web numerical parity remains enabled
-
-### Unchanged because already correct
-The audit confirmed these calculations did not need formula changes:
-- Ramp geometry: Pythagoras, atan(h/x), Slope %
-- Winch 64 jobs vs 128 winch movements
-- Winch Battery: one job = UP + DOWN
-- Side Left/Right moment balance
-- Front/Rear tipping-axis logic
-- Uphill Slope Stability quasi-static model
-- Differential/Pivot preliminary energy model (still explicitly empirical)
-- No regenerative-energy credit in the simple Main Battery model
+### 7. Regression coverage
+The release regression now verifies:
+- Desktop Engineering Summary tab exists and renders
+- Sensitivity tables exist for all requested parameters
+- Calculation Trace contains all four engineering modules
+- Design Lock disables and restores the core Desktop inputs
+- Design Revision comparison contains Engineering Output Diff
+- all new Web controls and functions exist
+- all previous calculation, PDF, Save/Restore, Desktop↔Web parity and updater regressions remain enabled
