@@ -1,85 +1,65 @@
-# Crane Vehicle Engineering Tool V53.8.34
+# Crane Vehicle Engineering Tool V53.8.35
 
-## Save Every Module + FBD Figure Variable Legend
+## Readable FBD Legend + Visible Save Buttons on T / B / W / S
 
-### 1. Save Values now covers more UI state
-The desktop Save Values / Auto Save system has been expanded so project state is captured more completely across modules.
+### 1. Stability PDF legend redesigned
+The V53.8.34 side-by-side FBD legend was too narrow on A4 and caused words and values to wrap vertically across multiple pages.
 
-New generic persistence coverage:
-- QSlider values
-- Checkable QPushButton mode cards
-- Existing SpinBox / DoubleSpinBox
-- ComboBox
-- CheckBox / RadioButton
-- LineEdit
-- Mass & CG component table
-- Hardware I/O rows
-- Device Library / Validation / BOM integration tables
-- Design Revision data
+V53.8.35 changes the report layout to:
+- Large FBD figure first
+- Full-width variable legend directly below the figure
+- Wider fixed table columns
+- Shorter Thai-first bilingual descriptions
+- Current value and unit kept in a dedicated wide column
 
-The explicit Save Values verification now checks all saved sections:
-- widgets
-- components
-- hardware
-- integration
+The old 62% figure / 38% legend side-by-side layout has been removed.
 
-Both persistent copies are still written:
-- AppData/last_values.json
-- Documents/CVET_Data/saved_values_backup.json
-
-### 2. Autosave consistency fixes
-Fixed stale autosave-timer references used by Design Revision and custom Hardware I/O row changes.
-
-This prevents those edits from being missed by the current autosave system.
-
-### 3. FBD variable table beside every report figure
-Stability reports now show a bilingual table next to the FBD image titled:
-
-**ตัวแปรในรูป / Figure Variable Legend**
-
-Side / Front / Rear FBD pages explain:
-- P — tipping axis
-- CG_V / CG_B / CG_L
-- W_V / W_B / W_L
-- R_P and R_opposite = 0
-- d_V / d_B / d_L
-- M_O
-- M_R
+The compact legend now uses readable symbols such as:
+- P
+- CG_V/B/L
+- W_V/B/L
+- R_P
+- R_opp
+- d_V/B/L
+- M_O / M_R
 - SF
 
-Slope FBD pages explain:
+Slope legend uses:
 - P
 - N_R
-- N_F = 0
-- W_parallel
-- W_normal
-- F_I = ma
+- N_F
+- W∥
+- W⊥
+- F_I
 - d_R
 - h_CG
 - M_O / M_R / SF
 
-Geometry pages explain:
-- W
-- WB
-- L
-- θ
-- x_C
-- CG_V
-- CG_B
-- CG_L
+### 2. Visible Save Values on T / B / W / S
+Added a large visible Save Values bar directly at the top of:
+- T — Drive Torque
+- B — Main Battery 72 V
+- W — Winch
+- S — Stability
 
-The legend is used in:
-- Full Stability Engineering PDF
-- Easy Stability report pages
-- Formal FBD report pages
-- Export Selected Stability Mode PDF
+Each button saves the complete current project state, including the values on the current page, to both:
+- AppData/last_values.json
+- Documents/CVET_Data/saved_values_backup.json
 
-### 4. Regression coverage
+The save-status label on each T/B/W/S module updates after a successful save.
+
+### 3. Winch save button stays visible
+The Winch Save Values bar is outside the Winch sub-tabs, so it stays visible when switching between:
+- Spec / Datasheet
+- Operating Cycles
+- Battery
+- Summary
+
+### 4. Regression checks
 Release tests now verify:
-- Slider state is saved and restored
-- Checkable mode buttons are serialized
-- Primary and backup Save Values copies match for widgets/components/hardware/integration
-- FBD HTML contains the new figure-variable legend
-- Side/Front/Rear symbols are present
-- Slope symbols are present
-- All FBD PNG images are still generated
+- All four T/B/W/S Save Values buttons exist
+- Winch save remains visible across every W sub-tab
+- All module save-status labels update after saving
+- The old narrow side-by-side FBD layout is absent
+- FBD image width and full-width legend structure are present
+- All existing Stability FBD PNG/PDF generation still passes
