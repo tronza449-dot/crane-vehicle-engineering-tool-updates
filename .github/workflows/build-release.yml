@@ -900,7 +900,14 @@ jobs:
           w.designLockButton.setChecked(True);QApplication.processEvents()
           assert not w.W.isEnabled() and not w.WB.isEnabled() and not w.L.isEnabled() and not w.mt.isEnabled()
           assert "Locked" in w.designLockButton.text()
+          with patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok):
+              assert w._require_design_unlocked("Regression mutation") is False
+          assert "def _require_design_unlocked" in source
+          assert 'if not self._require_design_unlocked("Apply Design Revision"):return' in source
+          assert 'if not self._require_design_unlocked("Apply Scenario Preset"):return' in source
+          assert 'if not self._require_design_unlocked("Open Project File"):return' in source
           w.designLockButton.setChecked(False);QApplication.processEvents()
+          assert w._require_design_unlocked("Regression mutation") is True
           assert w.W.isEnabled() and w.WB.isEnabled() and w.L.isEnabled() and w.mt.isEnabled()
           assert "Engineering Output Diff" in source
           assert "def compare_design_revisions" in source
