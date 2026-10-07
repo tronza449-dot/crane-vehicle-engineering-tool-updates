@@ -39,6 +39,7 @@
     <button class="tab" data-tab="ramp">Ramp Geometry</button>
     <button class="tab" data-tab="battery">Main Battery 72V</button>
     <button class="tab" data-tab="winch">Winch</button>
+    <button class="tab" data-tab="winch-battery">Winch Battery 12V</button>
     <button class="tab" data-tab="stability">Stability</button>
     <button class="tab" data-tab="parameters">Vehicle Parameters</button>
     <button class="tab" data-tab="telemetry">Live Telemetry</button>
@@ -70,7 +71,7 @@
           <span class="card-link">เปิดโมดูล →</span>
         </button>
         <button class="dash-card ramp-card" data-open-tab="ramp">
-          <span class="card-index">08</span>
+          <span class="card-index">03</span>
           <span class="card-icon">∠</span>
           <span class="card-title">Ramp Geometry</span>
           <span class="card-text">Rise / Run • Ramp length • Angle • Slope % • F_slope</span>
@@ -84,35 +85,42 @@
           <span class="card-link">เปิดโมดูล →</span>
         </button>
         <button class="dash-card winch-card" data-open-tab="winch">
-          <span class="card-index">03</span>
+          <span class="card-index">04</span>
           <span class="card-icon">W</span>
-          <span class="card-title">Winch Battery</span>
-          <span class="card-text">Load interpolation • Lift events • 12 V energy • BMS check</span>
-          <span class="card-link">เปิดโมดูล →</span>
+          <span class="card-title">Winch / Lift</span>
+          <span class="card-text">Load interpolation • UP/DOWN time • Operating cycles • Rope layer</span>
+          <span class="card-link">คำนวณวินช์ →</span>
+        </button>
+        <button class="dash-card winch-battery-card" data-open-tab="winch-battery">
+          <span class="card-index">05</span>
+          <span class="card-icon">12V</span>
+          <span class="card-title">Winch Battery 12 V</span>
+          <span class="card-text">Separate 12 V supply • Lift energy • Ah • BMS check</span>
+          <span class="card-link">คำนวณแบตวินช์ →</span>
         </button>
         <button class="dash-card stability-card" data-open-tab="stability">
-          <span class="card-index">04</span>
+          <span class="card-index">06</span>
           <span class="card-icon">S</span>
           <span class="card-title">Stability</span>
           <span class="card-text">Side / Front / Rear tipping • Moment • Safety Factor</span>
           <span class="card-link">เปิดโมดูล →</span>
         </button>
         <button class="dash-card parameter-card" data-open-tab="parameters">
-          <span class="card-index">05</span>
+          <span class="card-index">07</span>
           <span class="card-icon">P</span>
           <span class="card-title">Vehicle Parameters</span>
           <span class="card-text">ขนาดรถ • น้ำหนัก • มอเตอร์ • ล้อ • เครน • Operating target</span>
           <span class="card-link">ดูค่าพื้นฐาน →</span>
         </button>
         <button class="dash-card telemetry-card" data-open-tab="telemetry">
-          <span class="card-index">06</span>
+          <span class="card-index">08</span>
           <span class="card-icon">L</span>
           <span class="card-title">Live Telemetry</span>
           <span class="card-text">ESP32 Wi-Fi • Speed • Battery • Tilt • Drive / E-stop status</span>
           <span class="card-link">เปิด Dashboard →</span>
         </button>
         <button class="dash-card summary-card" data-open-tab="summary">
-          <span class="card-index">07</span>
+          <span class="card-index">09</span>
           <span class="card-icon">R</span>
           <span class="card-title">Project Summary</span>
           <span class="card-text">ภาพรวมระบบ • Design baseline • Safety logic • Web architecture</span>
@@ -240,7 +248,12 @@
     </section>
 
     <section id="winch" class="page">
-      <div class="page-title"><h2>Winch 4500 lb</h2><p>First Layer interpolation + Operating Cycles + Winch Battery</p></div>
+      <div class="page-title"><h2>Winch / Lift Calculation</h2><p>คำนวณกลไกวินช์และรอบการทำงาน — ยังไม่ใช่การคำนวณขนาดแบตเตอรี่</p></div>
+      <div class="power-separation-banner winch-mech-banner">
+        <b>WINCH MECHANICS</b>
+        <span>หน้านี้หา Speed / Current / UP-DOWN time / Operating cycles เท่านั้น</span>
+        <span class="system-chip neutral">NO BATTERY SIZING</span>
+      </div>
       <div class="layout">
         <form id="winchForm" class="panel form-grid" onsubmit="return false;">
           <h3 class="full section-label">Datasheet / Load</h3>
@@ -254,18 +267,6 @@
           <label>งานยก/รอบ<input name="events_per_round" type="number" value="2" step="1"></label>
           <label>เวลาหยุดอื่น/รอบ (s)<input name="other_stop_s" type="number" value="0" step="1"></label>
 
-          <h3 class="full section-label">จำนวนงานยกสำหรับแบต</h3>
-          <label class="full">โหมดจำนวนงานยก
-            <select id="eventMode" name="event_mode">
-              <option value="auto">Auto — ใช้จากรอบการทำงาน</option>
-              <option value="manual">Manual — กำหนดเอง</option>
-            </select>
-          </label>
-          <label id="manualEventsWrap" class="full hidden">จำนวนงานยกที่กำหนดเอง
-            <input name="manual_events" type="number" value="50" step="1">
-            <span class="hint">1 งานยก = ขึ้น 1 ครั้ง + ลง 1 ครั้ง</span>
-          </label>
-
           <h3 class="full section-label">DOWN</h3>
           <label>Down mode
             <select id="downMode" name="down_mode"><option value="conservative">Conservative — Down = Up</option><option value="custom">Measured / Custom</option></select>
@@ -277,16 +278,57 @@
           <label class="customDown hidden">Down speed (m/min)<input name="down_speed_m_min" type="number" value="3" step="0.1"></label>
           <label class="customDown hidden">Down time (s)<input name="down_time_s" type="number" value="30" step="0.1"></label>
 
-          <h3 class="full section-label">Winch Battery</h3>
-          <label>แรงดัน (V)<input name="winch_voltage_v" type="number" value="12" step="1"></label>
+          <div class="full notice compact-note"><b>ความสัมพันธ์กับแบต:</b> ผลจากหน้านี้ เช่น กระแสขณะยก เวลา UP/DOWN และจำนวนงานยก จะถูกใช้เป็น Input ให้หน้า <b>Winch Battery 12 V</b> แต่ไม่ถูกนำไปบวก Wh/Ah กับ Main Battery 72 V.</div>
+          <button id="calcWinch" class="primary full">คำนวณ Winch / Operating Cycle</button>
+        </form>
+        <div id="winchResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
+      </div>
+    </section>
+
+    <section id="winch-battery" class="page">
+      <div class="page-title"><h2>Winch Battery 12 V</h2><p>แบตเตอรี่แยกสำหรับวินช์ — คำนวณ Wh / Ah / BMS แยกจากแบตรถ 72 V</p></div>
+      <div class="power-separation-banner winch-battery-banner">
+        <div>
+          <b>12 V SEPARATE BATTERY</b>
+          <span>พลังงานวินช์ไม่ถูกรวมใน Main Battery 72 V</span>
+        </div>
+        <span class="system-chip orange">WINCH ONLY</span>
+      </div>
+      <div class="layout">
+        <form id="winchBatteryForm" class="panel form-grid" onsubmit="return false;">
+          <div class="full source-preview" id="winchBatterySource">
+            ใช้ Load / Lift distance / UP-DOWN / Operating Cycle จากหน้า Winch
+          </div>
+
+          <h3 class="full section-label">จำนวนงานยกสำหรับแบตวินช์</h3>
+          <label class="full">โหมดจำนวนงานยก
+            <select id="eventMode" name="event_mode">
+              <option value="auto">Auto — ใช้จากรอบการทำงานหน้า Winch</option>
+              <option value="manual">Manual — กำหนดเอง</option>
+            </select>
+          </label>
+          <label id="manualEventsWrap" class="full hidden">จำนวนงานยกที่กำหนดเอง
+            <input name="manual_events" type="number" value="50" step="1">
+            <span class="hint">1 งานยก = ขึ้น 1 ครั้ง + ลง 1 ครั้ง</span>
+          </label>
+
+          <h3 class="full section-label">Winch Battery 12 V</h3>
+          <label>แรงดันแบตวินช์ (V)<input name="winch_voltage_v" type="number" value="12" step="1"></label>
           <label>DoD (%)<input name="dod_pct" type="number" value="80" step="1"></label>
           <label>Reserve (%)<input name="reserve_pct" type="number" value="20" step="1"></label>
           <label>Candidate capacity (Ah)<input name="candidate_ah" type="number" value="40" step="1"></label>
           <label>BMS continuous (A)<input name="bms_cont_a" type="number" value="0" step="1"></label>
           <label>BMS peak (A)<input name="bms_peak_a" type="number" value="0" step="1"></label>
-          <button id="calcWinch" class="primary full">คำนวณ Winch</button>
+
+          <div class="full battery-separation-note">
+            <b>ระบบไฟแยกกัน:</b>
+            <span>Main Battery 72 V = มอเตอร์ขับ + Auxiliary ของรถ</span>
+            <span>Winch Battery 12 V = วินช์ขึ้น/ลงเท่านั้น</span>
+            <span>มีเพียง “เวลายก” ที่แชร์ไปใช้หา Cycle time ของรถ ไม่ได้แชร์พลังงาน Wh/Ah</span>
+          </div>
+          <button id="calcWinchBattery" class="primary full">คำนวณ Winch Battery 12 V</button>
         </form>
-        <div id="winchResult" class="panel result empty">กรอกข้อมูลแล้วกดคำนวณ</div>
+        <div id="winchBatteryResult" class="panel result empty">คำนวณ Winch ก่อน แล้วกดคำนวณแบตวินช์</div>
       </div>
     </section>
 
