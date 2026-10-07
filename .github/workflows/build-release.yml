@@ -257,10 +257,35 @@ jobs:
           assert "function buttonBusy" in web_js
           assert "function buttonSuccess" in web_js
           assert "function actionToast" in web_js
+
+          # V53.8.28 — Main 72 V and Winch 12 V must be visibly and logically separate.
+          assert 'data-tab="battery">Main Battery 72V' in web_html
+          assert 'data-tab="winch-battery">Winch Battery 12V' in web_html
+          assert 'id="winchForm"' in web_html
+          assert 'id="winchBatteryForm"' in web_html
+          assert 'id="calcWinchBattery"' in web_html
+          assert 'id="winchBatteryResult"' in web_html
+          assert "12 V SEPARATE BATTERY" in web_html
+          assert "พลังงานวินช์ไม่ถูกรวมใน Main Battery 72 V" in web_html
+          assert "function winchBatteryPayload" in web_js
+          assert 'formObject($("#winchForm")),formObject($("#winchBatteryForm"))' in web_js
+          assert "72 V Main Battery: คำนวณอีกหน้า และไม่บวก Wh/Ah ชุดนี้เข้าไป" in web_js
+          assert '["driveForm","rampForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"]' in web_js
+          assert 'formValue("winchBatteryForm","winch_voltage_v",12)' in web_js
+
+          # Main battery engine explicitly excludes winch energy; only lift time can
+          # affect the number of completed operating cycles.
+          assert web_battery["winch_energy_included"] is False
+          assert web_winch["battery"]["voltage_v"]==12.0
+          assert web_battery["voltage_v"]==72.0
+
           web_css = Path("web/style.css").read_text(encoding="utf-8-sig")
           assert "button.btn-busy" in web_css
           assert "button.btn-success" in web_css
           assert "@keyframes cvetButtonAck" in web_css
+          assert ".winch-battery-card" in web_css
+          assert ".power-separation-banner" in web_css
+          assert ".battery-separation-note" in web_css
           assert "function renderSlopeFbd" in web_js
           assert "M_O = Σ(F_i d_i)" in web_js
           assert "critical_cases" in web_js and "current_cases" in web_js
@@ -1071,6 +1096,8 @@ jobs:
           assert "OFFICIAL_UPDATE_MANIFEST_API_URL" in source
           assert "def setup_button_feedback" in source
           assert "feedbackState" in source
+          assert "def _animate_button_geometry" in source
+          assert "QPropertyAnimation" in source and "QEasingCurve" in source
           assert "def _run_button_action" in source
           assert "rampApplyAngleButton" in source
           assert "def _read_official_manifest_api" in source
