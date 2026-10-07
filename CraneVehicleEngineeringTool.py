@@ -118,7 +118,24 @@ QPushButton#navButton[feedbackState="pressed"] {
 QPushButton[feedbackState="busy"] { background:#fff4d6; border:2px solid #d69e00; color:#7a5200; font-weight:900; }
 QPushButton[feedbackState="success"] { background:#e7f8ee; border:2px solid #22a05a; color:#176337; font-weight:900; }
 QPushButton[feedbackState="error"] { background:#fff0f0; border:2px solid #d64545; color:#a12620; font-weight:900; }
+QPushButton[feedbackState="ack"] { background:#e8f2ff; border:2px solid #2f6fd1; color:#174f96; font-weight:900; }
+QPushButton#primaryButton[feedbackState="ack"] { background:#1d64b8; border:2px solid #8cc7ff; color:white; }
 QPushButton:disabled { background:#f2f4f6; color:#9ba6b2; border-color:#dce2e8; }
+
+/* ---------- Web-like Stability Mode Cards ---------- */
+QPushButton#modeCardButton {
+    min-height:82px; text-align:left; padding:12px 15px;
+    border:1px solid #c7d7e7; border-radius:12px;
+    background:#ffffff; color:#24445f; font-size:10.2pt; font-weight:750;
+}
+QPushButton#modeCardButton:hover {
+    background:#f5f9ff; border:1px solid #8eb6df;
+}
+QPushButton#modeCardButton:checked {
+    background:#eaf3ff; border:2px solid #2f6fd1;
+    color:#174f96; font-weight:900;
+}
+QPushButton#modeCardButton:checked:hover { background:#e2efff; }
 
 QPushButton#primaryButton {
     color:white; border:0;
@@ -1226,12 +1243,13 @@ class App(QMainWindow):
         # Dedicated action wrappers may already be showing Busy/Success/Error.
         if str(button.property("feedbackState") or "") in ("busy", "success", "error"):
             return
-        self._set_button_feedback_state(button, "success")
-        label=button.text().strip()
+        # Match the Web button acknowledgement: a short blue flash after release.
+        self._set_button_feedback_state(button, "ack")
+        label=button.text().split("\n",1)[0].strip()
         if label and hasattr(self, "statusBar"):
             self.statusBar().showMessage(f"รับคำสั่งแล้ว ✓  {label}", 1400)
         QTimer.singleShot(420, lambda b=button: self._set_button_feedback_state(b, "")
-                          if str(b.property("feedbackState") or "")=="success" else None)
+                          if str(b.property("feedbackState") or "")=="ack" else None)
 
     def setup_button_feedback(self):
         """Give every desktop button immediate press/click feedback."""
@@ -9127,11 +9145,26 @@ void loop() {{
         self.massCalcMode.addItem("Mode A — Total Mass / กรอกมวลรวมเอง","total")
         self.massCalcMode.addItem("Mode B — Component Mass / กรอกน้ำหนักแต่ละส่วน","components")
         self.massCalcMode.setToolTip("Mode A: กรอกมวลรวมและค่าหลักเอง\nMode B: โปรแกรมรวมมวลจากตาราง Mass & CG และส่งเข้า Stability อัตโนมัติ")
+        self.massCalcMode.setVisible(False)  # internal state; cards below are the user-facing selector
+
+        self.craneMassModeCards=QWidget()
+        massCardLayout=QHBoxLayout(self.craneMassModeCards)
+        massCardLayout.setContentsMargins(0,0,0,0);massCardLayout.setSpacing(9)
+        self.craneMassModeTotal=QPushButton("A   Total Mass\nกรอกมวลรวม, Payload, Boom และ CG เอง")
+        self.craneMassModeComponents=QPushButton("B   Component Mass\nกรอกน้ำหนักรายชิ้น แล้วโปรแกรมรวม CG อัตโนมัติ")
+        for b in (self.craneMassModeTotal,self.craneMassModeComponents):
+            b.setObjectName("modeCardButton");b.setCheckable(True);b.setAutoExclusive(True)
+            b.setMinimumWidth(180)
+            massCardLayout.addWidget(b,1)
+        self.craneMassModeTotal.setChecked(True)
+        self.craneMassModeTotal.clicked.connect(lambda:self.set_mass_mode_from_radio("total"))
+        self.craneMassModeComponents.clicked.connect(lambda:self.set_mass_mode_from_radio("components"))
+
         self.mt=spin(300,1,5000,10,1);self.ml=spin(100,0,2000,5,1);self.mb=spin(20,0,1000,1,1)
         self.W=spin(1,.1,5,.05);self.WB=spin(1.10,.2,5,.05);self.L=spin(1.2,.1,5,.05);self.H=spin(1,.2,3,.05)
         self.xC=spin(.15,-2,2,.05);self.xCG=spin(0,-2,2,.05);self.yCG=spin(0,-2,2,.01,3);self.driveXCG=spin(0,-2,2,.05)
         self.th=spin(90,-90,90,5,0);self.kd=spin(1.2,1,3,.05);self.req=spin(1.5,1,5,.1)
-        f.addRow("Mass calculation mode / โหมดน้ำหนัก",self.massCalcMode)
+        f.addRow("Mass calculation mode / โหมดน้ำหนัก",self.craneMassModeCards)
         rows=[("Total mass m_total / มวลรวมทั้งระบบ (kg)",self.mt),("Payload system m_L / สัตว์+ตะกร้า (kg)",self.ml),("Boom mass m_B / น้ำหนักแขนเครน (kg)",self.mb),("Track width W / ระยะศูนย์กลางล้อซ้าย-ขวา (m)",self.W),
               ("Wheelbase WB / ระยะฐานล้อหน้า-หลัง (m)",self.WB),("Boom length L / ความยาวแขนเครน (m)",self.L),("Column height H / ความสูงเสาเครน (m)",self.H),
               ("Crane x from rear axle x_C / ตำแหน่งเครนจากเพลาหลัง (m)",self.xC),
@@ -9529,16 +9562,20 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
         l.addWidget(QLabel("COMPONENT MASS & CG TABLE / ตารางมวลและจุดศูนย์ถ่วงรายชิ้น"))
         modebox=QGroupBox("โหมดน้ำหนัก / Mass Calculation Mode")
         ml=QVBoxLayout(modebox)
-        self.massModeFixed=QRadioButton("Mode A: Total Mass / กำหนดน้ำหนักรวมเอง")
-        self.massModeSum=QRadioButton("Mode B: Component Mass / ใส่น้ำหนักแต่ละส่วนและรวมอัตโนมัติ")
+        massCards=QHBoxLayout();massCards.setSpacing(10)
+        self.massModeFixed=QPushButton("A   Total Mass\nใช้ m_total, Payload, Boom และ CG ที่กรอกเอง")
+        self.massModeSum=QPushButton("B   Component Mass\nรวมมวลและ CG จากตาราง Component อัตโนมัติ")
+        for b in (self.massModeFixed,self.massModeSum):
+            b.setObjectName("modeCardButton");b.setCheckable(True);b.setAutoExclusive(True)
+            massCards.addWidget(b,1)
         self.massModeFixed.setChecked(self.massCalcMode.currentIndex()==0)
         self.massModeSum.setChecked(self.massCalcMode.currentIndex()==1)
-        ml.addWidget(self.massModeFixed);ml.addWidget(self.massModeSum)
-        note=QLabel("Mode A = ใช้ m_total, m_L, m_B และ CG ที่กรอกใน Crane Mode\n"
+        ml.addLayout(massCards)
+        note=QLabel("กดเลือกการ์ด A หรือ B ได้เลย • การ์ดที่เลือกจะไฮไลต์แบบเดียวกับ Web\n"
                     "Mode B = ตารางนี้เป็นแหล่งข้อมูลหลัก: โปรแกรมรวม m_total และแยก Boom / Basket+Payload / Base vehicle ให้อัตโนมัติ")
         note.setWordWrap(True);ml.addWidget(note);l.addWidget(modebox)
-        self.massModeFixed.toggled.connect(lambda checked:self.set_mass_mode_from_radio("total") if checked else None)
-        self.massModeSum.toggled.connect(lambda checked:self.set_mass_mode_from_radio("components") if checked else None)
+        self.massModeFixed.clicked.connect(lambda:self.set_mass_mode_from_radio("total"))
+        self.massModeSum.clicked.connect(lambda:self.set_mass_mode_from_radio("components"))
 
         self.comp=QTableWidget(12,5)
         self.comp.setHorizontalHeaderLabels(["Component / อุปกรณ์","Mass m (kg)","x (m)","y (m)","z (m)"])
@@ -9629,6 +9666,13 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
 
     def sync_mass_mode_controls(self):
         component_mode=hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1
+        # Keep both web-like card selectors synchronized with the hidden state combo.
+        for total_name,comp_name in (("craneMassModeTotal","craneMassModeComponents"),("massModeFixed","massModeSum")):
+            total_btn=getattr(self,total_name,None);comp_btn=getattr(self,comp_name,None)
+            if total_btn is not None and comp_btn is not None:
+                total_btn.blockSignals(True);comp_btn.blockSignals(True)
+                total_btn.setChecked(not component_mode);comp_btn.setChecked(component_mode)
+                total_btn.blockSignals(False);comp_btn.blockSignals(False)
         # Derived fields are locked in Component Mode to prevent two conflicting sources of truth.
         for name in ("mt","ml","mb","xCG","yCG","driveXCG","hcg"):
             obj=getattr(self,name,None)
