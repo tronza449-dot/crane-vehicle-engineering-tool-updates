@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Crane Vehicle Engineering Tool — Web</title>
-  <link rel="stylesheet" href="/static/style.css?v=53.8.40">
+  <link rel="stylesheet" href="/static/style.css?v=53.8.42">
 </head>
 <body>
   <header class="topbar">
@@ -660,15 +660,50 @@
         <article class="summary-panel">
           <div class="summary-num">03</div><div><h3>Electrical Architecture</h3><p>Main Battery 72 V → Dual VESC → Hub Motors พร้อม ESP32 สำหรับ Control Logic, IMU, Receiver และ Safety Interlock</p></div>
         </article>
-        <article class="summary-panel">
-          <div class="summary-num">04</div><div><h3>Safety Logic</h3><p>E-stop ตัดการทำงานทันที, IMU ตรวจ Tilt, Drive/Crane มี Interlock และ Limit Switch จำกัดมุมเครน</p></div>
-        </article>
-        <article class="summary-panel">
-          <div class="summary-num">05</div><div><h3>Engineering Calculations</h3><p>เว็บรองรับ Drive Torque, Battery Energy, Winch Battery และ Stability/Tipping พร้อมสูตร แทนค่า และคำอธิบาย</p></div>
-        </article>
-        <article class="summary-panel">
-          <div class="summary-num">06</div><div><h3>Web Architecture</h3><p>Desktop CVET รัน Web Server บนเครื่อง และสามารถเปิด HTTPS Public Link ผ่าน Tailscale Funnel สำหรับมือถือหรือคอมเครื่องอื่น</p></div>
-        </article>
+      </div>
+
+      <div class="engineering-toolbox">
+        <div class="toolbox-head">
+          <div><h3>Engineering Decision Tools</h3><p>Summary • Sensitivity • Trace • Lock • Revision Compare</p></div>
+          <button id="refreshEngineeringSummary" type="button">Refresh Summary</button>
+        </div>
+        <div id="engineeringWorstSummary" class="result"><p class="check">กด Refresh Summary เพื่อสรุปผลวิศวกรรมทั้งระบบ</p></div>
+
+        <div class="toolbox-grid">
+          <section class="toolbox-card">
+            <h3>Sensitivity / What-if</h3>
+            <label>ช่วงทดสอบ ± (%)<input id="webSensitivitySpan" type="number" min="5" max="50" value="20"></label>
+            <button id="runWebSensitivity" type="button">Run Sensitivity</button>
+            <div id="webSensitivityResult" class="result"></div>
+          </section>
+
+          <section class="toolbox-card">
+            <h3>Calculation Trace</h3>
+            <select id="webTraceMode">
+              <option>ALL</option><option>Drive Torque</option><option>Main Battery</option><option>Winch</option><option>Stability</option>
+            </select>
+            <button id="refreshWebTrace" type="button">Refresh Trace</button>
+            <div id="webTraceResult" class="result"></div>
+          </section>
+
+          <section class="toolbox-card">
+            <h3>Final Design Input Lock</h3>
+            <button id="webDesignLock" type="button">🔓 Design Inputs Unlocked</button>
+            <p id="webDesignLockStatus" class="check">ค่าหลักยังแก้ไขได้</p>
+          </section>
+
+          <section class="toolbox-card">
+            <h3>Compare Design Revision</h3>
+            <div class="revision-buttons">
+              <input id="webRevisionALabel" value="Design A" aria-label="Design A label">
+              <button id="captureWebRevisionA" type="button">Capture A</button>
+              <input id="webRevisionBLabel" value="Design B" aria-label="Design B label">
+              <button id="captureWebRevisionB" type="button">Capture B</button>
+              <button id="compareWebRevisions" type="button">Compare A ↔ B</button>
+            </div>
+            <div id="webRevisionResult" class="result"></div>
+          </section>
+        </div>
       </div>
     </section>
 
@@ -679,7 +714,7 @@
     <span>CVET Web • Local Server • HTTPS Public Access ผ่าน Tailscale Funnel / Quick Tunnel</span>
   </footer>
 
-  <script src="/static/app.js?v=53.8.40"></script>
-  <script src="/static/details.js?v=53.8.40"></script>
+  <script src="/static/app.js?v=53.8.42"></script>
+  <script src="/static/details.js?v=53.8.42"></script>
 </body>
 </html>
