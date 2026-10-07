@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.37"
+APP_VERSION = "53.8.38"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -5094,11 +5094,20 @@ void loop() {{
             QMessageBox.warning(self,"Install Update","ไม่พบไฟล์ installer")
             return
         try:
+            # Save once before handing control to the installer. The installer
+            # must never restart the old process through Restart Manager because
+            # [Run] already launches exactly one fresh copy after file replacement.
+            try:
+                self.save_last_values(silent=True)
+                QApplication.processEvents()
+            except Exception:
+                pass
             if sys.platform.startswith("win"):
-                # Inno Setup switches: silent upgrade, close running app, no forced reboot.
+                # Safe update order:
+                # old app closes -> installer replaces Qt/PySide6 files -> [Run] launches one new app.
                 subprocess.Popen([
                     str(path),"/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART",
-                    "/CLOSEAPPLICATIONS","/RESTARTAPPLICATIONS"
+                    "/CLOSEAPPLICATIONS","/NORESTARTAPPLICATIONS"
                 ],close_fds=True)
             else:
                 subprocess.Popen([str(path)],close_fds=True)
