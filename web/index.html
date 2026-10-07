@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Crane Vehicle Engineering Tool — Web</title>
-  <link rel="stylesheet" href="/static/style.css?v=53.8.45">
+  <link rel="stylesheet" href="/static/style.css?v=53.8.46">
 </head>
 <body>
   <header class="topbar">
@@ -678,12 +678,18 @@
           </section>
 
           <section class="toolbox-card">
-            <h3>Calculation Trace</h3>
-            <select id="webTraceMode">
-              <option>ALL</option><option>Drive Torque</option><option>Ramp Geometry</option><option>Main Battery</option><option>Winch</option><option>Stability</option>
+            <h3>ดูที่มาของคำตอบ / สูตรทีละขั้น</h3>
+            <p class="check">ใช้ดูว่าเลขที่โปรแกรมตอบมาจากค่าไหน สูตรอะไร แทนเลขอย่างไร และผ่านเกณฑ์หรือไม่ <small>(ชื่อทางเทคนิค: Calculation Trace)</small></p>
+            <select id="webTraceMode" aria-label="เลือกผลที่ต้องการดูขั้นตอน">
+              <option value="ALL">ทั้งหมด / All</option>
+              <option value="Drive Torque">แรงขับและทอร์ค / Drive</option>
+              <option value="Ramp Geometry">ทางลาด / Ramp</option>
+              <option value="Main Battery">แบตเตอรี่หลัก 72 V</option>
+              <option value="Winch">วินช์ 12 V</option>
+              <option value="Stability">การคว่ำและเสถียรภาพ / Stability</option>
             </select>
-            <button id="refreshWebTrace" type="button">Refresh Trace</button>
-            <div id="webTraceResult" class="result"></div>
+            <button id="refreshWebTrace" type="button">แสดงที่มาของคำตอบ</button>
+            <div id="webTraceResult" class="result"><p class="check">เลือกหัวข้อแล้วกด “แสดงที่มาของคำตอบ”</p></div>
           </section>
 
           <section class="toolbox-card">
@@ -714,7 +720,7 @@
     <span>CVET Web • Local Server • HTTPS Public Access ผ่าน Tailscale Funnel / Quick Tunnel</span>
   </footer>
 
-  <script src="/static/app.js?v=53.8.45"></script>
-  <script src="/static/details.js?v=53.8.45"></script>
+  <script src="/static/app.js?v=53.8.46"></script>
+  <script src="/static/details.js?v=53.8.46"></script>
 </body>
 </html>
