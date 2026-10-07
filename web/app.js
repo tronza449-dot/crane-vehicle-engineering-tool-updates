@@ -1393,9 +1393,10 @@ const CVET_WEB_REV_B="cvet_web_revision_b_v1";
 
 function webDesignLockElements(){
   const specs=[
-    ["driveForm",["mass_kg","slope_deg"]],
+    ["driveForm",["mass_kg","wheel_diameter_in","slope_deg"]],
     ["rampForm",["rise_cm","run_cm","measured_slant_cm","mass_kg"]],
     ["batteryForm",["mass_kg","slope_deg","track_width_m"]],
+    ["winchForm",["load_kg","lift_m"]],
     ["stabilityForm",["total_mass_kg","payload_mass_kg","boom_mass_kg","track_width_m","wheelbase_m","boom_length_m","crane_from_rear_m","vehicle_cg_x_from_center_m","vehicle_cg_y_m","combined_cg_from_rear_m","combined_cg_height_m","slope_deg","slope_accel_mps2"]]
   ];
   const out=[];
@@ -1454,6 +1455,10 @@ function webSummaryMetrics(x){
   const valid=cases.filter(q=>q.bal&&Number(q.bal.overturning_moment_nm)>1e-9);
   valid.sort((a,b)=>Number(a.bal.sf)-Number(b.bal.sf));
   const gov=valid[0];
+  const slopeSf=Number(s.slope?.sf??999);
+  const overall=(gov && Number(gov.bal.sf)<=slopeSf)
+    ? {name:fbdName(gov.key),sf:Number(gov.bal.sf)}
+    : {name:"Slope",sf:slopeSf};
   return {
     "Torque required / motor (N·m)":x.drive.torque_per_motor_nm,
     "Motor power margin (×)":x.drive.motor_power_margin,
@@ -1465,8 +1470,10 @@ function webSummaryMetrics(x){
     "Front critical SF":c.front?.sf??999,
     "Rear critical SF":c.rear?.overturning_moment_nm>1e-9?c.rear.sf:"N/A",
     "Slope SF":s.slope?.sf??999,
-    "Governing case":gov?fbdName(gov.key):"No overturning case",
-    "Governing SF":gov?gov.bal.sf:"N/A"
+    "Governing lifting case":gov?fbdName(gov.key):"No overturning case",
+    "Governing lifting SF":gov?gov.bal.sf:"N/A",
+    "Overall governing stability":overall.name,
+    "Overall governing SF":overall.sf
   };
 }
 
@@ -1494,8 +1501,13 @@ async function refreshEngineeringDecisionSummary(){
     add("Stability","Slope SF",f(s.slope.sf,3),Number(s.slope.sf)>=req,"Required SF ≥ "+f(req,2));
     const valid=["side_left","side_right","front","rear"].map(k=>({key:k,b:c[k]})).filter(q=>q.b&&Number(q.b.overturning_moment_nm)>1e-9).sort((a,b)=>Number(a.b.sf)-Number(b.b.sf));
     const gov=valid[0];
+    const slopeSf=Number(s.slope?.sf??999);
+    const overall=(gov && Number(gov.b.sf)<=slopeSf)
+      ? {name:fbdName(gov.key),sf:Number(gov.b.sf),detail:' @ '+f(gov.b.angle_deg,0)+'°'}
+      : {name:'Slope',sf:slopeSf,detail:''};
     out.innerHTML='<h3>Engineering Worst-Case Summary</h3>'+
-      '<div class="notice"><b>Governing:</b> '+(gov?fbdName(gov.key)+' • SF '+f(gov.b.sf,3)+' @ '+f(gov.b.angle_deg,0)+'°':'No overturning case')+'</div>'+
+      '<div class="notice"><b>Overall governing stability:</b> '+overall.name+' • SF '+f(overall.sf,3)+overall.detail+
+      '<br><b>Governing lifting case:</b> '+(gov?fbdName(gov.key)+' • SF '+f(gov.b.sf,3)+' @ '+f(gov.b.angle_deg,0)+'°':'No overturning case')+'</div>'+
       '<div style="overflow:auto"><table><tr><th>System</th><th>Check</th><th>Result</th><th>Status</th><th>Detail</th></tr>'+rows.join("")+'</table></div>';
     buttonSuccess(btn,"Summary ✓","สรุป Worst Case แล้ว");
     return x;
@@ -1554,7 +1566,7 @@ async function refreshWebCalculationTrace(){
   try{
     const x=await calculateWebDecisionSnapshot(),blocks=[];
     if(mode==="ALL"||mode==="Drive Torque")blocks.push(driveStepsHtml(x.drive));
-    if(mode==="ALL")blocks.push(rampStepsHtml(x.ramp));
+    if(mode==="ALL"||mode==="Ramp Geometry")blocks.push(rampStepsHtml(x.ramp));
     if(mode==="ALL"||mode==="Main Battery")blocks.push(batteryStepsHtml(x.battery,x.battery.candidate||{}));
     if(mode==="ALL"||mode==="Winch")blocks.push(winchStepsHtml(x.winch)+winchBatteryStepsHtml(x.winch));
     if(mode==="ALL"||mode==="Stability"){
@@ -1568,7 +1580,7 @@ async function refreshWebCalculationTrace(){
 
 function webRevisionInputs(){
   const o={};
-  ["driveForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"].forEach(id=>{o[id]=formObject($("#"+id));});
+  ["driveForm","rampForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"].forEach(id=>{o[id]=formObject($("#"+id));});
   o.stabilityComponents=stabilityComponentRows();
   return o;
 }
@@ -1580,18 +1592,41 @@ async function captureWebRevision(slot){
   localStorage.setItem(key,JSON.stringify(data));
   $("#webRevisionResult").innerHTML='<div class="notice"><b>Captured '+label+'</b> • '+data.created.replace("T"," ").slice(0,19)+'</div>';
 }
+function flattenRevisionInputs(inputs){
+  const out={};
+  Object.entries(inputs||{}).forEach(([section,data])=>{
+    if(section==="stabilityComponents"){
+      (data||[]).forEach((row,i)=>{
+        Object.entries(row||{}).forEach(([k,v])=>{out["Component "+(i+1)+" / "+k]=v;});
+      });
+      return;
+    }
+    Object.entries(data||{}).forEach(([k,v])=>{out[section+" / "+k]=v;});
+  });
+  return out;
+}
 function compareWebRevisionData(){
   const out=$("#webRevisionResult");
   let a,b;
   try{a=JSON.parse(localStorage.getItem(CVET_WEB_REV_A)||"null");b=JSON.parse(localStorage.getItem(CVET_WEB_REV_B)||"null");}catch(e){}
   if(!a||!b){out.innerHTML='<p class="check">Capture A และ B ก่อน</p>';return;}
+  const ai=flattenRevisionInputs(a.inputs),bi=flattenRevisionInputs(b.inputs);
+  const inputKeys=[...new Set([...Object.keys(ai),...Object.keys(bi)])];
+  const inputRows=inputKeys.filter(k=>String(ai[k])!==String(bi[k])).map(k=>{
+    const av=ai[k]??"—",bv=bi[k]??"—";
+    const delta=(typeof av==="number"&&typeof bv==="number")?(bv-av):null;
+    return '<tr><td>'+k+'</td><td>'+av+'</td><td>'+bv+'</td><td>'+(delta===null?"CHANGED":(delta>=0?"+":"")+f(delta,3))+'</td></tr>';
+  }).join("");
   const keys=[...new Set([...Object.keys(a.metrics||{}),...Object.keys(b.metrics||{})])];
   const rows=keys.map(k=>{
     const av=a.metrics[k],bv=b.metrics[k];
     const delta=(typeof av==="number"&&typeof bv==="number")?(bv-av):null;
     return '<tr><td>'+k+'</td><td>'+((typeof av==="number")?f(av,3):av)+'</td><td>'+((typeof bv==="number")?f(bv,3):bv)+'</td><td>'+(delta===null?"—":(delta>=0?"+":"")+f(delta,3))+'</td></tr>';
   }).join("");
-  out.innerHTML='<h3>'+a.label+' ↔ '+b.label+'</h3><p class="check">เปรียบเทียบ Output วิศวกรรมที่ Capture ณ เวลานั้น</p>'+
+  out.innerHTML='<h3>'+a.label+' ↔ '+b.label+'</h3>'+
+    '<h4>Input Revision Diff</h4>'+
+    (inputRows?'<div style="overflow:auto"><table><tr><th>Input</th><th>'+a.label+'</th><th>'+b.label+'</th><th>Change</th></tr>'+inputRows+'</table></div>':'<p class="check">Input หลักเหมือนกัน</p>')+
+    '<h4>Engineering Output Diff</h4>'+
     '<div style="overflow:auto"><table><tr><th>Metric</th><th>'+a.label+'</th><th>'+b.label+'</th><th>Δ B-A</th></tr>'+rows+'</table></div>';
 }
 
