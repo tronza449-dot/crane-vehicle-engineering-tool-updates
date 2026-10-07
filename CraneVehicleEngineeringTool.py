@@ -18,7 +18,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.33"
+APP_VERSION = "53.8.34"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -3153,7 +3153,7 @@ void loop() {{
         if not data:return
         self._append_hardware_row(data,select=True)
         self.update_hardware_manager()
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
         self.statusBar().showMessage(f"เพิ่ม {data['device']} / {data['signal']} แล้ว",3500)
 
     def edit_selected_hardware_io(self):
@@ -3173,7 +3173,7 @@ void loop() {{
         row["supply"].setCurrentText(data["supply"]);row["logic"].setCurrentText(data["logic"])
         row["gpio"].setCurrentText(data["gpio"]);row["protection"].setCurrentText(data["protection"])
         self.update_hardware_manager()
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def duplicate_selected_hardware_io(self):
         r,row=self._selected_hardware_row()
@@ -3190,7 +3190,7 @@ void loop() {{
                   note=str(row.get("note","")),allowed_supply=tuple(self._hardware_supply_items()),
                   custom=True,enabled=row["enabled"].isChecked())
         self._append_hardware_row(data,select=True);self.update_hardware_manager()
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def delete_selected_hardware_io(self):
         r,row=self._selected_hardware_row()
@@ -3203,7 +3203,7 @@ void loop() {{
         if QMessageBox.question(self,"Delete Hardware I/O",f"ลบ {row.get('device')} / {row.get('signal')} ?",QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:
             return
         self.hwTable.removeRow(r);self.hwRows.pop(r);self.update_hardware_manager()
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def _make_hw_status_card(self,title):
         box=QFrame();box.setObjectName("metricPanel");box.setMinimumHeight(82)
@@ -3672,7 +3672,7 @@ void loop() {{
         self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch)
         self.deviceLibraryTable.horizontalHeader().setSectionResizeMode(7,QHeaderView.Stretch)
-        self.deviceLibraryTable.itemChanged.connect(lambda *_: self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None)
+        self.deviceLibraryTable.itemChanged.connect(lambda *_: self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None)
         dl.addWidget(self.deviceLibraryTable,1)
         self.integrationTabs.addTab(dp,"Device Library")
 
@@ -3828,7 +3828,7 @@ void loop() {{
         data=self._device_library_dialog("Add Device to Library")
         if not data:return
         r=self._append_device_library_row(data);self.deviceLibraryTable.selectRow(r)
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def edit_device_library_item(self):
         r=self.deviceLibraryTable.currentRow()
@@ -3839,7 +3839,7 @@ void loop() {{
         if not new:return
         for c,key in enumerate(("device","category","signal","interface","supply","logic","protection","note")):
             self.deviceLibraryTable.setItem(r,c,QTableWidgetItem(str(new.get(key,""))))
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def duplicate_device_library_item(self):
         r=self.deviceLibraryTable.currentRow();data=self._device_library_row_data(r)
@@ -3849,7 +3849,7 @@ void loop() {{
 
     def delete_device_library_item(self):
         r=self.deviceLibraryTable.currentRow()
-        if r>=0:self.deviceLibraryTable.removeRow(r);self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        if r>=0:self.deviceLibraryTable.removeRow(r);self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def add_library_device_to_hardware(self):
         data=self._device_library_row_data(self.deviceLibraryTable.currentRow())
@@ -3950,7 +3950,7 @@ void loop() {{
         self.validationSummary.setText(f"Validation: PASS {p} • FAIL {f} • PENDING {pend}")
         self.validationSummary.setStyleSheet(f"font-weight:900;color:{'#176337' if f==0 and p>0 else '#b42318' if f else '#17324d'};padding:8px;")
         if hasattr(self,"finalVerificationView"):self.update_final_verification()
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def validation_status_counts(self):
         out={"PASS":0,"FAIL":0,"PENDING":0}
@@ -4088,7 +4088,7 @@ void loop() {{
         self.bomSummary.setText(f"BOM: {t['items']} rows • Qty {t['qty']:.0f} • Cost {t['cost']:,.2f} THB • Entered component mass {t['mass']:.2f} kg{suffix}")
         self.bomSummary.setStyleSheet(f"font-weight:900;color:{'#b42318' if t['mass']>300 else '#b54708' if t['mass_missing'] else '#17324d'};padding:8px;")
         if hasattr(self,"finalVerificationView"):self.update_final_verification()
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def _revision_summary_values(self,state):
         widgets=state.get("widgets",{}) if isinstance(state,dict) else {}
@@ -4118,7 +4118,7 @@ void loop() {{
         self.designRevisions.append(rev);self.refresh_revision_table()
         self.revisionTable.selectRow(len(self.designRevisions)-1)
         self.revisionCompare.setHtml(f"<h3>Captured {name}</h3><p>{note}</p>")
-        self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+        self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def apply_design_revision(self):
         r=self.revisionTable.currentRow()
@@ -4130,7 +4130,7 @@ void loop() {{
     def delete_design_revision(self):
         r=self.revisionTable.currentRow()
         if 0<=r<len(self.designRevisions):
-            self.designRevisions.pop(r);self.refresh_revision_table();self.schedule_easy_autosave() if hasattr(self,"easyAutosaveTimer") else None
+            self.designRevisions.pop(r);self.refresh_revision_table();self.schedule_easy_autosave() if hasattr(self,"easyAutoSaveDebounce") else None
 
     def compare_design_revisions(self):
         rows=sorted({i.row() for i in self.revisionTable.selectionModel().selectedRows()})
@@ -5963,7 +5963,7 @@ void loop() {{
                 self.projectStatus.setHtml(
                     f"<h3>บันทึกค่าปัจจุบันแล้ว ✓</h3>"
                     f"<p>Primary: {primary}</p><p>Backup: {backup}</p>"
-                    "<p>Input, Mode A/B, Mass_CG และค่าหลักถูกบันทึกแล้ว</p>"
+                    "<p>ค่าจากทุกโมดูล, Mode A/B, Slider, Mass_CG, Hardware I/O และ Integration ถูกบันทึกแล้ว</p>"
                 )
             return True
         except Exception as exc:
@@ -5979,10 +5979,12 @@ void loop() {{
         if not self.save_last_values(silent=True):
             raise RuntimeError("ไม่สามารถบันทึกค่าปัจจุบันได้")
         state=self.capture_project_state()
+        verify_sections=("widgets","components","hardware","integration")
         for p in (self.last_values_path(),self.backup_values_path()):
             check=json.loads(Path(p).read_text(encoding="utf-8"))
-            if check.get("widgets")!=state.get("widgets") or check.get("components")!=state.get("components"):
-                raise RuntimeError(f"ตรวจสอบไฟล์ Save ไม่ผ่าน: {p}")
+            for section in verify_sections:
+                if check.get(section)!=state.get(section):
+                    raise RuntimeError(f"ตรวจสอบไฟล์ Save ไม่ผ่าน ({section}): {p}")
         if hasattr(self,"statusBar"):
             self.statusBar().showMessage(
                 f"💾 บันทึกค่าปัจจุบันแล้ว ✓ • Backup: {self.backup_values_path()}",7000
@@ -6067,6 +6069,10 @@ void loop() {{
                     obj.toggled.connect(self.schedule_easy_autosave)
                 elif isinstance(obj,QComboBox):
                     obj.currentIndexChanged.connect(self.schedule_easy_autosave)
+                elif isinstance(obj,QSlider):
+                    obj.valueChanged.connect(self.schedule_easy_autosave)
+                elif isinstance(obj,QPushButton) and obj.isCheckable():
+                    obj.toggled.connect(self.schedule_easy_autosave)
                 elif isinstance(obj,QLineEdit):
                     obj.editingFinished.connect(self.schedule_easy_autosave)
             except Exception:
@@ -6117,6 +6123,8 @@ void loop() {{
                 elif isinstance(obj,QRadioButton): widgets[name]={"kind":"radio","value":obj.isChecked()}
                 elif isinstance(obj,QCheckBox): widgets[name]={"kind":"check","value":obj.isChecked()}
                 elif isinstance(obj,QComboBox): widgets[name]={"kind":"combo","value":obj.currentIndex()}
+                elif isinstance(obj,QSlider): widgets[name]={"kind":"slider","value":obj.value()}
+                elif isinstance(obj,QPushButton) and obj.isCheckable(): widgets[name]={"kind":"toggle_button","value":obj.isChecked()}
                 elif isinstance(obj,QLineEdit): widgets[name]={"kind":"text","value":obj.text()}
             except Exception:
                 pass
@@ -6166,6 +6174,9 @@ void loop() {{
                 elif kind=="int" and isinstance(obj,QSpinBox): obj.setValue(int(val))
                 elif kind=="check" and isinstance(obj,QCheckBox): obj.setChecked(bool(val))
                 elif kind=="combo" and isinstance(obj,QComboBox): obj.setCurrentIndex(int(val))
+                elif kind=="slider" and isinstance(obj,QSlider): obj.setValue(int(val))
+                elif kind=="toggle_button" and isinstance(obj,QPushButton) and obj.isCheckable():
+                    if bool(val): obj.setChecked(True)
                 elif kind=="text" and isinstance(obj,QLineEdit): obj.setText(str(val))
             except Exception:
                 pass
@@ -10305,6 +10316,83 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
         if not Path(path).exists() or Path(path).stat().st_size<1000:
             raise RuntimeError("PDF file was not created correctly")
 
+    def stability_fbd_variable_legend_html(self,key,d=None,bal=None):
+        """Compact bilingual legend for the symbols that are visibly drawn in each FBD."""
+        d=d or self.inputs();key=str(key or "geometry")
+        rows=[]
+        def add(symbol,meaning,value=""):
+            rows.append(
+                f"<tr><td style='white-space:nowrap'><b>{symbol}</b></td>"
+                f"<td>{meaning}</td><td>{value}</td></tr>"
+            )
+
+        if key=="geometry":
+            add("W","Wheel track / ระยะศูนย์กลางล้อซ้าย-ขวา",f"{d['W']:.3f} m")
+            add("WB","Wheelbase / ระยะศูนย์กลางเพลาหน้า-หลัง",f"{d['WB']:.3f} m")
+            add("L","Boom length / ความยาวแขนเครน",f"{d['L']:.3f} m")
+            add("θ","Crane angle / มุมหมุนเครน",f"{d['th']:.1f}°")
+            add("x_C","Crane column position / ตำแหน่งแกนเสาเครนจากเพลาหลัง",f"{d['xC']:.3f} m")
+            add("CG_V","Vehicle CG / จุดศูนย์ถ่วงส่วนรถหลัก",
+                f"x={d.get('xCG',0.0):.3f}, y={d.get('yCG',0.0):.3f} m")
+            add("CG_B","Boom CG / จุดศูนย์ถ่วงแขนเครน","กึ่งกลางแขนเครน")
+            add("CG_L","Payload CG / จุดศูนย์ถ่วงโหลด","ปลายแขนเครน")
+        elif key=="slope":
+            bal=bal or self.slope_stability_results(d)
+            sftext="∞" if bal["sf"]>=999 else f"{bal['sf']:.3f}"
+            add("P","Rear tipping axis / แกนคว่ำที่แนวล้อหลัง","จุดอ้างอิงโมเมนต์")
+            add("N_R","Rear normal reaction / แรงปฏิกิริยาตั้งฉากที่ล้อหลัง","รองรับที่ P")
+            add("N_F = 0","Front reaction at impending tip / แรงล้อหน้าเมื่อเริ่มคว่ำ","0 N")
+            add("W_parallel","Weight component down slope / องค์ประกอบน้ำหนักตามทางลาด",f"{bal['w_parallel']:.2f} N")
+            add("W_normal","Weight component normal to slope / องค์ประกอบน้ำหนักตั้งฉากทางลาด",f"{bal['w_normal']:.2f} N")
+            add("F_I = ma","D'Alembert inertia force / แรงเฉื่อยตรงข้ามการเร่ง",f"{bal['inertia']:.2f} N")
+            add("d_R","Resisting moment arm / แขนโมเมนต์ต้านจาก P",f"{max(0.0,bal['rear_arm']):.3f} m")
+            add("h_CG","CG height normal to road / ความสูง CG จากผิวทาง",f"{bal['h']:.3f} m")
+            add("M_O / M_R / SF","Overturning / resisting moment / safety factor",
+                f"{bal['mo']:.2f} / {bal['mr']:.2f} N·m • SF {sftext}")
+        else:
+            if bal is None:
+                if key=="side_left": bal=self.side_moment_balance(d,d["th"],"left")
+                elif key=="side_right": bal=self.side_moment_balance(d,d["th"],"right")
+                elif key=="front": bal=self.longitudinal_moment_balance(d,d["th"],"front")
+                elif key=="rear": bal=self.longitudinal_moment_balance(d,d["th"],"rear")
+            coord="y" if key in ("side_left","side_right") else "x"
+            comp={q["name"]:q for q in bal["components"]}
+            v=comp.get("Vehicle",{});b=comp.get("Boom",{});l=comp.get("Payload",{})
+            sftext="∞" if bal["sf"]>=999 else f"{bal['sf']:.3f}"
+            payload_note=(" • Kdyn applied" if abs(l.get("factor",1.0)-1.0)>1e-9 else "")
+            add("P","Tipping axis / แนวล้อที่รถจะหมุนรอบเมื่อเริ่มคว่ำ",f"{coord}_P={bal['pivot']:.3f} m")
+            add("CG_V / CG_B / CG_L","แนวแรงผ่าน CG ของ Vehicle / Boom / Payload",
+                f"{coord}_V={v.get(coord,0.0):.3f}, {coord}_B={b.get(coord,0.0):.3f}, {coord}_L={l.get(coord,0.0):.3f} m")
+            add("W_V / W_B / W_L","น้ำหนัก/แรงออกแบบที่กระทำลงในแนวดิ่ง",
+                f"{v.get('force',0.0):.1f} / {b.get('force',0.0):.1f} / {l.get('force',0.0):.1f} N{payload_note}")
+            add("R_P","Ground reaction at tipping axis / แรงปฏิกิริยาที่แกน P","รองรับที่ P")
+            add("R_opposite = 0","แรงปฏิกิริยาฝั่งตรงข้ามเมื่อเริ่มคว่ำ","0 N")
+            add("d_V / d_B / d_L","Perpendicular moment arms from each force line to P / แขนโมเมนต์ตั้งฉากถึง P",
+                f"{v.get('arm',0.0):.3f} / {b.get('arm',0.0):.3f} / {l.get('arm',0.0):.3f} m")
+            add("M_O","Overturning moment / โมเมนต์คว่ำ",f"{bal['mo']:.2f} N·m")
+            add("M_R","Resisting moment / โมเมนต์ต้าน",f"{bal['mr']:.2f} N·m")
+            add("SF","Safety Factor = M_R/M_O / ค่าความปลอดภัย",sftext)
+
+        return (
+            "<div style='font-size:8.2pt'>"
+            "<div style='background:#eef6ff;border:1px solid #b8d4ee;padding:6px'><b>"
+            "ตัวแปรในรูป / Figure Variable Legend</b></div>"
+            "<table border='1' cellspacing='0' cellpadding='4' "
+            "style='border-collapse:collapse;width:100%'>"
+            "<tr><th>Symbol</th><th>ความหมาย / Meaning</th><th>ค่า / Value</th></tr>"
+            +"".join(rows)+"</table></div>"
+        )
+
+    def stability_fbd_figure_with_legend_html(self,uri,key,d=None,bal=None):
+        """Place the FBD and its symbol legend together so the reader never has to hunt for definitions."""
+        legend=self.stability_fbd_variable_legend_html(key,d,bal)
+        return (
+            "<table border='0' cellspacing='0' cellpadding='5' style='width:100%;border-collapse:collapse'>"
+            "<tr><td style='width:62%;vertical-align:top;text-align:center'>"
+            f"<img src='{uri}' width='430'></td>"
+            "<td style='width:38%;vertical-align:top'>"+legend+"</td></tr></table>"
+        )
+
     def stability_mode_export_html(self,key,tmpdir,d=None):
         d=d or self.inputs();key=str(key or "geometry")
         mode_map={"geometry":0,"side_left":1,"side_right":2,"front":3,"rear":4,"slope":5}
@@ -10320,9 +10408,10 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             "slope":"UPHILL / SLOPE STABILITY",
         }[key]
         mode_label="Component Mass" if d.get("massMode")=="components" else "Total Mass"
+        figure_html=self.stability_fbd_figure_with_legend_html(fp.as_uri(),key,d)
         header=f"""<h1>{mode_name}</h1>
         <p>CVET V{APP_VERSION} | Mass Mode: <b>{mode_label}</b> | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
-        <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>"""
+        {figure_html}"""
         if key=="geometry":
             detail=f"""<h2>Geometry variables</h2>
             <p>W={d['W']:.3f} m | WB={d['WB']:.3f} m | L={d['L']:.3f} m | θ={d['th']:.1f}°<br>
@@ -10402,7 +10491,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
         pages=[f"""<div style='page-break-before:always'></div>
         <h1>GEOMETRY & TIPPING-AXIS DEFINITION</h1>
         <p>Coordinate convention: +x forward, +y right, +z upward. Crane slew: -90° left, 0° forward, +90° right.</p>
-        <p style='text-align:center'><img src='{geom.as_uri()}' width='680'></p>
+        {self.stability_fbd_figure_with_legend_html(geom.as_uri(),"geometry",d)}
         <p><b>Important:</b> this top view defines geometry and support/tipping axes. It is not used as the force FBD because gravity acts vertically.
         The force FBDs use front/side elevations so all vertical weights and ground reactions are shown in their true line of action.</p>"""]
         summary=[]
@@ -10483,7 +10572,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             pages.append(f"""<div style='page-break-before:always'></div>
             <h1>FBD {i}: {case['title']} / {case['thai']}</h1>
             <p><b>กรณีวิกฤตที่ใช้ในหน้านี้ / Critical case:</b> {geomtxt}</p>
-            <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>
+            {self.stability_fbd_figure_with_legend_html(fp.as_uri(),case['key'],d,bal)}
             <h2>สูตรและการแทนค่า / Equation and Substitution</h2>{detail}
             <p><b>เกณฑ์ที่ต้องการ / Required:</b> SF ≥ {d['req']:.2f} &nbsp; | &nbsp; <b>ผลลัพธ์ / Result:</b> SF = {sftext} → {status}</p>
             <p style='font-size:9pt;color:#52606d'>{"Slope case uses the combined driving mass/CG with the payload stowed on the vehicle; Kdyn is not applied in this slope equation." if case["key"]=="slope" else "At impending tipping, the support reaction opposite the selected tipping axis tends to zero. Payload Kdyn is used only as an equivalent adverse design load when the payload contributes to overturning."}</p>""")
@@ -10553,7 +10642,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
         </div>
 
         <h2>Geometry ที่ใช้</h2>
-        <p style='text-align:center'><img src='{geom.as_uri()}' width='680'></p>
+        {self.stability_fbd_figure_with_legend_html(geom.as_uri(),"geometry",d)}
         <p><b>หมายเหตุ:</b> หน้าหลักต่อจากนี้ใช้ <b>Critical Case</b> ของแต่ละด้านเพื่ออธิบายกรณีเลวร้ายสุด.
         ตารางและสูตรละเอียดทุกพจน์ถูกย้ายไป <b>Appendix</b> ท้ายรายงานเพื่อไม่ให้หน้าหลักรก.</p>
         <!-- FORMAL FBD CASE SUMMARY — CRITICAL-CASE SECTION -->
@@ -10677,7 +10766,7 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
             pages.append(f"""<div style='page-break-before:always'></div>
             <h1>CASE {i} — {case['thai']} / {case['title']}</h1>
             <p><b>กรณีที่กำลังแสดง:</b> {case_context}</p>
-            <p style='text-align:center'><img src='{fp.as_uri()}' width='680'></p>
+            {self.stability_fbd_figure_with_legend_html(fp.as_uri(),case['key'],d,bal)}
             {detail}
             <div style='background:{status_bg};border:2px solid {status_color};padding:12px;margin-top:12px'>
             <b style='font-size:15pt;color:{status_color}'>ผล: SF = {sftext} → {status}</b><br>
