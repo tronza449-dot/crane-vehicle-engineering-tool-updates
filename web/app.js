@@ -1282,7 +1282,7 @@ function fbdFormulaHtml(key,bal,r){
     '<p><b>สูตร:</b> M_R = Σ(F_i d_i)<br><b>อ่านง่าย:</b> รวม “แรง × แขนโมเมนต์” ของแรงที่ช่วยพยุงรถไม่ให้คว่ำ</p>'+
     '<p>'+details(mr)+'<br><b>แทนค่า:</b> M_R = '+(mr.length?mr.map(term).join(' + '):'0')+' = <b>'+f(bal.resisting_moment_nm,2)+' N·m</b></p></div></section>'+
     '<section class="calc-step-card final-step"><div class="calc-step-no">4</div><div><h5>หา Safety Factor และตัดสินผล</h5>'+
-    '<p><b>สูตร:</b> SF = M_R ÷ M_O<br><b>แทนค่า:</b> '+(bal.overturning_moment_nm>1e-9?f(bal.resisting_moment_nm,2)+' N·m ÷ '+f(bal.overturning_moment_nm,2)+' N·m = <b>'+fbdSf(bal.sf)+'</b> <span class="unit-note">(ไม่มีหน่วย)</span>':'ไม่มีโมเมนต์คว่ำ → <b>SF = ∞</b> <span class="unit-note">(ไม่มีหน่วย)</span>')+
+    '<p><b>สูตร:</b> SF = M_R ÷ M_O<br><b>แทนค่า:</b> '+(bal.overturning_moment_nm>1e-9?f(bal.resisting_moment_nm,2)+' N·m ÷ '+f(bal.overturning_moment_nm,2)+' N·m = <b>'+fbdSf(bal.sf)+'</b> <span class="unit-note">(ไม่มีหน่วย)</span>':'ไม่มีแรงอยู่เลยแกน P ไปทางคว่ำใน Case/มุมนี้ → <b>M_O = 0</b> และแสดง <b>SF = ∞</b> <span class="unit-note">(ไม่มีหน่วย)</span>')+
     ' &nbsp; '+statusSpan(bal.pass)+'</p><p class="step-meaning">เกณฑ์ของโปรเจกต์: SF ≥ '+f(r.required_sf,2)+'</p></div></section></div>';
 }
 
@@ -1293,7 +1293,13 @@ function renderWebFbd(){
   const bal=source[key];
   if(!bal)return;
   const angle=key==="slope"?'α='+f(bal.slope_deg,2)+'°':'θ='+f(bal.angle_deg,1)+'°';
-  $("#webFbdContext").innerHTML='<b>'+(view==="critical"?'CRITICAL CASE':'CURRENT ANGLE')+'</b> • '+fbdName(key)+' • '+angle+' • SF '+fbdSf(bal.sf)+' • '+statusSpan(bal.pass);
+  let context='<b>'+(view==="critical"?'CRITICAL CASE':'CURRENT ANGLE')+'</b> • '+fbdName(key)+' • '+angle+' • SF '+fbdSf(bal.sf)+' • '+statusSpan(bal.pass);
+  if(key!=="slope" && Number(bal.overturning_moment_nm)<=1e-9){
+    context += view==="critical"
+      ? ' • <b>ไม่พบโมเมนต์คว่ำในทิศนี้ภายในช่วงเครน -90°…+90°</b>'
+      : ' • <b>มุมปัจจุบันยังไม่คว่ำด้านนี้ — เลือก Critical Case เพื่อดูมุมวิกฤตของด้านนี้</b>';
+  }
+  $("#webFbdContext").innerHTML=context;
   const canvas=$("#webFbdCanvas");
   canvas.classList.remove("empty");
   canvas.innerHTML=key==="slope"?renderSlopeFbd(lastStabilityResult,bal):renderLinearFbd(lastStabilityResult,key,bal,view);
