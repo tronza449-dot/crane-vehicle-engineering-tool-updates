@@ -3076,7 +3076,7 @@ void loop() {{
         prot.currentIndexChanged.connect(self.update_hardware_manager)
 
         # Custom-row values live in dictionaries, so connect them explicitly to autosave if available.
-        if hasattr(self,"easyAutosaveTimer"):
+        if hasattr(self,"easyAutoSaveDebounce"):
             for sig in (en.toggled,supply.currentIndexChanged,logic.currentIndexChanged,gpio.currentIndexChanged,prot.currentIndexChanged):
                 try:sig.connect(self.schedule_easy_autosave)
                 except Exception:pass
