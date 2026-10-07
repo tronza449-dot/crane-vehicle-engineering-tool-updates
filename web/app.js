@@ -1514,50 +1514,184 @@ async function refreshEngineeringDecisionSummary(){
   }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","สรุปผลไม่สำเร็จ");return null;}
 }
 
+let webWhatIfBaseline=null;
+
+function wiNum(id,fallback=0){return num($("#"+id)?.value,fallback);}
+function webWhatIfScenario(){
+  const link=!!$("#wiLinkWinchPayload")?.checked;
+  const payload=wiNum("wiPayload",0);
+  return {
+    base_mass:wiNum("wiBaseMass",0),payload,boom_mass:wiNum("wiBoomMass",0),
+    track:wiNum("wiTrack",1),wheelbase:wiNum("wiWheelbase",1.1),boom_length:wiNum("wiBoomLength",1.2),
+    crane_x:wiNum("wiCraneX",0.15),base_cg_x:wiNum("wiBaseCgX",0),
+    combined_cg_from_rear:wiNum("wiCombinedCgRear",0.55),hcg:wiNum("wiHcg",0.55),
+    slope:wiNum("wiSlope",0),drive_speed:wiNum("wiDriveSpeed",5),
+    operation_speed:wiNum("wiOperationSpeed",1),lift:wiNum("wiLift",1),
+    winch_load:link?payload:wiNum("wiWinchLoad",payload),link_winch_payload:link
+  };
+}
+
+function syncWebWhatIfDerived(){
+  const s=webWhatIfScenario();
+  const total=s.base_mass+s.payload+s.boom_mass;
+  if($("#wiTotalMass"))$("#wiTotalMass").value=f(total,2)+" kg";
+  const load=$("#wiWinchLoad");
+  if(load){
+    load.disabled=s.link_winch_payload;
+    if(s.link_winch_payload)load.value=String(s.payload);
+  }
+}
+
+async function loadWebWhatIfBaseline(silent=false){
+  const base=stabilityPayload();
+  const stab=await api("/api/calc/stability",base);
+  const drive=formObject($("#driveForm"));
+  const battery=formObject($("#batteryForm"));
+  const winch=winchBatteryPayload();
+  const total=num(stab.total_mass_kg,0),payload=num(stab.payload_mass_kg,0),boom=num(stab.boom_mass_kg,0);
+  const values={
+    wiBaseMass:Math.max(0,total-payload-boom),wiPayload:payload,wiBoomMass:boom,
+    wiTrack:num(stab.track_width_m,1),wiWheelbase:num(stab.wheelbase_m,1.1),wiBoomLength:num(stab.boom_length_m,1.2),
+    wiCraneX:num(base.crane_from_rear_m,0.15),wiBaseCgX:num(stab.vehicle_cg_x_m,0),
+    wiCombinedCgRear:num(stab.slope?.combined_cg_from_rear_m,base.combined_cg_from_rear_m||0.55),
+    wiHcg:num(stab.slope?.combined_cg_height_m,base.combined_cg_height_m||0.55),
+    wiSlope:num(base.slope_deg,battery.slope_deg||drive.slope_deg||0),
+    wiDriveSpeed:num(drive.speed_kmh,5),wiOperationSpeed:num(battery.speed_kmh,1),
+    wiLift:num(winch.lift_m,1),wiWinchLoad:num(winch.load_kg,payload)
+  };
+  Object.entries(values).forEach(([id,v])=>{const el=$("#"+id);if(el)el.value=String(v);});
+  const link=Math.abs(values.wiWinchLoad-values.wiPayload)<1e-9;
+  if($("#wiLinkWinchPayload"))$("#wiLinkWinchPayload").checked=link;
+  syncWebWhatIfDerived();
+  webWhatIfBaseline=webWhatIfScenario();
+  if(!silent&&$("#webSensitivityResult")){
+    $("#webSensitivityResult").innerHTML='<div class="notice"><b>Baseline loaded.</b> แก้หลายค่าได้พร้อมกัน แล้วกด “คำนวณ What-if ทั้งระบบ”</div>';
+  }
+  return webWhatIfBaseline;
+}
+
+async function calculateWebCoupledScenario(v){
+  const total=Math.max(0,v.base_mass+v.payload+v.boom_mass);
+
+  const dp=Object.assign({},formObject($("#driveForm")),{
+    mass_kg:total,slope_deg:v.slope,speed_kmh:v.drive_speed
+  });
+  const drive=await api("/api/calc/drive-torque",dp);
+
+  const wp=Object.assign({},winchBatteryPayload(),{
+    load_kg:v.winch_load,lift_m:v.lift,vehicle_speed_kmh:v.operation_speed
+  });
+  const winch=await api("/api/calc/winch",wp);
+
+  const bp=Object.assign({},formObject($("#batteryForm")),{
+    mass_kg:total,slope_deg:v.slope,speed_kmh:v.operation_speed,track_width_m:v.track,
+    drive_reference_current_a:drive.battery_current_a
+  });
+  if(winch?.operation){
+    bp.lift_time_per_event_s=winch.operation.event_time_s;
+    bp.lift_events_per_round=winch.operation.events_per_round;
+    bp.other_stop_time_per_round_s=winch.operation.other_stop_s;
+  }
+  const battery=await api("/api/calc/drive-battery",bp);
+
+  const sp=Object.assign({},stabilityPayload(),{
+    mass_mode:"total",total_mass_kg:total,payload_mass_kg:v.payload,boom_mass_kg:v.boom_mass,
+    track_width_m:v.track,wheelbase_m:v.wheelbase,boom_length_m:v.boom_length,
+    crane_from_rear_m:v.crane_x,vehicle_cg_x_from_center_m:v.base_cg_x,
+    combined_cg_from_rear_m:v.combined_cg_from_rear,combined_cg_height_m:v.hcg,
+    slope_deg:v.slope
+  });
+  delete sp.components;
+  const stability=await api("/api/calc/stability",sp);
+  return {drive,winch,battery,stability,total};
+}
+
+function coupledWhatIfMetrics(x){
+  const lift=x.stability.critical_governing||{};
+  const slope=x.stability.slope||{};
+  const liftSf=num(lift.sf,999),slopeSf=num(slope.sf,999);
+  const overall=(slopeSf<liftSf)?{name:"Slope / ทางลาด",sf:slopeSf}:{name:fbdName(lift.key),sf:liftSf};
+  return {
+    total_mass:x.total,torque:num(x.drive.torque_per_motor_nm,0),motor_margin:num(x.drive.motor_power_margin,0),
+    main_ah:num(x.battery.design_ah,0),main_ah_practical:num(x.battery.recommended_ah,x.battery.design_ah),
+    main_energy:num(x.battery.load_energy_wh,0),cycles:num(x.battery.completed_round_trips,0),
+    winch_time:num(x.winch.operation?.up_time_s,x.winch.core?.up_time_s||0),
+    winch_ah:num(x.winch.battery?.ah_design,0),worst_lift_sf:liftSf,
+    worst_lift_case:fbdName(lift.key),worst_lift_angle:lift.angle_deg,
+    slope_sf:slopeSf,overall_sf:overall.sf,overall_case:overall.name,
+    required_sf:num(x.stability.required_sf,1.5)
+  };
+}
+
+function whatIfDelta(a,b,d=3,unit=""){
+  const x=Number(b)-Number(a);return (x>=0?"+":"")+f(x,d)+(unit?" "+unit:"");
+}
+
 async function runWebSensitivity(){
   const out=$("#webSensitivityResult"),btn=$("#runWebSensitivity");
   if(!out)return;
-  buttonBusy(btn,"กำลังวิเคราะห์...");
+  buttonBusy(btn,"กำลังคำนวณทั้งระบบ...");
   try{
-    const span=Math.max(.05,Math.min(.50,num($("#webSensitivitySpan")?.value,20)/100));
-    const base=stabilityPayload();
-    const baseRes=await api("/api/calc/stability",base);
-    const equivalent=Object.assign({},base,{
-      mass_mode:"total",
-      total_mass_kg:baseRes.total_mass_kg,
-      payload_mass_kg:baseRes.payload_mass_kg,
-      boom_mass_kg:baseRes.boom_mass_kg,
-      vehicle_cg_x_from_center_m:baseRes.vehicle_cg_x_m,
-      vehicle_cg_y_m:baseRes.vehicle_cg_y_m,
-      combined_cg_from_rear_m:baseRes.slope.combined_cg_from_rear_m,
-      combined_cg_height_m:baseRes.slope.combined_cg_height_m
-    });
-    delete equivalent.components;
-    const specs=[
-      ["Track width W","track_width_m","m"],
-      ["Boom length L","boom_length_m","m"],
-      ["Payload mass","payload_mass_kg","kg"],
-      ["Crane x_C from rear axle","crane_from_rear_m","m"],
-      ["Vehicle CG x","vehicle_cg_x_from_center_m","m"]
-    ];
-    let html='<h3>Sensitivity / What-if ±'+f(span*100,0)+'%</h3><p class="check">ทุกจุดใช้ Critical scan -90°…+90°. Component mode ใช้ equivalent mass/CG snapshot เพื่อไม่แก้ Component table จริง</p>';
-    for(const [label,key,unit] of specs){
-      const cur=num(equivalent[key],0),baseScale=Math.max(Math.abs(cur),key==="vehicle_cg_x_from_center_m"?.10:.05);
-      const values=Math.abs(cur)<1e-12
-        ? [-baseScale*span,-baseScale*span/2,0,baseScale*span/2,baseScale*span]
-        : [1-span,1-span/2,1,1+span/2,1+span].map(q=>cur*q);
-      const results=await Promise.all(values.map(async value=>{
-        const p=Object.assign({},equivalent,{[key]:value});
-        const r=await api("/api/calc/stability",p);
-        return {value,r};
-      }));
-      html+='<h4>'+label+'</h4><div style="overflow:auto"><table><tr><th>Value</th><th>Governing</th><th>Worst SF</th><th>Status</th></tr>'+
-        results.map(({value,r})=>'<tr><td>'+f(value,3)+' '+unit+'</td><td>'+fbdName(r.critical_governing.key)+'</td><td>'+f(r.critical_governing.sf,3)+'</td><td>'+statusSpan(r.critical_governing.pass)+'</td></tr>').join("")+
-        '</table></div>';
-    }
-    out.innerHTML=html;buttonSuccess(btn,"Sensitivity ✓","Sensitivity เสร็จแล้ว");
-  }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","Sensitivity ไม่สำเร็จ");}
+    if(!webWhatIfBaseline)await loadWebWhatIfBaseline(true);
+    syncWebWhatIfDerived();
+    const base=Object.assign({},webWhatIfBaseline);
+    const scenario=webWhatIfScenario();
+    const [bx,sx]=await Promise.all([calculateWebCoupledScenario(base),calculateWebCoupledScenario(scenario)]);
+    const b=coupledWhatIfMetrics(bx),s=coupledWhatIfMetrics(sx);
+
+    const inputRows=[
+      ["Base vehicle mass","base_mass","kg"],["Payload system","payload","kg"],["Boom mass","boom_mass","kg"],
+      ["Wheel track W","track","m"],["Wheelbase WB","wheelbase","m"],["Boom length L","boom_length","m"],
+      ["Crane x_C","crane_x","m"],["Base CG x","base_cg_x","m"],["Combined CG from rear","combined_cg_from_rear","m"],
+      ["hCG","hcg","m"],["Slope","slope","deg"],["Drive design speed","drive_speed","km/h"],
+      ["Operation speed","operation_speed","km/h"],["Lift distance","lift","m"],["Winch load","winch_load","kg"]
+    ].map(([label,key,unit])=>'<tr><td>'+label+'</td><td>'+f(base[key],3)+' '+unit+'</td><td>'+f(scenario[key],3)+' '+unit+'</td><td>'+whatIfDelta(base[key],scenario[key],3,unit)+'</td></tr>');
+
+    const bt=base.base_mass+base.payload+base.boom_mass,st=scenario.base_mass+scenario.payload+scenario.boom_mass;
+    inputRows.splice(3,0,'<tr><td><b>Total mass (Auto)</b></td><td><b>'+f(bt,2)+' kg</b></td><td><b>'+f(st,2)+' kg</b></td><td><b>'+whatIfDelta(bt,st,2,"kg")+'</b></td></tr>');
+
+    const sf=(v)=>Number(v)>=999?"N/A":f(v,3);
+    const resultRows=[
+      ["Required torque / motor",f(b.torque,2)+" N·m",f(s.torque,2)+" N·m",whatIfDelta(b.torque,s.torque,2,"N·m")],
+      ["Motor power margin",f(b.motor_margin,2)+"×",f(s.motor_margin,2)+"×",whatIfDelta(b.motor_margin,s.motor_margin,2,"×")],
+      ["Main battery minimum",f(b.main_ah,2)+" Ah",f(s.main_ah,2)+" Ah",whatIfDelta(b.main_ah,s.main_ah,2,"Ah")],
+      ["Main battery practical",f(b.main_ah_practical,2)+" Ah",f(s.main_ah_practical,2)+" Ah",whatIfDelta(b.main_ah_practical,s.main_ah_practical,2,"Ah")],
+      ["72 V modeled energy",f(b.main_energy,1)+" Wh",f(s.main_energy,1)+" Wh",whatIfDelta(b.main_energy,s.main_energy,1,"Wh")],
+      ["Completed route cycles",String(b.cycles),String(s.cycles),whatIfDelta(b.cycles,s.cycles,0,"cycles")],
+      ["Winch lift time",f(b.winch_time,2)+" s",f(s.winch_time,2)+" s",whatIfDelta(b.winch_time,s.winch_time,2,"s")],
+      ["Winch battery",f(b.winch_ah,2)+" Ah",f(s.winch_ah,2)+" Ah",whatIfDelta(b.winch_ah,s.winch_ah,2,"Ah")],
+      ["Worst lifting SF",sf(b.worst_lift_sf),sf(s.worst_lift_sf),(b.worst_lift_sf<999&&s.worst_lift_sf<999)?whatIfDelta(b.worst_lift_sf,s.worst_lift_sf,3):"—"],
+      ["Worst lifting case",b.worst_lift_case+" @ "+b.worst_lift_angle+"°",s.worst_lift_case+" @ "+s.worst_lift_angle+"°","—"],
+      ["Slope SF",sf(b.slope_sf),sf(s.slope_sf),(b.slope_sf<999&&s.slope_sf<999)?whatIfDelta(b.slope_sf,s.slope_sf,3):"—"],
+      ["Overall governing",b.overall_case+" • SF "+sf(b.overall_sf),s.overall_case+" • SF "+sf(s.overall_sf),statusSpan(s.overall_sf>=s.required_sf)]
+    ].map(r=>'<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td><b>'+r[3]+'</b></td></tr>');
+
+    out.innerHTML=
+      '<h3>Coupled System What-if / ผลสัมพันธ์ทั้งระบบ</h3>'+
+      '<p><b>หลักการ:</b> Scenario เดียวถูกส่งไปคำนวณ Drive + Main Battery + Winch + Stability ใหม่พร้อมกัน ไม่ใช่การขยับทีละค่าแบบแยกส่วน</p>'+
+      '<h4>1) Baseline ↔ Scenario Input</h4><div style="overflow:auto"><table><tr><th>Parameter</th><th>Baseline</th><th>Scenario</th><th>Change</th></tr>'+inputRows.join("")+'</table></div>'+
+      '<h4>2) ความสัมพันธ์ที่ใช้</h4><ul>'+
+      '<li>Total mass = Base + Boom + Payload แล้วส่งมวลเดียวกันไป Torque/Battery/Stability</li>'+
+      '<li>Slope เดียวกันใช้กับ Drive/Battery/Slope Stability</li>'+
+      '<li>W กระทบ Side tipping และ Turning Energy เมื่อเปิดโหมดนั้น</li>'+
+      '<li>Operation speed กระทบเวลาเดินทาง, จำนวน Cycle และจำนวนงานยก Auto</li>'+
+      '<li>Lift distance กระทบเวลา Winch → เวลา Cycle → จำนวน Cycle/งานยก และแบต Winch</li>'+
+      '<li>'+(scenario.link_winch_payload?'Winch load linked to Payload':'Winch load แยกจาก Payload ตาม Scenario')+'</li></ul>'+
+      '<div class="notice"><b>ไม่เดาอัตโนมัติ:</b> การเพิ่ม W/WB ไม่สามารถรู้มวลโครงใหม่โดยไม่มีแบบโครงสร้าง, การเพิ่ม L ไม่รู้ Boom mass ใหม่โดยไม่มีหน้าตัด/วัสดุ, และ CG ต้องมาจากตำแหน่งมวลจริง</div>'+
+      '<h4>3) Engineering Output</h4><div style="overflow:auto"><table><tr><th>Result</th><th>Baseline</th><th>Scenario</th><th>Δ / Status</th></tr>'+resultRows.join("")+'</table></div>'+
+      '<p class="check">What-if ใช้สำเนาค่าเพื่อคำนวณ ไม่เขียนทับ Design จริง</p>';
+    buttonSuccess(btn,"What-if ✓","คำนวณ What-if ทั้งระบบแล้ว");
+  }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","What-if ทั้งระบบไม่สำเร็จ");}
 }
+
+$("#loadWebWhatIfBaseline")?.addEventListener("click",async()=>{
+  const btn=$("#loadWebWhatIfBaseline");buttonBusy(btn,"กำลังโหลด Baseline...");
+  try{await loadWebWhatIfBaseline(false);buttonSuccess(btn,"Baseline ✓","โหลด Baseline แล้ว");}
+  catch(e){setError($("#webSensitivityResult"),e);buttonError(btn,"ไม่สำเร็จ","โหลด Baseline ไม่สำเร็จ");}
+});
+["wiBaseMass","wiPayload","wiBoomMass","wiTrack","wiWheelbase","wiBoomLength","wiCraneX","wiBaseCgX",
+ "wiCombinedCgRear","wiHcg","wiSlope","wiDriveSpeed","wiOperationSpeed","wiLift","wiWinchLoad","wiLinkWinchPayload"]
+ .forEach(id=>$("#"+id)?.addEventListener("input",syncWebWhatIfDerived));
 
 async function refreshWebCalculationTrace(){
   const out=$("#webTraceResult"),btn=$("#refreshWebTrace"),mode=$("#webTraceMode")?.value||"ALL";
