@@ -235,6 +235,10 @@ jobs:
           assert "def stability_easy_report_html" in source
           assert "วิธีอ่านรายงาน Stability แบบง่าย" in source
           assert "d⊥ คือระยะจากแรงถึงแนวล้อที่เป็นแกนคว่ำ" in source
+          assert "def stability_fbd_variable_legend_html" in source
+          assert "def stability_fbd_figure_with_legend_html" in source
+          assert "ตัวแปรในรูป / Figure Variable Legend" in source
+          assert "kind\":\"slider" in source and "kind\":\"toggle_button" in source
           assert "APPENDIX A — DETAILED ENGINEERING CALCULATION" in source
           assert "def backup_values_path" in source
           assert "def save_values_now" in source
@@ -1277,6 +1281,10 @@ jobs:
               assert "Design guidance" in html
               assert "ช่วงมุมที่แนะนำโดยประมาณ" in html
               assert "Critical Case" in html
+              assert "ตัวแปรในรูป / Figure Variable Legend" in html
+              assert "W_V / W_B / W_L" in html
+              assert "d_V / d_B / d_L" in html
+              assert "N_F = 0" in html
               for key in ("side_left","side_right","front","rear","slope"):
                   img=fbd_td/f"fbd_{key}.png"
                   assert img.exists() and img.stat().st_size>1000, f"Missing FBD image {key}"
@@ -1291,6 +1299,7 @@ jobs:
 
               w.set_mass_mode_from_radio("total")
               w.mt.setValue(333.0);w.ml.setValue(88.0);w.W.setValue(1.23);w.xC.setValue(-0.22)
+              w.safetyThrottle.setValue(37)
               w.comp.setItem(0,1,QTableWidgetItem("57.5"))
               QApplication.processEvents()
               assert w.save_values_now() is True
@@ -1302,17 +1311,24 @@ jobs:
               assert primary["widgets"]["ml"]["value"]==88.0
               assert primary["widgets"]["W"]["value"]==1.23
               assert primary["widgets"]["xC"]["value"]==-0.22
+              assert primary["widgets"]["safetyThrottle"]=={"kind":"slider","value":37}
+              assert primary["widgets"]["craneMassModeTotal"]["kind"]=="toggle_button"
+              assert primary["widgets"]["craneMassModeTotal"]["value"] is True
               assert primary["components"][0][1]=="57.5"
               assert primary["widgets"]==backup["widgets"]
               assert primary["components"]==backup["components"]
+              assert primary["hardware"]==backup["hardware"]
+              assert primary["integration"]==backup["integration"]
 
               # Change values, then prove restore brings the saved values back.
               w.mt.setValue(250.0);w.ml.setValue(50.0);w.W.setValue(.90);w.xC.setValue(.10)
+              w.safetyThrottle.setValue(0)
               assert w.restore_last_values(silent=True) is True
               assert abs(w.mt.value()-333.0)<1e-9
               assert abs(w.ml.value()-88.0)<1e-9
               assert abs(w.W.value()-1.23)<1e-9
               assert abs(w.xC.value()+0.22)<1e-9
+              assert w.safetyThrottle.value()==37
               assert w.comp.item(0,1).text()=="57.5"
 
               # Mass-mode button changes must schedule autosave even though the hidden combo signal is blocked.
