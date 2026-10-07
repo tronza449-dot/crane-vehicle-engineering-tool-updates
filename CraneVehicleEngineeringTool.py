@@ -5986,7 +5986,7 @@ void loop() {{
         # 9) CALCULATION TRACE
         tp=QWidget();tl=QVBoxLayout(tp)
         tbar=QHBoxLayout()
-        self.traceMode=QComboBox();self.traceMode.addItems(["ALL","Drive Torque","Main Battery","Winch","Stability"])
+        self.traceMode=QComboBox();self.traceMode.addItems(["ALL","Drive Torque","Ramp Geometry","Main Battery","Winch","Stability"])
         trun=QPushButton("Refresh Calculation Trace");trun.setObjectName("primaryButton");trun.clicked.connect(self.update_calculation_trace)
         tbar.addWidget(QLabel("Module"));tbar.addWidget(self.traceMode);tbar.addWidget(trun);tbar.addStretch(1);tl.addLayout(tbar)
         self.calculationTraceView=QTextEdit();self.calculationTraceView.setReadOnly(True);tl.addWidget(self.calculationTraceView,1)
@@ -6510,8 +6510,9 @@ void loop() {{
         self.projectStatus.setHtml(f"<h3>Applied preset: {key}</h3><p>Preset เป็นค่าช่วยสาธิตเท่านั้น โปรดตรวจ Input ก่อนนำผลไปใช้ในรายงาน</p>")
 
     def _design_lock_widgets(self):
-        names=("mt","ml","mb","W","WB","L","xC","xCG","yCG","driveXCG","slope","acc",
-               "tgrade","eslopeDeg","rampRiseCm","rampRunCm","rampMeasuredCm")
+        names=("mt","ml","mb","tm","emass","rampMass","wmass","W","WB","L","xC","xCG","yCG","driveXCG","slope","acc",
+               "twheelInch","tgrade","eslopeDeg","rampRiseCm","rampRunCm","rampMeasuredCm",
+               "tUseMain","euseTorqueMass","rampUseMainMass")
         return [getattr(self,n) for n in names if hasattr(self,n)]
 
     def _design_inputs_locked(self):
@@ -6589,8 +6590,13 @@ void loop() {{
         valid=[x for x in crit if x[0]<999]
         governing=min(valid,key=lambda x:x[0]) if valid else None
         gov=(f"{governing[2]} • SF {governing[0]:.3f} @ {governing[1]}°" if governing else "No overturning case")
+        overall_candidates=[("Slope",ssf,None)]
+        if governing: overall_candidates.append((governing[2],governing[0],governing[1]))
+        overall=min(overall_candidates,key=lambda x:x[1])
+        overall_text=(f"{overall[0]} • SF {overall[1]:.3f}" + (f" @ {overall[2]}°" if overall[2] is not None else ""))
         return ("<h1>ENGINEERING WORST-CASE SUMMARY</h1>"
-                f"<p><b>Governing lifting case:</b> {gov} • Required SF ≥ {req:.2f}</p>"
+                f"<p><b>Overall governing stability:</b> {overall_text} • Required SF ≥ {req:.2f}</p>"
+                f"<p><b>Governing lifting case:</b> {gov}</p>"
                 "<table border='1' cellspacing='0' cellpadding='6'><tr><th>System</th><th>Check</th><th>Result</th><th>Status</th><th>Detail</th></tr>"
                 +"".join(rows)+"</table>")
 
@@ -6641,6 +6647,14 @@ void loop() {{
             <p><b>Substitute:</b> ({t['Fg']:.2f}+{t['Fr']:.2f}+{t['Fa']:.2f})×{self.tsf.value():.2f}=<b>{t['Fdesign']:.2f} N</b></p>
             <p><b>Formula:</b> T=(F_design/n)r → <b>{t['T']:.2f} N·m/motor</b></p>
             <p><b>Power check:</b> required {t['Pmech_per']:.1f} W vs rated {t.get('motor_rated_w',0):.1f} W → <b>{'PASS' if t.get('motor_power_ok') else 'FAIL'}</b></p>""")
+        if mode in ("ALL","Ramp Geometry"):
+            r=self.ramp_geometry_results()
+            blocks.append(f"""<h2>RAMP GEOMETRY TRACE</h2>
+            <p><b>Input:</b> rise={r['h']:.2f} cm, run={r['x']:.2f} cm, measured slant={r['measured']:.2f} cm</p>
+            <p><b>Formula:</b> L=√(h²+x²) → √({r['h']:.2f}²+{r['x']:.2f}²)=<b>{r['L']:.3f} cm</b></p>
+            <p><b>Formula:</b> θ=atan(h/x) → <b>{r['angle']:.3f}°</b></p>
+            <p><b>Slope %:</b> (h/x)×100 = <b>{r['slope_pct']:.3f}%</b></p>
+            <p><b>Measured check:</b> |L_measured-L_calc| = <b>{r['diff_abs']:.3f} cm</b></p>""")
         if mode in ("ALL","Main Battery"):
             blocks.append(f"""<h2>MAIN BATTERY TRACE</h2>
             <p><b>Input:</b> V={e['V']:.1f} V, runtime={e['runtime_h']:.2f} h, Cycle={e['cycle_total_s']:.2f} s</p>
