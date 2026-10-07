@@ -9224,7 +9224,7 @@ void loop() {{
               ("Rotation angle θ / มุมหมุนเครน (deg)",self.th),("Dynamic factor Kdyn / ตัวคูณแรงไดนามิก",self.kd),("Required SF / ค่า SF ที่ต้องการ",self.req)]
         f.setVerticalSpacing(7);f.setHorizontalSpacing(10);f.setRowWrapPolicy(QFormLayout.WrapLongRows)
         for a,b in rows:f.addRow(a,b);b.valueChanged.connect(self.calc_all)
-        self.W.setToolTip("Wheel track = ระยะศูนย์กลางล้อซ้ายถึงศูนย์กลางล้อขวา ไม่ใช่ Vehicle width 1.00 m")
+        self.W.setToolTip("Wheel track = ระยะศูนย์กลางล้อซ้ายถึงศูนย์กลางล้อขวา ไม่ใช่ความกว้างตัวรถ 1.00 m")
         self.xC.setToolTip("วัดจากศูนย์กลางเพลาหลังถึงศูนย์กลางฐานเครน: + = ไปด้านหน้ารถ, - = ไปทางท้ายรถ")
         self.massCalcMode.currentIndexChanged.connect(self.set_mass_mode_from_combo)
         self.sl=QSlider(Qt.Horizontal);self.sl.setRange(-90,90);self.sl.setValue(90);self.sl.valueChanged.connect(lambda v:self.th.setValue(v));self.th.valueChanged.connect(lambda v:self.sl.setValue(int(v)));f.addRow("Rotate crane / เลื่อนเพื่อหมุนเครน",self.sl)
