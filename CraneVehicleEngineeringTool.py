@@ -6699,12 +6699,23 @@ void loop() {{
     def engineering_metrics(self):
         t=self.torque_results();e=self.electrical_results();w=self.winch_results();d=self.inputs();worst=self.stability_worst_record()
         side=self.calc_side(d)[0];front,rear=self.longitudinal_sf_at(d,d['th'])
+        critical={key:self._stability_critical_for_data(d,key) for key in ("side_left","side_right","front","rear")}
+        slope=self.slope_stability_results(d)
+        lift_valid=[(key,x) for key,x in critical.items() if x["sf"]<999]
+        lift_gov=min(lift_valid,key=lambda q:q[1]["sf"]) if lift_valid else (None,dict(sf=999.0,angle=None))
+        overall_candidates=[("Slope",float(slope["sf"]),None)]
+        if lift_gov[0] is not None:
+            overall_candidates.append((lift_gov[0],float(lift_gov[1]["sf"]),lift_gov[1]["angle"]))
+        overall=min(overall_candidates,key=lambda q:q[1])
         return {
             "Vehicle mass (kg)":d['mt'],"Track width (m)":d['W'],"Boom length (m)":d['L'],"Crane angle (deg)":d['th'],
             "Required torque / motor (N·m)":t['T'],"Required mech power / motor (W)":t['Pmech_per'],"Drive battery minimum (Ah)":e['Ah'],"Drive battery practical (Ah)":e.get('Ah_recommended',e['Ah']),
             "Drive current calculated (A)":e['Icalc_up'],"Drive current worst indicator (A)":e['Iworst'],"Winch battery design (Ah)":w['ah'],
             "Winch lift time (s)":w['tu'],"Side SF @ current angle":side,"Front SF @ current angle":front,"Rear SF @ current angle":rear,
-            "Worst SF":worst[0],"Worst angle (deg)":worst[1],"Worst direction":worst[2]}
+            "Side Left critical SF":critical["side_left"]["sf"],"Side Right critical SF":critical["side_right"]["sf"],
+            "Front critical SF":critical["front"]["sf"],"Rear critical SF":critical["rear"]["sf"],"Slope SF":slope["sf"],
+            "Worst lifting SF":worst[0],"Worst lifting angle (deg)":worst[1],"Worst lifting direction":worst[2],
+            "Overall governing SF":overall[1],"Overall governing case":overall[0]}
 
     def compare_designs(self):
         if not self.compareA or not self.compareB:
