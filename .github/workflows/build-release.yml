@@ -108,6 +108,11 @@ jobs:
           assert wc["interp_lower_load_kg"]==0.0 and wc["interp_upper_load_kg"]==454.0
           assert wc["interp_lower_speed_m_min"]==3.3 and wc["interp_upper_speed_m_min"]==2.5
           assert wc["interp_lower_current_a"]==12.0 and wc["interp_upper_current_a"]==60.0
+          assert wc["performance_basis"]=="First-layer speed/current interpolation"
+          assert wc["first_layer_performance_warning"]==""
+          long_layer=webcalc.winch_core({"load_kg":100.0,"lift_m":5.0})
+          assert long_layer["layer"]>1
+          assert "layer > 1" in long_layer["first_layer_performance_warning"]
           assert abs(wc["up_speed_m_min"]-(3.3+(2.5-3.3)*(100.0/454.0)))<1e-9
           assert abs(wc["up_current_a"]-(12.0+(60.0-12.0)*(100.0/454.0)))<1e-9
 
@@ -135,6 +140,9 @@ jobs:
           assert all(math.isfinite(float(x)) and x>=0 for x in (
               web_torque["torque_per_motor_nm"],web_torque["battery_current_a"],web_torque["design_force_n"]
           ))
+          assert web_torque["motor_rated_w"]==1500.0
+          assert web_torque["motor_power_margin"]>0
+          assert web_torque["motor_power_ok"] is True
 
           web_battery=webcalc.calculate_drive_battery({
               "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,
@@ -150,7 +158,9 @@ jobs:
           assert 331.2 < web_battery["round_time_s"] < 331.3
           assert web_battery["winch_energy_included"] is False
           assert abs(web_battery["drive_reference_current_a"]-12.5)<1e-9
-          assert web_battery["continuous_current_required_a"]>=web_battery["uphill_current_calc_a"]-1e-9
+          assert abs(web_battery["aux_energy_wh"]-150.0)<1e-9
+          assert abs(web_battery["aux_current_a"]-(50.0/72.0))<1e-9
+          assert web_battery["continuous_current_required_a"]>=web_battery["uphill_current_calc_a"]+web_battery["aux_current_a"]-1e-9
           assert web_battery["peak_current_required_a"]>=12.5
           assert web_battery["peak_current_required_a"]>=web_battery["continuous_current_required_a"]
           assert web_battery["continuous_current_required_a"]<web_battery["peak_current_required_a"]
@@ -200,6 +210,9 @@ jobs:
           assert abs(directional["critical_cases"]["side_right"]["overturning_moment_nm"]-774.99)<0.02
           assert abs(directional["critical_cases"]["side_right"]["resisting_moment_nm"]-971.19)<0.02
           assert 1.25 < directional["critical_cases"]["side_right"]["sf"] < 1.26
+          assert directional["critical_cases"]["rear"]["overturning_found"] is False
+          assert directional["critical_cases"]["rear"]["no_overturning_in_range"] is True
+          assert directional["critical_cases"]["rear"]["angle_deg"] is None
           assert web_stability["slope"]["sf"]>=0
           assert web_stability["front"]["components"] and web_stability["rear"]["components"]
 
@@ -419,6 +432,11 @@ jobs:
           assert "def _desktop_web_values" in Path("web_server.py").read_text(encoding="utf-8")
           assert "syncDesktopProjectValues" in web_js
           assert "applyDesktopFormValues" in web_js
+          assert "Rated Motor Power" in web_js
+          assert "E_aux,total = P_aux×t_runtime" in web_js
+          assert "Auxiliary current = P_aux/V" in web_js
+          assert "N/A (M_O=0)" in web_js
+          assert "Effective wheel OD" in web_index
           for step_fn in ("driveStepsHtml","rampStepsHtml","batteryStepsHtml","winchStepsHtml","winchBatteryStepsHtml"):
               assert ("function "+step_fn) in web_js, f"Missing web step renderer: {step_fn}"
           assert "STEP-BY-STEP ทุก Stability Mode" in web_js
