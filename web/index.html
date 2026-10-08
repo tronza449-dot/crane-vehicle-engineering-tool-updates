@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Crane Vehicle Engineering Tool — Web</title>
-  <link rel="stylesheet" href="/static/style.css?v=53.8.48">
+  <link rel="stylesheet" href="/static/style.css?v=53.8.49">
 </head>
 <body>
   <header class="topbar">
@@ -670,6 +670,27 @@
         <div id="engineeringWorstSummary" class="result"><p class="check">กด Refresh Summary เพื่อสรุปผลวิศวกรรมทั้งระบบ</p></div>
 
         <div class="toolbox-grid">
+          <section class="toolbox-card preset-card">
+            <h3>Engineering Scenario Presets</h3>
+            <p class="check">เลือกชุดค่าที่ต้องการทดลอง • โปรแกรมเปลี่ยนเฉพาะค่าที่ระบุ และไม่เดามวล/CG ที่ไม่มีข้อมูลจริง</p>
+            <label>ชุดค่าที่ต้องการ
+              <select id="webScenarioPreset">
+                <option value="payload_0">Payload 0 kg — รถเปล่า</option>
+                <option value="payload_50">Payload 50 kg</option>
+                <option value="payload_100">Payload 100 kg — เป้าหมาย</option>
+                <option value="track_070">Track W = 0.70 m</option>
+                <option value="track_100">Track W = 1.00 m</option>
+                <option value="boom_120">Boom L = 1.20 m</option>
+                <option value="boom_150">Boom L = 1.50 m</option>
+                <option value="slope_19">Slope = 19°</option>
+                <option value="project_target">Project Target — Payload 100 kg + L 1.20 m + Slope 19°</option>
+              </select>
+            </label>
+            <label class="preset-compare"><input id="webPresetAutoCompare" type="checkbox" checked> เก็บ Before = Design A และ After = Design B อัตโนมัติ</label>
+            <div id="webPresetPreview" class="notice small-note"></div>
+            <button id="applyWebScenarioPreset" type="button">Apply Preset / ใช้ชุดค่านี้</button>
+          </section>
+
           <section class="toolbox-card whatif-card">
             <h3>What-if แบบง่าย</h3>
             <p class="check">เลือกสิ่งที่อยากลองเปลี่ยน 1 เรื่อง → ใส่ค่าใหม่ → ดูผลก่อน/หลังทั้งระบบ</p>
@@ -767,7 +788,7 @@
     <span>CVET Web • Local Server • HTTPS Public Access ผ่าน Tailscale Funnel / Quick Tunnel</span>
   </footer>
 
-  <script src="/static/app.js?v=53.8.48"></script>
-  <script src="/static/details.js?v=53.8.48"></script>
+  <script src="/static/app.js?v=53.8.49"></script>
+  <script src="/static/details.js?v=53.8.49"></script>
 </body>
 </html>
