@@ -438,11 +438,18 @@ jobs:
           assert "N/A (M_O=0)" in web_js
           assert "Effective wheel OD" in web_index
           # V53.8.43 Engineering Decision Tools
-          for web_id in ("refreshEngineeringSummary","loadWebWhatIfBaseline","runWebSensitivity","refreshWebTrace","webDesignLock","captureWebRevisionA","captureWebRevisionB","compareWebRevisions"):
+          for web_id in ("refreshEngineeringSummary","webScenarioPreset","webPresetAutoCompare","webPresetPreview","applyWebScenarioPreset","loadWebWhatIfBaseline","runWebSensitivity","refreshWebTrace","webDesignLock","captureWebRevisionA","captureWebRevisionB","compareWebRevisions"):
               assert f'id="{web_id}"' in web_index, f"Missing Web engineering tool: {web_id}"
-          for fn in ("refreshEngineeringDecisionSummary","loadWebWhatIfBaseline","calculateWebCoupledScenario","runWebSensitivity","refreshWebCalculationTrace","applyWebDesignLock","compareWebRevisionData"):
+          for fn in ("refreshEngineeringDecisionSummary","updateWebInputSourceBadges","webScenarioPresetPreviewHtml","applyWebScenarioPreset","loadWebWhatIfBaseline","calculateWebCoupledScenario","runWebSensitivity","refreshWebCalculationTrace","applyWebDesignLock","compareWebRevisionData"):
               assert ("function "+fn) in web_js, f"Missing Web engineering function: {fn}"
           assert "Engineering Decision Tools" in web_index
+          assert "Engineering Scenario Presets" in web_index
+          assert "Payload 100 kg — เป้าหมาย" in web_index
+          assert "Project Target — Payload 100 kg + L 1.20 m + Slope 19°" in web_index
+          assert "WEB_ENGINEERING_PRESETS" in web_js
+          assert "input-source-badge" in web_js
+          for source_text in ("LINKED","FROM COMPONENT","FROM WINCH"):
+              assert source_text in web_js
           assert "What-if แบบง่าย" in web_index
           assert 'id="wiQuickParam"' in web_index and 'id="wiQuickValue"' in web_index
           assert "WEB_WHATIF_QUICK" in web_js and "refreshWebSimpleWhatIf" in web_js
@@ -897,6 +904,55 @@ jobs:
           assert "Overall governing stability" in summary_html
           assert "Governing lifting case" in summary_html
           assert "Motor rated power" in summary_html
+
+          # ---------- V53.8.49 Input Source indicators ----------
+          for attr in ("torqueSourceInfo","batterySourceInfo","stabilitySourceInfo","rampSourceInfo","slopeSourceInfo","winchSourceInfo","winchBatterySourceInfo"):
+              assert hasattr(w,attr), f"Missing Desktop source indicator: {attr}"
+          w.update_input_source_indicators()
+          assert "LINKED" in w.torqueSourceInfo.text() and "Stability" in w.torqueSourceInfo.text()
+          assert "AUTO" in w.torqueSourceInfo.text() and "Effective wheel OD" in w.torqueSourceInfo.text()
+          assert "FROM DATASHEET" in w.winchSourceInfo.text()
+          assert "FROM WINCH" in w.winchBatterySourceInfo.text()
+          torque_link_state=w.tUseMain.isChecked()
+          w.tUseMain.setChecked(False);QApplication.processEvents()
+          w.update_input_source_indicators()
+          assert "MANUAL" in w.torqueSourceInfo.text()
+          w.tUseMain.setChecked(torque_link_state);QApplication.processEvents()
+          old_mass_mode=w.massCalcMode.currentIndex()
+          w.massCalcMode.blockSignals(True);w.massCalcMode.setCurrentIndex(1);w.massCalcMode.blockSignals(False)
+          assert "FROM COMPONENT" in w.input_source_html("stability")
+          w.massCalcMode.blockSignals(True);w.massCalcMode.setCurrentIndex(old_mass_mode);w.massCalcMode.blockSignals(False)
+          w.update_input_source_indicators()
+
+          # ---------- V53.8.49 Engineering Scenario Presets ----------
+          assert hasattr(w,"engineeringPresetCombo") and w.engineeringPresetCombo.count()==9
+          for key in ("payload_0","payload_50","payload_100","track_070","track_100","boom_120","boom_150","slope_19","project_target"):
+              assert key in w._engineering_preset_specs()
+          preset_original=w.capture_project_state()
+          preset_compare_state=w.presetAutoCompare.isChecked()
+          try:
+              w.presetAutoCompare.setChecked(False)
+              w.set_mass_mode_from_radio("total")
+              w.mt.setValue(300.0);w.ml.setValue(100.0);w.mb.setValue(20.0)
+              w.tm.setValue(300.0);w.emass.setValue(300.0);w.rampMass.setValue(300.0);w.wmass.setValue(100.0)
+              w.apply_scenario_preset("payload_50")
+              assert abs(w.ml.value()-50.0)<1e-9
+              assert abs(w.mt.value()-250.0)<1e-9
+              assert abs(w.tm.value()-250.0)<1e-9 and abs(w.emass.value()-250.0)<1e-9 and abs(w.rampMass.value()-250.0)<1e-9
+              assert abs(w.wmass.value()-50.0)<1e-9
+              boom_mass_before=w.mb.value()
+              w.apply_scenario_preset("boom_150")
+              assert abs(w.L.value()-1.50)<1e-9
+              assert abs(w.mb.value()-boom_mass_before)<1e-9, "Boom preset must not invent Boom mass"
+              w.apply_scenario_preset("track_070")
+              assert abs(w.W.value()-0.70)<1e-9
+              w.apply_scenario_preset("slope_19")
+              assert abs(w.tgrade.value()-19.0)<1e-9 and abs(w.eslopeDeg.value()-19.0)<1e-9 and abs(w.slope.value()-19.0)<1e-9
+              preview=w.scenario_preset_preview_html("project_target")
+              assert "Payload" in preview and "Boom L" in preview and "Slope" in preview
+          finally:
+              w.apply_project_state(preset_original,False);w._core_recalculate()
+              w.presetAutoCompare.setChecked(preset_compare_state)
 
           # Coupled What-if regression: changing Payload must change derived Total mass.
           assert hasattr(w,"whatIfPayload") and hasattr(w,"whatIfBaseMass") and hasattr(w,"whatIfBoomMass")
