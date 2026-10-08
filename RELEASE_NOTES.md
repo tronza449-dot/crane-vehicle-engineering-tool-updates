@@ -1,53 +1,67 @@
-# Crane Vehicle Engineering Tool V53.8.48
+# Crane Vehicle Engineering Tool V53.8.49
 
-## Simpler What-if redesign
+## Input Source indicators + Engineering Scenario Presets
 
-This release keeps the coupled engineering calculation model from V53.8.47 but redesigns the user experience so What-if is much easier to understand and use.
+This release implements two usability improvements across Desktop and Web.
 
-### New default workflow
-The main What-if page now asks only:
-1. What do you want to change?
-2. What new value do you want to try?
-3. View the system impact.
+### 1. Input Source / ที่มาของค่า
+The program now shows where important engineering inputs come from instead of leaving the user to infer the relationship.
 
-Available quick choices:
-- Payload
-- Track width W
-- Boom length L
-- Crane base position x_C
-- Slope
-- Operation speed
-- Winch lift distance
+Source states include:
+- **MANUAL** — value entered directly by the user.
+- **AUTO** — value derived automatically, such as wheel radius from Effective wheel OD.
+- **LINKED** — value linked from another module or shared project parameter.
+- **FROM COMPONENT** — mass or CG derived from the Component Mass / Mass_CG table.
+- **FROM WINCH** — timing or event data supplied by the Winch operating-cycle model.
+- **FROM DATASHEET** — value derived from the supplied winch datasheet, including interpolation.
 
-### Result-first layout
-The first result table now shows only the most useful before/after outputs:
-- Torque per motor
-- Main Battery
-- Winch Battery
-- Worst Stability SF
-- Governing / critical case
+Desktop source panels are shown on the Torque, Main Battery, Stability, Ramp/Slope, Winch and Winch Battery inputs.
+Web source badges are attached directly to important input fields and update with Stability mass mode.
 
-The full engineering input/output comparison is still available under a details section.
+### 2. Engineering Scenario Presets
+The old demonstration presets are replaced with design-oriented presets:
+- Payload 0 kg
+- Payload 50 kg
+- Payload 100 kg
+- Track W = 0.70 m
+- Track W = 1.00 m
+- Boom L = 1.20 m
+- Boom L = 1.50 m
+- Slope = 19°
+- Project Target: Payload 100 kg + L 1.20 m + Slope 19°
 
-### Advanced mode
-All coupled scenario inputs are still available for users who want to change several values at once, but they are hidden by default under:
-**ค่าขั้นสูง / ปรับหลายค่าพร้อมกัน**
+### Preset propagation rules
+Payload presets preserve the existing non-payload vehicle mass:
+**new total mass = current total mass − current payload + new payload**
 
-### Coupled calculation model retained
-The simpler UI does not remove system relationships.
-Derived mass, Torque, Main Battery, Winch cycle and Stability continue to recalculate from the same coupled scenario engine.
+The resulting Total mass is synchronized to Stability, Drive Torque, Main Battery and Ramp mass inputs.
+Payload presets also synchronize the Winch load.
 
-The program still intentionally does not invent structural relationships that require real design data, such as:
-- additional frame mass caused by a wider W/WB,
-- Boom mass caused by a longer L,
-- CG movement without actual component positions.
+Slope 19° is synchronized to Torque, Main Battery and Stability.
 
-### Desktop and Web
-The simplified guided What-if workflow is implemented in both Desktop and Web.
+Track presets change Track W only. They do not invent an increase in frame mass.
+
+Boom-length presets change L only. They intentionally keep Boom mass unchanged because a new Boom mass requires real section/material information.
+
+In Component Mass Mode, payload presets are blocked rather than silently rewriting the Component table or inventing CG distribution.
+
+### Before / After comparison
+Desktop and Web presets can automatically capture:
+- Design A = Before preset
+- Design B = After preset
+
+This reuses the existing engineering comparison tools so the effect on Torque, Battery, Winch and Stability can be reviewed numerically.
 
 ### Regression
-Regression now checks:
-- the simplified What-if tab and controls exist,
-- quick Payload editing updates the coupled Payload field,
-- reducing Payload reduces derived Total mass,
-- the result-first summary includes Torque, Main Battery, Winch Battery, Stability SF and the governing case.
+The release audit verifies:
+- all Desktop source indicators exist,
+- Linked/Manual/Component/Datasheet/Winch source states,
+- all nine presets,
+- Payload 100→50 kg causes Total mass 300→250 kg in the controlled regression case,
+- Drive/Battery/Ramp masses follow the new total,
+- Winch load follows the payload preset,
+- Boom L = 1.50 m does not change Boom mass,
+- Slope 19° reaches Torque + Main Battery + Stability,
+- Track W = 0.70 m applies correctly,
+- the Web preset and source-badge controls/functions are present,
+- existing calculation, PDF, Save/Restore, updater and Desktop↔Web regression remain enabled.
