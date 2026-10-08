@@ -347,3 +347,13 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
 .whatif-advanced{margin-top:10px}.whatif-advanced summary,.whatif-result-details summary{cursor:pointer;font-weight:700;padding:8px 0}
 .whatif-change{font-size:1.05rem;padding:8px 10px;background:#eef8f0;border-radius:7px}
 @media(max-width:720px){.simple-whatif{grid-template-columns:1fr}}
+
+.input-source-badge{display:block;width:max-content;max-width:100%;margin-top:5px;padding:3px 7px;border-radius:8px;font-size:.72rem;font-weight:800;line-height:1.25}
+.input-source-badge.manual{background:#eef3f7;color:#526b80}
+.input-source-badge.auto{background:#eaf7ef;color:#176337}
+.input-source-badge.linked{background:#f1ecff;color:#6841c6}
+.input-source-badge.component{background:#fff3e8;color:#9a5800}
+.input-source-badge.winch{background:#e8f7fb;color:#087e8b}
+.input-source-badge.datasheet{background:#eaf7ef;color:#176337}
+.preset-card select{width:100%;margin-top:5px}.preset-compare{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;margin:9px 0}
+.preset-warning{color:#9a5800}.preset-card button{width:100%;margin-top:8px}
