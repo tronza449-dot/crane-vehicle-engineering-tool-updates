@@ -5895,12 +5895,33 @@ void loop() {{
         load=QPushButton("Open Project File...");load.clicked.connect(self.load_project)
         advancedLay.addWidget(save);advancedLay.addWidget(load);advancedLay.addStretch(1)
         pl.addWidget(advancedBox)
-        presetBox=QGroupBox("Scenario Presets / ชุดค่าตัวอย่างสำหรับสาธิต");grid=QGridLayout(presetBox)
-        presets=[("Project Baseline","baseline"),("Full Load 300 kg","full_load"),("Ramp 19°","ramp19"),
-                 ("Crane +90°","crane90"),("Apply Current Worst Angle","worst_angle"),("Presentation Demo","demo")]
-        for i,(label,key) in enumerate(presets):
-            b=QPushButton(label);b.clicked.connect(lambda checked=False,k=key:self.apply_scenario_preset(k));grid.addWidget(b,i//3,i%3)
+        presetBox=QGroupBox("Engineering Scenario Presets / ชุดค่าทดลองที่ใช้กับแบบจริง")
+        pv=QVBoxLayout(presetBox)
+        ptop=QHBoxLayout()
+        self.engineeringPresetCombo=QComboBox()
+        for label,key in (
+            ("Payload 0 kg — รถเปล่า","payload_0"),
+            ("Payload 50 kg","payload_50"),
+            ("Payload 100 kg — เป้าหมาย","payload_100"),
+            ("Track W = 0.70 m","track_070"),
+            ("Track W = 1.00 m","track_100"),
+            ("Boom L = 1.20 m","boom_120"),
+            ("Boom L = 1.50 m","boom_150"),
+            ("Slope = 19°","slope_19"),
+            ("Project Target — Payload 100 kg + L 1.20 m + Slope 19°","project_target"),
+        ): self.engineeringPresetCombo.addItem(label,key)
+        self.presetAutoCompare=QCheckBox("เก็บ Before = Design A และ After = Design B อัตโนมัติ")
+        self.presetAutoCompare.setChecked(True)
+        applyPreset=QPushButton("Apply Preset / ใช้ชุดค่านี้");applyPreset.setObjectName("primaryButton")
+        applyPreset.clicked.connect(lambda:self.apply_scenario_preset(self.engineeringPresetCombo.currentData()))
+        ptop.addWidget(self.engineeringPresetCombo,2);ptop.addWidget(applyPreset);pv.addLayout(ptop)
+        pv.addWidget(self.presetAutoCompare)
+        self.presetPreview=QLabel();self.presetPreview.setWordWrap(True)
+        self.presetPreview.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:10px;color:#40566b")
+        pv.addWidget(self.presetPreview)
+        self.engineeringPresetCombo.currentIndexChanged.connect(self.update_scenario_preset_preview)
         pl.addWidget(presetBox)
+        self.update_scenario_preset_preview()
         self.projectStatus=QTextEdit();self.projectStatus.setReadOnly(True);self.projectStatus.setMaximumHeight(260);pl.addWidget(self.projectStatus)
         pl.addStretch(1);self.projectTabs.addTab(pg,"Project Files / Presets")
 
@@ -6114,6 +6135,7 @@ void loop() {{
 
     def _core_recalculate(self):
         self.calc_torque();self.calc_electrical();self.calc_winch();self.calc_all()
+        self.update_input_source_indicators()
         if hasattr(self,"hwRows"):self.update_hardware_manager()
 
 
@@ -6598,24 +6620,114 @@ void loop() {{
         return dict(required_track=required_track,left_limit=left_limit,right_limit=right_limit,
                     current=current,slew_margin=slew_margin,req=req)
 
+    def _engineering_preset_specs(self):
+        return {
+            "payload_0":dict(label="Payload 0 kg — รถเปล่า",payload=0.0),
+            "payload_50":dict(label="Payload 50 kg",payload=50.0),
+            "payload_100":dict(label="Payload 100 kg — เป้าหมาย",payload=100.0),
+            "track_070":dict(label="Track W = 0.70 m",track=0.70),
+            "track_100":dict(label="Track W = 1.00 m",track=1.00),
+            "boom_120":dict(label="Boom L = 1.20 m",boom_length=1.20),
+            "boom_150":dict(label="Boom L = 1.50 m",boom_length=1.50),
+            "slope_19":dict(label="Slope = 19°",slope=19.0),
+            "project_target":dict(label="Project Target",payload=100.0,boom_length=1.20,slope=19.0),
+        }
+
+    def scenario_preset_preview_html(self,key):
+        spec=self._engineering_preset_specs().get(key)
+        if not spec:return "<b>Preset ไม่ถูกต้อง</b>"
+        component_mode=bool(hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1)
+        rows=[];notes=[]
+        if "payload" in spec:
+            newp=float(spec["payload"])
+            if component_mode:
+                rows.append("Payload: <b>ต้องแก้จาก Component Mass table</b>")
+                notes.append("Mode B ใช้ Component เป็นแหล่งมวล จึงไม่เดาการกระจายน้ำหนักในตารางให้เอง")
+            else:
+                oldp=float(self.ml.value());oldt=float(self.mt.value());newt=max(1.0,oldt-oldp+newp)
+                rows.append(f"Payload: {oldp:.1f} → <b>{newp:.1f} kg</b>")
+                rows.append(f"Total mass: {oldt:.1f} → <b>{newt:.1f} kg</b> (คงมวลส่วนอื่นเท่าเดิม)")
+                rows.append(f"Winch load: {self.wmass.value():.1f} → <b>{newp:.1f} kg</b>")
+        if "track" in spec:
+            rows.append(f"Track W: {self.W.value():.2f} → <b>{spec['track']:.2f} m</b>")
+            notes.append("ไม่เพิ่ม/ลดมวลโครงอัตโนมัติ เพราะต้องรู้หน้าตัดและวัสดุจริง")
+        if "boom_length" in spec:
+            rows.append(f"Boom L: {self.L.value():.2f} → <b>{spec['boom_length']:.2f} m</b>")
+            notes.append(f"Boom mass ยังคง {self.mb.value():.1f} kg; โปรแกรมไม่เดามวลใหม่จากความยาว")
+        if "slope" in spec:
+            rows.append(f"Slope: Torque {self.tgrade.value():.2f}° / Battery {self.eslopeDeg.value():.2f}° / Stability {self.slope.value():.2f}° → <b>{spec['slope']:.2f}° ทั้ง 3 โมดูล</b>")
+        return ("<b>"+spec["label"]+"</b><br>"+"<br>".join("• "+x for x in rows)+
+                (("<br><span style='color:#9a5800'><b>หมายเหตุ:</b> "+" • ".join(notes)+"</span>") if notes else ""))
+
+    def update_scenario_preset_preview(self,*_):
+        if hasattr(self,"presetPreview") and hasattr(self,"engineeringPresetCombo"):
+            self.presetPreview.setText(self.scenario_preset_preview_html(self.engineeringPresetCombo.currentData()))
+
     def apply_scenario_preset(self,key):
         if not self._require_design_unlocked("Apply Scenario Preset"):return
-        if key=="baseline":
-            self.tm.setValue(300);self.emass.setValue(290);self.mt.setValue(300);self.ml.setValue(100);self.mb.setValue(20)
-            self.tgrade.setValue(19);self.eslopeDeg.setValue(12);self.slope.setValue(19);self.W.setValue(1.0);self.WB.setValue(1.10);self.L.setValue(1.20);self.th.setValue(0)
-        elif key=="full_load":
-            self.tm.setValue(300);self.emass.setValue(300);self.mt.setValue(300);self.ml.setValue(100)
-        elif key=="ramp19":
-            self.tgrade.setValue(19);self.eslopeDeg.setValue(19);self.slope.setValue(19)
-        elif key=="crane90": self.th.setValue(90)
-        elif key=="worst_angle":
-            _,ang,_=self.stability_worst_record();self.th.setValue(float(ang))
-        elif key=="demo":
-            self.tm.setValue(300);self.mt.setValue(300);self.ml.setValue(100);self.tgrade.setValue(19);self.tspeed.setValue(5)
-            self.W.setValue(1.0);self.WB.setValue(1.10);self.L.setValue(1.20);self.th.setValue(90);self.espeed.setValue(1);self.eslopeDeg.setValue(12)
-            self.wmass.setValue(100);self.wheight.setValue(1.0);self.wvolt.setValue(12);self.wcycles.setValue(50)
-        self._core_recalculate();self.update_project_tools()
-        self.projectStatus.setHtml(f"<h3>Applied preset: {key}</h3><p>Preset เป็นค่าช่วยสาธิตเท่านั้น โปรดตรวจ Input ก่อนนำผลไปใช้ในรายงาน</p>")
+        spec=self._engineering_preset_specs().get(key)
+        if not spec:
+            QMessageBox.warning(self,"Scenario Preset","ไม่พบ Preset ที่เลือก");return
+        component_mode=bool(hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1)
+        if "payload" in spec and component_mode:
+            QMessageBox.information(
+                self,"Payload Preset — Component Mode",
+                "ตอนนี้ใช้ Mode B — Component Mass\n\n"
+                "Payload ต้องแก้ที่ตาราง Component Mass เพื่อให้มวลและ CG สอดคล้องกัน "
+                "โปรแกรมจึงไม่แก้ Component table ให้แบบเดาอัตโนมัติ"
+            )
+            return
+
+        auto_compare=bool(hasattr(self,"presetAutoCompare") and self.presetAutoCompare.isChecked())
+        if auto_compare:
+            self.compareA=self.capture_project_state()
+            if hasattr(self,"compareALabel"):self.compareALabel.setText("Before preset")
+
+        changes=[]
+        if "payload" in spec:
+            oldp=float(self.ml.value());oldt=float(self.mt.value());newp=float(spec["payload"])
+            newt=max(1.0,oldt-oldp+newp)
+            for name in ("mt","tm","emass","rampMass"):
+                obj=getattr(self,name,None)
+                if obj is not None:
+                    old=obj.blockSignals(True);obj.setValue(newt);obj.blockSignals(old)
+            self.ml.setValue(newp)
+            if hasattr(self,"wmass"):self.wmass.setValue(newp)
+            changes.append(f"Payload {oldp:.1f} → {newp:.1f} kg")
+            changes.append(f"Total mass {oldt:.1f} → {newt:.1f} kg")
+            changes.append(f"Winch load → {newp:.1f} kg")
+        if "track" in spec:
+            old=float(self.W.value());self.W.setValue(float(spec["track"]))
+            changes.append(f"W {old:.2f} → {self.W.value():.2f} m")
+        if "boom_length" in spec:
+            old=float(self.L.value());self.L.setValue(float(spec["boom_length"]))
+            changes.append(f"L {old:.2f} → {self.L.value():.2f} m (Boom mass unchanged)")
+        if "slope" in spec:
+            angle=float(spec["slope"])
+            oldvals=(self.tgrade.value(),self.eslopeDeg.value(),self.slope.value())
+            for obj in (self.tgrade,self.eslopeDeg,self.slope):
+                prev=obj.blockSignals(True);obj.setValue(angle);obj.blockSignals(prev)
+            changes.append(f"Slope {oldvals[0]:.2f}/{oldvals[1]:.2f}/{oldvals[2]:.2f}° → {angle:.2f}° in Torque/Battery/Stability")
+
+        self._core_recalculate()
+        self.update_project_tools()
+        self.update_input_source_indicators()
+        self.schedule_easy_autosave() if hasattr(self,"schedule_easy_autosave") else None
+
+        if auto_compare:
+            self.compareB=self.capture_project_state()
+            if hasattr(self,"compareBLabel"):self.compareBLabel.setText(spec["label"])
+            self.compare_designs()
+
+        compare_text=("Design A/B ถูก Capture อัตโนมัติแล้ว → เปิดแท็บ Compare Design เพื่อดูผลละเอียด"
+                      if auto_compare else "Auto Compare ปิดอยู่")
+        self.projectStatus.setHtml(
+            f"<h3>Applied Engineering Preset: {spec['label']}</h3>"
+            +"".join(f"<p>• {x}</p>" for x in changes)+
+            f"<p><b>{compare_text}</b></p>"
+            "<p>Preset เปลี่ยนเฉพาะค่าที่ระบุ และไม่เดาความสัมพันธ์เชิงโครงสร้างที่ไม่มีข้อมูลจริง</p>"
+        )
+        self.update_scenario_preset_preview()
 
     def _design_lock_widgets(self):
         names=("mt","ml","mb","tm","emass","rampMass","wmass","W","WB","L","xC","xCG","yCG","driveXCG","slope","acc",
@@ -7272,6 +7384,7 @@ void loop() {{
 
     def update_project_tools(self):
         if not hasattr(self,"projectTabs"):return
+        self.update_input_source_indicators()
         try:
             self.update_motor_operating()
             if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
@@ -7481,7 +7594,7 @@ void loop() {{
         root.addWidget(header)
 
         # Two editable design inputs on Datasheet: load and lift distance. Cycle count comes from Operating Cycles.
-        self.wmass=QDoubleSpinBox(w);self.wmass.setRange(1.0,2041.0);self.wmass.setDecimals(1);self.wmass.setValue(100.0);self.wmass.setSuffix(" kg");self.wmass.setMinimumWidth(180)
+        self.wmass=QDoubleSpinBox(w);self.wmass.setRange(0.0,2041.0);self.wmass.setDecimals(1);self.wmass.setValue(100.0);self.wmass.setSuffix(" kg");self.wmass.setMinimumWidth(180)
         self.wheight=QDoubleSpinBox(w);self.wheight.setRange(0.05,10.0);self.wheight.setDecimals(2);self.wheight.setValue(1.0);self.wheight.setSuffix(" m");self.wheight.setMinimumWidth(180)
         # Remaining compatibility/report values stay hidden and locked.
         self.wbasket=self._make_locked_winch_spin(0)
@@ -7600,6 +7713,9 @@ void loop() {{
         for qx in (self.wbVoltage,self.wbEvents,self.wbDoD,self.wbReserve):qx.setMinimumWidth(190)
         bif.addRow("System voltage / แรงดันระบบ",self.wbVoltage)
         bif.addRow("โหมดจำนวนงานยก / Lift event mode",self.wbEventMode)
+        self.winchBatterySourceInfo=QLabel();self.winchBatterySourceInfo.setWordWrap(True)
+        self.winchBatterySourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
+        bif.addRow("Input Source / ที่มาค่า",self.winchBatterySourceInfo)
         bif.addRow("จำนวนงานยกที่กำหนดเอง / Manual events",self.wbEvents)
         bif.addRow(self.wbEventNote)
         bif.addRow("Usable DoD",self.wbDoD)
@@ -7741,13 +7857,16 @@ void loop() {{
         heightLab=QLabel("ระยะยก / Lift Distance");heightLab.setStyleSheet("font-size:11pt;font-weight:900;color:#17324d;")
         cg.addWidget(loadLab,1,0);cg.addWidget(self.wmass,1,1)
         cg.addWidget(heightLab,2,0);cg.addWidget(self.wheight,2,1)
+        self.winchSourceInfo=QLabel();self.winchSourceInfo.setWordWrap(True)
+        self.winchSourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
+        cg.addWidget(self.winchSourceInfo,3,0,1,3)
         self.wSpecResult=QLabel();self.wSpecResult.setWordWrap(True)
         self.wSpecResult.setStyleSheet("font-size:11pt;font-weight:700;background:#eefaf4;color:#155b2a;padding:14px;border:1px solid #a9d7ba;border-radius:10px")
-        cg.addWidget(self.wSpecResult,3,0,1,3)
+        cg.addWidget(self.wSpecResult,4,0,1,3)
         self.wInterpDetails=QTextEdit(w);self.wInterpDetails.setReadOnly(True)
         self.wInterpDetails.setMinimumHeight(360)
         self.wInterpDetails.setStyleSheet("font-size:10.8pt;padding:8px;background:#fbfdff")
-        cg.addWidget(self.wInterpDetails,4,0,1,3)
+        cg.addWidget(self.wInterpDetails,5,0,1,3)
         # Old widgets remain hidden only for backward compatibility with reports/tools.
         self.wcycles=QSpinBox(w);self.wcycles.setRange(1,100000);self.wcycles.setValue(1);self.wcycles.setEnabled(False);self.wcycles.hide()
         self.wSummary=QLabel(w);self.wSummary.hide()
@@ -8429,7 +8548,11 @@ void loop() {{
         form.addRow(turnNote)
         form.addRow(self.euseOperationCycle)
         form.addRow(self.eOperationTimeNote)
-        form.addRow(self.euseTorqueMass);left.setMinimumWidth(410);hl.addWidget(left,1)
+        form.addRow(self.euseTorqueMass)
+        self.batterySourceInfo=QLabel();self.batterySourceInfo.setWordWrap(True)
+        self.batterySourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
+        form.addRow(self.batterySourceInfo)
+        left.setMinimumWidth(410);hl.addWidget(left,1)
 
         right=QWidget();right.setMinimumWidth(340);rv=QVBoxLayout(right)
         modeBox=QGroupBox("SIMPLE CYCLE ENERGY MODEL / คำนวณแบบ 1 Cycle");mb=QVBoxLayout(modeBox)
@@ -9396,6 +9519,7 @@ void loop() {{
 
     def calc_electrical(self):
         if not hasattr(self,"eSummary"):return
+        self.update_input_source_indicators()
         q=self.electrical_results()
         self.eSummary.setText(
             f"SIMPLE CYCLE MODEL\n"
@@ -9495,6 +9619,74 @@ void loop() {{
         if hasattr(self,"batterySelectionView"):self.update_battery_selection()
 
 
+    def _source_chip(self,text,kind="manual"):
+        palette={
+            "manual":("#eef3f7","#526b80"),
+            "auto":("#eaf7ef","#176337"),
+            "linked":("#f1ecff","#6841c6"),
+            "component":("#fff3e8","#9a5800"),
+            "winch":("#e8f7fb","#087e8b"),
+            "datasheet":("#eaf7ef","#176337"),
+        }
+        bg,fg=palette.get(kind,palette["manual"])
+        return f"<span style='background:{bg};color:{fg};padding:3px 7px;border-radius:8px;font-weight:800'>{text}</span>"
+
+    def input_source_html(self,module):
+        component_mode=bool(hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1)
+        manual=self._source_chip("MANUAL","manual")
+        auto=self._source_chip("AUTO","auto")
+        linked=self._source_chip("LINKED","linked")
+        comp=self._source_chip("FROM COMPONENT","component")
+        winch=self._source_chip("FROM WINCH","winch")
+        sheet=self._source_chip("FROM DATASHEET","datasheet")
+
+        if module=="torque":
+            mass=(linked+" Stability / Mass & CG") if (hasattr(self,"tUseMain") and self.tUseMain.isChecked()) else (manual+" Torque page")
+            return (f"<b>Input Source / ที่มาของค่า</b><br>"
+                    f"Mass: {mass} &nbsp; • &nbsp; Wheel radius: {auto} Effective wheel OD &nbsp; • &nbsp; "
+                    f"Slope: {manual} (หรือคัดลอกจาก Ramp ด้วยปุ่ม Apply)")
+        if module=="battery":
+            mass=(linked+" Stability / Mass & CG") if (hasattr(self,"euseTorqueMass") and self.euseTorqueMass.isChecked()) else (manual+" Battery page")
+            cycle=(winch+" Operating Cycle") if (hasattr(self,"euseOperationCycle") and self.euseOperationCycle.isChecked()) else (manual+" Battery timing")
+            return (f"<b>Input Source / ที่มาของค่า</b><br>"
+                    f"Mass: {mass} &nbsp; • &nbsp; Lift/Cycle time: {cycle} &nbsp; • &nbsp; "
+                    f"Track W for turning: {linked} Stability &nbsp; • &nbsp; Slope: {manual}/Ramp Apply")
+        if module=="stability":
+            mass=(comp+" Mass_CG table") if component_mode else (manual+" Mode A")
+            cg=(comp+" Mass_CG table") if component_mode else (auto+" centered base CG assumption")
+            hcg=(comp+" Mass_CG table") if component_mode else (manual+" Slope page")
+            return (f"<b>Input Source / ที่มาของค่า</b><br>"
+                    f"Mass/Payload/Boom: {mass} &nbsp; • &nbsp; Base/Driving CG: {cg} &nbsp; • &nbsp; "
+                    f"hCG: {hcg}<br>W / WB / L / x_C / Kdyn / Required SF: {manual}")
+        if module=="ramp":
+            mass=(linked+" Main Battery mass") if (hasattr(self,"rampUseMainMass") and self.rampUseMainMass.isChecked()) else (manual+" Ramp page")
+            return (f"<b>Input Source / ที่มาของค่า</b><br>"
+                    f"h / x / L measured: {manual} ค่าที่วัดจริง &nbsp; • &nbsp; F_slope mass: {mass} &nbsp; • &nbsp; "
+                    f"Calculated angle: {auto} atan(h/x)")
+        if module=="slope":
+            hsrc=(comp+" Mass_CG table") if component_mode else (manual+" Slope page")
+            return (f"<b>Input Source / ที่มาของค่า</b><br>"
+                    f"Slope angle: {manual} (หรือ Ramp Apply) &nbsp; • &nbsp; hCG: {hsrc} &nbsp; • &nbsp; Acceleration: {manual}")
+        if module=="winch":
+            return (f"<b>Input Source / ที่มาของค่า</b><br>"
+                    f"Load / Lift distance: {manual} &nbsp; • &nbsp; UP speed/current: {sheet} + {auto} interpolation")
+        if module=="winch_battery":
+            events=(winch+" Operating Cycles") if (hasattr(self,"wbEventMode") and self.wbEventMode.currentIndex()==0) else (manual+" event count")
+            return (f"<b>Input Source / ที่มาของค่า</b><br>"
+                    f"Load / Lift / UP data: {winch} &nbsp; • &nbsp; Number of lift jobs: {events}")
+        return ""
+
+    def update_input_source_indicators(self,*_):
+        for attr,module in (
+            ("torqueSourceInfo","torque"),("batterySourceInfo","battery"),
+            ("stabilitySourceInfo","stability"),("rampSourceInfo","ramp"),
+            ("slopeSourceInfo","slope"),("winchSourceInfo","winch"),
+            ("winchBatterySourceInfo","winch_battery")
+        ):
+            lab=getattr(self,attr,None)
+            if lab is not None:
+                lab.setText(self.input_source_html(module))
+
     def make_torque(self):
         w=QWidget();self.torquePage=w
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
@@ -9530,6 +9722,9 @@ void loop() {{
             ("แรงดันแบตเตอรี่ (V)",self.tvoltage)]: form.addRow(lab,q)
         self.tUseMain=QCheckBox("ใช้ Total mass จาก Stability / Mass & CG mode")
         self.tUseMain.setChecked(True);form.addRow(self.tUseMain)
+        self.torqueSourceInfo=QLabel();self.torqueSourceInfo.setWordWrap(True)
+        self.torqueSourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
+        form.addRow(self.torqueSourceInfo)
         left.setMinimumWidth(360);il.addWidget(left,1)
 
         right=QWidget();right.setMinimumWidth(360);rl=QVBoxLayout(right)
@@ -9772,6 +9967,7 @@ void loop() {{
 
     def calc_torque(self):
         if not hasattr(self,"torqueSteps"):return
+        self.update_input_source_indicators()
         q=self.torque_results()
         if self.tUseMain.isChecked() and hasattr(self,"mt"):
             self.tm.blockSignals(True);self.tm.setValue(q["m"]);self.tm.blockSignals(False)
@@ -10084,6 +10280,9 @@ void loop() {{
               ("Rotation angle θ / มุมหมุนเครน (deg)",self.th),("Dynamic factor Kdyn / ตัวคูณแรงไดนามิก",self.kd),("Required SF / ค่า SF ที่ต้องการ",self.req)]
         f.setVerticalSpacing(7);f.setHorizontalSpacing(10);f.setRowWrapPolicy(QFormLayout.WrapLongRows)
         for a,b in rows:f.addRow(a,b);b.valueChanged.connect(self.calc_all)
+        self.stabilitySourceInfo=QLabel();self.stabilitySourceInfo.setWordWrap(True)
+        self.stabilitySourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
+        f.addRow("Input Source / ที่มาค่า",self.stabilitySourceInfo)
         self.W.setToolTip("Wheel track = ระยะศูนย์กลางล้อซ้ายถึงศูนย์กลางล้อขวา ไม่ใช่ความกว้างตัวรถ 1.00 m")
         self.xC.setToolTip("วัดจากศูนย์กลางเพลาหลังถึงศูนย์กลางฐานเครน: + = ไปด้านหน้ารถ, - = ไปทางท้ายรถ")
         self.massCalcMode.currentIndexChanged.connect(self.set_mass_mode_from_combo)
@@ -10163,6 +10362,9 @@ void loop() {{
         ]:
             q.setMinimumWidth(150);gf.addRow(lab,q)
         gf.addRow(self.rampUseMainMass)
+        self.rampSourceInfo=QLabel();self.rampSourceInfo.setWordWrap(True)
+        self.rampSourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
+        gf.addRow(self.rampSourceInfo)
         gl.addLayout(gf,1)
 
         self.rampGeomOut=QTextEdit();self.rampGeomOut.setReadOnly(True)
@@ -10210,6 +10412,9 @@ void loop() {{
             ("Acceleration a / ความเร่งรถ (m/s²)",self.acc)
         ]:
             f.addRow(a,b);b.valueChanged.connect(self.calc_all)
+        self.slopeSourceInfo=QLabel();self.slopeSourceInfo.setWordWrap(True)
+        self.slopeSourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
+        f.addRow(self.slopeSourceInfo)
         l.addWidget(g)
 
         self.slopeout=QPlainTextEdit();self.slopeout.setReadOnly(True)
@@ -10249,6 +10454,7 @@ void loop() {{
 
     def update_ramp_geometry(self,*_):
         if not hasattr(self,"rampGeomOut"):return
+        self.update_input_source_indicators()
         r=self.ramp_geometry_results()
         measured_angle=("—" if r["measured_angle"] is None else f'{r["measured_angle"]:.2f}°')
         self.rampGeomOut.setHtml(f"""
@@ -10587,6 +10793,7 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
 
     def sync_mass_mode_controls(self):
         component_mode=hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1
+        self.update_input_source_indicators()
 
         # Keep both web-like card selectors synchronized with the hidden state combo.
         for total_name,comp_name in (("craneMassModeTotal","craneMassModeComponents"),("massModeFixed","massModeSum")):
