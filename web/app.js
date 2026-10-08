@@ -194,6 +194,62 @@ function syncVehicleParameters(){
 
 const CVET_SHARED_STORE="cvet_web_shared_project_v1";
 
+const WEB_INPUT_SOURCE_FIELDS=[
+  ["driveForm","mass_kg","drive_mass"],["driveForm","wheel_diameter_in","drive_wheel"],["driveForm","slope_deg","drive_slope"],
+  ["rampForm","rise_cm","ramp_measure"],["rampForm","run_cm","ramp_measure"],["rampForm","measured_slant_cm","ramp_measure"],["rampForm","mass_kg","ramp_mass"],
+  ["batteryForm","mass_kg","battery_mass"],["batteryForm","slope_deg","battery_slope"],["batteryForm","lift_time_per_event_s","battery_winch"],
+  ["batteryForm","lift_events_per_round","battery_winch"],["batteryForm","track_width_m","battery_track"],
+  ["winchForm","load_kg","winch_manual"],["winchForm","lift_m","winch_manual"],
+  ["stabilityForm","total_mass_kg","stability_mass"],["stabilityForm","payload_mass_kg","stability_mass"],
+  ["stabilityForm","boom_mass_kg","stability_mass"],["stabilityForm","track_width_m","stability_geom"],
+  ["stabilityForm","wheelbase_m","stability_geom"],["stabilityForm","boom_length_m","stability_geom"],
+  ["stabilityForm","crane_from_rear_m","stability_geom"],["stabilityForm","slope_deg","stability_slope"]
+];
+
+function sourceBadgeSpec(key){
+  const mode=typeof stabilityMassMode==="function"?stabilityMassMode():"total";
+  const component=mode==="components";
+  const specs={
+    drive_mass:["LINKED","Shared Project Mass","linked"],
+    drive_wheel:["MANUAL","Effective wheel OD","manual"],
+    drive_slope:["MANUAL","หรือ Ramp Apply","manual"],
+    ramp_measure:["MANUAL","ค่าที่วัดจริง","manual"],
+    ramp_mass:["LINKED","Shared Project Mass","linked"],
+    battery_mass:["LINKED","Shared Project Mass","linked"],
+    battery_slope:["MANUAL","หรือ Ramp Apply","manual"],
+    battery_winch:["FROM WINCH","Operating Cycle","winch"],
+    battery_track:["LINKED","Stability Track W","linked"],
+    winch_manual:["MANUAL","Winch Input","manual"],
+    stability_mass:component?["FROM COMPONENT","Mass_CG table","component"]:["MANUAL","Mode A","manual"],
+    stability_geom:["MANUAL","Geometry Input","manual"],
+    stability_slope:["MANUAL","หรือ Ramp Apply","manual"]
+  };
+  return specs[key]||["MANUAL","Input","manual"];
+}
+
+function ensureWebInputSourceBadges(){
+  WEB_INPUT_SOURCE_FIELDS.forEach(([formId,name,key])=>{
+    const el=getField(formId,name);if(!el)return;
+    const label=el.closest("label");if(!label)return;
+    let badge=label.querySelector('.input-source-badge[data-source-key="'+key+'"]');
+    if(!badge){
+      badge=document.createElement("span");
+      badge.className="input-source-badge";
+      badge.dataset.sourceKey=key;
+      label.appendChild(badge);
+    }
+  });
+  updateWebInputSourceBadges();
+}
+
+function updateWebInputSourceBadges(){
+  document.querySelectorAll(".input-source-badge").forEach(badge=>{
+    const [title,detail,kind]=sourceBadgeSpec(badge.dataset.sourceKey);
+    badge.className="input-source-badge "+kind;
+    badge.textContent=title+" • "+detail;
+  });
+}
+
 const SHARED_PARAMETER_GROUPS={
   mass_kg:[["driveForm","mass_kg"],["rampForm","mass_kg"],["batteryForm","mass_kg"],["stabilityForm","total_mass_kg"]],
   slope_deg:[["driveForm","slope_deg"],["batteryForm","slope_deg"],["stabilityForm","slope_deg"]],
@@ -238,6 +294,7 @@ function syncSharedProjectParameter(group,value,sourceEl=null){
   const data=loadSharedProjectValues();
   data[group]=value;
   saveSharedProjectValues(data);
+  if(typeof updateWebInputSourceBadges==="function") updateWebInputSourceBadges();
 }
 
 function restoreSharedProjectParameters(){
@@ -386,6 +443,7 @@ function applyComponentMassPreview(syncProject=true){
 
 function syncStabilityMassModeUI(syncProject=true){
   const mode=stabilityMassMode();
+  if(typeof updateWebInputSourceBadges==="function") updateWebInputSourceBadges();
   $("#stabilityTotalMassFields")?.classList.toggle("hidden",mode!=="total");
   $("#stabilityComponentMassFields")?.classList.toggle("hidden",mode!=="components");
   Array.from($("#stabilityForm").querySelectorAll(".mass-mode-card")).forEach(card=>{
@@ -443,6 +501,7 @@ function setupDynamicProjectParameters(){
     syncTurnEnergyControls();
   }
 
+  ensureWebInputSourceBadges();
   saveWebInputs();
   syncVehicleParameters();
 }
@@ -568,6 +627,7 @@ async function syncDesktopProjectValues(options={}){
     try{localStorage.removeItem(CVET_SHARED_STORE);}catch(e){}
 
     refreshDependentWebControlsAfterDesktopSync();
+    updateWebInputSourceBadges();
 
     const stamp=(data.saved_at&&data.saved_at!=="-")?String(data.saved_at).replace("T"," "):"-";
     if(status){
@@ -1758,6 +1818,109 @@ async function refreshWebCalculationTrace(){
   }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","แสดงที่มาของคำตอบไม่สำเร็จ");}
 }
 
+const WEB_ENGINEERING_PRESETS={
+  payload_0:{label:"Payload 0 kg — รถเปล่า",payload:0},
+  payload_50:{label:"Payload 50 kg",payload:50},
+  payload_100:{label:"Payload 100 kg — เป้าหมาย",payload:100},
+  track_070:{label:"Track W = 0.70 m",track:.70},
+  track_100:{label:"Track W = 1.00 m",track:1.00},
+  boom_120:{label:"Boom L = 1.20 m",boom_length:1.20},
+  boom_150:{label:"Boom L = 1.50 m",boom_length:1.50},
+  slope_19:{label:"Slope = 19°",slope:19},
+  project_target:{label:"Project Target",payload:100,boom_length:1.20,slope:19}
+};
+
+function webScenarioPresetPreviewHtml(key){
+  const spec=WEB_ENGINEERING_PRESETS[key];if(!spec)return "<b>Preset ไม่ถูกต้อง</b>";
+  const stab=$("#stabilityForm"),winch=$("#winchForm");
+  const rows=[],notes=[];
+  if("payload" in spec){
+    if(stabilityMassMode()==="components"){
+      rows.push("Payload: <b>ต้องแก้จาก Component Mass table</b>");
+      notes.push("Mode B ใช้ Component เป็นแหล่งมวล จึงไม่เดาการกระจายน้ำหนักให้เอง");
+    }else{
+      const oldP=num(stab?.elements.payload_mass_kg?.value,0),oldT=num(stab?.elements.total_mass_kg?.value,0);
+      const newT=Math.max(1,oldT-oldP+spec.payload);
+      rows.push("Payload: "+f(oldP,1)+" → <b>"+f(spec.payload,1)+" kg</b>");
+      rows.push("Total mass: "+f(oldT,1)+" → <b>"+f(newT,1)+" kg</b> (มวลส่วนอื่นคงเดิม)");
+      rows.push("Winch load: "+f(num(winch?.elements.load_kg?.value,0),1)+" → <b>"+f(spec.payload,1)+" kg</b>");
+    }
+  }
+  if("track" in spec){
+    rows.push("Track W: "+f(num(stab?.elements.track_width_m?.value,0),2)+" → <b>"+f(spec.track,2)+" m</b>");
+    notes.push("ไม่เปลี่ยนมวลโครงอัตโนมัติ");
+  }
+  if("boom_length" in spec){
+    rows.push("Boom L: "+f(num(stab?.elements.boom_length_m?.value,0),2)+" → <b>"+f(spec.boom_length,2)+" m</b>");
+    notes.push("Boom mass คงค่าเดิม; ไม่เดามวลจากความยาว");
+  }
+  if("slope" in spec){
+    const d=getField("driveForm","slope_deg"),b=getField("batteryForm","slope_deg"),st=getField("stabilityForm","slope_deg");
+    rows.push("Slope: "+f(num(d?.value,0),2)+"° / "+f(num(b?.value,0),2)+"° / "+f(num(st?.value,0),2)+"° → <b>"+f(spec.slope,2)+"° ทั้ง 3 โมดูล</b>");
+  }
+  return "<b>"+spec.label+"</b><br>"+rows.map(x=>"• "+x).join("<br>")+
+    (notes.length?'<br><span class="preset-warning"><b>หมายเหตุ:</b> '+notes.join(" • ")+"</span>":"");
+}
+
+function refreshWebScenarioPresetPreview(){
+  const key=$("#webScenarioPreset")?.value;
+  const out=$("#webPresetPreview");
+  if(out)out.innerHTML=webScenarioPresetPreviewHtml(key);
+}
+
+async function applyWebScenarioPreset(){
+  const btn=$("#applyWebScenarioPreset"),key=$("#webScenarioPreset")?.value,spec=WEB_ENGINEERING_PRESETS[key];
+  if(!spec)return;
+  let locked=false;try{locked=localStorage.getItem(CVET_WEB_LOCK_STORE)==="1";}catch(e){}
+  if(locked){actionToast("ปลดล็อก Final Design Inputs ก่อนใช้ Preset","error");return;}
+  if("payload" in spec && stabilityMassMode()==="components"){
+    actionToast("Mode B: แก้ Payload ที่ Component Mass table เพื่อให้ CG ถูกต้อง","error");return;
+  }
+
+  buttonBusy(btn,"กำลังใช้ Preset...");
+  try{
+    const autoCompare=!!$("#webPresetAutoCompare")?.checked;
+    if(autoCompare){
+      if($("#webRevisionALabel"))$("#webRevisionALabel").value="Before preset";
+      await captureWebRevision("A");
+    }
+
+    const stab=$("#stabilityForm"),winch=$("#winchForm");
+    if("payload" in spec){
+      const oldP=num(stab.elements.payload_mass_kg.value,0),oldT=num(stab.elements.total_mass_kg.value,0);
+      const newT=Math.max(1,oldT-oldP+spec.payload);
+      stab.elements.payload_mass_kg.value=String(spec.payload);
+      if(winch?.elements.load_kg)winch.elements.load_kg.value=String(spec.payload);
+      syncSharedProjectParameter("mass_kg",String(newT),stab.elements.total_mass_kg);
+      stab.elements.total_mass_kg.value=String(newT);
+    }
+    if("track" in spec){
+      stab.elements.track_width_m.value=String(spec.track);
+      syncSharedProjectParameter("track_width_m",String(spec.track),stab.elements.track_width_m);
+    }
+    if("boom_length" in spec)stab.elements.boom_length_m.value=String(spec.boom_length);
+    if("slope" in spec){
+      ["driveForm","batteryForm","stabilityForm"].forEach(fid=>{
+        const el=getField(fid,"slope_deg");if(el)el.value=String(spec.slope);
+      });
+    }
+
+    saveWebInputs();syncVehicleParameters();updateWebInputSourceBadges();
+    recalculateAfterDesktopSync();
+
+    if(autoCompare){
+      if($("#webRevisionBLabel"))$("#webRevisionBLabel").value=spec.label;
+      await captureWebRevision("B");
+      compareWebRevisionData();
+    }
+    refreshWebScenarioPresetPreview();
+    buttonSuccess(btn,"Applied ✓","ใช้ Preset แล้ว: "+spec.label);
+  }catch(e){
+    buttonError(btn,"ไม่สำเร็จ","ใช้ Preset ไม่สำเร็จ");
+    actionToast(String(e.message||e),"error");
+  }
+}
+
 function webRevisionInputs(){
   const o={};
   ["driveForm","rampForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"].forEach(id=>{o[id]=formObject($("#"+id));});
@@ -1811,6 +1974,9 @@ function compareWebRevisionData(){
 }
 
 $("#refreshEngineeringSummary")?.addEventListener("click",refreshEngineeringDecisionSummary);
+$("#webScenarioPreset")?.addEventListener("change",refreshWebScenarioPresetPreview);
+$("#applyWebScenarioPreset")?.addEventListener("click",applyWebScenarioPreset);
+refreshWebScenarioPresetPreview();
 $("#runWebSensitivity")?.addEventListener("click",runWebSensitivity);
 $("#refreshWebTrace")?.addEventListener("click",refreshWebCalculationTrace);
 $("#webDesignLock")?.addEventListener("click",()=>applyWebDesignLock(!(localStorage.getItem(CVET_WEB_LOCK_STORE)==="1")));
