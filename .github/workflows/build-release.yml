@@ -946,7 +946,7 @@ jobs:
           debug_text=w.debug_report_text(debug_data)
           assert "DEBUG REPORT" in debug_text and "[SELF CHECK]" in debug_text and "[RECENT EVENTS]" in debug_text
           assert "Web PIN is never included" in debug_text
-          redacted=w._debug_redact(str(Path.home())+os.sep+"private-test")
+          redacted=w._debug_redact(str(Path.home()/"private-test"))
           assert "<USER_HOME>" in redacted and str(Path.home()) not in redacted
           before_events=len(w.debugEvents)
           w.record_debug_event("INFO","Regression debug event",{"path":str(Path.home())})
