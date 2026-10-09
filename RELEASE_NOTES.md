@@ -1,67 +1,69 @@
-# Crane Vehicle Engineering Tool V53.8.49
+# Crane Vehicle Engineering Tool V53.8.50
 
-## Input Source indicators + Engineering Scenario Presets
+## Debug Report / Support Diagnostics
 
-This release implements two usability improvements across Desktop and Web.
+This release adds a privacy-safe Debug Report to both Desktop and Web so calculation/UI/update problems can be diagnosed from a single report.
 
-### 1. Input Source / ที่มาของค่า
-The program now shows where important engineering inputs come from instead of leaving the user to infer the relationship.
+### Desktop Debug Report
+Available from:
+- **Project Tools → Debug Report**
+- the new **🛠 Debug** button in the bottom status bar
 
-Source states include:
-- **MANUAL** — value entered directly by the user.
-- **AUTO** — value derived automatically, such as wheel radius from Effective wheel OD.
-- **LINKED** — value linked from another module or shared project parameter.
-- **FROM COMPONENT** — mass or CG derived from the Component Mass / Mass_CG table.
-- **FROM WINCH** — timing or event data supplied by the Winch operating-cycle model.
-- **FROM DATASHEET** — value derived from the supplied winch datasheet, including interpolation.
+The report includes:
+- application version and session time,
+- Python / PySide / Windows platform information,
+- current design mode and key project inputs,
+- important engineering outputs from Drive, Main Battery, Winch, Ramp and Stability,
+- Input Source states (Manual / Auto / Linked / Component / Winch / Datasheet),
+- a non-destructive Self-check,
+- updater status and latest pending-version state,
+- Web Server status without exposing the actual PIN,
+- autosave/backup/update-config file existence,
+- recent debug events,
+- current-session exception information,
+- the previous persisted exception after restarting the application.
 
-Desktop source panels are shown on the Torque, Main Battery, Stability, Ramp/Slope, Winch and Winch Battery inputs.
-Web source badges are attached directly to important input fields and update with Stability mass mode.
+Export options:
+- **TXT**
+- **JSON**
+- **Copy Report**
 
-### 2. Engineering Scenario Presets
-The old demonstration presets are replaced with design-oriented presets:
-- Payload 0 kg
-- Payload 50 kg
-- Payload 100 kg
-- Track W = 0.70 m
-- Track W = 1.00 m
-- Boom L = 1.20 m
-- Boom L = 1.50 m
-- Slope = 19°
-- Project Target: Payload 100 kg + L 1.20 m + Slope 19°
+### Privacy / redaction
+Debug Reports intentionally:
+- redact the local Windows/macOS/Linux user-home path,
+- do not include the Web PIN,
+- do not dump credentials or secrets,
+- report only whether a public Web URL exists rather than including the URL itself in the Desktop report.
 
-### Preset propagation rules
-Payload presets preserve the existing non-payload vehicle mass:
-**new total mass = current total mass − current payload + new payload**
+### Persistent exception capture
+Uncaught exceptions and important button-action failures are recorded with time, error type, message and a redacted traceback.
+The most recent exception is also stored in AppData so it remains available after reopening the program.
 
-The resulting Total mass is synchronized to Stability, Drive Torque, Main Battery and Ramp mass inputs.
-Payload presets also synchronize the Winch load.
+### Updater and Web diagnostics
+The event log now records:
+- updater check failures,
+- updater download failures,
+- successful update checks/downloads,
+- Web Server launch failures,
+- Web Server reported error state.
 
-Slope 19° is synchronized to Torque, Main Battery and Stability.
+### Web Debug Report
+Project Summary now includes a **Debug Report** card with:
+- Refresh,
+- Copy Report,
+- Export JSON,
+- Export TXT.
 
-Track presets change Track W only. They do not invent an increase in frame mass.
-
-Boom-length presets change L only. They intentionally keep Boom mass unchanged because a new Boom mass requires real section/material information.
-
-In Component Mass Mode, payload presets are blocked rather than silently rewriting the Component table or inventing CG distribution.
-
-### Before / After comparison
-Desktop and Web presets can automatically capture:
-- Design A = Before preset
-- Design B = After preset
-
-This reuses the existing engineering comparison tools so the effect on Torque, Battery, Winch and Stability can be reviewed numerically.
+The Web report includes browser/viewport state, Web health/version, current forms, mass mode, Design Lock state, Input Source badges, Self-check results and recent browser/API errors. The Web PIN value is never included.
 
 ### Regression
 The release audit verifies:
-- all Desktop source indicators exist,
-- Linked/Manual/Component/Datasheet/Winch source states,
-- all nine presets,
-- Payload 100→50 kg causes Total mass 300→250 kg in the controlled regression case,
-- Drive/Battery/Ramp masses follow the new total,
-- Winch load follows the payload preset,
-- Boom L = 1.50 m does not change Boom mass,
-- Slope 19° reaches Torque + Main Battery + Stability,
-- Track W = 0.70 m applies correctly,
-- the Web preset and source-badge controls/functions are present,
-- existing calculation, PDF, Save/Restore, updater and Desktop↔Web regression remain enabled.
+- Desktop Debug Report tab/UI and report schema,
+- Self-check availability,
+- home-path redaction,
+- debug event capture/redaction,
+- updater/Web error instrumentation,
+- Web Debug Report controls/functions,
+- browser error event capture,
+- PIN privacy wording,
+- all previous engineering calculation, Scenario Preset, Input Source, PDF, Save/Restore, updater and Desktop↔Web regression.
