@@ -1,5 +1,5 @@
 from pathlib import Path
-import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser, base64
+import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser, base64, platform, traceback
 from datetime import datetime
 from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon,QPixmap
@@ -1154,7 +1154,11 @@ class App(QMainWindow):
     updateProgressChanged=Signal(int)
     telemetryNetworkPacket=Signal(object)
     def __init__(self):
-        super().__init__();self.setStyleSheet(APP_STYLE);self.setWindowTitle(f"{APP_NAME} — V{APP_VERSION}"); self.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))));self.setMinimumSize(1024,650);self.resize(1440,860)
+        super().__init__()
+        self.debugEvents=[]
+        self.debugLastException=None
+        self.debugSessionStarted=datetime.now().isoformat(timespec="seconds")
+        self.setStyleSheet(APP_STYLE);self.setWindowTitle(f"{APP_NAME} — V{APP_VERSION}"); self.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))));self.setMinimumSize(1024,650);self.resize(1440,860)
         app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
@@ -1171,8 +1175,28 @@ class App(QMainWindow):
         self.pending_update_manifest=None
         self._update_busy=False
         self._update_auto_requested=False
+        self.install_debug_exception_hook()
+        self.record_debug_event("INFO","Application session started",{"version":APP_VERSION})
         QTimer.singleShot(1800,self.auto_check_for_update)
 
+
+    def install_debug_exception_hook(self):
+        previous=sys.excepthook
+        def hook(exc_type,exc_value,exc_tb):
+            try:
+                self.debugLastException={
+                    "type":getattr(exc_type,"__name__",str(exc_type)),
+                    "message":str(exc_value),
+                    "traceback":"".join(traceback.format_exception(exc_type,exc_value,exc_tb)),
+                    "time":datetime.now().isoformat(timespec="seconds")
+                }
+                self.record_debug_event("CRITICAL","Uncaught exception",{
+                    "type":self.debugLastException["type"],"message":self.debugLastException["message"]
+                })
+            except Exception:
+                pass
+            previous(exc_type,exc_value,exc_tb)
+        sys.excepthook=hook
 
     def _repolish_feedback_button(self, button):
         if button is None:
@@ -1329,7 +1353,16 @@ class App(QMainWindow):
         QApplication.processEvents()
         try:
             result=callback()
-        except Exception:
+        except Exception as ex:
+            self.record_debug_event("ERROR","Button action failed",{
+                "button":button.text() if button is not None else "-",
+                "callback":getattr(callback,"__name__",str(callback)),
+                "error":str(ex)
+            })
+            self.debugLastException={
+                "type":type(ex).__name__,"message":str(ex),
+                "traceback":traceback.format_exc(),"time":datetime.now().isoformat(timespec="seconds")
+            }
             self._fail_action_button(button)
             raise
         self._finish_action_button(button, success_text)
@@ -2821,6 +2854,14 @@ void loop() {{
             QMessageBox.critical(self,"Capture All FBD",f"แคป FBD ไม่สำเร็จ\n{ex}")
             return []
 
+    def _open_debug_report_tab(self):
+        self.show_project_tools_mode()
+        if hasattr(self,"debugReportView") and hasattr(self,"projectTabs"):
+            for i in range(self.projectTabs.count()):
+                if self.projectTabs.tabText(i)=="Debug Report":
+                    self.projectTabs.setCurrentIndex(i);break
+        self.refresh_debug_report()
+
     def setup_status_bar_ui(self):
         bar=QStatusBar(self);self.setStatusBar(bar)
         bar.setSizeGripEnabled(False)
@@ -2849,6 +2890,13 @@ void loop() {{
             )
         )
         bar.addWidget(self.globalSaveValuesButton)
+
+        debugBtn=QPushButton("🛠 Debug")
+        debugBtn.setObjectName("secondaryButton")
+        debugBtn.setToolTip("เปิด Project Tools > Debug Report และรัน Self-check")
+        debugBtn.setFixedSize(88,30)
+        debugBtn.clicked.connect(lambda:(self.show_project_tools_mode(),self.projectTabs.setCurrentIndex(self.projectTabs.indexOf(self.debugReportView.parentWidget())) if False else self._open_debug_report_tab()))
+        bar.addWidget(debugBtn)
 
         # Keep font controls inside one fixed panel so QStatusBar cannot squeeze
         # individual buttons into unreadable symbols on smaller Windows displays.
@@ -4373,6 +4421,7 @@ void loop() {{
             self.webServerStatusLabel.setText(message)
 
         if state=="error":
+            self.record_debug_event("ERROR","Web Server status error",{"mode":mode,"message":message})
             if hasattr(self,"webStatusTimer"):
                 self.webStatusTimer.stop()
             if message:
@@ -4486,6 +4535,8 @@ void loop() {{
                 "\nอย่าปิดหน้าต่าง Web Server ระหว่างที่ต้องการให้คนอื่นเข้าเว็บ"
             )
         except Exception as ex:
+            self.record_debug_event("ERROR","Web Server launch failed",{"error":str(ex)})
+            self.debugLastException={"type":type(ex).__name__,"message":str(ex),"traceback":traceback.format_exc(),"time":datetime.now().isoformat(timespec="seconds")}
             QMessageBox.critical(self,"Web Server",f"เปิด Web Server ไม่สำเร็จ:\n{ex}")
 
     def show_web_server_help(self):
@@ -5861,11 +5912,287 @@ void loop() {{
         )
         self.safetyLowerTabs.setCurrentIndex(1)
 
+    # =====================================================================
+    # V53.8.50 DEBUG REPORT / SUPPORT DIAGNOSTICS
+    # =====================================================================
+    def record_debug_event(self,level,message,details=None):
+        if not hasattr(self,"debugEvents"):self.debugEvents=[]
+        item={
+            "time":datetime.now().isoformat(timespec="seconds"),
+            "level":str(level).upper(),
+            "message":str(message),
+            "details":details if isinstance(details,dict) else ({"value":str(details)} if details is not None else {})
+        }
+        self.debugEvents.append(item)
+        if len(self.debugEvents)>200:
+            self.debugEvents=self.debugEvents[-200:]
+        return item
+
+    def _debug_redact(self,value):
+        text=str(value)
+        try:
+            home=str(Path.home())
+            if home:text=text.replace(home,"<USER_HOME>")
+        except Exception:pass
+        # Redact common Windows user-profile variants even if separators differ.
+        text=re.sub(r"(?i)([A-Z]:\\Users\\)[^\\\r\n]+",r"\1<USER>",text)
+        text=re.sub(r"(?i)(/Users/)[^/\r\n]+",r"\1<USER>",text)
+        text=re.sub(r"(?i)(/home/)[^/\r\n]+",r"\1<USER>",text)
+        return text
+
+    def _debug_safe_path(self,path):
+        try:return self._debug_redact(str(Path(path)))
+        except Exception:return self._debug_redact(path)
+
+    def debug_self_checks(self):
+        checks=[]
+        def add(name,ok,detail):
+            checks.append({"name":name,"ok":bool(ok),"detail":str(detail)})
+        def finite(x):
+            try:return math.isfinite(float(x))
+            except Exception:return False
+        try:
+            t=self.torque_results()
+            add("Drive torque finite",finite(t.get("T")),f"T={t.get('T','-')} N·m")
+            add("Drive motor count valid",int(t.get("n",0))>=1,f"n={t.get('n','-')}")
+        except Exception as ex:add("Drive calculation available",False,str(ex))
+        try:
+            e=self.electrical_results()
+            add("Main battery Ah finite",finite(e.get("Ah")) and float(e.get("Ah",0))>=0,f"Ah={e.get('Ah','-')}")
+            add("Completed cycles non-negative",int(e.get("cycles",-1))>=0,f"cycles={e.get('cycles','-')}")
+        except Exception as ex:add("Main Battery calculation available",False,str(ex))
+        try:
+            w=self.winch_results()
+            add("Winch lift time finite",finite(w.get("tu")) and float(w.get("tu",0))>=0,f"t_up={w.get('tu','-')} s")
+            add("Winch battery Ah finite",finite(w.get("ah")) and float(w.get("ah",0))>=0,f"Ah={w.get('ah','-')}")
+        except Exception as ex:add("Winch calculation available",False,str(ex))
+        try:
+            d=self.inputs();crit=self._stability_worst_for_data(d)
+            valid=[x for x in crit if finite(x[0])]
+            add("Stability critical search available",len(valid)>=4,f"cases={len(valid)}")
+            add("Required SF valid",float(d.get("req",0))>0,f"required SF={d.get('req','-')}")
+        except Exception as ex:add("Stability calculation available",False,str(ex))
+        try:
+            r=self.ramp_geometry_results()
+            add("Ramp geometry valid",finite(r.get("angle")) and float(r.get("x",0))>0,f"angle={r.get('angle','-')}°")
+        except Exception as ex:add("Ramp calculation available",False,str(ex))
+        try:
+            add("Updater manifest URL configured",bool(DEFAULT_UPDATE_MANIFEST_URL),DEFAULT_UPDATE_MANIFEST_URL)
+            add("Web server launcher available",bool(self._web_server_command()),"bundled/source launcher detected" if self._web_server_command() else "not found")
+        except Exception as ex:add("Support services check",False,str(ex))
+        return checks
+
+    def debug_report_data(self):
+        now=datetime.now().isoformat(timespec="seconds")
+        try:
+            d=self.inputs()
+        except Exception:
+            d={}
+        try:
+            t=self.torque_results()
+        except Exception as ex:
+            t={"error":str(ex)}
+        try:
+            e=self.electrical_results()
+        except Exception as ex:
+            e={"error":str(ex)}
+        try:
+            w=self.winch_results()
+        except Exception as ex:
+            w={"error":str(ex)}
+        try:
+            ramp=self.ramp_geometry_results()
+        except Exception as ex:
+            ramp={"error":str(ex)}
+        try:
+            slope=self.slope_stability_results(d) if d else {}
+            crit=self._stability_worst_for_data(d) if d else []
+        except Exception as ex:
+            slope={"error":str(ex)};crit=[]
+
+        web_status={}
+        try:
+            p=self._web_status_path()
+            if p.exists():
+                raw=json.loads(p.read_text(encoding="utf-8-sig"))
+                web_status={
+                    "state":raw.get("state"),"mode":raw.get("mode"),
+                    "url_present":bool(raw.get("url")),
+                    "message":self._debug_redact(raw.get("message",""))
+                }
+            else:web_status={"state":"no status file"}
+        except Exception as ex:web_status={"error":str(ex)}
+
+        updater={
+            "busy":bool(getattr(self,"_update_busy",False)),
+            "auto_requested":bool(getattr(self,"_update_auto_requested",False)),
+            "pending_version":(getattr(self,"pending_update_manifest",None) or {}).get("latest_version") if isinstance(getattr(self,"pending_update_manifest",None),dict) else None,
+            "manifest_url":DEFAULT_UPDATE_MANIFEST_URL
+        }
+
+        storage={}
+        for key,fn in (("autosave","last_values_path"),("backup","backup_values_path"),("update_config","update_config_path"),("web_status","_web_status_path")):
+            try:
+                p=getattr(self,fn)()
+                storage[key]={"path":self._debug_safe_path(p),"exists":Path(p).exists()}
+            except Exception as ex:
+                storage[key]={"error":str(ex)}
+
+        try:
+            import PySide6
+            pyside_version=getattr(PySide6,"__version__","unknown")
+        except Exception:
+            pyside_version="unknown"
+
+        sources={}
+        for module in ("torque","battery","stability","ramp","slope","winch","winch_battery"):
+            try:sources[module]=re.sub("<[^>]+>"," ",self.input_source_html(module)).replace("&nbsp;"," ").strip()
+            except Exception as ex:sources[module]="ERROR: "+str(ex)
+
+        project={
+            "mass_mode":("components" if (hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1) else "total"),
+            "design_locked":bool(self._design_inputs_locked()) if hasattr(self,"designLockButton") else False,
+            "total_mass_kg":d.get("mt"),"payload_kg":d.get("ml"),"boom_mass_kg":d.get("mb"),
+            "track_width_m":d.get("W"),"wheelbase_m":d.get("WB"),"boom_length_m":d.get("L"),
+            "crane_x_m":d.get("xC"),"crane_angle_deg":d.get("th"),"required_sf":d.get("req"),
+            "slope_deg":getattr(self,"slope",None).value() if hasattr(self,"slope") else None
+        }
+
+        result_summary={
+            "drive_torque_per_motor_nm":t.get("T"),"drive_mech_power_per_motor_w":t.get("Pmech_per"),
+            "drive_motor_power_margin":t.get("motor_power_margin"),
+            "main_battery_min_ah":e.get("Ah"),"main_battery_practical_ah":e.get("Ah_recommended"),
+            "completed_cycles":e.get("cycles"),"winch_battery_ah":w.get("ah"),"winch_up_time_s":w.get("tu"),
+            "ramp_angle_deg":ramp.get("angle"),
+            "slope_sf":slope.get("sf") if isinstance(slope,dict) else None,
+            "worst_stability":({
+                "sf":crit[0][0],"angle_deg":crit[0][1],"case":crit[0][2]
+            } if crit else None)
+        }
+
+        last_exception=None
+        if getattr(self,"debugLastException",None):
+            last_exception=dict(self.debugLastException)
+            last_exception["traceback"]=self._debug_redact(last_exception.get("traceback",""))
+
+        return {
+            "format":"CVET_Debug_Report",
+            "report_version":1,
+            "generated_at":now,
+            "session_started":getattr(self,"debugSessionStarted",None),
+            "application":{
+                "name":APP_NAME,"version":APP_VERSION,
+                "frozen":bool(getattr(sys,"frozen",False)),
+                "python":sys.version.split()[0],
+                "pyside":pyside_version,
+                "platform":platform.platform(),
+                "machine":platform.machine(),
+                "serial_available":bool(SERIAL_AVAILABLE)
+            },
+            "project":project,
+            "input_sources":sources,
+            "results":result_summary,
+            "self_checks":self.debug_self_checks(),
+            "updater":updater,
+            "web_server":web_status,
+            "storage":storage,
+            "last_exception":last_exception,
+            "recent_events":[{
+                "time":x.get("time"),"level":x.get("level"),"message":x.get("message"),
+                "details":{k:self._debug_redact(v) for k,v in (x.get("details") or {}).items()}
+            } for x in self.debugEvents[-50:]]
+        }
+
+    def debug_report_text(self,data=None):
+        data=data or self.debug_report_data()
+        lines=[
+            "CRANE VEHICLE ENGINEERING TOOL — DEBUG REPORT",
+            "="*58,
+            f"Generated: {data.get('generated_at','-')}",
+            f"App: V{data.get('application',{}).get('version','-')} | Python {data.get('application',{}).get('python','-')} | PySide {data.get('application',{}).get('pyside','-')}",
+            f"Platform: {data.get('application',{}).get('platform','-')}",
+            "",
+            "[PROJECT]"
+        ]
+        for k,v in data.get("project",{}).items():lines.append(f"{k}: {v}")
+        lines+=["","[KEY RESULTS]"]
+        for k,v in data.get("results",{}).items():lines.append(f"{k}: {v}")
+        lines+=["","[INPUT SOURCES]"]
+        for k,v in data.get("input_sources",{}).items():lines.append(f"{k}: {v}")
+        lines+=["","[SELF CHECK]"]
+        checks=data.get("self_checks",[])
+        passed=sum(1 for x in checks if x.get("ok"))
+        lines.append(f"Summary: {passed}/{len(checks)} PASS")
+        for x in checks:lines.append(f"[{'PASS' if x.get('ok') else 'FAIL'}] {x.get('name')}: {x.get('detail')}")
+        lines+=["","[UPDATER]"]
+        for k,v in data.get("updater",{}).items():lines.append(f"{k}: {v}")
+        lines+=["","[WEB SERVER]"]
+        for k,v in data.get("web_server",{}).items():lines.append(f"{k}: {v}")
+        lines+=["","[STORAGE — REDACTED]"]
+        for k,v in data.get("storage",{}).items():lines.append(f"{k}: {v}")
+        lines+=["","[LAST EXCEPTION]"]
+        ex=data.get("last_exception")
+        if ex:
+            lines.append(f"{ex.get('time','-')} | {ex.get('type','-')}: {ex.get('message','')}")
+            lines.append(ex.get("traceback",""))
+        else:lines.append("No captured exception in this session.")
+        lines+=["","[RECENT EVENTS]"]
+        events=data.get("recent_events",[])
+        if events:
+            for x in events:lines.append(f"{x.get('time','-')} [{x.get('level','-')}] {x.get('message','')} {x.get('details',{})}")
+        else:lines.append("No debug events recorded.")
+        lines+=["","Privacy: user-profile paths are redacted and Web PIN is never included."]
+        return "\n".join(lines)
+
+    def refresh_debug_report(self):
+        data=self.debug_report_data()
+        text_report=self.debug_report_text(data)
+        if hasattr(self,"debugReportView"):self.debugReportView.setPlainText(text_report)
+        if hasattr(self,"debugReportStatus"):
+            checks=data.get("self_checks",[]);passed=sum(1 for x in checks if x.get("ok"))
+            fails=len(checks)-passed
+            self.debugReportStatus.setText(
+                f"Self-check: {passed}/{len(checks)} PASS" + (f" • {fails} จุดต้องตรวจ" if fails else " • ไม่พบข้อผิดปกติจาก Self-check")
+            )
+            self.debugReportStatus.setStyleSheet(
+                "color:#b42318;font-weight:900;" if fails else "color:#176337;font-weight:900;"
+            )
+        return data
+
+    def _debug_report_folder(self):
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        folder=Path(docs)/"CVET_Debug_Reports";folder.mkdir(parents=True,exist_ok=True)
+        return folder
+
+    def export_debug_report(self,fmt="txt"):
+        data=self.refresh_debug_report()
+        stamp=datetime.now().strftime("%Y%m%d_%H%M%S")
+        ext="json" if str(fmt).lower()=="json" else "txt"
+        default=self._debug_report_folder()/f"CVET_Debug_V{APP_VERSION}_{stamp}.{ext}"
+        filename,_=QFileDialog.getSaveFileName(
+            self,"Export Debug Report",str(default),
+            "JSON (*.json)" if ext=="json" else "Text (*.txt)"
+        )
+        if not filename:return None
+        if not filename.lower().endswith("."+ext):filename+="."+ext
+        p=Path(filename)
+        if ext=="json":p.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding="utf-8")
+        else:p.write_text(self.debug_report_text(data),encoding="utf-8")
+        self.record_debug_event("INFO","Debug report exported",{"format":ext,"path":self._debug_safe_path(p)})
+        self.statusBar().showMessage(f"Debug Report saved: {p.name}",6000)
+        return str(p)
+
+    def copy_debug_report(self):
+        text_report=self.debug_report_text(self.refresh_debug_report())
+        QApplication.clipboard().setText(text_report)
+        self.record_debug_event("INFO","Debug report copied to clipboard")
+        if hasattr(self,"debugReportStatus"):self.debugReportStatus.setText("คัดลอก Debug Report แล้ว ✓")
+
     def make_project_tools(self):
         w=QWidget();self.projectToolsPage=w
         root=QVBoxLayout(w);root.setContentsMargins(16,16,16,16);root.setSpacing(12)
         root.addWidget(make_page_header("PROJECT TOOLS / ENGINEERING SUITE",
-            "Save/Load • Lock • Compare • Summary • Sensitivity • Calculation Trace • Final Report",
+            "Save/Load • Lock • Compare • Summary • Sensitivity • Trace • Debug Report • Final Report",
             self.show_home_mode,"V53 TOOLS","#e8f4ff","#174a74"))
         self.projectTabs=QTabWidget();root.addWidget(self.projectTabs)
         self.compareA=None;self.compareB=None
@@ -6121,7 +6448,29 @@ void loop() {{
         self.calculationTraceView=QTextEdit();self.calculationTraceView.setReadOnly(True);tl.addWidget(self.calculationTraceView,1)
         self.projectTabs.addTab(tp,"ที่มาคำตอบ / สูตรทีละขั้น")
 
-        # 10) FINAL REPORT
+        # 10) DEBUG REPORT
+        dp=QWidget();dpl=QVBoxLayout(dp)
+        debugIntro=QLabel(
+            "Debug Report ใช้ส่งข้อมูลสภาพโปรแกรมตอนเกิดปัญหา โดยรวม Version, ระบบ, Input หลัก, "
+            "ผลคำนวณสำคัญ, Input Source, Updater/Web state, Self-check และ Exception ล่าสุด\n"
+            "ข้อมูล path ของผู้ใช้ถูก redact และ Web PIN จะไม่ถูกใส่ในรายงาน"
+        )
+        debugIntro.setWordWrap(True)
+        debugIntro.setStyleSheet("background:#eef6ff;color:#274c77;padding:10px;border:1px solid #cfe2f5;border-radius:8px")
+        dpl.addWidget(debugIntro)
+        dbar=QHBoxLayout()
+        refreshDebug=QPushButton("Refresh Debug Report");refreshDebug.setObjectName("primaryButton");refreshDebug.clicked.connect(self.refresh_debug_report)
+        exportDebugTxt=QPushButton("Export .TXT");exportDebugTxt.clicked.connect(lambda:self.export_debug_report("txt"))
+        exportDebugJson=QPushButton("Export .JSON");exportDebugJson.clicked.connect(lambda:self.export_debug_report("json"))
+        copyDebug=QPushButton("Copy Report");copyDebug.clicked.connect(self.copy_debug_report)
+        for x in (refreshDebug,exportDebugTxt,exportDebugJson,copyDebug):dbar.addWidget(x)
+        dbar.addStretch(1);dpl.addLayout(dbar)
+        self.debugReportStatus=QLabel("กด Refresh เพื่อรัน Self-check")
+        self.debugReportStatus.setStyleSheet("color:#60758b;font-weight:800;");dpl.addWidget(self.debugReportStatus)
+        self.debugReportView=QPlainTextEdit();self.debugReportView.setReadOnly(True);self.debugReportView.setLineWrapMode(QPlainTextEdit.NoWrap);dpl.addWidget(self.debugReportView,1)
+        self.projectTabs.addTab(dp,"Debug Report")
+
+        # 11) FINAL REPORT
         rp=QWidget();rl=QVBoxLayout(rp)
         rr=QHBoxLayout();refresh=QPushButton("Refresh Preview");refresh.clicked.connect(self.update_final_report_preview)
         exp=QPushButton("Export FINAL Engineering PDF");exp.setObjectName("primaryButton");exp.clicked.connect(self.export_final_engineering_report)
