@@ -5,6 +5,19 @@ function num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d;}
 function f(v,d=2){return num(v).toLocaleString("th-TH",{minimumFractionDigits:d,maximumFractionDigits:d});}
 function statusSpan(ok){return '<span class="'+(ok?'pass':'fail')+'">'+(ok?'PASS':'FAIL')+'</span>';}
 
+const WEB_DEBUG_EVENTS=[];
+function recordWebDebug(level,message,details={}){
+  WEB_DEBUG_EVENTS.push({
+    time:new Date().toISOString(),
+    level:String(level||"INFO").toUpperCase(),
+    message:String(message||""),
+    details:details&&typeof details==="object"?details:{value:String(details)}
+  });
+  if(WEB_DEBUG_EVENTS.length>100)WEB_DEBUG_EVENTS.splice(0,WEB_DEBUG_EVENTS.length-100);
+}
+window.addEventListener("error",e=>recordWebDebug("ERROR","Window error",{message:e.message||"",file:(e.filename||"").split("/").pop(),line:e.lineno||0}));
+window.addEventListener("unhandledrejection",e=>recordWebDebug("ERROR","Unhandled promise rejection",{message:String(e.reason?.message||e.reason||"")}));
+
 function actionToast(message,type="success"){
   let box=document.getElementById("cvetActionToast");
   if(!box){
@@ -49,6 +62,7 @@ function buttonSuccess(btn,text="เสร็จแล้ว ✓",toastText=""){
 }
 
 function buttonError(btn,text="เกิดข้อผิดพลาด",toastText="ทำรายการไม่สำเร็จ"){
+  recordWebDebug("ERROR","Button action failed",{button:btn?.id||btn?.textContent||"-",message:toastText});
   if(!btn)return;
   btn.classList.remove("btn-busy","btn-success","btn-ack");
   btn.classList.add("btn-error");
@@ -655,7 +669,10 @@ async function syncDesktopProjectValues(options={}){
   }
 }
 function setLoading(el){el.classList.remove("empty");el.innerHTML="<p>กำลังคำนวณ...</p>";}
-function setError(el,err){el.classList.remove("empty");el.innerHTML='<div class="error">'+String(err.message||err)+'</div>';}
+function setError(el,err){
+  recordWebDebug("ERROR","UI/API error",{target:el?.id||"-",message:String(err?.message||err||"")});
+  el.classList.remove("empty");el.innerHTML='<div class="error">'+String(err.message||err)+'</div>';
+}
 
 function calcStepCard(no,title,body,finalStep=false){
   return '<section class="calc-step-card'+(finalStep?' final-step':'')+'">'+
@@ -1818,6 +1835,143 @@ async function refreshWebCalculationTrace(){
   }catch(e){setError(out,e);buttonError(btn,"ไม่สำเร็จ","แสดงที่มาของคำตอบไม่สำเร็จ");}
 }
 
+function webDebugInputSources(){
+  const out={};
+  document.querySelectorAll(".input-source-badge").forEach(badge=>{
+    const label=badge.closest("label");
+    const input=label?.querySelector("input,select");
+    const form=input?.closest("form");
+    const key=(form?.id||"page")+"."+(input?.name||input?.id||"?");
+    out[key]=badge.textContent.trim();
+  });
+  return out;
+}
+function webDebugForms(){
+  const out={};
+  ["driveForm","rampForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"].forEach(id=>{
+    const form=$("#"+id);if(!form)return;
+    const data=formObject(form);
+    if("pin" in data)delete data.pin;
+    out[id]=data;
+  });
+  out.stabilityComponents=stabilityComponentRows();
+  return out;
+}
+function webDebugSelfChecks(){
+  const checks=[];
+  const add=(name,ok,detail)=>checks.push({name,ok:!!ok,detail:String(detail)});
+  const finite=x=>Number.isFinite(Number(x));
+  const mass=formValue("stabilityForm","total_mass_kg",NaN);
+  const payload=formValue("stabilityForm","payload_mass_kg",NaN);
+  const track=formValue("stabilityForm","track_width_m",NaN);
+  const boom=formValue("stabilityForm","boom_length_m",NaN);
+  const slope=formValue("stabilityForm","slope_deg",NaN);
+  add("Total mass valid",finite(mass)&&mass>0,"m="+mass+" kg");
+  add("Payload non-negative",finite(payload)&&payload>=0,"payload="+payload+" kg");
+  add("Track width valid",finite(track)&&track>0,"W="+track+" m");
+  add("Boom length valid",finite(boom)&&boom>0,"L="+boom+" m");
+  add("Slope valid",finite(slope)&&slope>=0&&slope<=45,"slope="+slope+" deg");
+  add("Input Source badges available",document.querySelectorAll(".input-source-badge").length>0,"badges="+document.querySelectorAll(".input-source-badge").length);
+  add("Design Lock state readable",$("#webDesignLock")!==null,"lock="+(localStorage.getItem(CVET_WEB_LOCK_STORE)==="1"));
+  return checks;
+}
+async function buildWebDebugReport(){
+  let health={ok:false,error:"health not checked"};
+  try{health=await apiGet("/api/health");}
+  catch(e){health={ok:false,error:String(e.message||e)};recordWebDebug("ERROR","Health check failed",{message:String(e.message||e)});}
+  let syncMeta=null;try{syncMeta=JSON.parse(localStorage.getItem("cvet_desktop_sync_meta")||"null");}catch(e){}
+  const data={
+    format:"CVET_Web_Debug_Report",
+    report_version:1,
+    generated_at:new Date().toISOString(),
+    application:{
+      version:health?.version||"unknown",
+      web_health_ok:!!health?.ok,
+      pin_required:!!health?.pin_required,
+      server:health?.server||"unknown"
+    },
+    browser:{
+      user_agent:navigator.userAgent,
+      language:navigator.language,
+      online:navigator.onLine,
+      viewport:{width:window.innerWidth,height:window.innerHeight}
+    },
+    state:{
+      design_locked:localStorage.getItem(CVET_WEB_LOCK_STORE)==="1",
+      mass_mode:stabilityMassMode(),
+      desktop_sync:syncMeta
+    },
+    forms:webDebugForms(),
+    input_sources:webDebugInputSources(),
+    self_checks:webDebugSelfChecks(),
+    recent_events:WEB_DEBUG_EVENTS.slice(-50)
+  };
+  return data;
+}
+function webDebugReportText(data){
+  const lines=[
+    "CRANE VEHICLE ENGINEERING TOOL — WEB DEBUG REPORT",
+    "========================================================",
+    "Generated: "+data.generated_at,
+    "Web version: "+data.application.version,
+    "Health: "+(data.application.web_health_ok?"OK":"FAIL")+" | PIN required: "+data.application.pin_required,
+    "Browser: "+data.browser.user_agent,
+    "",
+    "[STATE]",
+    "Design locked: "+data.state.design_locked,
+    "Mass mode: "+data.state.mass_mode,
+    "Desktop sync: "+JSON.stringify(data.state.desktop_sync),
+    "",
+    "[SELF CHECK]"
+  ];
+  const pass=data.self_checks.filter(x=>x.ok).length;
+  lines.push("Summary: "+pass+"/"+data.self_checks.length+" PASS");
+  data.self_checks.forEach(x=>lines.push("["+(x.ok?"PASS":"FAIL")+"] "+x.name+": "+x.detail));
+  lines.push("","[INPUT SOURCES]");
+  Object.entries(data.input_sources).forEach(([k,v])=>lines.push(k+": "+v));
+  lines.push("","[FORMS]");
+  Object.entries(data.forms).forEach(([k,v])=>lines.push(k+": "+JSON.stringify(v)));
+  lines.push("","[RECENT EVENTS]");
+  if(data.recent_events.length)data.recent_events.forEach(x=>lines.push(x.time+" ["+x.level+"] "+x.message+" "+JSON.stringify(x.details||{})));
+  else lines.push("No debug events recorded.");
+  lines.push("","Privacy: Web PIN value is never included in this report.");
+  return lines.join("\n");
+}
+let LAST_WEB_DEBUG_REPORT=null;
+async function refreshWebDebugReport(){
+  const out=$("#webDebugReport"),status=$("#webDebugReportStatus"),btn=$("#refreshWebDebugReport");
+  buttonBusy(btn,"กำลังตรวจ...");
+  try{
+    LAST_WEB_DEBUG_REPORT=await buildWebDebugReport();
+    const text=webDebugReportText(LAST_WEB_DEBUG_REPORT);
+    if(out)out.textContent=text;
+    const pass=LAST_WEB_DEBUG_REPORT.self_checks.filter(x=>x.ok).length;
+    if(status)status.textContent="Self-check: "+pass+"/"+LAST_WEB_DEBUG_REPORT.self_checks.length+" PASS • Recent errors: "+LAST_WEB_DEBUG_REPORT.recent_events.filter(x=>x.level==="ERROR"||x.level==="CRITICAL").length;
+    recordWebDebug("INFO","Web Debug Report refreshed");
+    buttonSuccess(btn,"Refreshed ✓","สร้าง Debug Report แล้ว");
+    return LAST_WEB_DEBUG_REPORT;
+  }catch(e){if(out)out.textContent=String(e.message||e);buttonError(btn,"ไม่สำเร็จ","สร้าง Debug Report ไม่สำเร็จ");return null;}
+}
+function downloadWebDebug(name,content,type){
+  const blob=new Blob([content],{type:type||"text/plain;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function exportWebDebug(format){
+  const data=LAST_WEB_DEBUG_REPORT||await refreshWebDebugReport();if(!data)return;
+  const stamp=new Date().toISOString().replace(/[:.]/g,"-");
+  if(format==="json")downloadWebDebug("CVET_Web_Debug_"+stamp+".json",JSON.stringify(data,null,2),"application/json");
+  else downloadWebDebug("CVET_Web_Debug_"+stamp+".txt",webDebugReportText(data),"text/plain;charset=utf-8");
+  recordWebDebug("INFO","Web Debug Report exported",{format});
+}
+async function copyWebDebugReport(){
+  const data=LAST_WEB_DEBUG_REPORT||await refreshWebDebugReport();if(!data)return;
+  await navigator.clipboard.writeText(webDebugReportText(data));
+  actionToast("คัดลอก Debug Report แล้ว","success");
+  recordWebDebug("INFO","Web Debug Report copied");
+}
+
 const WEB_ENGINEERING_PRESETS={
   payload_0:{label:"Payload 0 kg — รถเปล่า",payload:0},
   payload_50:{label:"Payload 50 kg",payload:50},
@@ -1974,6 +2128,10 @@ function compareWebRevisionData(){
 }
 
 $("#refreshEngineeringSummary")?.addEventListener("click",refreshEngineeringDecisionSummary);
+$("#refreshWebDebugReport")?.addEventListener("click",refreshWebDebugReport);
+$("#copyWebDebugReport")?.addEventListener("click",()=>copyWebDebugReport().catch(e=>setError($("#webDebugReport"),e)));
+$("#exportWebDebugJson")?.addEventListener("click",()=>exportWebDebug("json"));
+$("#exportWebDebugTxt")?.addEventListener("click",()=>exportWebDebug("txt"));
 $("#webScenarioPreset")?.addEventListener("change",refreshWebScenarioPresetPreview);
 $("#applyWebScenarioPreset")?.addEventListener("click",applyWebScenarioPreset);
 refreshWebScenarioPresetPreview();
