@@ -1193,6 +1193,7 @@ class App(QMainWindow):
                 self.record_debug_event("CRITICAL","Uncaught exception",{
                     "type":self.debugLastException["type"],"message":self.debugLastException["message"]
                 })
+                self._persist_debug_exception()
             except Exception:
                 pass
             previous(exc_type,exc_value,exc_tb)
@@ -1363,6 +1364,7 @@ class App(QMainWindow):
                 "type":type(ex).__name__,"message":str(ex),
                 "traceback":traceback.format_exc(),"time":datetime.now().isoformat(timespec="seconds")
             }
+            self._persist_debug_exception()
             self._fail_action_button(button)
             raise
         self._finish_action_button(button, success_text)
@@ -2895,7 +2897,7 @@ void loop() {{
         debugBtn.setObjectName("secondaryButton")
         debugBtn.setToolTip("เปิด Project Tools > Debug Report และรัน Self-check")
         debugBtn.setFixedSize(88,30)
-        debugBtn.clicked.connect(lambda:(self.show_project_tools_mode(),self.projectTabs.setCurrentIndex(self.projectTabs.indexOf(self.debugReportView.parentWidget())) if False else self._open_debug_report_tab()))
+        debugBtn.clicked.connect(self._open_debug_report_tab)
         bar.addWidget(debugBtn)
 
         # Keep font controls inside one fixed panel so QStatusBar cannot squeeze
@@ -4537,6 +4539,7 @@ void loop() {{
         except Exception as ex:
             self.record_debug_event("ERROR","Web Server launch failed",{"error":str(ex)})
             self.debugLastException={"type":type(ex).__name__,"message":str(ex),"traceback":traceback.format_exc(),"time":datetime.now().isoformat(timespec="seconds")}
+            self._persist_debug_exception()
             QMessageBox.critical(self,"Web Server",f"เปิด Web Server ไม่สำเร็จ:\n{ex}")
 
     def show_web_server_help(self):
@@ -5022,6 +5025,7 @@ void loop() {{
         typ=result.get("type")
         if typ=="check":
             if not result.get("ok"):
+                self.record_debug_event("ERROR","Updater check failed",{"error":result.get("error","Unknown error")})
                 self._set_update_progress(0)
                 self._set_update_status("ตรวจสอบอัปเดตไม่สำเร็จ: "+result.get("error","Unknown error"),ok=False)
                 if not result.get("silent"):
@@ -5030,6 +5034,7 @@ void loop() {{
 
             manifest=result["manifest"]
             latest=manifest.get("latest_version","")
+            self.record_debug_event("INFO","Updater check completed",{"current":APP_VERSION,"latest":latest})
             if self._version_tuple(latest)>self._version_tuple(APP_VERSION):
                 self.pending_update_manifest=manifest
                 if hasattr(self,"updateNowButton"):self.updateNowButton.setEnabled(True)
@@ -5057,10 +5062,12 @@ void loop() {{
 
         elif typ=="download":
             if not result.get("ok"):
+                self.record_debug_event("ERROR","Updater download failed",{"error":result.get("error","Unknown error")})
                 self._set_update_status("ดาวน์โหลดอัปเดตไม่สำเร็จ: "+result.get("error","Unknown error"),ok=False)
                 QMessageBox.warning(self,"Update Download",result.get("error","Unknown error"))
                 return
             path=Path(result.get("path",""))
+            self.record_debug_event("INFO","Updater download completed",{"file":path.name})
             self._set_update_progress(100)
             self._set_update_status(f"ดาวน์โหลดเสร็จแล้ว • {path.name}",ok=True)
             msg=(
@@ -5944,6 +5951,32 @@ void loop() {{
         try:return self._debug_redact(str(Path(path)))
         except Exception:return self._debug_redact(path)
 
+    def _debug_exception_path(self):
+        base=QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+        folder=Path(base) if base else (Path.home()/".CraneVehicleEngineeringTool")
+        folder=folder/"debug";folder.mkdir(parents=True,exist_ok=True)
+        return folder/"last_exception.json"
+
+    def _persist_debug_exception(self):
+        if not getattr(self,"debugLastException",None):return
+        try:
+            data=dict(self.debugLastException)
+            data["traceback"]=self._debug_redact(data.get("traceback",""))
+            self._debug_exception_path().write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding="utf-8")
+        except Exception:
+            pass
+
+    def _previous_debug_exception(self):
+        try:
+            p=self._debug_exception_path()
+            if not p.exists():return None
+            data=json.loads(p.read_text(encoding="utf-8-sig"))
+            if not isinstance(data,dict):return None
+            data["traceback"]=self._debug_redact(data.get("traceback",""))
+            return data
+        except Exception:
+            return None
+
     def debug_self_checks(self):
         checks=[]
         def add(name,ok,detail):
@@ -6074,6 +6107,9 @@ void loop() {{
         if getattr(self,"debugLastException",None):
             last_exception=dict(self.debugLastException)
             last_exception["traceback"]=self._debug_redact(last_exception.get("traceback",""))
+        previous_exception=self._previous_debug_exception()
+        if last_exception and previous_exception and last_exception.get("time")==previous_exception.get("time"):
+            previous_exception=None
 
         return {
             "format":"CVET_Debug_Report",
@@ -6097,6 +6133,7 @@ void loop() {{
             "web_server":web_status,
             "storage":storage,
             "last_exception":last_exception,
+            "previous_exception":previous_exception,
             "recent_events":[{
                 "time":x.get("time"),"level":x.get("level"),"message":x.get("message"),
                 "details":{k:self._debug_redact(v) for k,v in (x.get("details") or {}).items()}
@@ -6136,6 +6173,12 @@ void loop() {{
             lines.append(f"{ex.get('time','-')} | {ex.get('type','-')}: {ex.get('message','')}")
             lines.append(ex.get("traceback",""))
         else:lines.append("No captured exception in this session.")
+        lines+=["","[PREVIOUS CAPTURED EXCEPTION]"]
+        pex=data.get("previous_exception")
+        if pex:
+            lines.append(f"{pex.get('time','-')} | {pex.get('type','-')}: {pex.get('message','')}")
+            lines.append(pex.get("traceback",""))
+        else:lines.append("No separate previous exception stored.")
         lines+=["","[RECENT EVENTS]"]
         events=data.get("recent_events",[])
         if events:
