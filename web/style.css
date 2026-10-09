@@ -357,3 +357,6 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
 .input-source-badge.datasheet{background:#eaf7ef;color:#176337}
 .preset-card select{width:100%;margin-top:5px}.preset-compare{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;margin:9px 0}
 .preset-warning{color:#9a5800}.preset-card button{width:100%;margin-top:8px}
+
+.debug-report-output{white-space:pre;overflow:auto;max-height:560px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.78rem;line-height:1.45}
+.debug-report-card .revision-buttons{margin:8px 0}.debug-report-card button{min-width:120px}
