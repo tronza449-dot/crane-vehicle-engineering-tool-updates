@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Crane Vehicle Engineering Tool — Web</title>
-  <link rel="stylesheet" href="/static/style.css?v=53.8.49">
+  <link rel="stylesheet" href="/static/style.css?v=53.8.50">
 </head>
 <body>
   <header class="topbar">
@@ -760,6 +760,19 @@
             <div id="webTraceResult" class="result"><p class="check">เลือกหัวข้อแล้วกด “แสดงที่มาของคำตอบ”</p></div>
           </section>
 
+          <section class="toolbox-card debug-report-card">
+            <h3>Debug Report / รายงานตรวจปัญหา</h3>
+            <p class="check">รวม Version, Browser, Input หลัก, Input Source, Health, Design Lock และ Error ล่าสุด โดยไม่รวม Web PIN</p>
+            <div class="revision-buttons">
+              <button id="refreshWebDebugReport" type="button">Refresh Debug Report</button>
+              <button id="copyWebDebugReport" type="button">Copy Report</button>
+              <button id="exportWebDebugJson" type="button">Export .JSON</button>
+              <button id="exportWebDebugTxt" type="button">Export .TXT</button>
+            </div>
+            <div id="webDebugReportStatus" class="check">กด Refresh เพื่อสร้างรายงาน</div>
+            <pre id="webDebugReport" class="result debug-report-output"></pre>
+          </section>
+
           <section class="toolbox-card">
             <h3>Final Design Input Lock</h3>
             <button id="webDesignLock" type="button">🔓 Design Inputs Unlocked</button>
@@ -788,7 +801,7 @@
     <span>CVET Web • Local Server • HTTPS Public Access ผ่าน Tailscale Funnel / Quick Tunnel</span>
   </footer>
 
-  <script src="/static/app.js?v=53.8.49"></script>
-  <script src="/static/details.js?v=53.8.49"></script>
+  <script src="/static/app.js?v=53.8.50"></script>
+  <script src="/static/details.js?v=53.8.50"></script>
 </body>
 </html>
