@@ -444,6 +444,13 @@ jobs:
               assert ("function "+fn) in web_js, f"Missing Web engineering function: {fn}"
           assert "Engineering Decision Tools" in web_index
           assert "Engineering Scenario Presets" in web_index
+          for web_id in ("refreshWebDebugReport","copyWebDebugReport","exportWebDebugJson","exportWebDebugTxt","webDebugReportStatus","webDebugReport"):
+              assert f'id="{web_id}"' in web_index, f"Missing Web Debug Report control: {web_id}"
+          for fn in ("recordWebDebug","webDebugSelfChecks","buildWebDebugReport","webDebugReportText","refreshWebDebugReport","exportWebDebug","copyWebDebugReport"):
+              assert ("function "+fn) in web_js, f"Missing Web Debug function: {fn}"
+          assert "Web PIN value is never included" in web_js
+          assert "WEB_DEBUG_EVENTS" in web_js
+          assert "recordWebDebug(\"ERROR\",\"UI/API error\"" in web_js
           assert "Payload 100 kg — เป้าหมาย" in web_index
           assert "Project Target — Payload 100 kg + L 1.20 m + Slope 19°" in web_index
           assert "WEB_ENGINEERING_PRESETS" in web_js
@@ -923,6 +930,32 @@ jobs:
           assert "FROM COMPONENT" in w.input_source_html("stability")
           w.massCalcMode.blockSignals(True);w.massCalcMode.setCurrentIndex(old_mass_mode);w.massCalcMode.blockSignals(False)
           w.update_input_source_indicators()
+
+          # ---------- V53.8.50 Debug Report ----------
+          tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
+          assert "Debug Report" in tab_names
+          for method in ("record_debug_event","debug_self_checks","debug_report_data","debug_report_text","refresh_debug_report","export_debug_report","copy_debug_report","_debug_exception_path","_persist_debug_exception"):
+              assert hasattr(w,method), f"Missing Debug Report method: {method}"
+          assert hasattr(w,"debugReportView") and hasattr(w,"debugReportStatus")
+          debug_data=w.debug_report_data()
+          assert debug_data["format"]=="CVET_Debug_Report"
+          assert debug_data["application"]["version"]==cvet.APP_VERSION
+          assert isinstance(debug_data["self_checks"],list) and len(debug_data["self_checks"])>=8
+          assert "project" in debug_data and "results" in debug_data and "input_sources" in debug_data
+          assert "updater" in debug_data and "web_server" in debug_data and "storage" in debug_data
+          debug_text=w.debug_report_text(debug_data)
+          assert "DEBUG REPORT" in debug_text and "[SELF CHECK]" in debug_text and "[RECENT EVENTS]" in debug_text
+          assert "Web PIN is never included" in debug_text
+          redacted=w._debug_redact(str(Path.home())+os.sep+"private-test")
+          assert "<USER_HOME>" in redacted and str(Path.home()) not in redacted
+          before_events=len(w.debugEvents)
+          w.record_debug_event("INFO","Regression debug event",{"path":str(Path.home())})
+          assert len(w.debugEvents)==before_events+1
+          debug_data2=w.debug_report_data()
+          assert any(x.get("message")=="Regression debug event" for x in debug_data2["recent_events"])
+          assert "<USER_HOME>" in json.dumps(debug_data2["recent_events"],ensure_ascii=False)
+          assert "platform" in source and "traceback" in source
+          assert "Updater check failed" in source and "Web Server launch failed" in source
 
           # ---------- V53.8.49 Engineering Scenario Presets ----------
           assert hasattr(w,"engineeringPresetCombo") and w.engineeringPresetCombo.count()==9
