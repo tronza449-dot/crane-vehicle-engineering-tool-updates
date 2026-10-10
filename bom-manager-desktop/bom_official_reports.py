@@ -129,7 +129,7 @@ def export_pdf(doc, destination, options=None):
     story += [Spacer(1,12),P(
         "หมายเหตุ: ราคาไม่ทราบจะแสดงเป็น — ไม่ถือว่าราคาเท่ากับศูนย์ "
         "ยอดรวมยังไม่รวมรายการที่ไม่มีราคา รวมทั้งค่าขนส่ง ภาษี และค่าแรงที่ยังไม่บันทึก",label),
-        Spacer(1,17),P("รายการแยกตามระบบวิศวกรรม",section),Spacer(1,6)]
+        PageBreak(),P("รายการแยกตามระบบวิศวกรรม",section),Spacer(1,6)]
     story.append(TABLE(["ระบบ / หมวดหมู่","รายการ","ไม่มีราคา","ยอดรวมที่ทราบ (บาท)"],
        [[c,n,missing,f"{amount:,.2f}"] for c,n,missing,amount in categories],
        [width*.44,width*.16,width*.17,width*.23]))
@@ -301,7 +301,7 @@ def export_excel(doc,destination,options=None):
             if col==6:
                 bom.write_formula(row,col,'=IF(F'+str(erow)+'="","",D'+
                                   str(erow)+'*F'+str(erow)+')',money,
-                                  None if amount is None else float(qty*amount))
+                                  "" if amount is None else float(qty*amount))
             elif val is None:
                 bom.write_blank(row,col,None,style)
             elif col in (3,5):
