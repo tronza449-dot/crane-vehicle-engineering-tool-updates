@@ -63,7 +63,7 @@ class DetailDialog(tk.Toplevel):
         options = options or {}
         for i, (key, label) in enumerate(fields):
             ttk.Label(body, text=label).grid(row=i, column=0, padx=(0, 14), pady=6, sticky="nw")
-            if key == "notes":
+            if key in ("notes", "spec", "connection"):
                 widget = tk.Text(body, height=4, wrap="word")
                 widget.insert("1.0", str(values.get(key) or ""))
                 widget.grid(row=i, column=1, sticky="ew", pady=5)
@@ -83,6 +83,7 @@ class DetailDialog(tk.Toplevel):
         ttk.Button(buttons, text="บันทึก", command=self.accept).pack(side="right", padx=4)
         ttk.Button(buttons, text="ยกเลิก", command=self.destroy).pack(side="right")
         self.bind("<Escape>", lambda _e: self.destroy())
+        self.wait_visibility()
         self.grab_set()
         self.focus_set()
 
@@ -96,7 +97,7 @@ class DetailDialog(tk.Toplevel):
         self.destroy()
 
 
-def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service):
+def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, item_fields):
     class BOMManagerPlus(BaseApp):
         def __init__(self):
             self.cache_file = self._cache_folder() / "draft.json"
@@ -137,6 +138,7 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service):
                     f.flush()
                     os.fsync(f.fileno())
                 os.replace(tmp, self.cache_file)
+                self._cached_state = snapshot
             except OSError as exc:
                 self.status_var.set(f"บันทึกฉบับร่างในเครื่องไม่ได้: {exc}")
 
@@ -423,10 +425,20 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service):
             self.status_var.set("มีการแก้ไข — เก็บฉบับร่างในเครื่องแล้ว; ยังไม่ได้บันทึก GitHub")
 
         def add_item(self):
-            before = len(self.payload.get("items", []))
-            super().add_item()
-            if len(self.payload["items"]) != before:
-                self._modified()
+            dialog = DetailDialog(self, "เพิ่มอุปกรณ์ใน BOM", item_fields,
+                                  values={"qty": 1, "unit": "ชิ้น", "status": "ยังไม่เลือก"})
+            self.wait_window(dialog)
+            if dialog.result is None:
+                return
+            try:
+                result = bom_core.normalize_dialog_values(dialog.result)
+            except bom_core.DataError as exc:
+                messagebox.showerror("ข้อมูลไม่ถูกต้อง", str(exc), parent=self)
+                return
+            self.payload["items"].append({
+                "id": bom_core.next_id(self.payload["items"]), **result
+            })
+            self._modified()
 
         def edit_item(self):
             selection = self.tree.selection()
@@ -435,18 +447,19 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service):
                 return
             idx = int(selection[0])
             original = dict(self.payload["items"][idx])
-            dialog = ItemDialog(self, original)
+            dialog = DetailDialog(self, "แก้ไขอุปกรณ์ BOM", item_fields, values=original)
             self.wait_window(dialog)
-            if dialog.result is not None:
-                try:
-                    incoming = bom_core.normalize_dialog_values(dialog.result)
-                except bom_core.DataError as exc:
-                    messagebox.showerror("ข้อมูลไม่ถูกต้อง", str(exc), parent=self)
-                    return
-                self.payload["items"][idx] = {**original, **incoming}
-                self._modified()
-                if self.tree.exists(str(idx)):
-                    self.tree.selection_set(str(idx))
+            if dialog.result is None:
+                return
+            try:
+                incoming = bom_core.normalize_dialog_values(dialog.result)
+            except bom_core.DataError as exc:
+                messagebox.showerror("ข้อมูลไม่ถูกต้อง", str(exc), parent=self)
+                return
+            self.payload["items"][idx] = {**original, **incoming}
+            self._modified()
+            if self.tree.exists(str(idx)):
+                self.tree.selection_set(str(idx))
 
         def delete_item(self):
             before = len(self.payload.get("items", []))
