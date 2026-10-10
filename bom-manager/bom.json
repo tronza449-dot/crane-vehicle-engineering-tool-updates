@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T11:33:31.879Z",
+  "updatedAt": "2026-10-10T12:48:36+00:00",
   "currency": "THB",
   "items": [
     {
@@ -12,7 +12,7 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "GPIO / I²C / CAN ผ่าน transceiver | GPIO/จุดต่อ: 21, 22, 26, 27 ใช้กับ BNO086; 25 = รีเลย์ buzzer; 33 = รีเลย์ไฟเตือน; 32 จอง; 16/17 เสนอ CAN",
-      "unitPrice": null,
+      "unitPrice": 300.0,
       "link": "https://www.modulemore.com/product/128/esp32-wroom-32-dev-board-wifi-bt-ble-mcu",
       "status": "เลือกบอร์ดแล้ว",
       "notes": "ยืนยันรุ่น DevKit และผัง GPIO สุดท้าย"
