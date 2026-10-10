@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T22:01:02+00:00",
+  "updatedAt": "2026-10-10T22:08:04+00:00",
   "currency": "THB",
   "items": [
     {
@@ -202,10 +202,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "ESP32 GPIO25 → IN1 (CH1 buzzer); GPIO33 → IN2 (CH2 ไฟเตือน); logic GND → ESP32 GND ตามคู่มือโมดูล | โหลดต่อผ่าน COM/NO ของแต่ละช่อง; เว้น NC และ CH3",
-      "unitPrice": null,
+      "unitPrice": 115.0,
       "link": "https://www.modulemore.com/product/333/relay-3ch-optocoupler-isolation-33v-5v",
       "status": "เลือกแนวทาง/รุ่นแล้ว",
-      "notes": "ยืนยันขั้ว VCC/GND/IN และ COM/NO ตาม silk-screen ของบอร์ดจริง; โหลด DC ไม่เกิน 30 V, 7 A/ช่อง; แยกกราวด์โหลดกับ logic หากต้องการคง optocoupler isolation"
+      "notes": "ยืนยันขั้ว VCC/GND/IN และ COM/NO ตาม silk-screen ของบอร์ดจริง; โหลด DC ไม่เกิน 30 V, 7 A/ช่อง; แยกกราวด์โหลดกับ logic หากต้องการคง optocoupler isolation",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "16",
@@ -245,10 +247,12 @@
       "qty": 1,
       "unit": "ชุด/ตัว",
       "connection": "วิทยุ 2.4 GHz ไปยัง receiver ที่เข้ากันได้ | GPIO/จุดต่อ: ช่อง RC → ESP32; mapping channel ยังไม่ยืนยัน",
-      "unitPrice": null,
+      "unitPrice": 1899.0,
       "link": "https://shopee.co.th/%E0%B8%A7%E0%B8%B4%E0%B8%97%E0%B8%A2%E0%B8%B8%E0%B8%9A%E0%B8%B1%E0%B8%87%E0%B8%84%E0%B8%B1%E0%B8%9A-Flysky-FS-i6X-2.4GHz10CH-%E0%B8%9E%E0%B8%A3%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%95%E0%B8%B1%E0%B8%A7%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%AA%E0%B8%B1%E0%B8%8D%E0%B8%8D%E0%B8%B2%E0%B8%93-FS-iA6B-%E0%B9%81%E0%B8%A5%E0%B8%B0-FS-iA10B-%E0%B8%AA%E0%B8%B3%E0%B8%AB%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%A3%E0%B8%96-%E0%B8%AE%E0%B8%AD-%E0%B9%80%E0%B8%84%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%E0%B8%9A%E0%B8%B4%E0%B8%99-%E0%B9%82%E0%B8%94%E0%B8%A3%E0%B8%99%28%E0%B8%AA%E0%B9%88%E0%B8%87%E0%B8%88%E0%B8%B2%E0%B8%81%E0%B8%81%E0%B8%A3%E0%B8%B8%E0%B8%87%E0%B9%80%E0%B8%97%E0%B8%9E%29-i.553680739.26265727576",
       "status": "ตัวเลือกที่แนะนำ; เลือกชุด FS-i6X + FS-iA6B",
-      "notes": "ยืนยัน transmitter และ failsafe settings"
+      "notes": "ยืนยัน transmitter และ failsafe settings",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "19",
@@ -258,7 +262,7 @@
       "qty": 1,
       "unit": "ชุด/ตัว",
       "connection": "แนะนำ output iBUS หาก receiver รุ่นที่เลือกมีให้ | GPIO/จุดต่อ: GPIO RX ยังไม่กำหนด",
-      "unitPrice": 1899.0,
+      "unitPrice": 0.0,
       "link": "https://shopee.co.th/%E0%B8%A7%E0%B8%B4%E0%B8%97%E0%B8%A2%E0%B8%B8%E0%B8%9A%E0%B8%B1%E0%B8%87%E0%B8%84%E0%B8%B1%E0%B8%9A-Flysky-FS-i6X-2.4GHz10CH-%E0%B8%9E%E0%B8%A3%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%95%E0%B8%B1%E0%B8%A7%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%AA%E0%B8%B1%E0%B8%8D%E0%B8%8D%E0%B8%B2%E0%B8%93-FS-iA6B-%E0%B9%81%E0%B8%A5%E0%B8%B0-FS-iA10B-%E0%B8%AA%E0%B8%B3%E0%B8%AB%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%A3%E0%B8%96-%E0%B8%AE%E0%B8%AD-%E0%B9%80%E0%B8%84%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%E0%B8%9A%E0%B8%B4%E0%B8%99-%E0%B9%82%E0%B8%94%E0%B8%A3%E0%B8%99%28%E0%B8%AA%E0%B9%88%E0%B8%87%E0%B8%88%E0%B8%B2%E0%B8%81%E0%B8%81%E0%B8%A3%E0%B8%B8%E0%B8%87%E0%B9%80%E0%B8%97%E0%B8%9E%29-i.553680739.26265727576",
       "status": "ตัวเลือกที่แนะนำ; ยืนยันร้านส่งรุ่น FS-iA6B",
       "notes": "ตรวจว่า receiver มี iBUS output ที่ใช้ได้จริง, ตั้ง failsafe ให้ตัดคำสั่งขับเมื่อสัญญาณหาย และทดสอบ output level ก่อนต่อ ESP32",
