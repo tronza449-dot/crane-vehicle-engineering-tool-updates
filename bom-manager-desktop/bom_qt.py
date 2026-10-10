@@ -774,7 +774,6 @@ class BOMWindow(QMainWindow):
         row.addWidget(self._button("เปิดโฟลเดอร์ฉบับร่าง", self.open_cache_dir))
         group.addLayout(row)
         row = QHBoxLayout()
-        row.addWidget(self._button("ตรวจสอบโปรแกรมเวอร์ชันใหม่", self.check_version))
         row.addWidget(self.update_btn)
         row.addWidget(self.install_btn)
         row.addStretch()
