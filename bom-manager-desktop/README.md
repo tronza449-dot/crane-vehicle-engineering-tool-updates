@@ -4,7 +4,7 @@
 
 ## ติดตั้ง
 
-ดาวน์โหลด `CraneVehicleBOMManager_Setup.exe` จากแท็บ **Actions → Build BOM Manager Desktop → Artifacts** ใน GitHub แล้วดับเบิลคลิกติดตั้ง ตัวติดตั้งสร้างไอคอนบน Desktop และ Start Menu
+ดาวน์โหลด `CraneVehicleBOMManager_Setup.exe` จาก **GitHub Releases → Crane Vehicle BOM Manager** (`bom-v*`) หรือแท็บ **Actions → Build BOM Manager Desktop → Artifacts** แล้วดับเบิลคลิกติดตั้ง ตัวติดตั้งสร้างไอคอนบน Desktop และ Start Menu
 
 ## วิธีใช้
 
@@ -30,8 +30,35 @@
 
 ```powershell
 python -m pip install pyinstaller keyring
-pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --collect-all keyring app.py
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer.iss
+pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --collect-all keyring --add-data "VERSION;." app.py
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$((Get-Content VERSION -Raw).Trim())" installer.iss
 ```
 
 ตัวติดตั้งจะอยู่ใน `output/CraneVehicleBOMManager_Setup.exe`
+
+
+## ตรวจสอบเวอร์ชัน / อัปเดตโปรแกรม (v1.1.0+)
+
+- ใต้แถบหัวโปรแกรมมี **เวอร์ชันปัจจุบัน**, **ตรวจสอบเวอร์ชัน** และ **อัปเดตตอนนี้**
+- โปรแกรมตรวจสอบเวอร์ชันอัตโนมัติหลังเปิด และสามารถกดตรวจสอบด้วยตนเองได้
+- ถ้าไม่พบเวอร์ชันใหม่ จะแสดงว่าใช้เวอร์ชันล่าสุด ถ้ามี จะเปิดปุ่ม **อัปเดตตอนนี้**
+- เมื่อกดอัปเดต โปรแกรมดาวน์โหลด installer จาก GitHub Release ที่มี tag รูปแบบ `bom-vMAJOR.MINOR.PATCH` เท่านั้น
+- ตรวจสอบทั้งชื่อไฟล์ ขนาด และ SHA256 จากไฟล์ `.sha256` ที่เผยแพร่คู่กัน ถ้าไม่ผ่านจะไม่เปิดไฟล์
+- ดาวน์โหลดเป็นไฟล์ `.part` ก่อน จึงไม่เปิดไฟล์ที่ดาวน์โหลดไม่ครบ
+- ปุ่มยกเลิกหยุดการดาวน์โหลดและลบไฟล์ชั่วคราว
+- ถ้ามีรายการ BOM ที่แก้แต่ยังไม่บันทึกขึ้น GitHub โปรแกรม **จะไม่ยอมอัปเดต** จนกว่าจะบันทึก
+- หลังตรวจสอบเสร็จ โปรแกรมจะเปิด Windows Installer แล้วปิดแอปเวอร์ชันเก่า ให้ดำเนินการติดตั้งตามหน้าจอ
+- GitHub Token ใน Windows Credential Manager และข้อมูล BOM บน GitHub ไม่ถูกลบเมื่ออัปเดต
+- การอัปเดตอัตโนมัติรองรับเฉพาะรุ่น `.exe` ที่ติดตั้งแล้วบน Windows; การเปิดด้วย `python app.py` เหมาะสำหรับพัฒนาและทดสอบการตรวจสอบเวอร์ชันเท่านั้น
+
+### การปล่อยเวอร์ชันถัดไป
+
+1. เปลี่ยน `bom-manager-desktop/VERSION` เป็นรุ่นใหม่ เช่น `1.2.0`
+2. Push ไปที่ `main` พร้อมโค้ดเวอร์ชันใหม่
+3. GitHub Actions จะตรวจ syntax, ทดสอบตัวอัปเดต, สร้าง `.exe` ด้วย PyInstaller และทำ Installer ด้วย Inno Setup
+4. Pipeline จะสร้าง `bom-v1.2.0` Release พร้อม `CraneVehicleBOMManager_Setup.exe` และ `CraneVehicleBOMManager_Setup.exe.sha256` ถ้า tag ยังไม่มี
+5. โปรแกรมที่ติดตั้งรุ่นก่อนหน้า (ตั้งแต่ v1.1.0) จะพบเวอร์ชันใหม่เมื่อเปิดหรือกดตรวจสอบ
+
+**หมายเหตุ:** แอปที่ติดตั้งรุ่น 1.0.0 ไม่มีปุ่มอัปเดต จึงต้องติดตั้งรุ่น 1.1.0 ด้วยตนเองเพียงครั้งแรก เมื่อเปลี่ยนโค้ดแต่ไม่เปลี่ยน `VERSION` ระบบจะไม่ทับ Release เดิม ระบบ Release ของ BOM Manager แยก tag `bom-v...` จาก Crane Vehicle Engineering Tool และไม่กำหนดให้เป็น Latest Release หลักของ repository
+
+**ข้อจำกัด:** SHA256 ตรวจความครบถ้วนของไฟล์ แต่ไม่ทดแทนการเซ็นโค้ด Windows; บางเครื่องอาจแสดงคำเตือน SmartScreen
