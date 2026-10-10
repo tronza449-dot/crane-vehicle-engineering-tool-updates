@@ -44,7 +44,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          python -m py_compile CraneVehicleEngineeringTool.py web_engine.py web_server.py web_launcher.py
+          python -m py_compile CraneVehicleEngineeringTool.py cloud_sync.py web_engine.py web_server.py web_launcher.py
           node --check web/app.js
 
           @'
@@ -52,6 +52,7 @@ jobs:
           import hashlib
           import json
           import math
+          import os
           import socket
           import time
           import tempfile
@@ -60,6 +61,7 @@ jobs:
 
           from PySide6.QtWidgets import QApplication, QTabWidget, QPushButton, QTableWidgetItem
           import CraneVehicleEngineeringTool as cvet
+          import cloud_sync as cloud
           import web_engine as webcalc
           import web_server as webapp
 
@@ -78,6 +80,39 @@ jobs:
           assert "UnicodeCIDFont" not in source, "Wrong CID PDF font code remained"
           assert "def _winch_interp_first_layer_details" in source
           assert "def winch_interpolation_html" in source
+
+          # ---------- V53.8.51 GitHub Cloud Sync backend ----------
+          base_state={
+              "format":"CraneVehicleEngineeringToolProject",
+              "version":"53.8.51",
+              "saved_at":"2026-01-01T00:00:00",
+              "widgets":{"mt":{"kind":"double","value":300.0}},
+              "components":[],"hardware":[],"integration":{}
+          }
+          state2=json.loads(json.dumps(base_state));state2["saved_at"]="2026-01-01T00:01:00"
+          assert cloud.canonical_state_hash(base_state)==cloud.canonical_state_hash(state2), "saved_at must not cause cloud commit"
+          state2["widgets"]["mt"]["value"]=301.0
+          assert cloud.canonical_state_hash(base_state)!=cloud.canonical_state_hash(state2)
+          payload=cloud.make_cloud_payload(base_state,"test-pc","53.8.51")
+          assert cloud.validate_cloud_payload(payload)["state_hash"]==cloud.canonical_state_hash(base_state)
+          assert cloud.normalize_repo("https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates")==cloud.DEFAULT_REPO
+          assert cloud.normalize_path("cloud_data/project_state.json")==cloud.DEFAULT_PATH
+          try:
+              cloud.github_put_file(cloud.DEFAULT_REPO,"main",cloud.DEFAULT_PATH,"{}","","test")
+              raise AssertionError("Cloud push without token must fail")
+          except ValueError:
+              pass
+          with tempfile.TemporaryDirectory() as cloud_td:
+              cfg_path=Path(cloud_td)/"cloud.json"
+              cfg=cloud.cloud_config_defaults()
+              cfg["token"]="PLAINTEXT_MUST_NOT_BE_STORED"
+              cloud.save_config(cfg_path,cfg)
+              cfg_text=cfg_path.read_text(encoding="utf-8")
+              assert "PLAINTEXT_MUST_NOT_BE_STORED" not in cfg_text and '"token"' not in cfg_text
+          if os.name=="nt":
+              protected=cloud.protect_secret("CVET_REGRESSION_SECRET")
+              assert protected and "CVET_REGRESSION_SECRET" not in protected
+              assert cloud.unprotect_secret(protected)=="CVET_REGRESSION_SECRET"
 
           # ---------- Updater / installer file-lock regression ----------
           installer_source = Path("installer/CraneEngineeringTool.iss").read_text(encoding="utf-8-sig")
@@ -373,6 +408,9 @@ jobs:
           assert "button.btn-busy" in web_css
           assert "button.btn-success" in web_css
           assert "@keyframes cvetButtonAck" in web_css
+          assert "V53.8.51 — CLEAN / MODERN UI SYSTEM" in web_css
+          assert "--bg:#f7f8fa" in web_css
+          assert "GITHUB CLOUD" in web_html and "Shared Project Data" in web_html
           assert ".winch-battery-card" in web_css
           assert ".power-separation-banner" in web_css
           assert ".battery-separation-note" in web_css
@@ -956,6 +994,63 @@ jobs:
           assert "<USER_HOME>" in json.dumps(debug_data2["recent_events"],ensure_ascii=False)
           assert "platform" in source and "traceback" in source
           assert "Updater check failed" in source and "Web Server launch failed" in source
+
+          # ---------- V53.8.51 Clean UI + GitHub Cloud Sync ----------
+          assert hasattr(w,"cloudSyncStatusLabel") and hasattr(w,"cloudSyncChip")
+          for method in (
+              "cloud_config_path","load_cloud_config","save_cloud_config","setup_cloud_sync",
+              "schedule_cloud_push","show_cloud_sync_settings","start_cloud_sync",
+              "_handle_cloud_task_result","_apply_cloud_remote","_save_cloud_conflict_backup"
+          ):
+              assert hasattr(w,method), f"Missing cloud sync method: {method}"
+          assert "QFrame#heroSummary" in source
+          assert "GITHUB CLOUD SYNC" in source
+          assert "Pull/ตรวจ Remote ตอนเปิดโปรแกรม" in source
+          assert "Push อัตโนมัติหลัง Local Auto Save" in source
+          assert "Fine-grained Personal Access Token" in source
+          assert "protect_secret" in source and "unprotect_secret" in source
+          assert "Cloud Sync" in w.debug_report_text(w.debug_report_data())
+          assert "cloud_sync" in w.debug_report_data()
+
+          # Cloud controls and secrets must never enter the engineering Project JSON.
+          from PySide6.QtWidgets import QLineEdit
+          w.cloudRegressionSecret=QLineEdit("DO_NOT_SYNC_SECRET")
+          project_snapshot=w.capture_project_state()
+          assert "cloudRegressionSecret" not in project_snapshot.get("widgets",{})
+          del w.cloudRegressionSecret
+
+          # Debug report may expose only token presence, never the token itself.
+          old_cfg=dict(w.cloudConfig);old_session=w._cloud_session_token
+          with tempfile.TemporaryDirectory() as cloud_cfg_td:
+              old_cloud_path=w.cloud_config_path
+              w.cloud_config_path=lambda:Path(cloud_cfg_td)/"github_cloud_sync.json"
+              try:
+                  w.cloudConfig={
+                      **cloud.cloud_config_defaults(),
+                      "enabled":True,
+                      "repo":cloud.DEFAULT_REPO,
+                      "branch":"main",
+                      "path":cloud.DEFAULT_PATH,
+                  }
+                  w._cloud_session_token="TOP_SECRET_TOKEN_123"
+                  dbg=json.dumps(w.debug_report_data(),ensure_ascii=False)
+                  assert "TOP_SECRET_TOKEN_123" not in dbg
+                  assert '"token_present": true' in dbg.lower()
+
+                  # Mock GitHub network: force push should create remote and update sync hash/SHA.
+                  with patch.object(cvet,"github_get_file",return_value=None),                        patch.object(cvet,"github_put_file",return_value={"commit_sha":"commit123","content_sha":"blob123","html_url":""}):
+                      assert w.start_cloud_sync("push",silent=True,force=True)
+                      deadline=time.time()+4.0
+                      while w._cloud_busy and time.time()<deadline:
+                          app.processEvents();time.sleep(.01)
+                      app.processEvents()
+                      assert not w._cloud_busy
+                      assert w.cloudConfig.get("last_remote_sha")=="blob123"
+                      assert w.cloudConfig.get("last_synced_hash")==cloud.canonical_state_hash(w.capture_project_state())
+              finally:
+                  w.cloud_config_path=old_cloud_path
+                  w.cloudConfig=old_cfg;w._cloud_session_token=old_session
+                  w._set_cloud_status("Regression restore","idle")
 
           # ---------- V53.8.49 Engineering Scenario Presets ----------
           assert hasattr(w,"engineeringPresetCombo") and w.engineeringPresetCombo.count()==9
