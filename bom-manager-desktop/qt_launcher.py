@@ -44,6 +44,14 @@ def smoke_test():
         debug_preview = Path("output") / "DebugReportPreview.png"
         if not win.grab().save(str(debug_preview), "PNG"):
             raise RuntimeError("Failed to capture Debug Report GUI")
+        # Produce a second real screenshot showing enlarged, readable BOM rows.
+        win.font_scale_selector.setCurrentIndex(2)  # 130% accessibility preset
+        win.show_page(1)
+        app.processEvents()
+        readable_preview = Path("output") / "ReadableBOMPreview.png"
+        if not win.grab().save(str(readable_preview), "PNG"):
+            raise RuntimeError("Failed to capture enlarged BOM UI")
+        win.font_scale_selector.setCurrentIndex(1)  # restore default 115%
         win.show_page(0)
     win.close()
     return 0
