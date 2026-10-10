@@ -8,11 +8,11 @@
 
 ## วิธีใช้
 
-1. เปิดโปรแกรม แล้วกด **ตั้งค่า GitHub Token** ครั้งแรก
-2. สร้าง Fine-grained personal access token โดยเลือกเฉพาะ repository `crane-vehicle-engineering-tool-updates` และให้สิทธิ์ **Contents: Read and write**
-3. วาง token โปรแกรมจะทดสอบการอ่าน BOM และเก็บ token ใน Windows Credential Manager
-4. เปิดโปรแกรมแล้วระบบจะโหลด BOM ล่าสุดจาก GitHub ให้อัตโนมัติ (ต้องมีอินเทอร์เน็ต และสิทธิ์อ่าน Repo) ไม่ต้องกดปุ่มโหลดเอง
-5. เพิ่ม/แก้/ลบ/เรียงอุปกรณ์ได้ตามต้องการ โปรแกรมบันทึกฉบับร่างทันที และ Auto Save ขึ้น GitHub เมื่อมี Token แล้ว (ค่าเริ่มต้นเปิดอยู่)
+1. ดาวน์โหลดและเปิด BOM Manager แล้วโปรแกรมจะ **อ่าน BOM ล่าสุดจาก GitHub โดยอัตโนมัติ ไม่ต้องใช้ Token** เนื่องจาก repository นี้เป็น **public**
+2. ผู้ชมดู BOM, ค้นหา และส่งออกรายงาน PDF/Excel ได้ทันที ไม่ต้องตั้งค่าบัญชี
+3. เมื่อแก้ไขโดยไม่มีสิทธิ์เขียน โปรแกรมจะเก็บเป็น **ฉบับร่างในเครื่องเท่านั้น** ไม่มีการอัปโหลดกลับไปทับ GitHub
+4. **เฉพาะผู้ได้รับสิทธิ์แก้ไข** ให้สร้าง Fine-grained personal access token ของตนเอง สำหรับ repository `crane-vehicle-engineering-tool-updates`, สิทธิ์ **Contents: Read and write**, แล้วใส่ที่ **ตั้งค่า Token**
+5. Windows Credential Manager เก็บ Token แยกตามบัญชี Windows ของแต่ละคน; เมื่อมีสิทธิ์แล้วจึงใช้ Auto Save ไป GitHub ได้ (ค่าเริ่มต้นเปิดอยู่)
 
 ข้อมูล BOM จะไม่ถูกฝังในตัวติดตั้ง ตัวแอปอ่านและเขียนไฟล์เดียวกับเว็บผ่าน GitHub API จึงต้องมีอินเทอร์เน็ตและสิทธิ์เขียน repository เมื่อบันทึก
 
@@ -424,3 +424,9 @@ GitHub Token อยู่ใน Windows Credential Manager แต่ละเค
 - Windows app and the existing browser page use the same GitHub JSON file. The browser-only BOM page remains a simpler editor; it does not yet have every Windows tool. Publishing GitHub Pages is separate from storing index.html in the repository.
 
 **Manual verification before rollout:** build the Windows installer via GitHub Actions, review unit test results and run cross-PC acceptance tests with real credentials. A GitHub source commit alone is not proof that the installer is published.
+
+## Public viewer and secure editor mode
+
+The GitHub repo is currently **public**. Anyone with internet and the repository URL may read `bom-manager/bom.json`, including prices, supplier information and any purchasing rows stored there. Installing the app is **not** an access restriction.
+
+The Windows installer contains **no shared GitHub PAT**, neither in cleartext nor reversibly encrypted form. Reversible encryption cannot protect a distributed client secret because every installed app must also have the decryption method. Owners should revoke any token previously pasted into a chat and issue individual, least-privilege credentials only for editors. The desktop reads GitHub without authentication; writing is explicitly denied without an editor credential. A previously cached invalid PAT can fall back to public **GET only**. If private shared data or token-free editing is required, use an authenticated backend that stores server credentials outside distributed installers; it is not configured in this release.
