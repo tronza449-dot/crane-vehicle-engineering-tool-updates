@@ -1,69 +1,118 @@
-# Crane Vehicle Engineering Tool V53.8.50
+# Crane Vehicle Engineering Tool V53.8.51
 
-## Debug Report / Support Diagnostics
+## Clean UI/UX + GitHub Cloud Sync
 
-This release adds a privacy-safe Debug Report to both Desktop and Web so calculation/UI/update problems can be diagnosed from a single report.
+This release redesigns the Desktop and Web visual system and adds secure automatic GitHub synchronization so multiple PCs can use one shared CVET project state.
 
-### Desktop Debug Report
-Available from:
-- **Project Tools → Debug Report**
-- the new **🛠 Debug** button in the bottom status bar
+### 1. Clean / Modern UI
+Desktop:
+- lighter neutral background and white cards,
+- flatter borders and reduced visual noise,
+- unified blue primary action color,
+- compact module cards,
+- cleaner light page headers,
+- Home dashboard reorganized into a 2×2 status layout,
+- GitHub Cloud Sync status visible directly on Home,
+- simplified Local Save / App Update / Web Server cards.
 
-The report includes:
-- application version and session time,
-- Python / PySide / Windows platform information,
-- current design mode and key project inputs,
-- important engineering outputs from Drive, Main Battery, Winch, Ramp and Stability,
-- Input Source states (Manual / Auto / Linked / Component / Winch / Datasheet),
-- a non-destructive Self-check,
-- updater status and latest pending-version state,
-- Web Server status without exposing the actual PIN,
-- autosave/backup/update-config file existence,
-- recent debug events,
-- current-session exception information,
-- the previous persisted exception after restarting the application.
+Web:
+- matching light visual system,
+- cleaner navigation and inputs,
+- flatter dashboard cards,
+- reduced heavy gradients and shadows,
+- GitHub shared-project explanation added to the dashboard.
 
-Export options:
-- **TXT**
-- **JSON**
-- **Copy Report**
+### 2. GitHub Cloud Sync
+The Desktop app can now keep one project state in GitHub and share it across PCs.
 
-### Privacy / redaction
-Debug Reports intentionally:
-- redact the local Windows/macOS/Linux user-home path,
-- do not include the Web PIN,
-- do not dump credentials or secrets,
-- report only whether a public Web URL exists rather than including the URL itself in the Desktop report.
+Default cloud path:
+`cloud_data/project_state.json`
 
-### Persistent exception capture
-Uncaught exceptions and important button-action failures are recorded with time, error type, message and a redacted traceback.
-The most recent exception is also stored in AppData so it remains available after reopening the program.
+Cloud settings support:
+- repository `owner/repo`,
+- branch,
+- cloud file path,
+- GitHub fine-grained token,
+- automatic pull/check at startup,
+- automatic push after Local Auto Save,
+- remote polling interval.
 
-### Updater and Web diagnostics
-The event log now records:
-- updater check failures,
-- updater download failures,
-- successful update checks/downloads,
-- Web Server launch failures,
-- Web Server reported error state.
+Recommended token permission:
+- Fine-grained Personal Access Token
+- Repository access limited to the CVET data repository
+- Contents: Read and write
 
-### Web Debug Report
-Project Summary now includes a **Debug Report** card with:
-- Refresh,
-- Copy Report,
-- Export JSON,
-- Export TXT.
+### 3. Automatic synchronization flow
+After Cloud Sync is configured:
+1. CVET checks GitHub when the app starts.
+2. If GitHub already contains a project and this PC has no common baseline, GitHub is pulled first.
+3. If no remote project exists, CVET creates it from this PC.
+4. Local edits continue to use the existing Auto Save.
+5. A debounced GitHub Push runs after Local Auto Save only when project content actually changed.
+6. CVET polls GitHub for newer remote data.
+7. When another PC has newer data and this PC has no unsynced edits, the remote state is applied automatically.
 
-The Web report includes browser/viewport state, Web health/version, current forms, mass mode, Design Lock state, Input Source badges, Self-check results and recent browser/API errors. The Web PIN value is never included.
+### 4. Conflict protection
+CVET uses optimistic synchronization rather than blind overwrite.
 
-### Regression
-The release audit verifies:
-- Desktop Debug Report tab/UI and report schema,
-- Self-check availability,
-- home-path redaction,
-- debug event capture/redaction,
-- updater/Web error instrumentation,
-- Web Debug Report controls/functions,
-- browser error event capture,
-- PIN privacy wording,
-- all previous engineering calculation, Scenario Preset, Input Source, PDF, Save/Restore, updater and Desktop↔Web regression.
+If both this PC and GitHub changed after the last common sync:
+- automatic overwrite is blocked,
+- status becomes **CONFLICT**,
+- a full local + remote conflict backup is written to `Documents/CVET_Cloud_Conflicts`,
+- manual resolution can choose GitHub or This PC.
+
+### 5. No meaningless GitHub commits
+The project `saved_at` timestamp is excluded from the cloud content hash.
+
+This means the existing 60-second safety Auto Save does not create a GitHub commit unless actual engineering/project data changed.
+
+### 6. Token security
+The GitHub token is never included in:
+- project JSON,
+- cloud project JSON,
+- Debug Report,
+- GitHub commits.
+
+On Windows the token is encrypted locally with **Windows DPAPI**, tied to that Windows user.
+Each PC should enter its own token once.
+
+For non-Windows source/development mode, CVET does not persist the token in plaintext.
+
+### 7. Public/private repository safety
+CVET supports both public and private repositories.
+
+The Cloud Settings screen clearly warns:
+- if the repository is public, the synced project JSON is publicly readable,
+- a private repository is recommended for non-public engineering data.
+
+### 8. Debug Report integration
+Debug Report now includes privacy-safe cloud information:
+- enabled/disabled,
+- repository/branch/path,
+- token present: true/false only,
+- last sync time,
+- last remote device.
+
+The token value is never shown.
+
+### 9. Web consistency
+The Web dashboard remains linked to Desktop Save Values through **Sync Desktop**.
+When the Desktop app receives the latest GitHub cloud state, the Web interface can load that same synchronized project state from the local CVET server.
+
+### Regression / Safety Audit
+The Windows release audit now verifies:
+- `cloud_sync.py` syntax,
+- state hashing ignores only the volatile `saved_at` timestamp,
+- real engineering changes do change the cloud hash,
+- cloud payload validation,
+- repository/path normalization,
+- GitHub Push cannot run without a token,
+- plaintext tokens cannot be written into cloud config,
+- Windows DPAPI encrypt/decrypt round-trip,
+- Cloud UI/status controls exist,
+- cloud-prefixed widgets are excluded from Project JSON,
+- token value is absent from Debug Report,
+- mocked GitHub Push updates remote SHA and synced hash,
+- clean Desktop visual-system markers,
+- clean Web visual-system markers,
+- all previous engineering calculations, What-if, Scenario Presets, Input Source, Debug Report, PDF, Save/Restore, updater and Desktop↔Web regression.
