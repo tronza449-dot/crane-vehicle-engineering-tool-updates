@@ -5,6 +5,21 @@ from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, S
 from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon,QPixmap
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter
+from cloud_sync import (
+    DEFAULT_REPO as CLOUD_DEFAULT_REPO,
+    DEFAULT_BRANCH as CLOUD_DEFAULT_BRANCH,
+    DEFAULT_PATH as CLOUD_DEFAULT_PATH,
+    canonical_state_hash,
+    github_get_file,
+    github_put_file,
+    github_repo_info,
+    load_config as load_cloud_config_file,
+    make_cloud_payload,
+    protect_secret,
+    save_config as save_cloud_config_file,
+    unprotect_secret,
+    validate_cloud_payload,
+)
 
 try:
     import serial
@@ -1153,11 +1168,17 @@ class App(QMainWindow):
     updateTaskFinished=Signal(object)
     updateProgressChanged=Signal(int)
     telemetryNetworkPacket=Signal(object)
+    cloudTaskFinished=Signal(object)
     def __init__(self):
         super().__init__()
         self.debugEvents=[]
         self.debugLastException=None
         self.debugSessionStarted=datetime.now().isoformat(timespec="seconds")
+        self.cloudConfig={}
+        self._cloud_session_token=""
+        self._cloud_busy=False
+        self._cloud_applying_remote=False
+        self._cloud_pending_force=False
         self.setStyleSheet(APP_STYLE);self.setWindowTitle(f"{APP_NAME} — V{APP_VERSION}"); self.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))));self.setMinimumSize(1024,650);self.resize(1440,860)
         app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
@@ -1177,6 +1198,8 @@ class App(QMainWindow):
         self._update_auto_requested=False
         self.install_debug_exception_hook()
         self.record_debug_event("INFO","Application session started",{"version":APP_VERSION})
+        self.cloudTaskFinished.connect(self._handle_cloud_task_result)
+        self.setup_cloud_sync()
         QTimer.singleShot(1800,self.auto_check_for_update)
 
 
@@ -4655,90 +4678,100 @@ void loop() {{
         scroll.setWidget(content);outer.addWidget(scroll)
 
         # Hero
-        hero=QFrame();hero.setObjectName("topHeader");hero.setMinimumHeight(142);add_soft_shadow(hero,24,5,28)
+        hero=QFrame();hero.setObjectName("topHeader");hero.setMinimumHeight(122);add_soft_shadow(hero,18,3,18)
         hl=QHBoxLayout(hero);hl.setContentsMargins(25,20,25,20);hl.setSpacing(20)
         left=QVBoxLayout();left.setSpacing(6);hl.addLayout(left,1)
         chips=QHBoxLayout();chips.setSpacing(8)
-        chips.addWidget(make_chip(f"V{APP_VERSION}  ENGINEERING SUITE","#ffffff","#174a74"))
-        chips.addWidget(make_chip("AUTO UPDATE","#dff3ff","#174a74"))
+        chips.addWidget(make_chip(f"V{APP_VERSION}","#eef6ff","#2457a6"))
+        chips.addWidget(make_chip("ENGINEERING SUITE","#f2f4f7","#475467"))
         chips.addStretch(1);left.addLayout(chips)
 
         title=QLabel("CRANE VEHICLE ENGINEERING TOOL")
-        tf=QFont();tf.setPointSize(20);tf.setBold(True);title.setFont(tf)
-        title.setStyleSheet("color:white;background:transparent;")
+        tf=QFont();tf.setPointSize(18);tf.setBold(True);title.setFont(tf)
+        title.setStyleSheet("color:#101828;background:transparent;")
         left.addWidget(title)
 
-        sub=QLabel("คำนวณ • Hardware I/O • Telemetry • Validation • Diagnostics • BOM • Revisions • Final Verification ในโปรแกรมเดียว")
-        sub.setWordWrap(True);sub.setStyleSheet("color:#e1eff9;font-size:10.5pt;font-weight:650;background:transparent;")
+        sub=QLabel("Engineering workspace สำหรับ Torque • Battery • Winch • Stability • Hardware • Telemetry")
+        sub.setWordWrap(True);sub.setStyleSheet("color:#475467;font-size:10.2pt;font-weight:650;background:transparent;")
         left.addWidget(sub)
-        hint=QLabel("เริ่มจากเลือกโมดูลด้านล่าง หรือใช้เมนูซ้ายเพื่อสลับหน้าได้ทันที")
-        hint.setStyleSheet("color:#b9d5e8;font-size:9.4pt;background:transparent;");left.addWidget(hint)
+        hint=QLabel("ค่าทั้งโปรเจกต์ Auto Save และสามารถ Sync ผ่าน GitHub ให้ทุกเครื่องใช้ข้อมูลเดียวกัน")
+        hint.setStyleSheet("color:#667085;font-size:9.3pt;background:transparent;");left.addWidget(hint)
 
-        side=QFrame();side.setObjectName("metricPanel");side.setFixedWidth(255)
-        side.setStyleSheet("QFrame#metricPanel{background:rgba(255,255,255,0.11);border:1px solid rgba(255,255,255,0.22);border-radius:13px;}")
+        side=QFrame();side.setObjectName("heroSummary");side.setFixedWidth(265)
         sl=QVBoxLayout(side);sl.setContentsMargins(16,13,16,13);sl.setSpacing(5)
-        ss=QLabel("PROJECT BASELINE");ss.setStyleSheet("color:#dcecf8;font-size:8.5pt;font-weight:900;background:transparent;");sl.addWidget(ss)
-        for txt in ("Mass target ≤ 300 kg","Crane rotation ±90°","Main drive 72 V","Winch battery 12 V separate"):
-            q=QLabel("•  "+txt);q.setStyleSheet("color:white;font-size:9.2pt;font-weight:650;background:transparent;");q.setWordWrap(True);sl.addWidget(q)
+        ss=QLabel("CURRENT PROJECT");ss.setObjectName("cardEyebrow");sl.addWidget(ss)
+        self.homeProjectSummary=QLabel("≤300 kg  •  72 V drive\n±90° crane  •  12 V winch")
+        self.homeProjectSummary.setWordWrap(True);self.homeProjectSummary.setStyleSheet("color:#344054;font-size:9.4pt;font-weight:700;background:transparent;")
+        sl.addWidget(self.homeProjectSummary)
         hl.addWidget(side)
         root.addWidget(hero)
 
-        # System status cards
-        system=QHBoxLayout();system.setSpacing(12)
+        # Clean status dashboard — compact 2 x 2 cards
+        system=QGridLayout();system.setSpacing(12)
+
         quick=QFrame();quick.setObjectName("softPanel")
-        ql=QVBoxLayout(quick);ql.setContentsMargins(15,11,15,11);ql.setSpacing(7)
-        qtitle=QLabel("AUTO SAVE")
-        qtitle.setStyleSheet("color:#173f5f;font-size:10.5pt;font-weight:900;")
-        self.quickSaveStatus=QLabel("จำค่าที่กรอกล่าสุดให้อัตโนมัติ")
-        self.quickSaveStatus.setWordWrap(True);self.quickSaveStatus.setStyleSheet("color:#667b8e;font-size:9.2pt;")
-        ql.addWidget(qtitle);ql.addWidget(self.quickSaveStatus)
+        ql=QVBoxLayout(quick);ql.setContentsMargins(16,13,16,13);ql.setSpacing(7)
+        qhead=QHBoxLayout()
+        qtitle=QLabel("LOCAL SAVE");qtitle.setObjectName("cardEyebrow")
+        qbadge=make_chip("AUTO","#eef6ff","#2457a6")
+        qhead.addWidget(qtitle);qhead.addStretch(1);qhead.addWidget(qbadge);ql.addLayout(qhead)
+        self.quickSaveStatus=QLabel("จำค่าล่าสุด + Backup ใน Documents")
+        self.quickSaveStatus.setWordWrap(True);self.quickSaveStatus.setObjectName("mutedText")
+        ql.addWidget(self.quickSaveStatus)
         qr=QHBoxLayout()
-        qsave=QPushButton("บันทึกตอนนี้");qsave.setObjectName("primaryButton");qsave.clicked.connect(lambda:self.save_last_values(silent=False))
-        qload=QPushButton("โหลดค่าล่าสุด");qload.clicked.connect(lambda:self.restore_last_values(silent=False))
-        qclear=QPushButton("ล้างค่าที่จำ");qclear.setObjectName("secondaryButton");qclear.clicked.connect(self.clear_last_values)
-        qr.addWidget(qsave);qr.addWidget(qload);qr.addWidget(qclear);ql.addLayout(qr)
-        system.addWidget(quick,1)
+        qsave=QPushButton("Save now");qsave.setObjectName("primaryButton");qsave.clicked.connect(lambda:self.save_last_values(silent=False))
+        qload=QPushButton("Restore");qload.clicked.connect(lambda:self.restore_last_values(silent=False))
+        qr.addWidget(qsave);qr.addWidget(qload);qr.addStretch(1);ql.addLayout(qr)
+        system.addWidget(quick,0,0)
+
+        cloud=QFrame();cloud.setObjectName("softPanel")
+        cl=QVBoxLayout(cloud);cl.setContentsMargins(16,13,16,13);cl.setSpacing(7)
+        chead=QHBoxLayout()
+        ctitle=QLabel("GITHUB CLOUD SYNC");ctitle.setObjectName("cardEyebrow")
+        self.cloudSyncChip=make_chip("OFF","#f2f4f7","#667085")
+        chead.addWidget(ctitle);chead.addStretch(1);chead.addWidget(self.cloudSyncChip);cl.addLayout(chead)
+        self.cloudSyncStatusLabel=QLabel("ใช้ข้อมูลชุดเดียวกันทุกเครื่อง • Pull ตอนเปิด + Push หลัง Auto Save")
+        self.cloudSyncStatusLabel.setWordWrap(True);self.cloudSyncStatusLabel.setObjectName("mutedText");cl.addWidget(self.cloudSyncStatusLabel)
+        cr=QHBoxLayout()
+        cloudSyncNow=QPushButton("Sync now");cloudSyncNow.setObjectName("primaryButton");cloudSyncNow.clicked.connect(lambda:self.start_cloud_sync("smart",silent=False))
+        cloudSettings=QPushButton("Settings");cloudSettings.setObjectName("secondaryButton");cloudSettings.clicked.connect(self.show_cloud_sync_settings)
+        cr.addWidget(cloudSyncNow);cr.addWidget(cloudSettings);cr.addStretch(1);cl.addLayout(cr)
+        system.addWidget(cloud,0,1)
 
         updatePanel=QFrame();updatePanel.setObjectName("softPanel")
-        upl=QVBoxLayout(updatePanel);upl.setContentsMargins(15,11,15,11);upl.setSpacing(7)
-        upTitle=QLabel(f"UPDATE CENTER  •  V{APP_VERSION}")
-        upTitle.setStyleSheet("color:#173f5f;font-size:10.5pt;font-weight:900;")
-        self.updateStatusLabel=QLabel("เชื่อม GitHub แล้ว • ตรวจเวอร์ชันใหม่อัตโนมัติ")
-        self.updateStatusLabel.setWordWrap(True);self.updateStatusLabel.setStyleSheet("color:#667b8e;font-size:9.2pt;")
+        upl=QVBoxLayout(updatePanel);upl.setContentsMargins(16,13,16,13);upl.setSpacing(7)
+        uhead=QHBoxLayout()
+        upTitle=QLabel("APP UPDATE");upTitle.setObjectName("cardEyebrow")
+        uver=make_chip(f"V{APP_VERSION}","#eef6ff","#2457a6")
+        uhead.addWidget(upTitle);uhead.addStretch(1);uhead.addWidget(uver);upl.addLayout(uhead)
+        self.updateStatusLabel=QLabel("ตรวจเวอร์ชันใหม่จาก GitHub อัตโนมัติ")
+        self.updateStatusLabel.setWordWrap(True);self.updateStatusLabel.setObjectName("mutedText")
         self.updateProgress=QProgressBar();self.updateProgress.setRange(0,100);self.updateProgress.setValue(0)
-        self.updateProgress.setMaximumHeight(8);self.updateProgress.setTextVisible(False);self.updateProgress.hide()
-        upl.addWidget(upTitle);upl.addWidget(self.updateStatusLabel);upl.addWidget(self.updateProgress)
+        self.updateProgress.setMaximumHeight(7);self.updateProgress.setTextVisible(False);self.updateProgress.hide()
+        upl.addWidget(self.updateStatusLabel);upl.addWidget(self.updateProgress)
         ur=QHBoxLayout()
-        checkUpdate=QPushButton("Check Update");checkUpdate.setObjectName("primaryButton");checkUpdate.clicked.connect(lambda:self.check_for_update(False))
-        self.updateNowButton=QPushButton("Update Now");self.updateNowButton.setEnabled(False);self.updateNowButton.clicked.connect(self.download_pending_update)
-        repairUpdate=QPushButton("Repair Update");repairUpdate.setToolTip("Reset source + check official GitHub raw + GitHub API fallback");repairUpdate.clicked.connect(lambda:self.reset_update_source(True))
+        checkUpdate=QPushButton("Check");checkUpdate.setObjectName("primaryButton");checkUpdate.clicked.connect(lambda:self.check_for_update(False))
+        self.updateNowButton=QPushButton("Update");self.updateNowButton.setEnabled(False);self.updateNowButton.clicked.connect(self.download_pending_update)
         updateSettings=QPushButton("Settings");updateSettings.setObjectName("secondaryButton");updateSettings.clicked.connect(self.show_update_settings)
-        ur.addWidget(checkUpdate);ur.addWidget(self.updateNowButton);ur.addWidget(repairUpdate);ur.addWidget(updateSettings);upl.addLayout(ur)
-        system.addWidget(updatePanel,1)
+        ur.addWidget(checkUpdate);ur.addWidget(self.updateNowButton);ur.addWidget(updateSettings);ur.addStretch(1);upl.addLayout(ur)
+        system.addWidget(updatePanel,1,0)
 
         webPanel=QFrame();webPanel.setObjectName("softPanel")
-        wpl=QVBoxLayout(webPanel);wpl.setContentsMargins(15,11,15,11);wpl.setSpacing(7)
-        webTitle=QLabel("WEB SERVER  •  FREE PERMANENT LINK")
-        webTitle.setStyleSheet("color:#173f5f;font-size:10.5pt;font-weight:900;")
-        self.webServerStatusLabel=QLabel("ฟรี • ลิงก์ HTTPS เดิมผ่าน Tailscale Funnel • Quick Cloudflare ยังใช้ได้")
-        self.webServerStatusLabel.setWordWrap(True);self.webServerStatusLabel.setStyleSheet("color:#667b8e;font-size:9.2pt;")
-        wpl.addWidget(webTitle);wpl.addWidget(self.webServerStatusLabel)
+        wpl=QVBoxLayout(webPanel);wpl.setContentsMargins(16,13,16,13);wpl.setSpacing(7)
+        whead=QHBoxLayout()
+        webTitle=QLabel("WEB SERVER");webTitle.setObjectName("cardEyebrow")
+        webTag=make_chip("HTTPS","#ecfdf3","#027a48")
+        whead.addWidget(webTitle);whead.addStretch(1);whead.addWidget(webTag);wpl.addLayout(whead)
+        self.webServerStatusLabel=QLabel("Tailscale Funnel / Cloudflare / LAN / Local")
+        self.webServerStatusLabel.setWordWrap(True);self.webServerStatusLabel.setObjectName("mutedText");wpl.addWidget(self.webServerStatusLabel)
         wr=QHBoxLayout()
-        self.openWebServerButton=QPushButton("เปิด Web Server")
-        self.openWebServerButton.setObjectName("primaryButton")
-        self.openWebServerButton.setToolTip("แนะนำ Free Permanent Link (*.ts.net) • รองรับ Quick Public / LAN / Local")
-        self.openWebServerButton.clicked.connect(self.launch_web_server_dialog)
-        self.openWebLinkButton=QPushButton("เปิดลิงก์")
-        self.openWebLinkButton.setObjectName("secondaryButton")
-        self.openWebLinkButton.setEnabled(False)
-        self.openWebLinkButton.clicked.connect(self.open_current_web_link)
-        self.copyWebLinkButton=QPushButton("คัดลอกลิงก์")
-        self.copyWebLinkButton.setObjectName("secondaryButton")
-        self.copyWebLinkButton.setEnabled(False)
-        self.copyWebLinkButton.clicked.connect(self.copy_current_web_link)
-        webHelp=QPushButton("วิธีใช้");webHelp.setObjectName("secondaryButton");webHelp.clicked.connect(self.show_web_server_help)
-        wr.addWidget(self.openWebServerButton);wr.addWidget(self.openWebLinkButton);wr.addWidget(self.copyWebLinkButton);wr.addWidget(webHelp);wr.addStretch(1);wpl.addLayout(wr)
-        system.addWidget(webPanel,1)
+        self.openWebServerButton=QPushButton("Open server");self.openWebServerButton.setObjectName("primaryButton");self.openWebServerButton.clicked.connect(self.launch_web_server_dialog)
+        self.openWebLinkButton=QPushButton("Open link");self.openWebLinkButton.setEnabled(False);self.openWebLinkButton.clicked.connect(self.open_current_web_link)
+        self.copyWebLinkButton=QPushButton("Copy");self.copyWebLinkButton.setEnabled(False);self.copyWebLinkButton.clicked.connect(self.copy_current_web_link)
+        wr.addWidget(self.openWebServerButton);wr.addWidget(self.openWebLinkButton);wr.addWidget(self.copyWebLinkButton);wr.addStretch(1);wpl.addLayout(wr)
+        system.addWidget(webPanel,1,1)
+
+        system.setColumnStretch(0,1);system.setColumnStretch(1,1)
         root.addLayout(system)
 
         # Modules heading
@@ -6583,6 +6616,8 @@ void loop() {{
             self._set_quick_save_status(
                 f"บันทึกแล้ว ✓ {stamp} • Auto Save + Backup พร้อมใช้งาน","#176337"
             )
+            if not getattr(self,"_cloud_applying_remote",False):
+                self.schedule_cloud_push()
             if hasattr(self,"projectStatus") and not silent:
                 self.projectStatus.setHtml(
                     f"<h3>บันทึกค่าปัจจุบันแล้ว ✓</h3>"
@@ -6729,6 +6764,10 @@ void loop() {{
         self.easyAutoSavePeriodic.timeout.connect(lambda:self.save_last_values(silent=True))
         self.easyAutoSavePeriodic.start(60000)
 
+        self.cloudPushDebounce=QTimer(self)
+        self.cloudPushDebounce.setSingleShot(True)
+        self.cloudPushDebounce.timeout.connect(lambda:self.start_cloud_sync("push",silent=True))
+
     def closeEvent(self,event):
         # Always stop serial/network acquisition and save once more.
         try:self.disconnect_telemetry(silent=True)
@@ -6739,7 +6778,7 @@ void loop() {{
     def capture_project_state(self):
         widgets={}
         for name,obj in vars(self).items():
-            if name.startswith("compare") or name.startswith("projectStatus"):
+            if name.startswith("compare") or name.startswith("projectStatus") or name.startswith("cloud"):
                 continue
             try:
                 if isinstance(obj,QDoubleSpinBox): widgets[name]={"kind":"double","value":obj.value()}
