@@ -593,7 +593,9 @@ class BOMWindow(QMainWindow):
                                            lambda: self.show_page(4)))
         action_row.addWidget(self._button("รับข้อมูล GitHub ล่าสุด",
                                            self.load_remote))
-        self.sync_btn = self._button("บันทึก GitHub", self.save_remote)
+        self.sync_btn = self._button("ซิงก์ข้อมูลตอนนี้", self.sync_now, "primary")
+        self.sync_btn.setToolTip(
+            "หากมีข้อมูลแก้ไขจะบันทึกไป GitHub; หากไม่มีจะดึงข้อมูลใหม่จาก GitHub")
         action_row.addWidget(self.sync_btn)
         top_layout.addLayout(action_row)
         right.addWidget(top)
@@ -978,8 +980,9 @@ class BOMWindow(QMainWindow):
 
         group = self._panel("2  บันทึกและซิงก์ GitHub", body)
         row = QHBoxLayout()
+        row.addWidget(self._button("ซิงก์ข้อมูลตอนนี้", self.sync_now, "primary"))
         row.addWidget(self._button("โหลดข้อมูลล่าสุด", self.load_remote))
-        row.addWidget(self._button("บันทึกเป็น GitHub Commit", self.save_remote, "primary"))
+        row.addWidget(self._button("บันทึก GitHub", self.save_remote))
         row.addWidget(self._button("ตั้งค่า Token", self.configure_token))
         row.addWidget(self._button("ประวัติการแก้ไข", self.show_history))
         group.addLayout(row)
@@ -1376,7 +1379,23 @@ class BOMWindow(QMainWindow):
             state = "บันทึกในเครื่อง · รอซิงก์ GitHub อัตโนมัติ"
         self.sync_state.setText(state)
         if hasattr(self, "cloud_header_status"):
-            self.cloud_header_status.setText("GitHub Cloud: " + state)
+            updated = (self.last_github_sync_at.astimezone().strftime("%d/%m %H:%M")
+                       if self.last_github_sync_at else "ยังไม่เคยซิงก์ในรอบนี้")
+            self.cloud_header_status.setText(
+                "GitHub Cloud: " + state + "  |  ล่าสุด: " + updated)
+
+    def sync_now(self):
+        """One button: push local edits or pull new edits from other PCs."""
+        if self.sync_paused_conflict:
+            QMessageBox.warning(
+                self, "มีข้อมูลจากหลายเครื่องชนกัน",
+                "โปรแกรมเก็บฉบับร่างไว้ในเครื่องแล้ว ไม่สามารถซิงก์ทับได้ทันที\n"
+                "ให้ส่งออก JSON Backup แล้วตรวจสอบข้อมูล GitHub ล่าสุดก่อน")
+            return
+        if self.dirty:
+            self.save_remote()
+        else:
+            self.load_remote(silent=False)
 
     def set_auto_sync(self, enabled):
         self.auto_sync_enabled = bool(enabled)
@@ -1640,6 +1659,25 @@ class BOMWindow(QMainWindow):
             QMessageBox.information(self, "เชื่อม GitHub สำเร็จ", "บันทึก GitHub Token อย่างปลอดภัยแล้ว")
         self._job(lambda: github_api("GET", token=token), success, context="github")
 
+    def _backup_local_draft(self):
+        """Keep an independent recovery copy before a deliberate remote overwrite."""
+        backup_dir = self.cache_path.parent / "recovery"
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+            path = backup_dir / f"BOM_local_draft_{stamp}.json"
+            # Write directly with fsync before allowing GitHub to replace local data.
+            with open(path, "x", encoding="utf-8") as output:
+                json.dump(self.payload, output, ensure_ascii=False, indent=2)
+                output.flush()
+                os.fsync(output.fileno())
+            return path
+        except OSError as exc:
+            self.debugger.exception("cache", "RECOVERY_BACKUP_FAILED", exc)
+            self._message_error("ไม่สามารถสำรองฉบับร่างก่อนโหลด GitHub ได้ "
+                                "จึงยกเลิกการโหลดเพื่อป้องกันข้อมูลสูญหาย")
+            return None
+
     def load_remote(self, silent=False):
         if self.busy:
             return
@@ -1652,6 +1690,11 @@ class BOMWindow(QMainWindow):
                     "ควรส่งออก JSON Backup ก่อนโหลดทับ"
             ) != QMessageBox.StandardButton.Yes:
                 return
+            backup = self._backup_local_draft()
+            if backup is None:
+                return
+            self.debugger.event("INFO", "cache", "LOCAL_DRAFT_BACKED_UP",
+                                "สำรองฉบับร่างก่อนโหลดข้อมูล GitHub")
         starting_revision = self.revision
         self.busy = True
         self.set_status("กำลังโหลด BOM จาก GitHub…")
