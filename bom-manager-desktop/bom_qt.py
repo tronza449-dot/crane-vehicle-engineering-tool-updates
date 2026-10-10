@@ -403,6 +403,7 @@ class BOMWindow(QMainWindow):
         self.nav_buttons = []
         self.zoom_factor = theme.current_scale()
         self.last_git_ok = None
+        self.last_github_sync_at = None
         self.sync_paused_conflict = False
         self.auto_sync_enabled = QSettings("CraneVehicle", "BOMManager").value(
             "sync/auto_enabled", True, type=bool)
@@ -414,6 +415,12 @@ class BOMWindow(QMainWindow):
         self.auto_sync_retry_timer.setInterval(180_000)
         self.auto_sync_retry_timer.timeout.connect(self._autosync_if_needed)
         self.auto_sync_retry_timer.start()
+        # GitHub is the shared source of truth across PCs. Poll only when
+        # this machine has no unsynced edits, to avoid overwriting a draft.
+        self.remote_refresh_timer = QTimer(self)
+        self.remote_refresh_timer.setInterval(120_000)
+        self.remote_refresh_timer.timeout.connect(self._refresh_remote_if_clean)
+        self.remote_refresh_timer.start()
         self._make_ui()
         self._setup_readability()
         self._read_cache()
@@ -985,8 +992,8 @@ class BOMWindow(QMainWindow):
         group.addLayout(sync_settings)
         guide = self._label(
             "ฉบับร่างเก็บในเครื่องทันทีเพื่อกู้คืนหากไฟดับ · Auto Save ส่งขึ้น GitHub "
-            "หลังหยุดแก้ไข ~90 วินาที · หากข้อมูลบน GitHub เปลี่ยนจากเครื่องอื่น "
-            "ระบบจะหยุดซิงก์และแจ้งให้ตรวจสอบก่อน", "hint")
+            "หลังหยุดแก้ไข ~90 วินาที · อีกเครื่องจะตรวจดึงข้อมูลใหม่ทุก 2 นาที "
+            "เมื่อไม่มีข้อมูลแก้ไขค้าง · หากข้อมูลชนกันจะหยุดซิงก์ ไม่ทับงานของเครื่องอื่น", "hint")
         guide.setWordWrap(True)
         group.addWidget(guide)
 
@@ -1343,7 +1350,8 @@ class BOMWindow(QMainWindow):
         if self.sync_paused_conflict:
             state = "ข้อมูลชนกัน · หยุด Auto Save จนกว่าจะตรวจสอบ"
         elif not self.dirty:
-            state = "GitHub ซิงก์แล้ว" if self.sha else "บันทึกในเครื่อง"
+            state = ("ซิงก์ GitHub แล้ว · ตรวจข้อมูลใหม่ทุก 2 นาที"
+                     if self.sha else "ข้อมูลในเครื่อง · รอโหลด GitHub")
         elif not self.auto_sync_enabled:
             state = "บันทึกในเครื่อง · Auto Save GitHub ปิด"
         elif not self.token:
@@ -1382,6 +1390,57 @@ class BOMWindow(QMainWindow):
             self.auto_sync_timer.start(60_000)
             return
         self.save_remote(automatic=True)
+
+    def _refresh_remote_if_clean(self):
+        """Fetch changed GitHub documents across PCs without clobbering drafts."""
+        if (self.busy or self.downloading or self.dirty or
+                self.sync_paused_conflict):
+            return
+        current_sha = self.sha
+        if current_sha is None:
+            self.load_remote(silent=True)
+            return
+        self.busy = True
+
+        def work():
+            remote = github_api("GET", token=self.token)
+            if remote["sha"] == current_sha:
+                return None
+            document = json.loads(
+                base64.b64decode(remote["content"]).decode("utf-8-sig"))
+            bom_core.ensure_doc(document)
+            return document, remote["sha"]
+
+        def success(result):
+            self.busy = False
+            if result is None:
+                self.last_git_ok = True
+                self.last_github_sync_at = datetime.now(timezone.utc)
+                self._refresh_sync_state()
+                return
+            # A user may edit while the request is in flight; preserve it.
+            if self.dirty or self.sha != current_sha:
+                self._refresh_sync_state()
+                return
+            self.payload, self.sha = result
+            self.last_github_sync_at = datetime.now(timezone.utc)
+            self.last_git_ok = True
+            self.revision += 1
+            self._write_cache()
+            self.render_all()
+            self.debugger.event("INFO", "github", "REMOTE_REFRESH",
+                                "พบ BOM เวอร์ชันใหม่จาก GitHub และอัปเดตในเครื่องแล้ว")
+            self.set_status("รับข้อมูลใหม่จาก GitHub แล้ว · ทุกเครื่องใช้ข้อมูลชุดเดียวกัน")
+
+        def failed(message):
+            self.busy = False
+            self.last_git_ok = False
+            self._refresh_sync_state()
+            # Silent refresh failures must not interrupt editing.
+            self.debugger.event("WARNING", "github", "REMOTE_REFRESH_FAILED",
+                                "ตรวจสอบข้อมูลใหม่จาก GitHub ไม่สำเร็จ")
+        self._job(work, success, failed, context="github")
+
 
     def changed(self):
         self.dirty = True
@@ -1582,6 +1641,7 @@ class BOMWindow(QMainWindow):
         def success(result):
             self.busy = False
             self.payload, self.sha = result
+            self.last_github_sync_at = datetime.now(timezone.utc)
             self.last_git_ok = True
             self.debugger.event("INFO", "github", "BOM_LOADED",
                                 "โหลดข้อมูล BOM จาก GitHub สำเร็จ")
@@ -1690,6 +1750,7 @@ class BOMWindow(QMainWindow):
                 return
             result = data["result"]
             self.sha = result["content"]["sha"]
+            self.last_github_sync_at = datetime.now(timezone.utc)
             self.sync_paused_conflict = False
             self.last_git_ok = True
             self.debugger.event(
