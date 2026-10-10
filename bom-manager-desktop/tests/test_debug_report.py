@@ -37,11 +37,14 @@ class PrivacyTests(unittest.TestCase):
                   "github_pat_ABCDEFGHabcdefgh987654321 "
                   "my-super-secret-token-12345678 "
                   "alice@example.com C:\\Users\\Alice\\Documents\\abc "
+                  "/var/tmp/secret/location/test.py "
+                  "D:\\Build\\Projects\\private\\app.py "
                   "https://site.example/path?access_token=abcdef&other=1")
         text = self.reporter.scrub(sample)
         for leaked in ("my-super-secret-token-12345678", "abcSECRET_TOKEN_987",
                        "github_pat_ABC", "alice@example.com", "Users\\Alice",
-                       "access_token=abcdef"):
+                       "access_token=abcdef", "/var/tmp/secret",
+                       "D:\\Build\\Projects\\private"):
             self.assertNotIn(leaked, text)
         self.assertIn("[REDACTED]", text)
 
