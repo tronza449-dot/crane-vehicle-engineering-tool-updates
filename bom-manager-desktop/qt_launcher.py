@@ -25,8 +25,8 @@ def smoke_test():
     win.resize(1480, 890)
     win.show()
     app.processEvents()
-    assert len(win.nav_buttons) == 5
-    assert win.stack.count() == 5
+    assert len(win.nav_buttons) == 6
+    assert win.stack.count() == 6
     assert win.bom_table.columnCount() == 8
     assert len(win.cards) == 6
     if "--capture-preview" in sys.argv:
