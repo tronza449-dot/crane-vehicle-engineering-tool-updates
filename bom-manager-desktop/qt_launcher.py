@@ -1,4 +1,4 @@
-"""Windows Industrial Dark entrypoint with packaged EXE smoke-test mode."""
+"""Windows Minimal Engineering entrypoint with packaged EXE smoke-test mode."""
 import json
 import sys
 from pathlib import Path
@@ -27,31 +27,47 @@ def smoke_test():
     app.processEvents()
     assert len(win.nav_buttons) == 6
     assert win.stack.count() == 6
-    assert win.bom_table.columnCount() == 8
+    assert win.bom_table.columnCount() == 9
     assert len(win.cards) == 6
+    assert len(win.category_buttons) == 7
     win.show_page(5)
     assert win.debug_checks.rowCount() >= 3
     assert win.debug_events.columnCount() == 5
     win.show_page(0)
     app.processEvents()
     if "--capture-preview" in sys.argv:
-        filename = Path("output") / "IndustrialDarkPreview.png"
-        filename.parent.mkdir(parents=True, exist_ok=True)
-        if not win.grab().save(str(filename), "PNG"):
-            raise RuntimeError("Failed to save Industrial Dark GUI screenshot")
-        win.show_page(5)
-        app.processEvents()
-        debug_preview = Path("output") / "DebugReportPreview.png"
-        if not win.grab().save(str(debug_preview), "PNG"):
-            raise RuntimeError("Failed to capture Debug Report GUI")
-        # Produce a second real screenshot showing enlarged, readable BOM rows.
-        win.font_scale_selector.setCurrentIndex(2)  # 130% accessibility preset
+        folder = Path("output")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        def snapshot(name):
+            app.processEvents()
+            if not win.grab().save(str(folder / name), "PNG"):
+                raise RuntimeError("Could not capture " + name)
+
+        win.show_page(0)
+        snapshot("MinimalDashboardPreview.png")
         win.show_page(1)
+        snapshot("MinimalBOMPreview.png")
+        win.show_page(4)
+        snapshot("MinimalReportsPreview.png")
+        win.show_page(5)
+        snapshot("DebugReportPreview.png")
+
+        # Show a real editable Qt item form without submitting/changing BOM data.
+        from bom_qt import RecordDialog, ITEM_FIELDS
+        item_dialog = RecordDialog("เพิ่มอุปกรณ์", ITEM_FIELDS,
+                                   {"category": "ระบบขับเคลื่อน"}, win)
+        item_dialog.show()
         app.processEvents()
-        readable_preview = Path("output") / "ReadableBOMPreview.png"
-        if not win.grab().save(str(readable_preview), "PNG"):
-            raise RuntimeError("Failed to capture enlarged BOM UI")
-        win.font_scale_selector.setCurrentIndex(1)  # restore default 115%
+        if not item_dialog.grab().save(str(folder / "MinimalFormPreview.png"), "PNG"):
+            raise RuntimeError("Could not capture MinimalFormPreview.png")
+        item_dialog.close()
+
+        # Accessibility option is also verified on the packaged executable.
+        win.font_scale_selector.setCurrentIndex(2)
+        win.show_page(1)
+        snapshot("ReadableBOMPreview.png")
+        win.font_scale_selector.setCurrentIndex(1)
         win.show_page(0)
     win.close()
     return 0
