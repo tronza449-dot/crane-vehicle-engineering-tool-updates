@@ -560,6 +560,9 @@ class BOMWindow(QMainWindow):
         titles.addWidget(self._label("BOM Manager  /  Engineering Workspace", "sectionTitle"))
         self.top_project_label = self._label("กำลังโหลดข้อมูลโครงการ…", "caption")
         titles.addWidget(self.top_project_label)
+        self.cloud_header_status = self._label(
+            "GitHub Cloud: กำลังตรวจสอบการเชื่อมต่อ", "caption")
+        titles.addWidget(self.cloud_header_status)
         heading_row.addLayout(titles, 1)
 
         # Keep the updater available on EVERY page, not hidden under Reports/GitHub.
@@ -587,6 +590,8 @@ class BOMWindow(QMainWindow):
                                            lambda: self.edit_record("items"), "primary"))
         action_row.addWidget(self._button("ส่งออก PDF / Excel",
                                            lambda: self.show_page(4)))
+        action_row.addWidget(self._button("รับข้อมูล GitHub ล่าสุด",
+                                           self.load_remote))
         self.sync_btn = self._button("บันทึก GitHub", self.save_remote)
         action_row.addWidget(self.sync_btn)
         top_layout.addLayout(action_row)
@@ -1178,8 +1183,11 @@ class BOMWindow(QMainWindow):
         self.hero_project_label.setText(str(self.payload.get("project") or "ยังไม่ได้ตั้งชื่อโครงการ"))
         if hasattr(self, "debug_checks"):
             self.refresh_diagnostics()
+        sync_text = ("รอซิงก์ GitHub" if self.dirty else
+                     "ข้อมูลซิงก์ GitHub แล้ว" if self.sha else
+                     "ข้อมูลอยู่ในเครื่อง")
         self.data_status.setText(
-            f"{'รอซิงก์ GitHub' if self.dirty else 'ข้อมูลซิงก์แล้ว'}  •  {len(self.payload.get('items', []))} รายการ")
+            f"{sync_text}  •  {len(self.payload.get('items', []))} รายการ")
         self._refresh_sync_state()
 
     def render_dashboard(self):
@@ -1362,6 +1370,8 @@ class BOMWindow(QMainWindow):
         else:
             state = "บันทึกในเครื่อง · รอซิงก์ GitHub อัตโนมัติ"
         self.sync_state.setText(state)
+        if hasattr(self, "cloud_header_status"):
+            self.cloud_header_status.setText("GitHub Cloud: " + state)
 
     def set_auto_sync(self, enabled):
         self.auto_sync_enabled = bool(enabled)
