@@ -29,6 +29,11 @@ def smoke_test():
     assert win.stack.count() == 6
     assert win.bom_table.columnCount() == 8
     assert len(win.cards) == 6
+    win.show_page(5)
+    assert win.debug_checks.rowCount() >= 3
+    assert win.debug_events.columnCount() == 5
+    win.show_page(0)
+    app.processEvents()
     if "--capture-preview" in sys.argv:
         filename = Path("output") / "IndustrialDarkPreview.png"
         filename.parent.mkdir(parents=True, exist_ok=True)
