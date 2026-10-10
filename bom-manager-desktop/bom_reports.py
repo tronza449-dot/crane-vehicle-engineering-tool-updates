@@ -306,7 +306,7 @@ def export_drawio(doc, destination):
         note = " | ".join(str(wire.get(x) or "—") for x in
                           ("signal", "voltage", "cable", "protection"))
         vertex(f"label_{idx}", f"{wire.get('id', idx+1)}  {note}",
-               355, y - 7, 505, 36,
+               355, y - 22, 505, 35,
                "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#4C5B69;")
         edge = SubElement(root, "mxCell", {
             "id": f"edge_{idx}", "edge": "1", "parent": "1",
