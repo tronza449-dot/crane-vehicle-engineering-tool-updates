@@ -167,7 +167,7 @@ class RecordDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(640, 580)
-        self.resize(740, 660)
+        self.resize(770, 650)
         self.values = values or {}
         self.widgets = {}
         outer = QVBoxLayout(self)
@@ -175,14 +175,38 @@ class RecordDialog(QDialog):
         heading = QLabel(title)
         heading.setObjectName("pageTitle")
         outer.addWidget(heading)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        content = QWidget()
-        form = QFormLayout(content)
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        form.setVerticalSpacing(12)
-        form.setHorizontalSpacing(18)
+        self.tabs = None
+        is_bom = title in ("เพิ่มอุปกรณ์", "แก้ไขอุปกรณ์")
+        groups = {}
+        if is_bom:
+            self.tabs = QTabWidget()
+            for name, keys in (
+                ("ข้อมูลหลัก", ("category", "name", "partNumber", "qty", "unit", "status")),
+                ("สเปกและการเชื่อมต่อ", ("spec", "connection")),
+                ("ราคาและร้านค้า", ("unitPrice", "supplier", "link")),
+                ("หมายเหตุ", ("notes",)),
+            ):
+                page = QWidget()
+                layout = QFormLayout(page)
+                layout.setContentsMargins(17, 18, 17, 18)
+                layout.setFieldGrowthPolicy(
+                    QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+                layout.setVerticalSpacing(16)
+                layout.setHorizontalSpacing(17)
+                for field in keys:
+                    groups[field] = layout
+                self.tabs.addTab(page, name)
+            outer.addWidget(self.tabs, 1)
+        else:
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            content = QWidget()
+            form = QFormLayout(content)
+            form.setFieldGrowthPolicy(
+                QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+            form.setVerticalSpacing(13)
+            form.setHorizontalSpacing(18)
         for key, label in fields:
             val = self.values.get(key)
             if key == "category":
@@ -222,9 +246,10 @@ class RecordDialog(QDialog):
                 if key == "qty":
                     control.setPlaceholderText("จำนวนต้องมากกว่า 0")
             self.widgets[key] = control
-            form.addRow(QLabel(label), control)
-        scroll.setWidget(content)
-        outer.addWidget(scroll, 1)
+            (groups.get(key) if is_bom else form).addRow(QLabel(label), control)
+        if not is_bom:
+            scroll.setWidget(content)
+            outer.addWidget(scroll, 1)
         actions = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         actions.button(QDialogButtonBox.StandardButton.Save).setText("บันทึกข้อมูล")
