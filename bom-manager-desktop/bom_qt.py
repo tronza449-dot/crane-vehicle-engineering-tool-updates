@@ -23,7 +23,7 @@ from PySide6.QtGui import QBrush, QColor, QFont, QPen, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QFrame, QGraphicsScene, QGraphicsView, QGridLayout, QHBoxLayout,
-    QHeaderView, QLabel, QLineEdit, QMainWindow, QMessageBox,
+    QHeaderView, QLabel, QLineEdit, QMainWindow, QMessageBox, QTabWidget,
     QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
     QStackedWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 )
@@ -308,7 +308,7 @@ class BOMWindow(QMainWindow):
     def __init__(self, auto_load=True, debugger=None):
         super().__init__()
         self.debugger = debugger or bom_debug.DebugReporter(version=VERSION)
-        self.setWindowTitle(f"Crane Vehicle BOM Manager — Industrial Dark v{VERSION}")
+        self.setWindowTitle(f"Crane Vehicle BOM Manager — Minimal Engineering v{VERSION}")
         self.resize(1580, 960)
         self.setMinimumSize(1180, 750)
         self.payload = {"schemaVersion": 1, "project": "รถไฟฟ้าพร้อมเครน",
@@ -337,7 +337,7 @@ class BOMWindow(QMainWindow):
         self._read_cache()
         self.render_all()
         self.debugger.event("INFO", "application", "APP_STARTED",
-                            f"Industrial Dark desktop v{VERSION} started")
+                            f"Minimal Engineering desktop v{VERSION} started")
         if auto_load:
             if self.dirty:
                 self.set_status("กู้คืนข้อมูลฉบับร่างที่ยังไม่ได้บันทึก GitHub — กรุณาตรวจสอบก่อนโหลดทับ")
@@ -406,17 +406,17 @@ class BOMWindow(QMainWindow):
         left = QVBoxLayout(sidebar)
         left.setContentsMargins(17, 26, 17, 20)
         left.setSpacing(10)
-        left.addWidget(self._label("▣   CV · BOM", "logo"))
-        left.addWidget(self._label("ENGINEERING MANAGER", "sidebarCaption"))
-        left.addSpacing(27)
+        left.addWidget(self._label("◈   BOM Manager", "logo"))
+        left.addWidget(self._label("CRANE VEHICLE PROJECT", "sidebarCaption"))
+        left.addSpacing(18)
         left.addWidget(self._label("เมนูหลัก / WORKSPACE", "sidebarCaption"))
         labels = [
-            "▦   ภาพรวม",
-            "▣   รายการอุปกรณ์ (BOM)",
-            "⌁   การเดินสาย (Wiring)",
-            "▤   รายการจัดซื้อ",
-            "⇩   รายงาน / GitHub",
-            "☷   ตรวจสอบระบบ",
+            "⌂    หน้าหลัก",
+            "▤    รายการอุปกรณ์ (BOM)",
+            "⌁    สายไฟและการเชื่อมต่อ",
+            "▣    จัดซื้อและราคา",
+            "⇩    รายงาน (PDF / Excel)",
+            "⚙    ตรวจสอบระบบ",
         ]
         for i, name in enumerate(labels):
             button = self._button(name, lambda _checked=False, n=i: self.show_page(n))
@@ -445,9 +445,9 @@ class BOMWindow(QMainWindow):
         left.addWidget(self._label("Ctrl + / Ctrl -  ปรับขนาด", "sidebarCaption"))
         left.addSpacing(13)
         left.addWidget(self._label("SYSTEM STATUS", "sidebarCaption"))
-        self.connection = self._label("●  พร้อมใช้งาน", "status")
+        self.connection = self._label("●  ใช้งานในเครื่องได้", "sideStatus")
         left.addWidget(self.connection)
-        version = self._label(f"Industrial Dark  ·  v{VERSION}", "sidebarCaption")
+        version = self._label(f"Minimal Engineering  ·  v{VERSION}", "sidebarCaption")
         left.addWidget(version)
         layout.addWidget(sidebar)
 
@@ -463,8 +463,9 @@ class BOMWindow(QMainWindow):
         top_layout.setSpacing(8)
         titles = QVBoxLayout()
         titles.setSpacing(4)
-        titles.addWidget(self._label("Crane Vehicle  /  BOM Manager", "sectionTitle"))
-        titles.addWidget(self._label("ระบบจัดการวัสดุและอุปกรณ์สำหรับรถขนซากสัตว์พร้อมเครน", "caption"))
+        titles.addWidget(self._label("BOM Manager  /  Engineering Workspace", "sectionTitle"))
+        self.top_project_label = self._label("กำลังโหลดข้อมูลโครงการ…", "caption")
+        titles.addWidget(self.top_project_label)
         top_layout.addLayout(titles)
         action_row = QHBoxLayout()
         action_row.setSpacing(9)
@@ -472,9 +473,11 @@ class BOMWindow(QMainWindow):
         self.update_btn = self._button("ตรวจสอบเวอร์ชัน", self.check_version)
         self.install_btn = self._button("อัปเดตตอนนี้", self.install_update, "success")
         self.install_btn.setEnabled(False)
-        action_row.addWidget(self._button("ส่งออกรายงาน PDF / Excel",
-                                           lambda: self.show_page(4), "success"))
-        self.sync_btn = self._button("บันทึก GitHub", self.save_remote, "primary")
+        action_row.addWidget(self._button("+ เพิ่มอุปกรณ์",
+                                           lambda: self.edit_record("items"), "primary"))
+        action_row.addWidget(self._button("ส่งออก PDF / Excel",
+                                           lambda: self.show_page(4)))
+        self.sync_btn = self._button("บันทึก GitHub", self.save_remote)
         action_row.addWidget(self.sync_btn)
         top_layout.addLayout(action_row)
         right.addWidget(top)
@@ -502,7 +505,7 @@ class BOMWindow(QMainWindow):
         area = QScrollArea()
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.Shape.NoFrame)
-        area.setStyleSheet("QScrollArea { border: 0; background: #09111F; }")
+        area.setStyleSheet("QScrollArea { border: 0; background: #F5F8FC; }")
         area.setWidget(page)
         return area
 
@@ -945,6 +948,8 @@ class BOMWindow(QMainWindow):
         self.render_bom()
         self.render_wiring()
         self.render_purchases()
+        self.top_project_label.setText(str(self.payload.get("project") or "ยังไม่ได้ตั้งชื่อโครงการ"))
+        self.hero_project_label.setText(str(self.payload.get("project") or "ยังไม่ได้ตั้งชื่อโครงการ"))
         if hasattr(self, "debug_checks"):
             self.refresh_diagnostics()
         self.data_status.setText(
