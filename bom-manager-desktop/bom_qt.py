@@ -437,7 +437,6 @@ class BOMWindow(QMainWindow):
             else:
                 self.load_remote(silent=True)
             # Start update checking after event loop has begun; network is in a worker.
-            from PySide6.QtCore import QTimer
             QTimer.singleShot(1500, lambda: self.check_version(silent=True))
 
     @staticmethod
