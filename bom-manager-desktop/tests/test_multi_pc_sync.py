@@ -193,5 +193,69 @@ class SharedBOMTests(unittest.TestCase):
         dlg.close()
 
 
+    def test_purchase_picker_excludes_existing_orders_but_allows_own_edit(self):
+        from bom_qt import RecordDialog, PURCHASE_FIELDS
+        machine = self.new_pc()
+        order = {"id": "po1", "itemId": "1", "description": "Hub motor",
+                 "qty": 2, "unitPrice": 4000, "status": "วางแผน"}
+        machine.payload["purchases"].append(order)
+        new_dialog = RecordDialog("เพิ่มการจัดซื้อ", PURCHASE_FIELDS, {}, machine)
+        self.assertEqual(new_dialog.widgets["itemId"].findData("1"), -1)
+        new_dialog.close()
+        edit_dialog = RecordDialog("แก้ไขการจัดซื้อ", PURCHASE_FIELDS,
+                                   order, machine)
+        self.assertGreater(edit_dialog.widgets["itemId"].findData("1"), 0)
+        edit_dialog.close()
+        machine.payload["purchases"].clear()
+        new_dialog = RecordDialog("เพิ่มการจัดซื้อ", PURCHASE_FIELDS, {}, machine)
+        self.assertGreater(new_dialog.widgets["itemId"].findData("1"), 0)
+        new_dialog.close()
+
+    def test_reorder_buttons_persist_actual_item_order_without_changing_ids(self):
+        from PySide6.QtCore import Qt
+        machine = self.new_pc()
+        machine.payload["items"].append({
+            "id": "2", "category": "ระบบขับเคลื่อน",
+            "name": "VESC", "qty": 1, "unitPrice": 3000
+        })
+        machine.changed()
+        machine.group_mode.setCurrentIndex(1)  # continuous order
+        self.assertEqual(machine.bom_table.rowCount(), 2)
+        self.assertEqual(machine.bom_table.item(1, 0).data(
+            Qt.ItemDataRole.UserRole), 1)
+        machine.bom_table.selectRow(1)
+        machine.move_bom_item(-1)
+        self.assertEqual([x["id"] for x in machine.payload["items"]], ["2", "1"])
+        self.assertTrue(machine.dirty)
+        self.assertEqual(machine.bom_table.item(0, 0).text(), "2")
+        machine._autosync_if_needed()
+        self.assertEqual([x["id"] for x in self.repo.document["items"]],
+                         ["2", "1"])
+        self.assertEqual({x["id"] for x in machine.payload["items"]}, {"1", "2"})
+
+    def test_startup_automatically_loads_latest_clean_remote(self):
+        machine = self.new_pc()
+        self.repo.document["items"][0]["name"] = "Latest from GitHub"
+        self.repo.number += 1
+        machine._startup_sync()
+        self.assertEqual(machine.payload["items"][0]["name"],
+                         "Latest from GitHub")
+        self.assertFalse(machine.dirty)
+
+    def test_startup_detects_divergent_dirty_draft_without_overwriting(self):
+        machine = self.new_pc()
+        machine.payload["items"][0]["name"] = "Offline draft"
+        machine.changed()
+        self.repo.document["items"][0]["name"] = "Remote other PC"
+        self.repo.number += 1
+        machine._startup_sync()
+        self.assertEqual(machine.payload["items"][0]["name"], "Offline draft")
+        self.assertTrue(machine.dirty)
+        self.assertTrue(machine.sync_paused_conflict)
+        self.assertEqual(self.repo.document["items"][0]["name"],
+                         "Remote other PC")
+
+
+
 if __name__ == "__main__":
     unittest.main()
