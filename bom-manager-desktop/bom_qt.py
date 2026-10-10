@@ -185,8 +185,9 @@ class Card(QFrame):
 
 
 class RecordDialog(QDialog):
-    def __init__(self, title, fields, values=None, parent=None):
+    def __init__(self, title, fields, values=None, parent=None, allow_repeat=False):
         super().__init__(parent)
+        self.allow_repeat_purchase = allow_repeat
         self.setWindowTitle(title)
         self.setMinimumSize(640, 580)
         self.resize(770, 650)
@@ -255,7 +256,7 @@ class RecordDialog(QDialog):
                 control.addItem("— เลือกอุปกรณ์จาก BOM —", "")
                 taken_ids = (bom_core.purchased_item_ids(
                     parent.payload, excluding_purchase_id=self.values.get("id"))
-                    if parent else set())
+                    if parent and not allow_repeat else set())
                 for bom_item in (parent.payload.get("items", []) if parent else []):
                     item_id = str(bom_item.get("id") or "").strip()
                     if item_id and item_id not in taken_ids:
@@ -966,6 +967,7 @@ class BOMWindow(QMainWindow):
         page, body = self._page("จัดซื้อ / Purchasing", "PROCUREMENT TRACKER  /  วางแผน ซื้อ และรับสินค้า")
         actions = QHBoxLayout()
         actions.addWidget(self._button("+ เลือกอุปกรณ์จาก BOM", lambda: self.edit_record("purchases"), "primary"))
+        actions.addWidget(self._button("+ สั่งเพิ่มส่วนที่ขาด", self.purchase_remaining))
         actions.addWidget(self._button("แก้ไข", lambda: self.edit_record("purchases", True)))
         actions.addWidget(self._button("ลบ", lambda: self.delete_record("purchases"), "danger"))
         actions.addWidget(self._button("สร้างใบสั่งซื้อ PDF", self.export_purchase_order))
@@ -1681,7 +1683,7 @@ class BOMWindow(QMainWindow):
             "จะซิงก์ GitHub อัตโนมัติ" if self.auto_sync_enabled
             else "Auto Save GitHub ปิดอยู่"))
 
-    def edit_record(self, kind, existing=False, defaults=None):
+    def edit_record(self, kind, existing=False, defaults=None, allow_repeat=False):
         data = self.payload.setdefault(kind, [])
         index = self._selected_index(kind) if existing else None
         if existing and index is None:
@@ -1696,7 +1698,8 @@ class BOMWindow(QMainWindow):
             "wiring": ("แก้ไขจุดต่อสาย" if existing else "เพิ่มจุดต่อสาย"),
             "purchases": ("แก้ไขการจัดซื้อ" if existing else "เพิ่มการจัดซื้อ"),
         }[kind]
-        dlg = RecordDialog(title, FIELD_SET[kind], row, self)
+        dlg = RecordDialog(title, FIELD_SET[kind], row, self,
+                           allow_repeat=allow_repeat)
         self.edit_dialog_active = True
         try:
             accepted = dlg.exec() == QDialog.DialogCode.Accepted
@@ -1712,8 +1715,8 @@ class BOMWindow(QMainWindow):
                 if not values["from"] or not values["to"]:
                     raise bom_core.DataError("ต้องระบุจุดต้นทางและปลายทาง")
             else:
-                if values.get("itemId") in bom_core.purchased_item_ids(
-                        self.payload, excluding_purchase_id=prev.get("id")):
+                if (not allow_repeat and values.get("itemId") in bom_core.purchased_item_ids(
+                        self.payload, excluding_purchase_id=prev.get("id"))):
                     raise bom_core.DataError(
                         "อุปกรณ์นี้อยู่ในรายการจัดซื้อแล้ว กรุณาเลือกรายการอื่น")
                 if not values.get("itemId") and index is None:
@@ -1753,6 +1756,36 @@ class BOMWindow(QMainWindow):
             return
         del self.payload[kind][index]
         self.changed()
+
+    def purchase_remaining(self):
+        """Explicit exception to hidden duplicates: order only remaining quantity."""
+        progress = bom_advanced.purchase_progress(self.payload)
+        candidates = []
+        for item in self.payload.get("items", []):
+            remaining = progress["remaining_to_order"].get(str(item["id"]), 0)
+            if remaining > 0:
+                candidates.append((f"{item['id']} | {item.get('name','')} | ขาด {remaining} {item.get('unit','')}",
+                                   item, remaining))
+        if not candidates:
+            QMessageBox.information(self, "รายการจัดซื้อครบแล้ว",
+                                    "ไม่พบอุปกรณ์ที่ยังต้องสั่งเพิ่ม")
+            return
+        label, ok = QInputDialog.getItem(
+            self, "เพิ่มยอดสั่งซื้อ", "เลือกอุปกรณ์ที่ยังมีจำนวนขาด",
+            [x[0] for x in candidates], 0, False)
+        if not ok:
+            return
+        chosen = next(row for row in candidates if row[0] == label)
+        _, item, remaining = chosen
+        self.edit_record("purchases", defaults={
+            "itemId": str(item["id"]),
+            "description": str(item.get("name") or ""),
+            "supplier": str(item.get("supplier") or ""),
+            "qty": float(remaining),
+            "unitPrice": item.get("unitPrice"),
+            "link": str(item.get("link") or ""),
+            "status": "วางแผน",
+        }, allow_repeat=True)
 
     def purchase_selected(self):
         index = self._selected_index("items")
