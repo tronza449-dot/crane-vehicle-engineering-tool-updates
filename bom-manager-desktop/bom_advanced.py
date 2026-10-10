@@ -18,7 +18,8 @@ def purchase_progress(doc):
         if key not in needed or order.get("status") == "ยกเลิก":
             continue
         qty = Decimal(str(order.get("qty") or 0))
-        ordered[key] += qty
+        if order.get("status") in ("สั่งแล้ว", "ได้รับแล้ว", "ได้รับบางส่วน"):
+            ordered[key] += qty
         if order.get("status") == "ได้รับแล้ว":
             received[key] += qty
         elif order.get("status") == "ได้รับบางส่วน":
@@ -122,6 +123,9 @@ def merge_docs(base, local, remote, preference="local"):
         return _MISSING if chosen is _MISSING else copy.deepcopy(chosen)
     result = {}
     for key in sorted(set(base) | set(local) | set(remote)):
+        if key == "updatedAt":
+            result[key] = remote.get(key, local.get(key, base.get(key)))
+            continue
         if key not in _COLLECTIONS:
             value = choose(key, base.get(key, _MISSING), local.get(key, _MISSING),
                            remote.get(key, _MISSING))
