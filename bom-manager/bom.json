@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T21:32:50+00:00",
+  "updatedAt": "2026-10-10T21:35:38+00:00",
   "currency": "THB",
   "items": [
     {
@@ -159,10 +159,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "I²C และขา INT/RST หากบอร์ดรองรับ | GPIO/จุดต่อ: SDA 21, SCL 22, RST 26, INT 27 ตามแบบเดิม",
-      "unitPrice": null,
-      "link": "https://www.digikey.co.th/th/products/detail/sparkfun-electronics/22857/21443055",
+      "unitPrice": 990.0,
+      "link": "https://www.massmore.shop/products/2141d3bf-9d0f-4837-badf-a36bcda61638",
       "status": "เลือก breakout รุ่น BNO086; เลือกจาก DigiKey",
-      "notes": "ยืนยันรุ่น breakout, แรงดันจ่ายและชื่อขาจริง"
+      "notes": "ยืนยันรุ่น breakout, แรงดันจ่ายและชื่อขาจริง",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "13",
@@ -452,5 +454,6 @@
       "link": "https://www.modulemore.com/product/128/esp32-wroom-32-dev-board-wifi-bt-ble-mcu",
       "notes": ""
     }
-  ]
+  ],
+  "wiring": []
 }
