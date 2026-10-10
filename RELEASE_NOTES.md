@@ -1,3 +1,14 @@
+## V53.8.53 — Stability UI cleanup + Hardware I/O removed
+
+- ใช้ V53.8.52 ล่าสุดจาก main เป็นฐานแก้ไข
+- เอา Hardware I/O ออกจากการสร้างหน้า, เมนูซ้าย, page routing และ shortcut ใน Telemetry
+- ปรับ Stability hub ให้กระชับ ลด margin/spacing ที่ทำให้หน้าดูยืด
+- ปรับ Page Header และ Save bar ให้เตี้ยลงและอ่านง่ายขึ้น
+- หน้า Engineering FBD เปลี่ยน control bar เป็น 2 แถวแบบ responsive ลดอาการปุ่มเบียด/ล้น
+- ลด minimum height ของ FBD เพื่อให้ใช้งานได้ดีขึ้นบนจอ 1366×768 และจอ scaling สูง
+- หน้า Slope เปลี่ยนชุดปุ่มเป็น grid 2×2 และลดพื้นที่ว่าง
+- ลด base font เล็กน้อยเพื่อป้องกัน clipping จาก Windows display scaling
+
 ## V53.8.52 — Clean UI + GitHub Smart Cloud Sync
 
 - ปรับ Desktop UI/UX ให้ clean ขึ้น: card/button/navigation radius และ spacing สม่ำเสมอ อ่านง่ายขึ้น
