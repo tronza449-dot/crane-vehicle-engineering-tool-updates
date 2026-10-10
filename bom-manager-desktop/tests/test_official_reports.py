@@ -37,7 +37,7 @@ class ReportExportTests(unittest.TestCase):
         stats = bom_core.metrics(self.doc)
         self.assertEqual(sum(x[1] for x in rows), 33)
         self.assertEqual(sum(x[2] for x in rows), stats["missing"])
-        self.assertAlmostEqual(sum(x[3] for x in rows), stats["known_cost"])
+        self.assertAlmostEqual(sum(x[3] for x in rows), float(stats["known_cost"]))
         self.assertEqual(len(rows), 7)
 
     def test_custom_item_order_is_preserved_in_formal_reports(self):
