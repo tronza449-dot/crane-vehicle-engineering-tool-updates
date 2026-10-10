@@ -18,7 +18,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import keyring
-from PySide6.QtCore import QThread, Signal, Qt, QRectF
+from PySide6.QtCore import QThread, Signal, Qt, QRectF, QSettings
 from PySide6.QtGui import QBrush, QColor, QFont, QPen, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 import bom_core
 import bom_categories
 import bom_reports
+import bom_official_reports
 import bom_debug
 import bom_qt_theme as theme
 import updater
@@ -245,6 +246,64 @@ class RecordDialog(QDialog):
         return data
 
 
+class ReportOptionsDialog(QDialog):
+    """Simple report metadata form; saved in app settings, not in BOM JSON."""
+    FIELDS = (
+        ("author", "ผู้จัดทำ"),
+        ("institution", "มหาวิทยาลัย / สถาบัน"),
+        ("document_no", "เลขที่เอกสาร"),
+        ("revision", "Revision"),
+    )
+
+    def __init__(self, document, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("ตั้งค่ารายงานสำหรับส่งอาจารย์")
+        self.setMinimumWidth(530)
+        settings = QSettings("CraneVehicle", "BOMManager")
+        self.inputs = {}
+        form = QVBoxLayout(self)
+        form.setContentsMargins(23, 23, 23, 23)
+        title = QLabel("จัดทำรายงาน BOM แบบทางการ")
+        title.setObjectName("sectionTitle")
+        form.addWidget(title)
+        hint = QLabel("กรอกข้อมูลหน้ารายงานครั้งเดียว โปรแกรมจะจำค่าไว้สำหรับครั้งถัดไป")
+        hint.setObjectName("caption")
+        hint.setWordWrap(True)
+        form.addWidget(hint)
+        grid = QFormLayout()
+        grid.setVerticalSpacing(13)
+        for key,label in self.FIELDS:
+            default = "BOM-001" if key == "document_no" else "00" if key == "revision" else ""
+            control = QLineEdit(str(settings.value("report/"+key, default)))
+            control.setMinimumWidth(305)
+            if key in ("author", "institution"):
+                control.setPlaceholderText("กรอกข้อมูลสำหรับหน้ารายงาน")
+            self.inputs[key] = control
+            grid.addRow(label, control)
+        form.addLayout(grid)
+        note = QLabel("ใช้ข้อมูล BOM ปัจจุบัน ราคาที่ยังไม่ทราบจะแสดงเป็น — "
+                      "และไม่ถูกรวมเป็นราคาศูนย์")
+        note.setWordWrap(True)
+        note.setObjectName("hint")
+        form.addWidget(note)
+        controls = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok |
+            QDialogButtonBox.StandardButton.Cancel)
+        controls.button(QDialogButtonBox.StandardButton.Ok).setText("ต่อไป: เลือกที่บันทึก")
+        controls.button(QDialogButtonBox.StandardButton.Cancel).setText("ยกเลิก")
+        controls.accepted.connect(self.accept)
+        controls.rejected.connect(self.reject)
+        form.addWidget(controls)
+
+    def values(self):
+        settings = QSettings("CraneVehicle", "BOMManager")
+        result = {key:control.text().strip() for key,control in self.inputs.items()}
+        for key,value in result.items():
+            settings.setValue("report/"+key, value)
+        settings.sync()
+        return result
+
+
 class BOMWindow(QMainWindow):
     def __init__(self, auto_load=True, debugger=None):
         super().__init__()
@@ -350,14 +409,14 @@ class BOMWindow(QMainWindow):
         left.addWidget(self._label("▣   CV · BOM", "logo"))
         left.addWidget(self._label("ENGINEERING MANAGER", "sidebarCaption"))
         left.addSpacing(27)
-        left.addWidget(self._label("WORKSPACE", "sidebarCaption"))
+        left.addWidget(self._label("เมนูหลัก / WORKSPACE", "sidebarCaption"))
         labels = [
-            "▦   ภาพรวมโครงการ",
-            "▣   BOM อุปกรณ์",
-            "⌁   Wiring Manager",
-            "▤   จัดซื้อ / Purchasing",
-            "⇄   GitHub และส่งออก",
-            "☷   Debug Report",
+            "▦   ภาพรวม",
+            "▣   รายการอุปกรณ์ (BOM)",
+            "⌁   การเดินสาย (Wiring)",
+            "▤   รายการจัดซื้อ",
+            "⇩   รายงาน / GitHub",
+            "☷   ตรวจสอบระบบ",
         ]
         for i, name in enumerate(labels):
             button = self._button(name, lambda _checked=False, n=i: self.show_page(n))
@@ -411,10 +470,10 @@ class BOMWindow(QMainWindow):
         action_row.setSpacing(9)
         action_row.addStretch()
         self.update_btn = self._button("ตรวจสอบเวอร์ชัน", self.check_version)
-        action_row.addWidget(self.update_btn)
         self.install_btn = self._button("อัปเดตตอนนี้", self.install_update, "success")
         self.install_btn.setEnabled(False)
-        action_row.addWidget(self.install_btn)
+        action_row.addWidget(self._button("ส่งออกรายงาน PDF / Excel",
+                                           lambda: self.show_page(4), "success"))
         self.sync_btn = self._button("บันทึก GitHub", self.save_remote, "primary")
         action_row.addWidget(self.sync_btn)
         top_layout.addLayout(action_row)
@@ -425,7 +484,7 @@ class BOMWindow(QMainWindow):
         self.stack.addWidget(self._build_bom())
         self.stack.addWidget(self._build_wiring())
         self.stack.addWidget(self._build_purchases())
-        self.stack.addWidget(self._build_sync())
+        self.stack.addWidget(self._scrolling_dashboard(self._build_sync()))
         self.stack.addWidget(self._build_diagnostics())
         right.addWidget(self.stack, 1)
 
@@ -456,6 +515,8 @@ class BOMWindow(QMainWindow):
         ):
             action = QShortcut(QKeySequence(shortcut), self)
             action.activated.connect(slot)
+        export_shortcut = QShortcut(QKeySequence("Ctrl+E"), self)
+        export_shortcut.activated.connect(lambda: self.show_page(4))
         self._apply_readability_metrics()
 
     def _apply_readability_metrics(self):
@@ -543,6 +604,10 @@ class BOMWindow(QMainWindow):
 
     def _build_dashboard(self):
         page, body = self._page("ภาพรวมโครงการ", "PROJECT OVERVIEW  /  BUDGET & MATERIAL STATUS")
+        body.addWidget(self._label(
+            "เริ่มต้นใช้งาน:  1  เลือกหน้า BOM เพื่อแก้อุปกรณ์"
+            "    →    2  ตรวจราคาและสเปก"
+            "    →    3  เลือก รายงาน / GitHub เพื่อส่งออก PDF หรือ Excel", "caption"))
         board = QGridLayout()
         board.setSpacing(13)
         metrics = [
@@ -603,6 +668,9 @@ class BOMWindow(QMainWindow):
         self.group_mode.setToolTip("สลับมุมมองแยกหมวดหรือแสดงต่อเนื่อง ไม่เปลี่ยนข้อมูลจริง")
         bar.addWidget(self.group_mode, 2)
         body.addLayout(bar)
+        body.addWidget(self._label(
+            "เลือกหมวดจากเมนู · ดับเบิลคลิกแถวเพื่อแก้ไข · "
+            "แถวหัวหมวดเป็นเพียงตัวแบ่งรายการ", "hint"))
         actions = QHBoxLayout()
         actions.addWidget(self._button("+ เพิ่มอุปกรณ์", lambda: self.edit_record("items"), "primary"))
         actions.addWidget(self._button("แก้ไขที่เลือก", lambda: self.edit_record("items", True)))
@@ -662,36 +730,61 @@ class BOMWindow(QMainWindow):
         return page
 
     def _build_sync(self):
-        page, body = self._page("GitHub / ส่งออกข้อมูล", "VERSION CONTROL  /  BACKUP  /  ENGINEERING REPORTS")
-        group = self._panel("การเชื่อมต่อข้อมูล GitHub", body)
+        page, body = self._page(
+            "รายงานและการจัดเก็บข้อมูล",
+            "ส่งออกเอกสารสำหรับใส่รายงาน หรือจัดการข้อมูล GitHub")
+        body.addWidget(self._label(
+            "ขั้นตอนง่าย ๆ : เลือก PDF หรือ Excel → กรอกชื่อผู้จัดทำ / สถาบัน → เลือกที่บันทึก",
+            "caption"))
+        group = self._panel("1  ส่งออกรายงานแบบทางการ (แนะนำสำหรับส่งอาจารย์)", body)
+        text = self._label(
+            "รายงานมีส่วนหัวโครงการ เลขที่เอกสาร Revision สรุปงบประมาณ "
+            "และ BOM แยกหมวด พร้อมข้อมูลสเปก Wiring และจัดซื้อ", "caption")
+        text.setWordWrap(True)
+        group.addWidget(text)
+        buttons = QHBoxLayout()
+        buttons.addWidget(self._button("ส่งออก PDF สำหรับรายงาน",
+                                       lambda: self.export("pdf"), "primary"))
+        buttons.addWidget(self._button("ส่งออก Excel สำหรับรายงาน",
+                                       lambda: self.export("xlsx"), "success"))
+        buttons.addWidget(self._button("ส่งออกทั้ง PDF + Excel",
+                                       self.export_report_pair))
+        group.addLayout(buttons)
+        text = self._label(
+            "PDF: A4 แนวนอน พร้อมเลขหน้าและภาคผนวก  |  "
+            "Excel: แยกชีตสรุป อุปกรณ์ สเปก สายไฟ และจัดซื้อ พร้อมสูตรคำนวณ", "hint")
+        text.setWordWrap(True)
+        group.addWidget(text)
+
+        group = self._panel("2  บันทึกและซิงก์ GitHub", body)
         row = QHBoxLayout()
         row.addWidget(self._button("โหลดข้อมูลล่าสุด", self.load_remote))
         row.addWidget(self._button("บันทึกเป็น GitHub Commit", self.save_remote, "primary"))
-        row.addWidget(self._button("ตั้งค่า GitHub Token", self.configure_token))
-        row.addWidget(self._button("ประวัติ Commit", self.show_history))
-        row.addStretch()
-        group.addLayout(row)
-        group.addWidget(self._label(
-            "แอปอ่านและเขียนไฟล์ bom-manager/bom.json ชุดเดียวกับหน้าเว็บเดิม  •  Token เก็บใน Windows Credential Manager", "caption"))
-
-        group = self._panel("ส่งออกรายงาน", body)
-        row = QHBoxLayout()
-        for kind, label in [("xlsx", "Excel (.xlsx)"), ("pdf", "PDF ภาษาไทย"),
-                            ("csv", "CSV"), ("json", "JSON Backup"), ("drawio", "Draw.io")]:
-            row.addWidget(self._button(label, lambda _checked=False, k=kind: self.export(k)))
-        row.addStretch()
+        row.addWidget(self._button("ตั้งค่า Token", self.configure_token))
+        row.addWidget(self._button("ประวัติการแก้ไข", self.show_history))
         group.addLayout(row)
 
-        group = self._panel("นำเข้าข้อมูล / สำรองอัตโนมัติ", body)
+        group = self._panel("3  เครื่องมืออื่นและสำรองข้อมูล", body)
         row = QHBoxLayout()
+        for kind, title in [("csv","CSV"), ("json","JSON Backup"),
+                            ("drawio","Draw.io")]:
+            row.addWidget(self._button(title,
+                                       lambda _checked=False, k=kind: self.export(k)))
         row.addWidget(self._button("นำเข้า JSON Backup", self.import_backup))
         row.addWidget(self._button("เปิดโฟลเดอร์ฉบับร่าง", self.open_cache_dir))
+        group.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(self._button("ตรวจสอบโปรแกรมเวอร์ชันใหม่", self.check_version))
+        row.addWidget(self.update_btn)
+        row.addWidget(self.install_btn)
         row.addStretch()
         group.addLayout(row)
-        group.addWidget(self._label(
-            "ฉบับร่างบันทึกในเครื่องทุกครั้งที่แก้ไข หากยังไม่ Commit จะกู้คืนให้อัตโนมัติเมื่อเปิดใหม่", "caption"))
+        body.addWidget(self._label(
+            "ข้อควรทราบ: ข้อมูลราคาที่ไม่ครบจะไม่ถูกคิดเป็นศูนย์ "
+            "และรายงานไม่มีลายเซ็นอนุมัติที่ไม่ได้ให้ข้อมูล", "hint"))
         body.addStretch(1)
         return page
+
 
     def _build_diagnostics(self):
         page, body = self._page(
@@ -1298,28 +1391,68 @@ class BOMWindow(QMainWindow):
             "GET", token=self.token,
             url=f"{API}/commits?path=bom-manager%2Fbom.json&per_page=30"), display)
 
+    def _report_options(self):
+        dialog = ReportOptionsDialog(self.payload, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return dialog.values()
+
+    def export_report_pair(self):
+        options = self._report_options()
+        if options is None:
+            return
+        folder = QFileDialog.getExistingDirectory(self, "เลือกโฟลเดอร์บันทึกรายงาน PDF + Excel")
+        if not folder:
+            return
+        base = Path(folder) / ("Engineering_BOM_Report_v" + VERSION)
+        try:
+            bom_official_reports.export_pdf(self.payload, base.with_suffix(".pdf"), options)
+            bom_official_reports.export_excel(self.payload, base.with_suffix(".xlsx"), options)
+            self.debugger.event("INFO", "export", "OFFICIAL_PAIR_EXPORTED",
+                                "บันทึกรายงาน PDF และ Excel แล้ว")
+            self.set_status("ส่งออกรายงานทางการครบทั้ง PDF และ Excel")
+            QMessageBox.information(self, "ส่งออกรายงานสำเร็จ",
+                                    "สร้าง PDF และ Excel ในโฟลเดอร์ที่เลือกแล้ว")
+        except Exception as exc:
+            self.debugger.exception("export", "OFFICIAL_PAIR_FAILED", exc)
+            self._message_error("ส่งออกรายงานไม่สำเร็จ กรุณาตรวจ Debug Report")
+
     def export(self, kind):
         formats = {
-            "xlsx": ("Excel files (*.xlsx)", bom_reports.export_excel),
-            "pdf": ("PDF files (*.pdf)", bom_reports.export_pdf),
+            "xlsx": ("Excel files (*.xlsx)", bom_official_reports.export_excel),
+            "pdf": ("PDF files (*.pdf)", bom_official_reports.export_pdf),
             "csv": ("CSV files (*.csv)", bom_reports.export_csv),
             "json": ("JSON backup (*.json)", bom_reports.export_json),
             "drawio": ("Draw.io (*.drawio)", bom_reports.export_drawio),
         }
+        if kind not in formats:
+            return
+        options = None
+        if kind in ("xlsx", "pdf"):
+            options = self._report_options()
+            if options is None:
+                return
         filters, func = formats[kind]
-        path, _ = QFileDialog.getSaveFileName(
-            self, "ส่งออกรายงาน", f"CraneVehicle_BOM_{VERSION}.{kind}", filters)
+        name = ("Engineering_BOM_Report" if kind in ("xlsx","pdf") else
+                "CraneVehicle_BOM") + "_v" + VERSION + "." + kind
+        path, _ = QFileDialog.getSaveFileName(self, "ส่งออกรายงาน",
+                                              name, filters)
         if not path:
             return
         try:
-            func(self.payload, path)
+            if kind in ("xlsx","pdf"):
+                func(self.payload, path, options)
+            else:
+                func(self.payload, path)
             self.debugger.event("INFO", "export", "EXPORT_OK",
                                 f"ส่งออกรายงานประเภท {kind} สำเร็จ")
             self.set_status("ส่งออกสำเร็จ: " + path)
-            QMessageBox.information(self, "ส่งออกสำเร็จ", "บันทึกไฟล์แล้ว:\n" + path)
+            QMessageBox.information(self, "ส่งออกสำเร็จ",
+                                    "บันทึกไฟล์แล้ว:\n" + path)
         except Exception as exc:
             self.debugger.exception("export", "EXPORT_FAILED", exc)
             self._message_error(f"ส่งออก {kind} ไม่สำเร็จ: {type(exc).__name__}")
+
 
     def import_backup(self):
         path, _ = QFileDialog.getOpenFileName(self, "เลือก JSON Backup", "", "JSON files (*.json)")
