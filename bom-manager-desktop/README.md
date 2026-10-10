@@ -142,3 +142,24 @@ GitHub Actions จะทดสอบ UI ด้วย Qt `offscreen` ก่อน
 และ Inno Setup แล้วจึงเผยแพร่ GitHub Release แยก `bom-v1.4.0`
 
 หมายเหตุ: `app.py` เป็นส่วน Tkinter รุ่นเก่าเพื่ออ้างอิง/ทดสอบย้อนหลัง แต่ไฟล์ติดตั้ง Windows รุ่น v1.4.0 เรียก `qt_launcher.py`
+
+
+## v1.5.0 — Debug Report / System Diagnostics
+
+Industrial Dark UI มีเมนู **Debug Report** ด้านซ้ายเป็นหน้าที่ 6 สำหรับตรวจสอบปัญหาและสร้างรายงานช่วยวิเคราะห์:
+
+- **ตรวจสอบระบบตอนนี้:** ตรวจโครงสร้าง BOM, จำนวนรายการที่มี/ไม่มีราคา, Wiring reference, พื้นที่บันทึก Log, สถานะ GitHub Token และสถานะการโหลดข้อมูล
+- **ทดสอบเชื่อมต่อ GitHub:** ทดสอบ GitHub REST API ตามคำสั่งผู้ใช้ ไม่ส่งข้อมูล BOM ขึ้นเซิร์ฟเวอร์
+- **ประวัติ Error:** บันทึกเหตุการณ์ GitHub load/save, export, update และ exception จาก background jobs ลงไฟล์ในเครื่อง
+- **ส่งออก Debug Report (.json):** มีเวอร์ชันแอป, ข้อมูล OS/Python, จำนวนอุปกรณ์รวม, ผลตรวจและเหตุการณ์ล่าสุด 150 รายการ
+- **เปิดโฟลเดอร์ Log** และ **ล้าง Log** มีปุ่มแยก พร้อมยืนยันก่อนลบ
+- Log จำกัดขนาดประมาณ 1 MB ต่อไฟล์ มี 1 ไฟล์ย้อนหลัง (`events.previous.jsonl`); การเขียน Log ล้มเหลวไม่ทำให้แอปหยุด
+- Debug Report ไม่บันทึก BOM รายแถว, ชื่ออุปกรณ์, ลิงก์ผู้ขาย, GitHub Token หรือ credential ของผู้ใช้
+- สตริงเหตุการณ์และ traceback ถูกลบ token/password/email/user paths ก่อนเก็บในเครื่องและก่อน export
+- การส่ง Debug Report เป็นไฟล์ในเครื่องตามที่ผู้ใช้เลือก **ไม่อัปโหลดอัตโนมัติ**
+
+**ตำแหน่ง Log (Windows):** `%LOCALAPPDATA%\CraneVehicleBOMManager\debug`
+
+**วิธีส่งข้อผิดพลาดให้ตรวจ:** เข้าเมนู Debug Report → กดตรวจสอบระบบ → หากเกี่ยวกับ GitHub กดทดสอบเชื่อมต่อ → กดส่งออก JSON → เปิดไฟล์ตรวจเนื้อหา → แนบรายงานในแชทนี้
+
+**สำคัญ:** GitHub Token ยังคงอยู่ใน Windows Credential Manager (ไม่ฝังใน Debug Report) ข้อมูล BOM ที่ทำค้างอยู่ยังบันทึกใน `draft.json` เหมือนเดิม และ Debug Report ไม่เปลี่ยนสูตรคำนวณต้นทุน
