@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T21:59:55+00:00",
+  "updatedAt": "2026-10-10T22:01:02+00:00",
   "currency": "THB",
   "items": [
     {
@@ -253,12 +253,12 @@
     {
       "id": "19",
       "category": "ระบบควบคุมและสื่อสาร",
-      "name": "ตัวรับ RC — FlySky FS-iA6B (เลือกเป็นชุดคู่กับ FS-i6X)",
+      "name": "ตัวรับ RC — FlySky FS-iA10B (เลือกเป็นชุดคู่กับ FS-i6X)",
       "spec": "รับคำสั่งจากรีโมทแล้วส่งให้ ESP32 | ไฟเลี้ยง: แรงดันตามคู่มือ receiver",
       "qty": 1,
       "unit": "ชุด/ตัว",
       "connection": "แนะนำ output iBUS หาก receiver รุ่นที่เลือกมีให้ | GPIO/จุดต่อ: GPIO RX ยังไม่กำหนด",
-      "unitPrice": null,
+      "unitPrice": 1899.0,
       "link": "https://shopee.co.th/%E0%B8%A7%E0%B8%B4%E0%B8%97%E0%B8%A2%E0%B8%B8%E0%B8%9A%E0%B8%B1%E0%B8%87%E0%B8%84%E0%B8%B1%E0%B8%9A-Flysky-FS-i6X-2.4GHz10CH-%E0%B8%9E%E0%B8%A3%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%95%E0%B8%B1%E0%B8%A7%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%AA%E0%B8%B1%E0%B8%8D%E0%B8%8D%E0%B8%B2%E0%B8%93-FS-iA6B-%E0%B9%81%E0%B8%A5%E0%B8%B0-FS-iA10B-%E0%B8%AA%E0%B8%B3%E0%B8%AB%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%A3%E0%B8%96-%E0%B8%AE%E0%B8%AD-%E0%B9%80%E0%B8%84%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%E0%B8%9A%E0%B8%B4%E0%B8%99-%E0%B9%82%E0%B8%94%E0%B8%A3%E0%B8%99%28%E0%B8%AA%E0%B9%88%E0%B8%87%E0%B8%88%E0%B8%B2%E0%B8%81%E0%B8%81%E0%B8%A3%E0%B8%B8%E0%B8%87%E0%B9%80%E0%B8%97%E0%B8%9E%29-i.553680739.26265727576",
       "status": "ตัวเลือกที่แนะนำ; ยืนยันร้านส่งรุ่น FS-iA6B",
       "notes": "ตรวจว่า receiver มี iBUS output ที่ใช้ได้จริง, ตั้ง failsafe ให้ตัดคำสั่งขับเมื่อสัญญาณหาย และทดสอบ output level ก่อนต่อ ESP32",
