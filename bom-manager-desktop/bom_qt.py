@@ -186,10 +186,22 @@ class RecordDialog(QDialog):
             val = self.values.get(key)
             if key == "category":
                 control = QComboBox()
-                control.setEditable(True)
+                control.setEditable(False)
                 control.addItems(list(bom_categories.CATEGORY_OPTIONS))
-                control.setCurrentText(str(val or bom_categories.UNCATEGORIZED))
-                control.setToolTip("เลือกหมวดมาตรฐาน หรือพิมพ์หมวดใหม่เองได้")
+                # Keep categories from older BOM files selectable, never discard them.
+                categories_in_document = []
+                if parent is not None and hasattr(parent, "payload"):
+                    categories_in_document = bom_categories.sorted_categories(
+                        item.get("category") for item in
+                        parent.payload.get("items", []))
+                for category in categories_in_document:
+                    if control.findText(category) < 0:
+                        control.addItem(category)
+                current = str(val or bom_categories.UNCATEGORIZED)
+                if control.findText(current) < 0:
+                    control.addItem(current)
+                control.setCurrentText(current)
+                control.setToolTip("คลิกเลือกหมวดอุปกรณ์จากรายการ ไม่ต้องพิมพ์เอง")
             elif key in MULTILINE:
                 control = QPlainTextEdit()
                 control.setPlainText("" if val is None else str(val))
