@@ -35,6 +35,7 @@ import bom_reports
 import bom_official_reports
 import bom_advanced
 import bom_import_excel
+import bom_purchase_pdf
 import bom_debug
 import bom_qt_theme as theme
 import updater
@@ -391,6 +392,7 @@ class BOMWindow(QMainWindow):
         self.payload = {"schemaVersion": 1, "project": "รถไฟฟ้าพร้อมเครน",
                         "currency": "THB", "items": []}
         self.sha = None
+        self.base_payload = None  # shared GitHub ancestor for three-way merge
         self.dirty = False
         self.revision = 0
         self.edit_dialog_active = False
@@ -457,6 +459,9 @@ class BOMWindow(QMainWindow):
             bom_core.ensure_doc(data["payload"])
             self.payload = data["payload"]
             self.sha = data.get("sha")
+            self.base_payload = data.get("base_payload")
+            if not data.get("dirty") and self.base_payload is None:
+                self.base_payload = copy.deepcopy(self.payload)
             self.dirty = bool(data.get("dirty"))
         except (OSError, KeyError, TypeError, ValueError):
             return
@@ -464,6 +469,7 @@ class BOMWindow(QMainWindow):
     def _write_cache(self):
         temp = self.cache_path.with_suffix(".tmp")
         data = {"payload": self.payload, "sha": self.sha, "dirty": self.dirty,
+                "base_payload": self.base_payload,
                 "savedAt": datetime.now(timezone.utc).isoformat()}
         try:
             with open(temp, "w", encoding="utf-8") as output:
@@ -1560,6 +1566,7 @@ class BOMWindow(QMainWindow):
                 self._refresh_sync_state()
                 return
             self.payload, self.sha = result
+            self.base_payload = copy.deepcopy(self.payload)
             self.last_github_sync_at = datetime.now(timezone.utc)
             self.last_git_ok = True
             self.revision += 1
@@ -1836,6 +1843,7 @@ class BOMWindow(QMainWindow):
                                 "· เก็บฉบับร่างในเครื่องไว้ ไม่โหลดทับ")
                 return
             self.payload, self.sha = result
+            self.base_payload = copy.deepcopy(self.payload)
             self.last_github_sync_at = datetime.now(timezone.utc)
             self.last_git_ok = True
             self.debugger.event("INFO", "github", "BOM_LOADED",
@@ -1945,6 +1953,7 @@ class BOMWindow(QMainWindow):
                 return
             result = data["result"]
             self.sha = result["content"]["sha"]
+            self.base_payload = copy.deepcopy(snapshot)
             self.last_github_sync_at = datetime.now(timezone.utc)
             self.sync_paused_conflict = False
             self.last_git_ok = True
