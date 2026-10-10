@@ -45,7 +45,11 @@ def normalize_path(path: str) -> str:
 
 
 def canonical_state_hash(state: Dict[str, Any]) -> str:
-    raw = json.dumps(state, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    # saved_at changes on every local autosave and must not create meaningless
+    # GitHub commits. Hash the engineering/project content, not the clock.
+    normalized = dict(state or {})
+    normalized.pop("saved_at", None)
+    raw = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
 
 
