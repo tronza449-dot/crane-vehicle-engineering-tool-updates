@@ -232,13 +232,13 @@ def unprotect_secret(encoded: str) -> str:
 
 def cloud_config_defaults() -> Dict[str, Any]:
     return {
-        "enabled": False,
+        "enabled": True,
         "repo": DEFAULT_REPO,
         "branch": DEFAULT_BRANCH,
         "path": DEFAULT_PATH,
         "auto_pull": True,
         "auto_push": True,
-        "poll_seconds": 120,
+        "poll_seconds": 90,
         "device_id": default_device_id(),
         "token_dpapi": "",
         "last_remote_sha": "",
