@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 import keyring
 import updater
+import bom_core
 
 
 APP_VERSION = updater.current_version()
@@ -23,7 +24,8 @@ FIELDS = [
     ("category", "กลุ่ม"), ("name", "รายการ / รุ่น"), ("spec", "รายละเอียด / สเปก"),
     ("qty", "จำนวน"), ("unit", "หน่วย"), ("connection", "การต่อ / GPIO / สื่อสาร"),
     ("unitPrice", "ราคาต่อหน่วย (บาท)"), ("link", "ลิงก์สินค้า"),
-    ("status", "สถานะ"), ("notes", "หมายเหตุ"),
+    ("status", "สถานะ"), ("supplier", "ร้านค้า/ผู้ขาย"),
+    ("partNumber", "รหัส Part Number"), ("notes", "หมายเหตุ"),
 ]
 
 
@@ -83,6 +85,11 @@ class ItemDialog(tk.Toplevel):
             values["unitPrice"] = float(price) if price else None
         except ValueError:
             messagebox.showerror("ข้อมูลไม่ถูกต้อง", "จำนวนและราคาต้องเป็นตัวเลข", parent=self)
+            return
+        try:
+            values = bom_core.normalize_dialog_values(values)
+        except bom_core.DataError as exc:
+            messagebox.showerror("ข้อมูลไม่ถูกต้อง", str(exc), parent=self)
             return
         self.result = values
         self.destroy()
@@ -295,7 +302,7 @@ class BOMApp(tk.Tk):
         dialog = ItemDialog(self, item)
         self.wait_window(dialog)
         if dialog.result is not None:
-            self.payload["items"][idx] = {"id": item.get("id", str(idx + 1)), **dialog.result}
+            self.payload["items"][idx] = {**item, **dialog.result}
             self.dirty = True
             self.refresh_table()
             self.tree.selection_set(str(idx))
@@ -473,4 +480,6 @@ class BOMApp(tk.Tk):
 
 
 if __name__ == "__main__":
-    BOMApp().mainloop()
+    from bom_ui import make_app
+    EnhancedApp = make_app(BOMApp, ItemDialog, api_request, APP_VERSION, API_URL, SERVICE)
+    EnhancedApp().mainloop()
