@@ -103,6 +103,12 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
     QLabel#heroTitle { color: #133B70; font-size: 22px; font-weight: 800; }
     QLabel#heroSubtitle { color: #2C526E; font-size: 14px; font-weight: 600; }
     QLabel#categoryCount { color: #1768D2; font-size: 20px; font-weight: 800; }
+    /* Compact, legible action center for desktop and 125%-scaled Windows. */
+    QLabel#syncPill {
+        color: #176349; background: #E3F5EB; border: 1px solid #BEE6D2;
+        padding: 8px 11px; border-radius: 10px; font-size: 13px;
+        font-weight: 700;
+    }
 
     QPushButton {
         background: #FFFFFF; border: 1px solid #D2DDE8; color: #263E55;
@@ -127,6 +133,18 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
     QPushButton#nav[active="true"] {
         background: #1768D2; color: #FFFFFF; border: 1px solid #1768D2;
         font-weight: 800;
+    }
+    QPushButton#taskAction {
+        background: #FAFCFF; border: 1px solid #DCE5F0; color: #20435E;
+        border-radius: 10px; text-align: left; padding: 13px 16px;
+        font-size: 14px; font-weight: 700; min-height: 36px;
+    }
+    QPushButton#taskAction:hover {
+        border: 1px solid #8DB9EE; background: #EDF5FF; color: #104D95;
+    }
+    QPushButton#taskAction:pressed { background: #DDEEFF; }
+    QPushButton#taskAction:disabled {
+        color: #61738A; background: #F5F8FB; border: 1px solid #E5EAF1;
     }
     QPushButton#categoryAction {
         background: #F7FAFE; border: 1px solid #E0E8F2; color: #224664;
