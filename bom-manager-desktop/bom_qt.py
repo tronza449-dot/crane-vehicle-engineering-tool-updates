@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 
 import bom_core
 import bom_reports
+import bom_debug
 import bom_qt_theme as theme
 import updater
 
@@ -222,8 +223,9 @@ class RecordDialog(QDialog):
 
 
 class BOMWindow(QMainWindow):
-    def __init__(self, auto_load=True):
+    def __init__(self, auto_load=True, debugger=None):
         super().__init__()
+        self.debugger = debugger or bom_debug.DebugReporter(version=VERSION)
         self.setWindowTitle(f"Crane Vehicle BOM Manager — Industrial Dark v{VERSION}")
         self.resize(1540, 930)
         self.setMinimumSize(1160, 730)
@@ -234,15 +236,24 @@ class BOMWindow(QMainWindow):
         self.revision = 0
         self.busy = False
         self.jobs = set()
-        self.token = keyring.get_password(SERVICE, "github-token")
+        try:
+            self.token = keyring.get_password(SERVICE, "github-token")
+        except Exception as exc:
+            self.token = None
+            self.debugger.exception("credentials", "CREDENTIAL_READ_FAILED", exc)
+        if self.token:
+            self.debugger.register_secret(self.token)
         self.update_info = None
         self.downloading = False
         self.cancel_download = threading.Event()
         self.cache_path = self._cache_path()
         self.nav_buttons = []
+        self.last_git_ok = False
         self._make_ui()
         self._read_cache()
         self.render_all()
+        self.debugger.event("INFO", "application", "APP_STARTED",
+                            f"Industrial Dark desktop v{VERSION} started")
         if auto_load:
             if self.dirty:
                 self.set_status("กู้คืนข้อมูลฉบับร่างที่ยังไม่ได้บันทึก GitHub — กรุณาตรวจสอบก่อนโหลดทับ")
@@ -320,6 +331,7 @@ class BOMWindow(QMainWindow):
             "⌁   Wiring Manager",
             "▤   จัดซื้อ / Purchasing",
             "⇄   GitHub และส่งออก",
+            "☷   Debug Report",
         ]
         for i, name in enumerate(labels):
             button = self._button(name, lambda _checked=False, n=i: self.show_page(n))
@@ -366,6 +378,7 @@ class BOMWindow(QMainWindow):
         self.stack.addWidget(self._build_wiring())
         self.stack.addWidget(self._build_purchases())
         self.stack.addWidget(self._build_sync())
+        self.stack.addWidget(self._build_diagnostics())
         right.addWidget(self.stack, 1)
 
         footer = QHBoxLayout()
@@ -558,8 +571,140 @@ class BOMWindow(QMainWindow):
         body.addStretch(1)
         return page
 
+    def _build_diagnostics(self):
+        page, body = self._page(
+            "Debug Report / ตรวจสอบระบบ",
+            "DIAGNOSTICS  /  ตรวจสถานะโปรแกรมและส่งออกรายงานแบบไม่เปิดเผย GitHub Token")
+        row = QHBoxLayout()
+        row.addWidget(self._button("ตรวจสอบระบบตอนนี้", self.refresh_diagnostics, "primary"))
+        row.addWidget(self._button("ทดสอบเชื่อมต่อ GitHub", self.debug_check_github))
+        row.addWidget(self._button("ส่งออก Debug Report (.json)", self.export_debug))
+        row.addStretch()
+        body.addLayout(row)
+        summary = self._panel("สถานะการตรวจสอบ", body)
+        self.debug_summary = self._label("กำลังเตรียมข้อมูล", "caption")
+        summary.addWidget(self.debug_summary)
+        self.debug_checks = self._table(["ตรวจสอบ", "ผล", "รายละเอียด"], 2)
+        self.debug_checks.setMaximumHeight(260)
+        self.debug_checks.setColumnWidth(0, 205)
+        self.debug_checks.setColumnWidth(1, 90)
+        summary.addWidget(self.debug_checks)
+        events = self._panel("บันทึกเหตุการณ์ล่าสุด (เก็บเฉพาะข้อมูลเทคนิค)", body, stretch=1)
+        self.debug_events = self._table(["เวลา UTC", "ระดับ", "ระบบ", "รหัส", "รายละเอียด"], 4)
+        self.debug_events.setColumnWidth(0, 178)
+        self.debug_events.setColumnWidth(1, 75)
+        self.debug_events.setColumnWidth(2, 125)
+        self.debug_events.setColumnWidth(3, 195)
+        events.addWidget(self.debug_events)
+        extra = QHBoxLayout()
+        extra.addWidget(self._button("เปิดโฟลเดอร์ Log", self.open_log_dir))
+        extra.addWidget(self._button("ล้าง Log ในเครื่อง", self.clear_debug_logs, "danger"))
+        extra.addStretch()
+        events.addLayout(extra)
+        body.addWidget(self._label(
+            "ความเป็นส่วนตัว: รายงานไม่มี GitHub Token, รายละเอียด BOM รายชิ้น หรือรหัสผ่าน "
+            "· บันทึกเฉพาะสรุปจำนวนรายการและเหตุการณ์ระบบ · ไม่อัปโหลดรายงานอัตโนมัติ", "hint"))
+        return page
+
+    def _debug_state(self):
+        return {
+            "dirty": self.dirty,
+            "remote_loaded": self.sha is not None,
+            "github_token_present": bool(self.token),
+        }
+
+    def refresh_diagnostics(self):
+        data = self.debugger.snapshot(self.payload, **self._debug_state())
+        checks = data["checks"]
+        self.debug_checks.setRowCount(len(checks))
+        for i, item in enumerate(checks):
+            color = {"PASS": "#29D7A3", "WARN": "#F5BA55",
+                     "FAIL": "#FF7891"}.get(item["status"], "#AFC2D8")
+            for col, key in enumerate(("name", "status", "detail")):
+                cell = QTableWidgetItem(item[key])
+                if key == "status":
+                    cell.setForeground(QBrush(QColor(color)))
+                self.debug_checks.setItem(i, col, cell)
+        logs = data["events"]
+        self.debug_events.setRowCount(len(logs))
+        for i, item in enumerate(reversed(logs)):
+            values = [item.get(k, "") for k in
+                      ("timestamp", "level", "area", "code", "message")]
+            for col, value in enumerate(values):
+                cell = QTableWidgetItem(value)
+                if col == 1:
+                    cell.setForeground(QBrush(QColor(
+                        "#FF7891" if value == "ERROR" else
+                        "#F5BA55" if value == "WARN" else "#AFC2D8")))
+                self.debug_events.setItem(i, col, cell)
+        errors = sum(e.get("level") == "ERROR" for e in logs)
+        warns = sum(x["status"] == "WARN" for x in checks)
+        fails = sum(x["status"] == "FAIL" for x in checks)
+        self.debug_summary.setText(
+            f"ระบบ: {len(checks)} รายการตรวจสอบ · FAIL {fails} / WARN {warns} "
+            f"· เหตุการณ์ {len(logs)} รายการ (ERROR {errors}) · "
+            f"{'ข้อมูลยังไม่บันทึก GitHub' if self.dirty else 'ข้อมูลไม่มีการแก้ไขค้าง'}")
+        return data
+
+    def debug_check_github(self):
+        self.set_status("กำลังทดสอบ GitHub API โดยไม่ส่งข้อมูล BOM…")
+        def success(_):
+            self.last_git_ok = True
+            self.debugger.event("INFO", "github", "CONNECTIVITY_OK",
+                                "GitHub API ตอบกลับสำเร็จ")
+            self.set_status("ตรวจสอบ GitHub API ผ่าน")
+            self.refresh_diagnostics()
+        def failed(msg):
+            self.last_git_ok = False
+            self.debugger.event("ERROR", "github", "CONNECTIVITY_FAILED", msg)
+            self._message_error(msg)
+            self.refresh_diagnostics()
+        self._job(lambda: github_api("GET", token=self.token, url=API),
+                  success, failed, context="github")
+
+    def export_debug(self):
+        filename = f"BOM_Debug_Report_v{VERSION}.json"
+        path, _ = QFileDialog.getSaveFileName(
+            self, "บันทึก Debug Report", filename, "JSON report (*.json)")
+        if not path:
+            return
+        try:
+            self.debugger.export_json(path, self.payload, **self._debug_state())
+        except Exception as exc:
+            self.debugger.exception("diagnostics", "REPORT_EXPORT_FAILED", exc)
+            self._message_error("ส่งออก Debug Report ไม่สำเร็จ")
+            return
+        self.refresh_diagnostics()
+        self.set_status("สร้าง Debug Report เรียบร้อย (ไม่ได้อัปโหลด GitHub)")
+        QMessageBox.information(self, "ส่งออก Debug Report สำเร็จ",
+                                "ไฟล์ถูกบันทึกไว้ในเครื่องตามที่คุณเลือก\n"
+                                "ตรวจเนื้อหาก่อนส่งให้ผู้อื่นได้")
+
+    def open_log_dir(self):
+        path = self.debugger.folder
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            if sys.platform == "win32":
+                os.startfile(str(path))
+            else:
+                webbrowser.open(path.as_uri())
+        except OSError as exc:
+            self._message_error(f"เปิดโฟลเดอร์ Log ไม่สำเร็จ: {type(exc).__name__}")
+
+    def clear_debug_logs(self):
+        if QMessageBox.question(self, "ยืนยันล้าง Log",
+                "ลบบันทึกข้อผิดพลาดเก่าในเครื่องหรือไม่?\n"
+                "ข้อมูล BOM และ GitHub จะไม่ถูกลบ") != QMessageBox.StandardButton.Yes:
+            return
+        self.debugger.clear_logs()
+        self.debugger.event("INFO", "diagnostics", "LOGS_CLEARED",
+                            "ล้าง Log เก่าในเครื่องแล้ว")
+        self.refresh_diagnostics()
+
     def show_page(self, number):
         self.stack.setCurrentIndex(number)
+        if number == 5:
+            self.refresh_diagnostics()
         for i, button in enumerate(self.nav_buttons):
             button.setProperty("active", number == i)
             button.style().unpolish(button)
@@ -585,6 +730,8 @@ class BOMWindow(QMainWindow):
         self.render_bom()
         self.render_wiring()
         self.render_purchases()
+        if hasattr(self, "debug_checks"):
+            self.refresh_diagnostics()
         self.data_status.setText(
             f"{'ยังไม่ได้ส่งขึ้น GitHub' if self.dirty else 'GitHub'}  •  {len(self.payload.get('items', []))} รายการ")
 
@@ -697,6 +844,8 @@ class BOMWindow(QMainWindow):
         self.dirty = True
         self.revision += 1
         self._write_cache()
+        self.debugger.event("INFO", "bom", "LOCAL_DRAFT_UPDATED",
+                            "ฉบับร่างถูกแก้ไขและบันทึกในเครื่อง")
         self.render_all()
         self.set_status("บันทึกฉบับร่างในเครื่องแล้ว · กดบันทึก GitHub เพื่อแชร์ไปเครื่องอื่น")
 
@@ -811,11 +960,16 @@ class BOMWindow(QMainWindow):
         layout.addWidget(self._button("ปิด", dialog.accept))
         dialog.exec()
 
-    def _job(self, task, on_success, on_error=None):
+    def _job(self, task, on_success, on_error=None, context="background"):
         job = Job(task, self)
         self.jobs.add(job)
         job.succeeded.connect(on_success)
-        job.failed.connect(on_error or (lambda msg: self._message_error(msg)))
+        def job_failed(message):
+            self.debugger.event("ERROR", context, "BACKGROUND_JOB_FAILED", message)
+            (on_error or self._message_error)(message)
+            if hasattr(self, "debug_events"):
+                self.refresh_diagnostics()
+        job.failed.connect(job_failed)
         job.finished.connect(lambda j=job: self.jobs.discard(j))
         job.start()
 
@@ -835,13 +989,21 @@ class BOMWindow(QMainWindow):
         if not token:
             QMessageBox.warning(self, "Token ว่าง", "กรุณากรอก GitHub Token")
             return
+        self.debugger.register_secret(token)
         self.set_status("กำลังตรวจสิทธิ์ GitHub Token…")
         def success(_result):
-            keyring.set_password(SERVICE, "github-token", token)
+            try:
+                keyring.set_password(SERVICE, "github-token", token)
+            except Exception as exc:
+                self.debugger.exception("credentials", "CREDENTIAL_SAVE_FAILED", exc)
+                self._message_error("ไม่สามารถบันทึก Token ใน Windows Credential Manager")
+                return
             self.token = token
+            self.debugger.event("INFO", "credentials", "TOKEN_CONFIGURED",
+                                "ตั้งค่า GitHub Credential เรียบร้อย")
             self.set_status("ตรวจ Token และเก็บใน Windows Credential Manager แล้ว")
             QMessageBox.information(self, "เชื่อม GitHub สำเร็จ", "บันทึก GitHub Token อย่างปลอดภัยแล้ว")
-        self._job(lambda: github_api("GET", token=token), success)
+        self._job(lambda: github_api("GET", token=token), success, context="github")
 
     def load_remote(self, silent=False):
         if self.busy:
@@ -863,6 +1025,9 @@ class BOMWindow(QMainWindow):
         def success(result):
             self.busy = False
             self.payload, self.sha = result
+            self.last_git_ok = True
+            self.debugger.event("INFO", "github", "BOM_LOADED",
+                                "โหลดข้อมูล BOM จาก GitHub สำเร็จ")
             self.dirty = False
             self.revision += 1
             self._write_cache()
@@ -870,10 +1035,11 @@ class BOMWindow(QMainWindow):
             self.set_status("โหลดข้อมูลล่าสุดจาก GitHub สำเร็จ")
         def failed(message):
             self.busy = False
+            self.last_git_ok = False
             self.set_status("ใช้ข้อมูลฉบับร่างในเครื่อง · โหลด GitHub ไม่สำเร็จ")
             if not silent:
                 self._message_error(message)
-        self._job(work, success, failed)
+        self._job(work, success, failed, context="github")
 
     def save_remote(self):
         if self.busy:
@@ -913,6 +1079,9 @@ class BOMWindow(QMainWindow):
             self.busy = False
             self.sync_btn.setEnabled(True)
             self.sha = result["content"]["sha"]
+            self.last_git_ok = True
+            self.debugger.event("INFO", "github", "BOM_COMMITTED",
+                                "บันทึก GitHub Commit สำเร็จ")
             if rev == self.revision:
                 self.payload = snapshot
                 self.dirty = False
@@ -926,7 +1095,7 @@ class BOMWindow(QMainWindow):
             self.busy = False
             self.sync_btn.setEnabled(True)
             self._message_error(msg)
-        self._job(work, finish, failed)
+        self._job(work, finish, failed, context="github")
 
     def show_history(self):
         self.set_status("กำลังอ่าน GitHub Commit History…")
@@ -972,10 +1141,13 @@ class BOMWindow(QMainWindow):
             return
         try:
             func(self.payload, path)
+            self.debugger.event("INFO", "export", "EXPORT_OK",
+                                f"ส่งออกรายงานประเภท {kind} สำเร็จ")
             self.set_status("ส่งออกสำเร็จ: " + path)
             QMessageBox.information(self, "ส่งออกสำเร็จ", "บันทึกไฟล์แล้ว:\n" + path)
         except Exception as exc:
-            self._message_error(str(exc))
+            self.debugger.exception("export", "EXPORT_FAILED", exc)
+            self._message_error(f"ส่งออก {kind} ไม่สำเร็จ: {type(exc).__name__}")
 
     def import_backup(self):
         path, _ = QFileDialog.getOpenFileName(self, "เลือก JSON Backup", "", "JSON files (*.json)")
@@ -1011,6 +1183,8 @@ class BOMWindow(QMainWindow):
         def success(info):
             self.update_btn.setEnabled(True)
             self.update_info = info
+            self.debugger.event("INFO", "updater", "VERSION_CHECK_OK",
+                                "พบเวอร์ชันใหม่" if info else "ใช้เวอร์ชันล่าสุด")
             self.install_btn.setEnabled(info is not None)
             self.set_status(f"พบเวอร์ชันใหม่ v{info['version']}" if info
                             else f"BOM Manager v{VERSION} เป็นเวอร์ชันล่าสุด")
@@ -1022,7 +1196,7 @@ class BOMWindow(QMainWindow):
             self.set_status("ตรวจเวอร์ชันไม่ได้ · " + msg.splitlines()[0])
             if not silent:
                 self._message_error(msg)
-        self._job(lambda: updater.find_update(VERSION), success, failed)
+        self._job(lambda: updater.find_update(VERSION), success, failed, context="updater")
 
     def install_update(self):
         if self.downloading or not self.update_info or self.busy:
@@ -1109,10 +1283,12 @@ class BOMWindow(QMainWindow):
 
 
 def main():
+    reporter = bom_debug.DebugReporter(version=VERSION)
+    bom_debug.install_hooks(reporter)
     app = QApplication(sys.argv)
     app.setApplicationName("Crane Vehicle BOM Manager")
     theme.apply_theme(app)
-    window = BOMWindow()
+    window = BOMWindow(debugger=reporter)
     window.show()
     return app.exec()
 
