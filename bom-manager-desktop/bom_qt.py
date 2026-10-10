@@ -19,7 +19,7 @@ from urllib.request import Request, urlopen
 
 import keyring
 from PySide6.QtCore import QThread, Signal, Qt, QRectF
-from PySide6.QtGui import QBrush, QColor, QFont, QPen
+from PySide6.QtGui import QBrush, QColor, QFont, QPen, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QFrame, QGraphicsScene, QGraphicsView, QGridLayout, QHBoxLayout,
@@ -231,8 +231,8 @@ class BOMWindow(QMainWindow):
         super().__init__()
         self.debugger = debugger or bom_debug.DebugReporter(version=VERSION)
         self.setWindowTitle(f"Crane Vehicle BOM Manager — Industrial Dark v{VERSION}")
-        self.resize(1540, 930)
-        self.setMinimumSize(1160, 730)
+        self.resize(1580, 960)
+        self.setMinimumSize(1180, 750)
         self.payload = {"schemaVersion": 1, "project": "รถไฟฟ้าพร้อมเครน",
                         "currency": "THB", "items": []}
         self.sha = None
@@ -252,8 +252,10 @@ class BOMWindow(QMainWindow):
         self.cancel_download = threading.Event()
         self.cache_path = self._cache_path()
         self.nav_buttons = []
+        self.zoom_factor = theme.current_scale()
         self.last_git_ok = None
         self._make_ui()
+        self._setup_readability()
         self._read_cache()
         self.render_all()
         self.debugger.event("INFO", "application", "APP_STARTED",
@@ -321,7 +323,7 @@ class BOMWindow(QMainWindow):
 
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(246)
+        sidebar.setFixedWidth(282)
         left = QVBoxLayout(sidebar)
         left.setContentsMargins(17, 26, 17, 20)
         left.setSpacing(10)
@@ -345,6 +347,24 @@ class BOMWindow(QMainWindow):
             left.addWidget(button)
             self.nav_buttons.append(button)
         left.addStretch()
+        left.addWidget(self._label("การแสดงผล / READABILITY", "sidebarCaption"))
+        left.addWidget(self._label("ขนาดตัวอักษร", "caption"))
+        self.font_scale_selector = QComboBox()
+        for value, caption in zip(theme.SCALE_OPTIONS, theme.SCALE_LABELS):
+            self.font_scale_selector.addItem(caption, value)
+        self.font_scale_selector.setCurrentIndex(
+            theme.SCALE_OPTIONS.index(theme.current_scale()))
+        self.font_scale_selector.currentIndexChanged.connect(self.change_font_scale)
+        self.font_scale_selector.setToolTip("ปรับตัวอักษรทั้งโปรแกรม และจำค่าครั้งถัดไป")
+        left.addWidget(self.font_scale_selector)
+        left.addWidget(self._label("ฟอนต์ภาษาไทย", "caption"))
+        self.font_family_selector = QComboBox()
+        self.font_family_selector.addItems(list(theme.FONT_OPTIONS))
+        self.font_family_selector.setCurrentText(theme.current_font())
+        self.font_family_selector.currentTextChanged.connect(self.change_font_family)
+        left.addWidget(self.font_family_selector)
+        left.addWidget(self._label("Ctrl + / Ctrl -  ปรับขนาด", "sidebarCaption"))
+        left.addSpacing(13)
         left.addWidget(self._label("SYSTEM STATUS", "sidebarCaption"))
         self.connection = self._label("●  พร้อมใช้งาน", "status")
         left.addWidget(self.connection)
@@ -377,7 +397,7 @@ class BOMWindow(QMainWindow):
         right.addWidget(top)
 
         self.stack = QStackedWidget()
-        self.stack.addWidget(self._build_dashboard())
+        self.stack.addWidget(self._scrolling_dashboard(self._build_dashboard()))
         self.stack.addWidget(self._build_bom())
         self.stack.addWidget(self._build_wiring())
         self.stack.addWidget(self._build_purchases())
@@ -392,6 +412,71 @@ class BOMWindow(QMainWindow):
         footer.addWidget(self.data_status)
         right.addLayout(footer)
         layout.addWidget(content, 1)
+
+    @staticmethod
+    def _scrolling_dashboard(page):
+        """Keep the enlarged dashboard usable on 768px-high laptops."""
+        area = QScrollArea()
+        area.setWidgetResizable(True)
+        area.setFrameShape(QFrame.Shape.NoFrame)
+        area.setWidget(page)
+        return area
+
+    def _setup_readability(self):
+        for shortcut, slot in (
+            ("Ctrl++", self.increase_font_scale),
+            ("Ctrl+=", self.increase_font_scale),
+            ("Ctrl+-", self.decrease_font_scale),
+            ("Ctrl+0", self.reset_font_scale),
+        ):
+            action = QShortcut(QKeySequence(shortcut), self)
+            action.activated.connect(slot)
+        self._apply_readability_metrics()
+
+    def _apply_readability_metrics(self):
+        """Spacing follows text zoom to prevent Thai glyph clipping in rows."""
+        zoom = self.zoom_factor
+        row_h = round(53 * zoom)
+        header_h = round(49 * zoom)
+        for table in (self.category_table, self.bom_table, self.wire_table,
+                      self.purchase_table, self.debug_checks, self.debug_events):
+            table.verticalHeader().setDefaultSectionSize(row_h)
+            table.horizontalHeader().setFixedHeight(header_h)
+        for card in self.cards.values():
+            card.setMinimumHeight(round(147 * zoom))
+
+    def change_font_scale(self, index):
+        if index < 0:
+            return
+        scale = self.font_scale_selector.itemData(index)
+        if scale is None:
+            return
+        self.zoom_factor = float(scale)
+        theme.save_appearance(scale=self.zoom_factor)
+        theme.apply_theme(QApplication.instance(), scale=self.zoom_factor)
+        self._apply_readability_metrics()
+
+    def change_font_family(self, family):
+        if family not in theme.FONT_OPTIONS:
+            return
+        theme.save_appearance(font_family=family)
+        theme.apply_theme(QApplication.instance(), scale=self.zoom_factor,
+                          font_family=family)
+        self._apply_readability_metrics()
+
+    def increase_font_scale(self):
+        index = self.font_scale_selector.currentIndex()
+        if index < self.font_scale_selector.count()-1:
+            self.font_scale_selector.setCurrentIndex(index+1)
+
+    def decrease_font_scale(self):
+        index = self.font_scale_selector.currentIndex()
+        if index > 0:
+            self.font_scale_selector.setCurrentIndex(index-1)
+
+    def reset_font_scale(self):
+        self.font_scale_selector.setCurrentIndex(
+            theme.SCALE_OPTIONS.index(theme.DEFAULT_SCALE))
 
     def _page(self, title, caption):
         page = QWidget()
@@ -422,7 +507,7 @@ class BOMWindow(QMainWindow):
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.verticalHeader().setVisible(False)
-        table.verticalHeader().setDefaultSectionSize(43)
+        table.verticalHeader().setDefaultSectionSize(58)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         table.horizontalHeader().setStretchLastSection(False)
         table.horizontalHeader().setSectionResizeMode(
