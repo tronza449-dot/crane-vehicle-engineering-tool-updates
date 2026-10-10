@@ -142,6 +142,11 @@ def export_pdf(doc, destination, options=None):
     story += [Spacer(1,12),P(
         "หมายเหตุ: ราคาไม่ทราบจะแสดงเป็น — ไม่ถือว่าราคาเท่ากับศูนย์ "
         "ยอดรวมยังไม่รวมรายการที่ไม่มีราคา รวมทั้งค่าขนส่ง ภาษี และค่าแรงที่ยังไม่บันทึก",label),
+        Spacer(1,11),P("ตรวจสอบความครบถ้วนก่อนใช้จัดซื้อ",section),Spacer(1,6),
+        TABLE(["ไม่มี Part No.","ยังไม่ระบุผู้ขาย","ไม่มีแหล่งอ้างอิง","ยังไม่ทราบราคา"],
+              [[quality["part_number_missing"],quality["supplier_missing"],
+                quality["reference_missing"],quality["price_missing"]]],
+              [width*.25,width*.25,width*.25,width*.25]),
         PageBreak(),P("รายการแยกตามระบบวิศวกรรม",section),Spacer(1,6)]
     story.append(TABLE(["ระบบ / หมวดหมู่","รายการ","ไม่มีราคา","ยอดรวมที่ทราบ (บาท)"],
        [[c,n,missing,f"{amount:,.2f}"] for c,n,missing,amount in categories],
@@ -158,17 +163,27 @@ def export_pdf(doc, destination, options=None):
         for k,item in enumerate(members,1):
             unitprice=price(item.get("unitPrice"))
             qty=price(item.get("qty")) or 0
-            rows.append([k,item.get("id"),f'{item.get("name","")}\n{item.get("spec","")}',
-                         item.get("qty"),item.get("unit"),
+            rows.append([k,item.get("id"),item.get("partNumber") or "—",
+                         item.get("name",""),item.get("qty"),item.get("unit"),
                          "—" if unitprice is None else f"{unitprice:,.2f}",
                          "—" if unitprice is None else f"{qty*unitprice:,.2f}",
                          item.get("status")])
-        story.append(TABLE(["ลำดับ","ID","อุปกรณ์ / รายละเอียด","จำนวน",
-             "หน่วย","ราคา/หน่วย","รวม (บาท)","สถานะ"],
-             rows,[34,36,275,51,45,80,84,width-605]))
+        story.append(TABLE(["ลำดับ","BOM ID","Part No.","ชื่ออุปกรณ์ / รุ่น","จำนวน",
+             "หน่วย","ราคา/หน่วย","รวม (THB)","สถานะ"],
+             rows,[31,38,90,245,48,43,80,83,width-658]))
         story += [Spacer(1,12),P("ราคาไม่ทราบแสดงเป็น — และไม่รวมในยอดงบประมาณ",label),
                   PageBreak()]
-    story += [P("ภาคผนวก ข. ตารางการเดินสาย (Wiring Schedule)",section),
+    story += [P("ภาคผนวก ข. สเปกและแหล่งอ้างอิงอุปกรณ์",section),
+              P("Part Number (ถ้ามี) เป็นรหัสผู้ผลิต ส่วน BOM ID เป็นรหัสรายการในโครงการ",label),
+              Spacer(1,8)]
+    story.append(TABLE(["BOM ID","ชื่ออุปกรณ์ / รุ่น","สเปก / รายละเอียดที่บันทึก",
+                        "ผู้ขาย / แหล่งอ้างอิง"],[
+        [item.get("id"),item.get("name"),item.get("spec"),
+         ("ผู้ขาย: "+str(item.get("supplier") or "ยังไม่ระบุ")+"\n"+
+          "ที่มา: "+str(item.get("link") or "ยังไม่ระบุ"))]
+        for item in items],[46,201,260,width-507]))
+    story.append(PageBreak())
+    story += [P("ภาคผนวก ค. ตารางการเดินสาย (Wiring Schedule)",section),
               P("ข้อมูลเบื้องต้น ต้องตรวจสอบแรงดัน กระแส ฟิวส์ และ pinout ก่อนต่อวงจรจริง",label),
               Spacer(1,9)]
     story.append(TABLE(["ID","ต้นทาง","ปลายทาง","สัญญาณ / แรงดัน",
@@ -178,7 +193,7 @@ def export_pdf(doc, destination, options=None):
          w.get("cable"),w.get("protection"),w.get("status")]
         for w in doc.get("wiring",[])],[38,135,135,115,105,115,width-643]))
     story.append(PageBreak())
-    story += [P("ภาคผนวก ค. รายการจัดซื้อ (Purchasing)",section),Spacer(1,9)]
+    story += [P("ภาคผนวก ง. รายการจัดซื้อ (Purchasing)",section),Spacer(1,9)]
     story.append(TABLE(["ID","BOM ID","รายการ","ผู้ขาย","จำนวน","รวม (บาท)","สถานะ"],[
         [o.get("id"),o.get("itemId"),o.get("description"),o.get("supplier"),
          o.get("qty"),"—" if price(o.get("unitPrice")) is None
@@ -197,7 +212,7 @@ def export_pdf(doc, destination, options=None):
         canvas.setFillColor(navy)
         canvas.rect(0,page[1]-34,page[0],34,stroke=0,fill=1)
         canvas.setFillColor(colors.white);canvas.setFont(font,9)
-        canvas.drawString(32,page[1]-22,"ENGINEERING BOM  |  "+m["document_no"])
+        canvas.drawString(32,page[1]-22,"ENGINEERING BOM / DRAFT  |  "+m["document_no"][:44])
         canvas.setStrokeColor(line);canvas.line(32,34,page[0]-32,34)
         canvas.setFillColor(colors.HexColor(GREY));canvas.setFont(font,8)
         canvas.drawString(32,21,f'Rev. {m["revision"]}  |  {m["date"]}  |  รายงานประกอบการออกแบบ')
