@@ -1,0 +1,1218 @@
+{
+  "format": "CVETCloudProject",
+  "schema_version": 1,
+  "updated_at": "2026-10-10T23:29:58+00:00",
+  "device_id": "DESKTOP-GBNC5JS-070e5f28",
+  "app_version": "53.8.51",
+  "state_hash": "1685e5e197382104c8026412c28c56514744edd05c00b285c73392047cfb10f3",
+  "state": {
+    "format": "CraneVehicleEngineeringToolProject",
+    "version": "53.8.51",
+    "saved_at": "2026-10-10T16:29:58",
+    "widgets": {
+      "tm": {
+        "kind": "double",
+        "value": 300.0
+      },
+      "tgrade": {
+        "kind": "double",
+        "value": 11.11
+      },
+      "tspeed": {
+        "kind": "double",
+        "value": 1.0
+      },
+      "tmu": {
+        "kind": "double",
+        "value": 0.02
+      },
+      "tmotors": {
+        "kind": "int",
+        "value": 2
+      },
+      "twheelInch": {
+        "kind": "double",
+        "value": 16.0
+      },
+      "tradius": {
+        "kind": "double",
+        "value": 0.2032
+      },
+      "tsf": {
+        "kind": "double",
+        "value": 1.5
+      },
+      "taccel": {
+        "kind": "double",
+        "value": 5.0
+      },
+      "teff": {
+        "kind": "double",
+        "value": 85.0
+      },
+      "ttraction": {
+        "kind": "double",
+        "value": 0.7
+      },
+      "tDriveLoadFrac": {
+        "kind": "double",
+        "value": 50.0
+      },
+      "tvoltage": {
+        "kind": "double",
+        "value": 72.0
+      },
+      "tUseMain": {
+        "kind": "check",
+        "value": true
+      },
+      "motorName": {
+        "kind": "text",
+        "value": "QS 10-inch Single Shaft 1500W 72V"
+      },
+      "motorRatedPower": {
+        "kind": "double",
+        "value": 1500.0
+      },
+      "motorRatedTorque": {
+        "kind": "double",
+        "value": 110.0
+      },
+      "motorPeakTorque": {
+        "kind": "double",
+        "value": 220.0
+      },
+      "motorMaxRPM": {
+        "kind": "double",
+        "value": 600.0
+      },
+      "controllerCurrent": {
+        "kind": "double",
+        "value": 100.0
+      },
+      "powerReserve": {
+        "kind": "double",
+        "value": 1.2
+      },
+      "emass": {
+        "kind": "double",
+        "value": 300.0
+      },
+      "evolt": {
+        "kind": "double",
+        "value": 72.0
+      },
+      "espeed": {
+        "kind": "double",
+        "value": 1.0
+      },
+      "eoneway": {
+        "kind": "double",
+        "value": 30.0
+      },
+      "eslopeLen": {
+        "kind": "double",
+        "value": 2.854
+      },
+      "eslopeDeg": {
+        "kind": "double",
+        "value": 11.11
+      },
+      "eruntime": {
+        "kind": "double",
+        "value": 3.0
+      },
+      "err": {
+        "kind": "double",
+        "value": 0.02
+      },
+      "eaccel": {
+        "kind": "double",
+        "value": 5.0
+      },
+      "estops": {
+        "kind": "int",
+        "value": 0
+      },
+      "estopTime": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "euseOperationCycle": {
+        "kind": "check",
+        "value": true
+      },
+      "edriveEff": {
+        "kind": "double",
+        "value": 60.0
+      },
+      "eaux": {
+        "kind": "double",
+        "value": 50.0
+      },
+      "edod": {
+        "kind": "double",
+        "value": 80.0
+      },
+      "ereserve": {
+        "kind": "double",
+        "value": 20.0
+      },
+      "ebatteryFactor": {
+        "kind": "double",
+        "value": 3.0
+      },
+      "eTurnEnable": {
+        "kind": "check",
+        "value": false
+      },
+      "eTurnEvents": {
+        "kind": "int",
+        "value": 2
+      },
+      "eTurnAngle": {
+        "kind": "double",
+        "value": 180.0
+      },
+      "eTurnTime": {
+        "kind": "double",
+        "value": 5.0
+      },
+      "eTurnCoeff": {
+        "kind": "double",
+        "value": 0.2
+      },
+      "emotorRated": {
+        "kind": "double",
+        "value": 1500.0
+      },
+      "enmot": {
+        "kind": "int",
+        "value": 2
+      },
+      "eupEff": {
+        "kind": "double",
+        "value": 100.0
+      },
+      "euseTorqueMass": {
+        "kind": "check",
+        "value": false
+      },
+      "ecalcRadio": {
+        "kind": "radio",
+        "value": true
+      },
+      "eworstRadio": {
+        "kind": "radio",
+        "value": true
+      },
+      "bselTargetContC": {
+        "kind": "double",
+        "value": 3.0
+      },
+      "bselTargetPeakC": {
+        "kind": "double",
+        "value": 5.0
+      },
+      "eCandidateAh": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "eCandidateContA": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "eCandidatePeakA": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "wmass": {
+        "kind": "double",
+        "value": 100.0
+      },
+      "wheight": {
+        "kind": "double",
+        "value": 1.5
+      },
+      "wbasket": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "wvolt": {
+        "kind": "double",
+        "value": 12.0
+      },
+      "wrated": {
+        "kind": "double",
+        "value": 1400.0
+      },
+      "wratio": {
+        "kind": "double",
+        "value": 136.0
+      },
+      "wspeedup": {
+        "kind": "double",
+        "value": 3.12
+      },
+      "wspeeddown": {
+        "kind": "double",
+        "value": 3.12
+      },
+      "wiup": {
+        "kind": "double",
+        "value": 22.57
+      },
+      "widown": {
+        "kind": "double",
+        "value": 22.57
+      },
+      "wdod": {
+        "kind": "double",
+        "value": 80.0
+      },
+      "wreserve": {
+        "kind": "double",
+        "value": 20.0
+      },
+      "wdiameter": {
+        "kind": "double",
+        "value": 37.0
+      },
+      "wsf": {
+        "kind": "double",
+        "value": 1.5
+      },
+      "wrpmup": {
+        "kind": "double",
+        "value": 3654.84
+      },
+      "wrpmdown": {
+        "kind": "double",
+        "value": 3654.84
+      },
+      "wdrumspeed": {
+        "kind": "double",
+        "value": 37.0
+      },
+      "wgear_eff": {
+        "kind": "double",
+        "value": 100.0
+      },
+      "wpulley_eff": {
+        "kind": "double",
+        "value": 100.0
+      },
+      "wmeasuredropeup": {
+        "kind": "double",
+        "value": 3.12
+      },
+      "wmeasuredropedown": {
+        "kind": "double",
+        "value": 3.12
+      },
+      "wparts": {
+        "kind": "int",
+        "value": 1
+      },
+      "wspeedmethod": {
+        "kind": "combo",
+        "value": 0
+      },
+      "wusecalc": {
+        "kind": "check",
+        "value": true
+      },
+      "wopSpeed": {
+        "kind": "double",
+        "value": 1.0
+      },
+      "wopDistance": {
+        "kind": "double",
+        "value": 30.0
+      },
+      "wopHours": {
+        "kind": "double",
+        "value": 3.0
+      },
+      "wopEvents": {
+        "kind": "int",
+        "value": 2
+      },
+      "wopOther": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "wbVoltage": {
+        "kind": "double",
+        "value": 12.0
+      },
+      "wbEventMode": {
+        "kind": "combo",
+        "value": 0
+      },
+      "wbUseOp": {
+        "kind": "check",
+        "value": true
+      },
+      "wbEvents": {
+        "kind": "int",
+        "value": 64
+      },
+      "wbDoD": {
+        "kind": "double",
+        "value": 80.0
+      },
+      "wbReserve": {
+        "kind": "double",
+        "value": 20.0
+      },
+      "wbDownMode": {
+        "kind": "combo",
+        "value": 0
+      },
+      "wbDownBasis": {
+        "kind": "combo",
+        "value": 0
+      },
+      "wbDownCurrent": {
+        "kind": "double",
+        "value": 10.0
+      },
+      "wbDownSpeed": {
+        "kind": "double",
+        "value": 3.0
+      },
+      "wbDownTime": {
+        "kind": "double",
+        "value": 30.0
+      },
+      "wbCandidateAh": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "wbBmsCont": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "wbBmsPeak": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "wcycles": {
+        "kind": "int",
+        "value": 64
+      },
+      "massCalcMode": {
+        "kind": "combo",
+        "value": 0
+      },
+      "craneMassModeTotal": {
+        "kind": "toggle_button",
+        "value": true
+      },
+      "craneMassModeComponents": {
+        "kind": "toggle_button",
+        "value": false
+      },
+      "mt": {
+        "kind": "double",
+        "value": 300.0
+      },
+      "ml": {
+        "kind": "double",
+        "value": 100.0
+      },
+      "mb": {
+        "kind": "double",
+        "value": 20.0
+      },
+      "W": {
+        "kind": "double",
+        "value": 1.1
+      },
+      "WB": {
+        "kind": "double",
+        "value": 1.1
+      },
+      "L": {
+        "kind": "double",
+        "value": 1.2
+      },
+      "H": {
+        "kind": "double",
+        "value": 1.0
+      },
+      "xC": {
+        "kind": "double",
+        "value": 0.15
+      },
+      "xCG": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "yCG": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "driveXCG": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "th": {
+        "kind": "double",
+        "value": 90.0
+      },
+      "kd": {
+        "kind": "double",
+        "value": 1.2
+      },
+      "req": {
+        "kind": "double",
+        "value": 1.5
+      },
+      "sl": {
+        "kind": "slider",
+        "value": 90
+      },
+      "rampRiseCm": {
+        "kind": "double",
+        "value": 55.0
+      },
+      "rampRunCm": {
+        "kind": "double",
+        "value": 280.0
+      },
+      "rampMeasuredCm": {
+        "kind": "double",
+        "value": 290.0
+      },
+      "rampMass": {
+        "kind": "double",
+        "value": 300.0
+      },
+      "rampUseMainMass": {
+        "kind": "check",
+        "value": true
+      },
+      "slope": {
+        "kind": "double",
+        "value": 11.11
+      },
+      "hcg": {
+        "kind": "double",
+        "value": 0.57
+      },
+      "acc": {
+        "kind": "double",
+        "value": 0.28
+      },
+      "fbdModeCombo": {
+        "kind": "combo",
+        "value": 1
+      },
+      "fbdViewMode": {
+        "kind": "combo",
+        "value": 2
+      },
+      "fbdAuto": {
+        "kind": "check",
+        "value": true
+      },
+      "fbdSimple": {
+        "kind": "check",
+        "value": false
+      },
+      "massModeFixed": {
+        "kind": "toggle_button",
+        "value": true
+      },
+      "massModeSum": {
+        "kind": "toggle_button",
+        "value": false
+      },
+      "stabilityExportMode": {
+        "kind": "combo",
+        "value": 1
+      },
+      "designLockButton": {
+        "kind": "toggle_button",
+        "value": true
+      },
+      "engineeringPresetCombo": {
+        "kind": "combo",
+        "value": 0
+      },
+      "presetAutoCompare": {
+        "kind": "check",
+        "value": true
+      },
+      "mainSelectedAh": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "mainBMSCont": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "mainBMSPeak": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "winchSelectedAh": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "winchBMSCont": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "winchBMSPeak": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "wDutyAllowed": {
+        "kind": "double",
+        "value": 20.0
+      },
+      "wDutyRest": {
+        "kind": "double",
+        "value": 120.0
+      },
+      "wMaxContinuous": {
+        "kind": "double",
+        "value": 60.0
+      },
+      "whatIfBaseMass": {
+        "kind": "double",
+        "value": 180.0
+      },
+      "whatIfPayload": {
+        "kind": "double",
+        "value": 200.0
+      },
+      "whatIfBoomMass": {
+        "kind": "double",
+        "value": 20.0
+      },
+      "whatIfTrack": {
+        "kind": "double",
+        "value": 1.1
+      },
+      "whatIfWheelbase": {
+        "kind": "double",
+        "value": 1.1
+      },
+      "whatIfBoomLength": {
+        "kind": "double",
+        "value": 1.2
+      },
+      "whatIfCraneX": {
+        "kind": "double",
+        "value": 0.15
+      },
+      "whatIfBaseCGX": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "whatIfDriveCGX": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "whatIfHCG": {
+        "kind": "double",
+        "value": 0.57
+      },
+      "whatIfSlope": {
+        "kind": "double",
+        "value": 11.11
+      },
+      "whatIfDriveSpeed": {
+        "kind": "double",
+        "value": 1.0
+      },
+      "whatIfOperationSpeed": {
+        "kind": "double",
+        "value": 1.0
+      },
+      "whatIfLift": {
+        "kind": "double",
+        "value": 1.5
+      },
+      "whatIfWinchLoad": {
+        "kind": "double",
+        "value": 200.0
+      },
+      "whatIfLinkWinchPayload": {
+        "kind": "check",
+        "value": true
+      },
+      "whatIfQuickParam": {
+        "kind": "combo",
+        "value": 0
+      },
+      "whatIfQuickValue": {
+        "kind": "double",
+        "value": 200.0
+      },
+      "whatIfShowAdvanced": {
+        "kind": "check",
+        "value": false
+      },
+      "traceMode": {
+        "kind": "combo",
+        "value": 4
+      },
+      "safetyEStop": {
+        "kind": "check",
+        "value": false
+      },
+      "safetyRCSignal": {
+        "kind": "check",
+        "value": true
+      },
+      "safetyVescFault": {
+        "kind": "check",
+        "value": false
+      },
+      "safetyDriveEnable": {
+        "kind": "check",
+        "value": true
+      },
+      "safetyStationary05": {
+        "kind": "check",
+        "value": true
+      },
+      "safetyBatteryLow": {
+        "kind": "check",
+        "value": false
+      },
+      "safetyBatteryInhibit": {
+        "kind": "check",
+        "value": false
+      },
+      "safetyLimitLeft": {
+        "kind": "check",
+        "value": false
+      },
+      "safetyLimitRight": {
+        "kind": "check",
+        "value": false
+      },
+      "safetyWinchStationaryOnly": {
+        "kind": "check",
+        "value": false
+      },
+      "safetyThrottle": {
+        "kind": "slider",
+        "value": 0
+      },
+      "safetySteer": {
+        "kind": "slider",
+        "value": 0
+      },
+      "safetyCraneCmd": {
+        "kind": "combo",
+        "value": 0
+      },
+      "safetyWinchCmd": {
+        "kind": "combo",
+        "value": 0
+      },
+      "safetyTilt": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "safetyTiltLimit": {
+        "kind": "double",
+        "value": 22.0
+      },
+      "hwBoardProfile": {
+        "kind": "combo",
+        "value": 3
+      },
+      "hwReservedPins": {
+        "kind": "text",
+        "value": ""
+      },
+      "hwBoardVerified": {
+        "kind": "check",
+        "value": false
+      },
+      "hwAnimateCheck": {
+        "kind": "check",
+        "value": true
+      },
+      "hwMainBMS": {
+        "kind": "check",
+        "value": true
+      },
+      "hwMainFuse": {
+        "kind": "check",
+        "value": true
+      },
+      "hwEstopHardware": {
+        "kind": "check",
+        "value": true
+      },
+      "hwDc72to5": {
+        "kind": "check",
+        "value": true
+      },
+      "hwRcRegulated": {
+        "kind": "check",
+        "value": true
+      },
+      "hwLimitIsolation": {
+        "kind": "check",
+        "value": true
+      },
+      "hwBuzzerMosfet": {
+        "kind": "check",
+        "value": true
+      },
+      "hwWinchSeparate": {
+        "kind": "check",
+        "value": true
+      },
+      "hwWinchFuse": {
+        "kind": "check",
+        "value": true
+      },
+      "hwWinchContactor": {
+        "kind": "check",
+        "value": true
+      },
+      "telemetrySource": {
+        "kind": "combo",
+        "value": 2
+      },
+      "telemetryRateHz": {
+        "kind": "int",
+        "value": 10
+      },
+      "telemetryPort": {
+        "kind": "combo",
+        "value": 0
+      },
+      "telemetryBaud": {
+        "kind": "combo",
+        "value": 0
+      },
+      "telemetryLocalIp": {
+        "kind": "combo",
+        "value": 0
+      },
+      "telemetryUdpPort": {
+        "kind": "int",
+        "value": 4210
+      },
+      "telemetryDeviceId": {
+        "kind": "text",
+        "value": "CVET-ESP32"
+      }
+    },
+    "components": [
+      [
+        "Frame / โครงรถ",
+        "70",
+        "0",
+        "0",
+        "0.35"
+      ],
+      [
+        "Battery / แบตเตอรี่",
+        "30",
+        "0",
+        "0",
+        "0.25"
+      ],
+      [
+        "Drive motors / มอเตอร์ขับ",
+        "20",
+        "0",
+        "0",
+        "0.18"
+      ],
+      [
+        "Crane column+winch / เสาเครน+วินช์",
+        "60",
+        "-0.4",
+        "0",
+        "0.75"
+      ],
+      [
+        "Boom / แขนเครน",
+        "20",
+        "-0.1",
+        "0",
+        "1.28"
+      ],
+      [
+        "Basket+Payload / ตะกร้า+โหลด",
+        "100",
+        "0.62",
+        "0",
+        "0.6"
+      ],
+      [
+        "Counterweight / ตุ้มน้ำหนัก",
+        "0",
+        "0",
+        "0",
+        "0.2"
+      ],
+      [
+        "Other / อื่นๆ",
+        "0",
+        "0",
+        "0",
+        "0.3"
+      ],
+      [
+        "Basket / ตะกร้า",
+        "20",
+        "0.0",
+        "0.0",
+        "0.6"
+      ],
+      [
+        "Payload / ซากสัตว์",
+        "80",
+        "0.0",
+        "0.0",
+        "0.6"
+      ],
+      [
+        "Counterweight / ตุ้มน้ำหนัก",
+        "0",
+        "-0.45",
+        "0.0",
+        "0.25"
+      ],
+      [
+        "Other / อื่นๆ",
+        "0",
+        "0.0",
+        "0.0",
+        "0.3"
+      ]
+    ],
+    "hardware": [
+      {
+        "key": "IBUS_RX",
+        "enabled": true,
+        "device": "FlySky RC Receiver",
+        "signal": "iBUS OUT",
+        "interface": "UART RX",
+        "supply": "5V",
+        "logic": "5V",
+        "gpio": "Not assigned",
+        "protection": "Level Shifter / Divider",
+        "note": "Receiver supply 5 V; verify iBUS signal level before ESP32.",
+        "custom": false
+      },
+      {
+        "key": "CAN_TX",
+        "enabled": true,
+        "device": "SN65HVD230",
+        "signal": "TXD",
+        "interface": "CAN TX",
+        "supply": "3.3V",
+        "logic": "3.3V",
+        "gpio": "Not assigned",
+        "protection": "CAN Transceiver",
+        "note": "ESP32 logic side of CAN transceiver.",
+        "custom": false
+      },
+      {
+        "key": "CAN_RX",
+        "enabled": true,
+        "device": "SN65HVD230",
+        "signal": "RXD",
+        "interface": "CAN RX",
+        "supply": "3.3V",
+        "logic": "3.3V",
+        "gpio": "Not assigned",
+        "protection": "CAN Transceiver",
+        "note": "ESP32 logic side of CAN transceiver.",
+        "custom": false
+      },
+      {
+        "key": "I2C_SDA",
+        "enabled": true,
+        "device": "BNO086 IMU",
+        "signal": "SDA",
+        "interface": "I2C SDA",
+        "supply": "3.3V",
+        "logic": "3.3V",
+        "gpio": "Not assigned",
+        "protection": "Direct",
+        "note": "Breakout-board supply capability must be verified from its datasheet.",
+        "custom": false
+      },
+      {
+        "key": "I2C_SCL",
+        "enabled": true,
+        "device": "BNO086 IMU",
+        "signal": "SCL",
+        "interface": "I2C SCL",
+        "supply": "3.3V",
+        "logic": "3.3V",
+        "gpio": "Not assigned",
+        "protection": "Direct",
+        "note": "Breakout-board supply capability must be verified from its datasheet.",
+        "custom": false
+      },
+      {
+        "key": "LIMIT_LEFT",
+        "enabled": true,
+        "device": "OMRON D4N-112G + PC817",
+        "signal": "Left limit -90°",
+        "interface": "Digital IN",
+        "supply": "5V",
+        "logic": "3.3V",
+        "gpio": "Not assigned",
+        "protection": "PC817 Isolation",
+        "note": "ESP32 side must remain 3.3 V after isolation/pull-up.",
+        "custom": false
+      },
+      {
+        "key": "LIMIT_RIGHT",
+        "enabled": true,
+        "device": "OMRON D4N-112G + PC817",
+        "signal": "Right limit +90°",
+        "interface": "Digital IN",
+        "supply": "5V",
+        "logic": "3.3V",
+        "gpio": "Not assigned",
+        "protection": "PC817 Isolation",
+        "note": "ESP32 side must remain 3.3 V after isolation/pull-up.",
+        "custom": false
+      },
+      {
+        "key": "BUZZER",
+        "enabled": true,
+        "device": "5 V Buzzer + MOSFET",
+        "signal": "Buzzer command",
+        "interface": "Digital OUT",
+        "supply": "5V",
+        "logic": "3.3V",
+        "gpio": "Not assigned",
+        "protection": "MOSFET / Driver",
+        "note": "Do not drive a high-current buzzer directly from GPIO.",
+        "custom": false
+      },
+      {
+        "key": "LED",
+        "enabled": true,
+        "device": "Status LED / Lamp",
+        "signal": "LED command",
+        "interface": "Digital OUT",
+        "supply": "5V",
+        "logic": "3.3V",
+        "gpio": "Not assigned",
+        "protection": "MOSFET / Driver",
+        "note": "Use resistor/driver appropriate to the actual indicator.",
+        "custom": false
+      }
+    ],
+    "integration": {
+      "device_library": [],
+      "validation": [
+        [
+          "Vehicle speed",
+          "km/h",
+          "1.0",
+          "",
+          "5",
+          "",
+          "PENDING",
+          "วัดความเร็วรถจริง"
+        ],
+        [
+          "Wheel torque required",
+          "N·m",
+          "104.56537997563268",
+          "",
+          "10",
+          "",
+          "PENDING",
+          "เทียบกับค่าทดสอบ/ประเมิน"
+        ],
+        [
+          "Uphill battery current",
+          "A",
+          "4.304641678599907",
+          "",
+          "15",
+          "",
+          "PENDING",
+          "วัดด้วย DC current sensor"
+        ],
+        [
+          "Drive energy per trip",
+          "Wh",
+          "2.375759182491661",
+          "",
+          "15",
+          "",
+          "PENDING",
+          "วัด Wh จากแบต/Power meter"
+        ],
+        [
+          "Winch lift time",
+          "s",
+          "21.645072260497766",
+          "",
+          "10",
+          "",
+          "PENDING",
+          "ยกความสูงเดียวกับโมเดล"
+        ],
+        [
+          "Winch load speed up",
+          "m/min",
+          "4.15799027681002",
+          "",
+          "10",
+          "",
+          "PENDING",
+          "ความเร็วโหลด ไม่ใช่ rope speed"
+        ],
+        [
+          "IMU zero tilt",
+          "deg",
+          "0",
+          "",
+          "2",
+          "",
+          "PENDING",
+          "รถอยู่พื้นราบ"
+        ]
+      ],
+      "bom": [
+        [
+          "QS 10in 1500W Hub Motor",
+          "Drive",
+          "2",
+          "10000",
+          "20",
+          "",
+          "Planned",
+          "72 V single shaft"
+        ],
+        [
+          "Flipsky Dual 75100",
+          "Drive Controller",
+          "1",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "VESC based"
+        ],
+        [
+          "72 V Main Battery",
+          "Battery",
+          "1",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "Fill selected Ah/BMS"
+        ],
+        [
+          "ESP32 Main Controller",
+          "Control",
+          "1",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "Board profile from Hardware I/O"
+        ],
+        [
+          "SN65HVD230",
+          "Communication",
+          "1",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "CAN transceiver"
+        ],
+        [
+          "BNO086",
+          "Sensor",
+          "1",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "9-DOF IMU"
+        ],
+        [
+          "OMRON D4N-112G",
+          "Safety Sensor",
+          "2",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "Crane ±90° limit"
+        ],
+        [
+          "PC817 Isolation",
+          "Safety / Interface",
+          "2",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "Limit switch isolation"
+        ],
+        [
+          "5 V Buzzer + MOSFET",
+          "Indicator",
+          "1",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "Motion/fault alarm"
+        ],
+        [
+          "Status LED / Lamp",
+          "Indicator",
+          "1",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "Motion/fault indicator"
+        ],
+        [
+          "12 V Winch",
+          "Winch",
+          "1",
+          "0",
+          "10.3",
+          "",
+          "Planned",
+          "4500 lb listed pull; verify lifting approval"
+        ],
+        [
+          "12 V Winch Battery",
+          "Battery",
+          "1",
+          "0",
+          "0",
+          "",
+          "Planned",
+          "Separate from 72 V main"
+        ]
+      ],
+      "revisions": []
+    }
+  }
+}
