@@ -1047,6 +1047,28 @@ jobs:
                       assert not w._cloud_busy
                       assert w.cloudConfig.get("last_remote_sha")=="blob123"
                       assert w.cloudConfig.get("last_synced_hash")==cloud.canonical_state_hash(w.capture_project_state())
+
+                  # Poll decision safety: newer Local + unchanged Remote must Push, never Pull old data.
+                  decision_state=w.capture_project_state()
+                  baseline_hash=cloud.canonical_state_hash(decision_state)
+                  remote_payload=cloud.make_cloud_payload(decision_state,"remote-pc","53.8.51")
+                  w.cloudConfig["last_synced_hash"]=baseline_hash
+                  w.cloudConfig["last_remote_sha"]="remote-old-sha"
+                  w.cloudConfig["auto_push"]=True
+                  original_mt=w.mt.value()
+                  w.mt.setValue(original_mt+1.0)
+                  with patch.object(w,"start_cloud_sync",return_value=True) as sync_mock:
+                      w._handle_cloud_task_result({
+                          "ok":True,"type":"remote","mode":"poll","remote":{"sha":"remote-old-sha"},
+                          "payload":remote_payload,"silent":True,"force":False
+                      })
+                      deadline=time.time()+1.0
+                      while not sync_mock.called and time.time()<deadline:
+                          app.processEvents();time.sleep(.01)
+                      assert sync_mock.called, "Local-newer poll must schedule Push"
+                      args,kwargs=sync_mock.call_args
+                      assert args and args[0]=="push"
+                  w.apply_project_state(decision_state,False);w._core_recalculate()
               finally:
                   w.cloud_config_path=old_cloud_path
                   w.cloudConfig=old_cfg;w._cloud_session_token=old_session
