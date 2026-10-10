@@ -40,6 +40,18 @@ class ReportExportTests(unittest.TestCase):
         self.assertAlmostEqual(sum(x[3] for x in rows), stats["known_cost"])
         self.assertEqual(len(rows), 7)
 
+    def test_custom_item_order_is_preserved_in_formal_reports(self):
+        # Names are deliberately reverse alphabetical, as a user-arranged BOM.
+        doc = {"items": [
+            {"id": "20", "category": "ระบบขับเคลื่อน", "name": "Z Motor"},
+            {"id": "5", "category": "ระบบขับเคลื่อน", "name": "A Motor"},
+            {"id": "6", "category": "แบตเตอรี่และไฟฟ้ากำลัง",
+             "name": "Battery"},
+        ]}
+        ordered = reports.sorted_items(doc)
+        self.assertEqual([x["id"] for x in ordered], ["20", "5", "6"])
+        self.assertEqual([x["id"] for x in doc["items"]], ["20", "5", "6"])
+
     def test_formal_excel_has_sections_and_working_budget_formulas(self):
         file = Path(self.temp.name) / "formal.xlsx"
         snapshot = json.dumps(self.doc, ensure_ascii=False, sort_keys=True)
