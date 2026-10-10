@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 import bom_core
+import bom_categories
 import bom_reports
 import bom_debug
 import bom_qt_theme as theme
@@ -183,7 +184,13 @@ class RecordDialog(QDialog):
         form.setHorizontalSpacing(18)
         for key, label in fields:
             val = self.values.get(key)
-            if key in MULTILINE:
+            if key == "category":
+                control = QComboBox()
+                control.setEditable(True)
+                control.addItems(list(bom_categories.CATEGORY_OPTIONS))
+                control.setCurrentText(str(val or bom_categories.UNCATEGORIZED))
+                control.setToolTip("เลือกหมวดมาตรฐาน หรือพิมพ์หมวดใหม่เองได้")
+            elif key in MULTILINE:
                 control = QPlainTextEdit()
                 control.setPlainText("" if val is None else str(val))
                 control.setMinimumHeight(85)
@@ -546,6 +553,8 @@ class BOMWindow(QMainWindow):
         breakdown = self._panel("การกระจายอุปกรณ์ตามหมวดหมู่", body, stretch=1)
         self.category_table = self._table(["หมวดอุปกรณ์", "จำนวนรายการ"], 0)
         self.category_table.setColumnWidth(1, 160)
+        self.category_table.cellDoubleClicked.connect(self.open_category_from_dashboard)
+        self.category_table.setToolTip("ดับเบิลคลิกหมวดเพื่อเปิดรายการอุปกรณ์ในหมวดนั้น")
         breakdown.addWidget(self.category_table, 1)
         progress = QHBoxLayout()
         self.price_label = self._label("ความครบถ้วนของราคา 0%", "caption")
@@ -571,11 +580,16 @@ class BOMWindow(QMainWindow):
         self.category = QComboBox()
         self.category.addItem("ทุกหมวด")
         self.category.currentIndexChanged.connect(self.render_bom)
-        bar.addWidget(self.category, 1)
+        bar.addWidget(self.category, 2)
         self.price_filter = QComboBox()
         self.price_filter.addItems(["ทุกราคา", "มีราคา", "ไม่มีราคา"])
         self.price_filter.currentIndexChanged.connect(self.render_bom)
         bar.addWidget(self.price_filter, 1)
+        self.group_mode = QComboBox()
+        self.group_mode.addItems(["จัดกลุ่มตามระบบ", "แสดงรายการต่อเนื่อง"])
+        self.group_mode.currentIndexChanged.connect(self.render_bom)
+        self.group_mode.setToolTip("สลับมุมมองแยกหมวดหรือแสดงต่อเนื่อง ไม่เปลี่ยนข้อมูลจริง")
+        bar.addWidget(self.group_mode, 2)
         body.addLayout(bar)
         actions = QHBoxLayout()
         actions.addWidget(self._button("+ เพิ่มอุปกรณ์", lambda: self.edit_record("items"), "primary"))
@@ -837,7 +851,8 @@ class BOMWindow(QMainWindow):
         for key in ("items", "priced", "missing", "wires", "purchase_count"):
             self.cards[key].figure.setText(str(info[key]))
         self.cards["known_cost"].figure.setText(money(info["known_cost"]))
-        cats = sorted(info["categories"].items())
+        cats = [(cat, info["categories"][cat]) for cat in
+                bom_categories.sorted_categories(info["categories"].keys())]
         self.category_table.setRowCount(len(cats))
         for row, (category, count) in enumerate(cats):
             self.category_table.setItem(row, 0, QTableWidgetItem(category))
@@ -850,10 +865,19 @@ class BOMWindow(QMainWindow):
             f"ยอดรวมที่ทราบราคา {money(info['known_cost'])} บาท · ยังไม่มีราคา {info['missing']} รายการ "
             "· ยอดนี้ยังไม่ใช่งบประมาณสุดท้าย")
 
+    def open_category_from_dashboard(self, row, _column):
+        cell = self.category_table.item(row, 0)
+        if cell:
+            self.show_page(1)
+            self.search.clear()
+            self.price_filter.setCurrentText("ทุกราคา")
+            self.category.setCurrentText(cell.text())
+
     def render_bom(self):
         values = self.payload.get("items", [])
         selected = self.category.currentText()
-        cats = sorted({str(x.get("category") or "ไม่ระบุ") for x in values})
+        cats = bom_categories.sorted_categories(
+            x.get("category") or bom_categories.UNCATEGORIZED for x in values)
         if self.category.count() != len(cats) + 1 or any(
                 self.category.itemText(i + 1) != name for i, name in enumerate(cats)):
             self.category.blockSignals(True)
@@ -864,9 +888,10 @@ class BOMWindow(QMainWindow):
         query = self.search.text().strip().casefold()
         cat = self.category.currentText()
         price_filter = self.price_filter.currentText()
-        rows = []
+        entries = []
         for index, item in enumerate(values):
-            if cat != "ทุกหมวด" and str(item.get("category") or "ไม่ระบุ") != cat:
+            item_cat = str(item.get("category") or bom_categories.UNCATEGORIZED)
+            if cat != "ทุกหมวด" and item_cat != cat:
                 continue
             has_price = item.get("unitPrice") is not None and str(item.get("unitPrice")).strip() != ""
             if price_filter == "มีราคา" and not has_price:
@@ -875,20 +900,51 @@ class BOMWindow(QMainWindow):
                 continue
             if query and query not in " ".join(str(x or "") for x in item.values()).casefold():
                 continue
-            rows.append((index, item))
-        self.bom_table.setRowCount(len(rows))
-        for i, (index, item) in enumerate(rows):
+            entries.append((index, item))
+        self.bom_table.clearSpans()
+        grouped = self.group_mode.currentIndex() == 0
+        if grouped:
+            entries.sort(key=lambda x: (bom_categories.sort_key(x[1].get("category")),
+                                        str(x[1].get("name") or "").casefold()))
+            display = []
+            previous = None
+            for index, item in entries:
+                item_cat = str(item.get("category") or bom_categories.UNCATEGORIZED)
+                if item_cat != previous:
+                    count = sum(1 for _, row in entries if str(
+                        row.get("category") or bom_categories.UNCATEGORIZED) == item_cat)
+                    display.append(("heading", item_cat, count))
+                    previous = item_cat
+                display.append(("item", index, item))
+        else:
+            display = [("item", index, item) for index, item in entries]
+        self.bom_table.setRowCount(len(display))
+        for i, row in enumerate(display):
+            if row[0] == "heading":
+                header = QTableWidgetItem(f"▣  {row[1]}    ·    {row[2]} รายการ")
+                header.setBackground(QBrush(QColor("#1C4260")))
+                header.setForeground(QBrush(QColor("#ECF7FF")))
+                font = header.font()
+                font.setBold(True)
+                header.setFont(font)
+                header.setFlags(Qt.ItemFlag.NoItemFlags)
+                self.bom_table.setItem(i, 0, header)
+                self.bom_table.setSpan(i, 0, 1, self.bom_table.columnCount())
+                self.bom_table.setRowHeight(i, round(48*self.zoom_factor))
+                continue
+            _, index, item = row
             qty = item.get("qty", 0)
             price = item.get("unitPrice")
-            values = [item.get("category", ""), item.get("name", ""), qty,
-                      item.get("unit", ""), money(price),
-                      money(float(qty) * float(price)) if price is not None else "—",
-                      item.get("status", ""), item.get("supplier", "")]
-            for col, val in enumerate(values):
+            columns = [item.get("category", ""), item.get("name", ""), qty,
+                       item.get("unit", ""), money(price),
+                       money(float(qty) * float(price)) if price is not None else "—",
+                       item.get("status", ""), item.get("supplier", "")]
+            for col, val in enumerate(columns):
                 cell = QTableWidgetItem(str(val if val is not None else ""))
                 cell.setData(Qt.ItemDataRole.UserRole, index)
                 if col in (2, 4, 5):
-                    cell.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+                    cell.setTextAlignment(Qt.AlignmentFlag.AlignVCenter |
+                                          Qt.AlignmentFlag.AlignRight)
                 self.bom_table.setItem(i, col, cell)
         self.bom_table.clearSelection()
 
@@ -935,7 +991,11 @@ class BOMWindow(QMainWindow):
             QMessageBox.information(self, "เลือกรายการ", "กรุณาเลือกรายการจากตารางก่อน")
             return None
         item = table.item(row, 0)
-        return int(item.data(Qt.ItemDataRole.UserRole)) if item else None
+        original_index = item.data(Qt.ItemDataRole.UserRole) if item else None
+        if original_index is None:
+            QMessageBox.information(self, "เลือกอุปกรณ์", "กรุณาเลือกแถวอุปกรณ์ ไม่ใช่แถวชื่อหมวด")
+            return None
+        return int(original_index)
 
     def changed(self):
         self.dirty = True
@@ -953,6 +1013,9 @@ class BOMWindow(QMainWindow):
             return
         prev = data[index] if index is not None else {}
         row = {**(defaults or {}), **prev}
+        if kind == "items" and index is None:
+            row.setdefault("category", bom_categories.UNCATEGORIZED)
+            row.setdefault("qty", 1)
         title = {
             "items": ("แก้ไขอุปกรณ์" if existing else "เพิ่มอุปกรณ์"),
             "wiring": ("แก้ไขจุดต่อสาย" if existing else "เพิ่มจุดต่อสาย"),
