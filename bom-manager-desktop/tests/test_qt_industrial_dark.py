@@ -18,6 +18,7 @@ class IndustrialDarkTests(unittest.TestCase):
 
     def setUp(self):
         from bom_qt import BOMWindow
+        from PySide6.QtCore import Qt
         self.window = BOMWindow(auto_load=False)
 
     def tearDown(self):
@@ -48,8 +49,9 @@ class IndustrialDarkTests(unittest.TestCase):
         self.window.show_metric("missing")
         self.assertEqual(self.window.stack.currentIndex(), 1)
         self.assertEqual(self.window.price_filter.currentText(), "ไม่มีราคา")
-        self.assertEqual(self.window.bom_table.rowCount(), 1)
-        self.assertIn("Battery", self.window.bom_table.item(0, 1).text())
+        self.assertEqual(self.window.bom_table.rowCount(), 2)
+        self.assertIsNone(self.window.bom_table.item(0, 0).data(Qt.ItemDataRole.UserRole))
+        self.assertIn("Battery", self.window.bom_table.item(1, 1).text())
         self.window.show_metric("wiring")
         self.assertEqual(self.window.stack.currentIndex(), 2)
         self.window.show_metric("purchases")
@@ -67,6 +69,8 @@ class IndustrialDarkTests(unittest.TestCase):
         bom_core.ensure_doc(self.window.payload)
         self.assertEqual(self.window.payload["customKey"]["version"], 5)
         self.assertEqual(self.window.payload["items"][0]["customItemKey"], "keep")
+        self.assertEqual(self.window.bom_table.rowCount(), 2)
+        self.window.group_mode.setCurrentIndex(1)
         self.assertEqual(self.window.bom_table.rowCount(), 1)
 
 
