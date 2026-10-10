@@ -40,13 +40,18 @@ class CategoryDataTests(unittest.TestCase):
         doc = json.loads((ROOT.parent / "bom-manager" / "bom.json").read_text(encoding="utf-8"))
         import bom_core
         bom_core.ensure_doc(doc)
-        self.assertEqual(len(doc["items"]), 33)
+        # The original engineering BOM contains 33 baseline IDs. Real users
+        # can append items later; do not fail CI just because BOM grew.
+        items_by_id = {str(item["id"]): item for item in doc["items"]}
+        self.assertGreaterEqual(len(doc["items"]), len(bom_categories.ID_TO_CATEGORY))
+        for item_id, category in bom_categories.ID_TO_CATEGORY.items():
+            self.assertIn(item_id, items_by_id)
+            self.assertEqual(items_by_id[item_id]["category"], category)
+        summary = bom_categories.summary(doc["items"])
+        self.assertEqual(sum(count for _, count in summary), len(doc["items"]))
         self.assertEqual(
-            bom_categories.summary(doc["items"]),
-            [(name, len(bom_categories.PROJECT_CATEGORY_IDS[name]))
-             for name in bom_categories.CATEGORY_ORDER])
-        self.assertTrue(all(item["category"] == bom_categories.ID_TO_CATEGORY[str(item["id"])]
-                            for item in doc["items"]))
+            [category for category, _ in summary],
+            bom_categories.sorted_categories([x.get("category") for x in doc["items"]]))
 
     def test_unrecognized_categories_are_supported(self):
         categories = bom_categories.sorted_categories([
