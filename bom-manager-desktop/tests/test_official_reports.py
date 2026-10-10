@@ -49,16 +49,21 @@ class ReportExportTests(unittest.TestCase):
         with zipfile.ZipFile(file) as xlsx:
             names = set(xlsx.namelist())
             self.assertIn("xl/worksheets/sheet6.xml", names)
+            self.assertIn("xl/worksheets/sheet7.xml", names)
+            self.assertIn("xl/worksheets/sheet8.xml", names)
             wb = xlsx.read("xl/workbook.xml").decode("utf-8")
-            for tab in ("Summary","BOM","Specification","Wiring","Purchasing","Notes"):
+            for tab in ("Summary","BOM","Specification","Wiring","Purchasing",
+                        "Notes","References","Completeness"):
                 self.assertIn('name="'+tab+'"', wb)
             summary = xlsx.read("xl/worksheets/sheet1.xml").decode("utf-8")
             detail = xlsx.read("xl/worksheets/sheet2.xml").decode("utf-8")
             self.assertIn("COUNTIFS", summary)
             self.assertIn("SUMIF", summary)
             self.assertIn("COUNTA", summary)
-            self.assertIn("IF(F8", detail)
-            self.assertIn("D8*F8", detail)
+            self.assertIn("IF(G8", detail)
+            self.assertIn("E8*G8", detail)
+            self.assertIn("SUMIF", summary)
+            self.assertIn("COUNTIFS", summary)
             self.assertIn("autoFilter", detail)
             self.assertIn("sheetViews", detail)
             self.assertIn("pageSetup", detail)
@@ -72,6 +77,9 @@ class ReportExportTests(unittest.TestCase):
                                for x in self.doc["items"])
             self.assertGreater(blank_inputs,0)
             self.assertIn("xl/styles.xml", names)
+            self.assertIn("autoFilter", xlsx.read("xl/worksheets/sheet7.xml").decode())
+            review = xlsx.read("xl/worksheets/sheet8.xml").decode("utf-8")
+            self.assertIn("mergeCell", review)
 
     def test_formal_pdf_sections_and_metadata(self):
         from bom_reports import _thai_font
@@ -83,6 +91,14 @@ class ReportExportTests(unittest.TestCase):
         reports.export_pdf(self.doc, pdf, self.metadata)
         self.assertTrue(pdf.read_bytes().startswith(b"%PDF-"))
         self.assertGreater(pdf.stat().st_size, 10000)
+
+    def test_explicit_identification_and_traceability_counts(self):
+        gaps = reports.report_quality(self.doc["items"])
+        self.assertEqual(gaps["part_number_missing"], 33)
+        self.assertEqual(gaps["supplier_missing"], 33)
+        self.assertEqual(gaps["reference_missing"], 13)
+        self.assertEqual(gaps["price_missing"], 32)
+        self.assertFalse(any(i.get("partNumber") for i in self.doc["items"]))
 
     def test_missing_price_not_totalled(self):
         doc={"schemaVersion": 1,"project": "Test",
