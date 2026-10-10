@@ -17,7 +17,7 @@ COLORS = {
 
 SCALE_OPTIONS = (1.0, 1.15, 1.3, 1.45)
 SCALE_LABELS = ("ปกติ 100%", "อ่านง่าย 115%", "ใหญ่ 130%", "ใหญ่มาก 145%")
-FONT_OPTIONS = ("Leelawadee UI", "Tahoma")
+FONT_OPTIONS = ("Tahoma", "Leelawadee UI")
 DEFAULT_SCALE = 1.15
 
 
@@ -65,11 +65,16 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
     font_family = current_font() if font_family is None else font_family
     if font_family not in FONT_OPTIONS:
         raise ValueError("Unsupported font")
-    app.setFont(QFont(font_family, max(11, round(12*scale))))
+    font = QFont(font_family, max(11, round(12 * scale)))
+    # Thai script needs proper shaping; use Windows font hinting and AA.
+    font.setWeight(QFont.Weight.Medium)
+    font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
+    font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
+    app.setFont(font)
     css = r"""
     QWidget { background: #F5F8FC; color: #172D45;
-              font-family: "Leelawadee UI", "Segoe UI", sans-serif;
-              font-size: 17px; }
+              font-family: "Tahoma"; font-weight: 500;
+              font-size: 16px; }
     QWidget#main, QWidget#content, QWidget#page { background: #F5F8FC; }
     QFrame#sidebar { background: #10243D; border: 0; }
     QFrame#topbar { background: #FFFFFF; border: 1px solid #DCE5EF;
@@ -84,19 +89,19 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
     QFrame#hero { background: #EAF3FF; border: 1px solid #D0E3FC; }
     QLabel { border: 0; background: transparent; }
     QLabel#logo { color: #FFFFFF; font-size: 24px; font-weight: 800; }
-    QLabel#sidebarCaption { color: #B5C8DE; font-size: 12px; }
+    QLabel#sidebarCaption { color: #D6E5F5; font-size: 13px; font-weight: 600; }
     QLabel#pageTitle { color: #142C46; font-size: 26px; font-weight: 800; }
     QLabel#sectionTitle { color: #193652; font-size: 18px; font-weight: 700; }
-    QLabel#caption { color: #526981; font-size: 13px; }
+    QLabel#caption { color: #344B63; font-size: 14px; font-weight: 600; }
     QLabel#kpiValue { color: #153653; font-size: 31px; font-weight: 800; }
-    QLabel#kpiName { color: #5A728C; font-size: 13px; }
-    QLabel#hint { color: #60738A; font-size: 13px; }
-    QLabel#status { color: #60738A; font-size: 13px; }
-    QLabel#sideStatus { color: #77E7B3; font-size: 13px; font-weight: 700; }
+    QLabel#kpiName { color: #3A526B; font-size: 14px; font-weight: 600; }
+    QLabel#hint { color: #43596E; font-size: 14px; font-weight: 500; }
+    QLabel#status { color: #43596E; font-size: 13px; font-weight: 600; }
+    QLabel#sideStatus { color: #9DF3C6; font-size: 13px; font-weight: 700; }
     QLabel#badge { color: #16724F; background: #E4F6ED; border-radius: 8px;
                    padding: 4px 10px; font-size: 12px; font-weight: 700; }
     QLabel#heroTitle { color: #133B70; font-size: 22px; font-weight: 800; }
-    QLabel#heroSubtitle { color: #476887; font-size: 13px; }
+    QLabel#heroSubtitle { color: #2C526E; font-size: 14px; font-weight: 600; }
     QLabel#categoryCount { color: #1768D2; font-size: 20px; font-weight: 800; }
 
     QPushButton {
@@ -134,7 +139,7 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
         background: #FFFFFF; color: #1B3852; border: 1px solid #CCD9E6;
         padding: 8px 11px; border-radius: 8px; min-height: 26px;
         selection-background-color: #1768D2;
-        selection-color: white;
+        selection-color: white; font-weight: 600;
     }
     QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QTextEdit:focus {
         border: 1px solid #1768D2; background: #FFFFFF;
@@ -148,14 +153,14 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
         background: #FFFFFF; alternate-background-color: #F7FAFD;
         gridline-color: #E7EDF3; border: 1px solid #DFE8F0; border-radius: 8px;
         selection-background-color: #D9EBFF; selection-color: #163856;
-        font-size: 14px;
+        font-size: 15px; font-weight: 500;
     }
     QTableWidget::item:hover, QTableView::item:hover { background: #EFF6FF; }
     QHeaderView::section {
         background: #EDF3F9; color: #2D4A64;
         border: none; border-right: 1px solid #E0E8F0;
         border-bottom: 1px solid #D1DDEA; padding: 12px 9px;
-        font-size: 13px; font-weight: 700;
+        font-size: 14px; font-weight: 700;
     }
     QTableCornerButton::section { background: #EDF3F9; border: 0; }
     QProgressBar { background: #E4EBF2; color: #173E60;
@@ -177,7 +182,7 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
     QToolTip { background: #173652; color: #FFFFFF; border: 1px solid #507595; }
     QSplitter::handle { background: #DFE7F1; }
     /* Scoped sidebar controls retain contrast on a navy background. */
-    QFrame#sidebar QLabel#caption { color: #CAD9E9; }
+    QFrame#sidebar QLabel#caption { color: #E2EDF8; font-weight: 600; }
     QFrame#sidebar QLabel#status { color: #D1DEEB; }
     QFrame#sidebar QComboBox { background: #1B3552; color: #EFF7FF;
                               border: 1px solid #385775; }
@@ -186,7 +191,8 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
         selection-background-color: #1768D2;
     }
     """
-    css=css.replace('"Leelawadee UI", "Segoe UI", sans-serif',
-                    f'"{font_family}", "Leelawadee UI", "Segoe UI", sans-serif')
+    # Qt stylesheets accept one explicit font-family; a CSS fallback list can
+    # resolve unexpectedly and make text appear inconsistent on Windows.
+    css=css.replace('font-family: "Tahoma";', f'font-family: "{font_family}";')
     app.setStyleSheet(_scale_css(css,scale))
     return {"scale":scale, "font_family":font_family}
