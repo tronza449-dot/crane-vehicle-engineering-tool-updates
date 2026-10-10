@@ -854,6 +854,17 @@ class BOMWindow(QMainWindow):
             "ยอดรวมที่ทราบราคา ไม่รวมรายการที่ยังไม่มีราคา", "hint")
         self.budget_note.setWordWrap(True)
         quality.addWidget(self.budget_note)
+        purchasing = self._panel("ภาพรวมงบประมาณและความคืบหน้าจัดซื้อ", body)
+        self.purchase_budget_label = self._label("กำลังสรุปงบประมาณจัดซื้อ…", "caption")
+        self.purchase_budget_label.setWordWrap(True)
+        purchasing.addWidget(self.purchase_budget_label)
+        self.purchase_dashboard_progress = QProgressBar()
+        self.purchase_dashboard_progress.setRange(0, 100)
+        purchasing.addWidget(self.purchase_dashboard_progress)
+        self.purchase_dashboard_note = self._label(
+            "ยอดประมาณการที่ยังขาดราคาไม่ถูกนับเป็นศูนย์; กดดูรายการที่หน้า 'จัดซื้อ'", "hint")
+        self.purchase_dashboard_note.setWordWrap(True)
+        purchasing.addWidget(self.purchase_dashboard_note)
         return page
 
     def _table_panel(self, body, title):
@@ -1259,6 +1270,26 @@ class BOMWindow(QMainWindow):
         self.budget_note.setText(
             f"ยอดรวมที่ทราบราคา {money(info['known_cost'])} บาท · ยังไม่มีราคา {info['missing']} รายการ "
             "· ยอดนี้ยังไม่ใช่งบประมาณสุดท้าย")
+        progress = bom_advanced.purchase_progress(self.payload)
+        placed = progress["ordered_lines"]
+        total = progress["lines"]
+        self.purchase_dashboard_progress.setValue(round(100 * placed / max(total, 1)))
+        self.purchase_budget_label.setText(
+            f"ประมาณการ BOM ที่ทราบราคา ฿ {money(info['known_cost'])}   •   "
+            f"ยอดจัดซื้อที่บันทึก ฿ {money(info['purchase_total'])}   •   "
+            f"สั่งครบ {placed}/{total} รายการ   •   รับครบ {progress['received_lines']}/{total}")
+        remaining_estimate = 0.0
+        unknown = 0
+        for item in self.payload.get("items", []):
+            remainder = progress["remaining_to_order"].get(str(item["id"]), 0)
+            if remainder > 0:
+                if item.get("unitPrice") is None:
+                    unknown += 1
+                else:
+                    remaining_estimate += float(remainder) * float(item["unitPrice"])
+        self.purchase_dashboard_note.setText(
+            f"มูลค่ารายการที่ยังต้องสั่ง (เฉพาะที่ทราบราคา) ฿ {money(remaining_estimate)}"
+            f"   •   รายการคงเหลือที่ยังไม่ทราบราคา {unknown} รายการ")
 
     def open_category_from_dashboard(self, row, _column):
         cell = self.category_table.item(row, 0)
