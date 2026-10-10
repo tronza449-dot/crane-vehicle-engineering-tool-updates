@@ -780,60 +780,120 @@ class BOMWindow(QMainWindow):
             self.set_status(f"ยังไม่มีอุปกรณ์ในหมวด {category}")
 
     def _build_dashboard(self):
+        """At-a-glance real BOM KPIs, actionable work queue and detail drill-down."""
         page, body = self._page(
-            "ภาพรวมโครงการ", "PROJECT OVERVIEW   /   จำนวนอุปกรณ์ ราคา และความครบถ้วนของข้อมูล")
+            "ภาพรวมโครงการ",
+            "PROJECT OVERVIEW   /   ตัวเลขจริงจาก BOM และงานที่ต้องติดตาม")
 
         hero = QFrame()
         hero.setObjectName("hero")
         line = QHBoxLayout(hero)
-        line.setContentsMargins(23, 19, 23, 19)
+        line.setContentsMargins(23, 18, 23, 18)
+        line.setSpacing(20)
         heading = QVBoxLayout()
-        heading.setSpacing(6)
+        heading.setSpacing(7)
         heading.addWidget(self._label("CRANE VEHICLE  /  ENGINEERING BOM", "caption"))
         self.hero_project_label = self._label("โครงการรถขนซากสัตว์พร้อมเครน", "heroTitle")
         self.hero_project_label.setWordWrap(True)
         heading.addWidget(self.hero_project_label)
         heading.addWidget(self._label(
-            "เปิดโปรแกรมแล้วอ่าน BOM ล่าสุดจาก GitHub ได้เลย • ไม่ต้องใส่ Token",
+            "ดูภาพรวมงบประมาณและความคืบหน้าจัดซื้อได้ในหน้าเดียว",
             "heroSubtitle"))
-        public_hint = self._label(
-            "โหมดผู้ชม: ดูและส่งออกรายงานได้ทันที | การแก้ไขที่ยังไม่มีสิทธิ์จะเก็บในเครื่องเท่านั้น",
+        self.dashboard_access_label = self._label(
+            "เปิดดูได้โดยไม่ต้องใช้ Token • การแก้ไขโดยไม่มีสิทธิ์จะบันทึกเป็นฉบับร่างในเครื่อง",
             "hint")
-        public_hint.setWordWrap(True)
-        heading.addWidget(public_hint)
+        self.dashboard_access_label.setWordWrap(True)
+        heading.addWidget(self.dashboard_access_label)
         line.addLayout(heading, 1)
         quick = QVBoxLayout()
+        quick.setSpacing(9)
+        self.dashboard_cloud_badge = self._label("● กำลังตรวจสอบ GitHub", "syncPill")
+        self.dashboard_cloud_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        quick.addWidget(self.dashboard_cloud_badge)
+        self.dashboard_sync_time = self._label("ยังไม่เคยซิงก์ในรอบนี้", "caption")
+        self.dashboard_sync_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        quick.addWidget(self.dashboard_sync_time)
         quick.addWidget(self._button("เปิดรายการอุปกรณ์  →",
                                      lambda: self.show_page(1), "primary"))
         quick.addWidget(self._button("ส่งออกรายงาน", lambda: self.show_page(4)))
         line.addLayout(quick)
         body.addWidget(hero)
 
-        board = QGridLayout()
-        board.setHorizontalSpacing(12)
-        board.setVerticalSpacing(12)
-        metrics = [
-            ("items", "อุปกรณ์ทั้งหมด", "#1768D2", "▣", "items"),
-            ("priced", "มีราคาแล้ว", "#13835C", "✓", "priced"),
-            ("missing", "ยังไม่มีราคา", "#B74A37", "!", "missing"),
-            ("known_cost", "มูลค่าที่ทราบ (บาท)", "#7652BB", "฿", "priced"),
-            ("wires", "รายการเชื่อมต่อสาย", "#377FB5", "⌁", "wiring"),
-            ("purchase_count", "รายการจัดซื้อ", "#A46B20", "▤", "purchases"),
-        ]
+        body.addWidget(self._label("ภาพรวมล่าสุด  /  PROJECT SNAPSHOT", "sectionTitle"))
+        main_metrics = QGridLayout()
+        main_metrics.setHorizontalSpacing(12)
+        main_metrics.setVerticalSpacing(12)
         self.cards = {}
-        for index, (key, label, tint, symbol, target) in enumerate(metrics):
+        for column, (key, label, tint, symbol, target) in enumerate((
+            ("items", "อุปกรณ์ทั้งหมด", "#1768D2", "▣", "items"),
+            ("known_cost", "มูลค่าที่ทราบ (บาท)", "#7652BB", "฿", "priced"),
+        )):
             card = Card(label, tint=tint, symbol=symbol)
             card.clicked.connect(lambda t=target: self.show_metric(t))
             self.cards[key] = card
-            if index < 4:
-                board.addWidget(card, 0, index)
-            else:
-                board.addWidget(card, 1, (index-4)*2, 1, 2)
-        for column in range(4):
-            board.setColumnStretch(column, 1)
-        body.addLayout(board)
+            main_metrics.addWidget(card, 0, column)
+        self.pending_actions_card = Card(
+            "อุปกรณ์ที่ต้องติดตาม", tint="#B05F20", symbol="!")
+        self.pending_actions_card.clicked.connect(
+            lambda: self.show_dashboard_task("pending_order"))
+        main_metrics.addWidget(self.pending_actions_card, 0, 2)
+        for col in range(3):
+            main_metrics.setColumnStretch(col, 1)
+        body.addLayout(main_metrics)
 
-        panel = self._panel("หมวดอุปกรณ์   ·   เลือกเพื่อดูรายการ", body, stretch=1)
+        tasks = self._panel("งานที่ต้องติดตาม   /   ACTION REQUIRED", body)
+        self.task_summary_label = self._label(
+            "กําลังตรวจสอบรายการค้างจาก BOM และการจัดซื้อ…", "hint")
+        self.task_summary_label.setWordWrap(True)
+        tasks.addWidget(self.task_summary_label)
+        task_grid = QGridLayout()
+        task_grid.setHorizontalSpacing(10)
+        task_grid.setVerticalSpacing(10)
+        self.task_buttons = {}
+        task_info = (
+            ("missing_price", "ยังไม่มีราคา", "ไปตรวจสอบราคา"),
+            ("missing_supplier", "ยังไม่มีผู้ขาย", "ไปเลือกร้านค้า"),
+            ("pending_order", "ยังสั่งซื้อไม่ครบ", "ดูรายการจัดซื้อ"),
+            ("pending_receipt", "สั่งแล้วแต่ยังรับไม่ครบ", "ดูความคืบหน้า"),
+        )
+        for index, (key, label, action) in enumerate(task_info):
+            button = self._button(
+                f"{label}   0 รายการ     → {action}",
+                lambda _checked=False, kind=key: self.show_dashboard_task(kind),
+                "taskAction")
+            button.setMinimumHeight(59)
+            button.setToolTip("เปิดหน้ารายการที่เกี่ยวข้อง")
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.setProperty("taskKey", key)
+            self.task_buttons[key] = button
+            task_grid.addWidget(button, index//2, index%2)
+        task_grid.setColumnStretch(0, 1)
+        task_grid.setColumnStretch(1, 1)
+        tasks.addLayout(task_grid)
+        self.task_footer = self._label(
+            "จำนวนที่ยังไม่ได้สั่งคำนวณจากสถานะจัดซื้อที่ยืนยันแล้ว "
+            "• ไม่นับสถานะวางแผนหรือขอราคาเป็นการสั่งซื้อ", "hint")
+        self.task_footer.setWordWrap(True)
+        tasks.addWidget(self.task_footer)
+
+        details = self._panel("ข้อมูลเพิ่มเติม  /  BOM DETAILS", body)
+        secondary = QGridLayout()
+        secondary.setHorizontalSpacing(10)
+        secondary.setVerticalSpacing(10)
+        for col, (key, label, tint, symbol, target) in enumerate((
+            ("priced", "มีราคาแล้ว", "#13835C", "✓", "priced"),
+            ("missing", "ยังไม่มีราคา", "#B74A37", "!", "missing"),
+            ("wires", "รายการเชื่อมต่อสาย", "#377FB5", "⌁", "wiring"),
+            ("purchase_count", "รายการจัดซื้อ", "#A46B20", "▤", "purchases"),
+        )):
+            card = Card(label, tint=tint, symbol=symbol)
+            card.clicked.connect(lambda t=target: self.show_metric(t))
+            self.cards[key] = card
+            secondary.addWidget(card, 0, col)
+            secondary.setColumnStretch(col, 1)
+        details.addLayout(secondary)
+
+        panel = self._panel("หมวดอุปกรณ์   ·   เลือกเพื่อดูรายการ", body)
         tabs = QTabWidget()
         self.category_tabs = tabs
         categories_page = QWidget()
@@ -888,6 +948,23 @@ class BOMWindow(QMainWindow):
         purchasing.addWidget(self.purchase_dashboard_note)
         return page
 
+    def show_dashboard_task(self, kind):
+        """Open a relevant real table/filter, without mutating any BOM data."""
+        if kind in ("missing_price", "missing_supplier"):
+            self.show_page(1)
+            self.search.clear()
+            self.category.setCurrentIndex(0)
+            self.price_filter.setCurrentText(
+                "ไม่มีราคา" if kind == "missing_price" else "ไม่มีผู้ขาย")
+        elif kind in ("pending_order", "pending_receipt"):
+            self.show_page(3)
+            if kind == "pending_order":
+                self.set_status("เปิดรายการจัดซื้อแล้ว • ใช้ปุ่มเพิ่มยอดสั่งซื้อเพื่อดำเนินการ")
+            else:
+                self.set_status("เปิดรายการจัดซื้อแล้ว • ตรวจสถานะและจำนวนรับจริง")
+        else:
+            raise ValueError("Unknown dashboard task")
+
     def _table_panel(self, body, title):
         return self._panel(title, body, stretch=1)
 
@@ -928,7 +1005,7 @@ class BOMWindow(QMainWindow):
         filters.addLayout(search_row)
         filter_row = QHBoxLayout()
         self.price_filter = QComboBox()
-        self.price_filter.addItems(["ทุกราคา", "มีราคา", "ไม่มีราคา"])
+        self.price_filter.addItems(["ทุกราคา", "มีราคา", "ไม่มีราคา", "ไม่มีผู้ขาย"])
         self.price_filter.currentIndexChanged.connect(self.render_bom)
         filter_row.addWidget(self.price_filter)
         self.group_mode = QComboBox()
@@ -1289,6 +1366,50 @@ class BOMWindow(QMainWindow):
         for key in ("items", "priced", "missing", "wires", "purchase_count"):
             self.cards[key].figure.setText(str(info[key]))
         self.cards["known_cost"].figure.setText(money(info["known_cost"]))
+        purchase_progress = bom_advanced.purchase_progress(self.payload)
+        missing_price = {
+            str(i["id"]) for i in self.payload.get("items", [])
+            if i.get("unitPrice") is None or str(i.get("unitPrice")).strip() == ""
+        }
+        missing_supplier = {
+            str(i["id"]) for i in self.payload.get("items", [])
+            if not str(i.get("supplier") or "").strip()
+        }
+        pending_order = {
+            key for key, qty in purchase_progress["remaining_to_order"].items()
+            if qty > 0
+        }
+        placed_ids = {
+            str(order.get("itemId") or "")
+            for order in self.payload.get("purchases", [])
+            if order.get("status") in ("สั่งแล้ว", "ได้รับบางส่วน", "ได้รับแล้ว")
+        }
+        pending_receipt = {
+            key for key, qty in purchase_progress["remaining_to_receive"].items()
+            if key in placed_ids and qty > 0
+        }
+        counts = {
+            "missing_price": len(missing_price),
+            "missing_supplier": len(missing_supplier),
+            "pending_order": len(pending_order),
+            "pending_receipt": len(pending_receipt),
+        }
+        unique_pending = missing_price | missing_supplier | pending_order | pending_receipt
+        self.pending_actions_card.figure.setText(str(len(unique_pending)))
+        self.dashboard_task_counts = counts
+        captions = {
+            "missing_price": ("ยังไม่มีราคา", "ไปตรวจสอบราคา"),
+            "missing_supplier": ("ยังไม่มีผู้ขาย", "ไปเลือกร้านค้า"),
+            "pending_order": ("ยังสั่งซื้อไม่ครบ", "ดูรายการจัดซื้อ"),
+            "pending_receipt": ("สั่งแล้วแต่ยังรับไม่ครบ", "ดูความคืบหน้า"),
+        }
+        for key, button in self.task_buttons.items():
+            label, action = captions[key]
+            button.setText(f"{label}   {counts[key]} รายการ    → {action}")
+            button.setEnabled(counts[key] > 0)
+        self.task_summary_label.setText(
+            f"ต้องติดตาม {len(unique_pending)} จาก {info['items']} อุปกรณ์"
+            "   •   หนึ่งอุปกรณ์อาจมีงานค้างมากกว่าหนึ่งประเภท")
         cats = [(cat, info["categories"][cat]) for cat in
                 bom_categories.sorted_categories(info["categories"].keys())]
         self.category_table.setRowCount(len(cats))
@@ -1358,6 +1479,8 @@ class BOMWindow(QMainWindow):
             if price_filter == "มีราคา" and not has_price:
                 continue
             if price_filter == "ไม่มีราคา" and has_price:
+                continue
+            if price_filter == "ไม่มีผู้ขาย" and str(item.get("supplier") or "").strip():
                 continue
             if query and query not in " ".join(str(x or "") for x in item.values()).casefold():
                 continue
@@ -1589,6 +1712,27 @@ class BOMWindow(QMainWindow):
         else:
             state = "บันทึกในเครื่อง · รอซิงก์ GitHub อัตโนมัติ"
         self.sync_state.setText(state)
+        if hasattr(self, "dashboard_cloud_badge"):
+            if self.sync_paused_conflict:
+                badge = "● มีข้อมูลชนกัน ต้องตรวจสอบ"
+            elif self.dirty:
+                badge = "● มีฉบับร่างที่ยังไม่ซิงก์"
+            elif self.last_git_ok is False:
+                badge = "● ใช้ข้อมูลในเครื่อง (ออฟไลน์)"
+            elif self.sha and self.last_git_ok is True:
+                badge = "● GitHub Connected"
+            elif self.sha:
+                badge = "● มีข้อมูล GitHub ในเครื่อง"
+            else:
+                badge = "● ยังไม่ได้โหลด GitHub"
+            self.dashboard_cloud_badge.setText(badge)
+            self.dashboard_access_label.setText(
+                "โหมดผู้แก้ไข: Auto Save ผ่าน GitHub เมื่อมีการเปลี่ยนแปลง"
+                if self.token else
+                "โหมดผู้ชม: อ่าน BOM ได้ทันที • การแก้ไขจะเก็บเป็นฉบับร่างในเครื่อง")
+            self.dashboard_sync_time.setText(
+                "ซิงก์ล่าสุด: " + self.last_github_sync_at.astimezone().strftime("%d/%m %H:%M")
+                if self.last_github_sync_at else "ยังไม่มีเวลาซิงก์ที่ยืนยัน")
         if hasattr(self, "cloud_header_status"):
             updated = (self.last_github_sync_at.astimezone().strftime("%d/%m %H:%M")
                        if self.last_github_sync_at else "ยังไม่เคยซิงก์ในรอบนี้")
