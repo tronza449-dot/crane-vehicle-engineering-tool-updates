@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T21:35:38+00:00",
+  "updatedAt": "2026-10-10T21:37:30+00:00",
   "currency": "THB",
   "items": [
     {
@@ -213,10 +213,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "12 V+ → ฟิวส์สาขาที่เลือกตามกระแสเริ่มต้น/สาย → COM2; NO2 → ไฟ +; ไฟ − → 12 V− | รีเลย์ CH2 ใช้ GPIO33; ห้ามต่อเข้ากับ 72 V",
-      "unitPrice": null,
+      "unitPrice": 179.0,
       "link": "https://www.homepro.co.th/p/1236599",
       "status": "ตัวเลือกที่คุยไว้",
-      "notes": "ตรวจพิกัดกระแสเริ่มต้นและวิธียึดโคมก่อนซื้อ; ฐานแม่เหล็กต้องยึดเพิ่มบนรถที่เคลื่อนที่; ฟิวส์และสายต้องเลือกตามกระแสจริง"
+      "notes": "ตรวจพิกัดกระแสเริ่มต้นและวิธียึดโคมก่อนซื้อ; ฐานแม่เหล็กต้องยึดเพิ่มบนรถที่เคลื่อนที่; ฟิวส์และสายต้องเลือกตามกระแสจริง",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "17",
@@ -226,10 +228,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "5 V+ (ฝั่งโหลด) → COM1; NO1 → buzzer +; buzzer − → 5 V− | รีเลย์ CH1 ใช้ GPIO25; ปล่อย NC ไว้",
-      "unitPrice": null,
-      "link": "https://www.ab.in.th/product/1116/active-buzzer-%E0%B8%A5%E0%B8%B3%E0%B9%82%E0%B8%9E%E0%B8%87%E0%B8%AA%E0%B8%B1%E0%B8%8D%E0%B8%8D%E0%B8%B2%E0%B8%93-5v-tmb12a05",
+      "unitPrice": 6.0,
+      "link": "https://www.cybertice.com/product/147/active-buzzer-%E0%B8%A5%E0%B8%B3%E0%B9%82%E0%B8%9E%E0%B8%87%E0%B8%AA%E0%B8%B1%E0%B8%8D%E0%B8%8D%E0%B8%B2%E0%B8%93-5v-tmb12a05-129-5mm?gad_source=1&gad_campaignid=22641276948&gbraid=0AAAAADc4pmM3pVHsr-5vmuY4ZiVxw0FZD&gclid=Cj0KCQjwxKfWBhDkARIsAMKwkNZ-WgnI9-0h9IntqIwW-o5CEMIX2olMm2fuLxRiN_FzmJ3w9oI8L2YaAiA6EALw_wcB",
       "status": "ตัวเลือกที่คุยไว้",
-      "notes": "ใช้แหล่ง 5 V ตามสเปก buzzer; ถ้าต้องการแยก optocoupler เต็มรูปแบบ ห้ามรวมขั้วลบฝั่งโหลดกับ logic GND"
+      "notes": "ใช้แหล่ง 5 V ตามสเปก buzzer; ถ้าต้องการแยก optocoupler เต็มรูปแบบ ห้ามรวมขั้วลบฝั่งโหลดกับ logic GND",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "18",
