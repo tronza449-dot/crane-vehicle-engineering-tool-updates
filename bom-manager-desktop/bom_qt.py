@@ -403,10 +403,25 @@ class BOMWindow(QMainWindow):
         self.nav_buttons = []
         self.zoom_factor = theme.current_scale()
         self.last_git_ok = None
+        self.sync_paused_conflict = False
+        self.auto_sync_enabled = QSettings("CraneVehicle", "BOMManager").value(
+            "sync/auto_enabled", True, type=bool)
+        self.auto_sync_delay_ms = 90_000  # debounce bursts of user edits
+        self.auto_sync_timer = QTimer(self)
+        self.auto_sync_timer.setSingleShot(True)
+        self.auto_sync_timer.timeout.connect(self._autosync_if_needed)
+        self.auto_sync_retry_timer = QTimer(self)
+        self.auto_sync_retry_timer.setInterval(180_000)
+        self.auto_sync_retry_timer.timeout.connect(self._autosync_if_needed)
+        self.auto_sync_retry_timer.start()
         self._make_ui()
         self._setup_readability()
         self._read_cache()
         self.render_all()
+        # A crash leaves a durable local draft. Retry safely using GitHub SHA,
+        # never replace a recovered dirty draft with a remote download.
+        if self.dirty:
+            self._schedule_auto_sync()
         self.debugger.event("INFO", "application", "APP_STARTED",
                             f"Minimal Engineering desktop v{VERSION} started")
         if auto_load:
@@ -956,6 +971,24 @@ class BOMWindow(QMainWindow):
         row.addWidget(self._button("ตั้งค่า Token", self.configure_token))
         row.addWidget(self._button("ประวัติการแก้ไข", self.show_history))
         group.addLayout(row)
+        sync_settings = QHBoxLayout()
+        self.auto_sync_toggle = QCheckBox("Auto Save ไป GitHub เมื่อแก้ไขรายการ")
+        self.auto_sync_toggle.setToolTip(
+            "บันทึกฉบับร่างในเครื่องทันที และซิงก์หลังหยุดแก้ไขประมาณ 90 วินาที "
+            "หากเน็ตหลุดจะเก็บฉบับร่างไว้และลองใหม่โดยไม่ทับข้อมูลเครื่องอื่น")
+        self.auto_sync_toggle.setChecked(self.auto_sync_enabled)
+        self.auto_sync_toggle.toggled.connect(self.set_auto_sync)
+        sync_settings.addWidget(self.auto_sync_toggle)
+        self.sync_state = self._label("บันทึกในเครื่อง · ยังไม่ซิงก์", "status")
+        sync_settings.addWidget(self.sync_state)
+        sync_settings.addStretch()
+        group.addLayout(sync_settings)
+        guide = self._label(
+            "ฉบับร่างเก็บในเครื่องทันทีเพื่อกู้คืนหากไฟดับ · Auto Save ส่งขึ้น GitHub "
+            "หลังหยุดแก้ไข ~90 วินาที · หากข้อมูลบน GitHub เปลี่ยนจากเครื่องอื่น "
+            "ระบบจะหยุดซิงก์และแจ้งให้ตรวจสอบก่อน", "hint")
+        guide.setWordWrap(True)
+        group.addWidget(guide)
 
         group = self._panel("3  เครื่องมืออื่นและสำรองข้อมูล", body)
         row = QHBoxLayout()
@@ -1140,7 +1173,8 @@ class BOMWindow(QMainWindow):
         if hasattr(self, "debug_checks"):
             self.refresh_diagnostics()
         self.data_status.setText(
-            f"{'ยังไม่ได้ส่งขึ้น GitHub' if self.dirty else 'GitHub'}  •  {len(self.payload.get('items', []))} รายการ")
+            f"{'รอซิงก์ GitHub' if self.dirty else 'ข้อมูลซิงก์แล้ว'}  •  {len(self.payload.get('items', []))} รายการ")
+        self._refresh_sync_state()
 
     def render_dashboard(self):
         info = bom_core.metrics(self.payload)
@@ -1303,6 +1337,52 @@ class BOMWindow(QMainWindow):
             return None
         return int(original_index)
 
+    def _refresh_sync_state(self):
+        if not hasattr(self, "sync_state"):
+            return
+        if self.sync_paused_conflict:
+            state = "ข้อมูลชนกัน · หยุด Auto Save จนกว่าจะตรวจสอบ"
+        elif not self.dirty:
+            state = "GitHub ซิงก์แล้ว" if self.sha else "บันทึกในเครื่อง"
+        elif not self.auto_sync_enabled:
+            state = "บันทึกในเครื่อง · Auto Save GitHub ปิด"
+        elif not self.token:
+            state = "บันทึกในเครื่อง · รอตั้งค่า GitHub Token"
+        elif not self.sha:
+            state = "บันทึกในเครื่อง · ต้องโหลด GitHub ก่อน"
+        elif self.busy:
+            state = "บันทึกในเครื่อง · รอซิงก์"
+        else:
+            state = "บันทึกในเครื่อง · รอซิงก์ GitHub อัตโนมัติ"
+        self.sync_state.setText(state)
+
+    def set_auto_sync(self, enabled):
+        self.auto_sync_enabled = bool(enabled)
+        QSettings("CraneVehicle", "BOMManager").setValue(
+            "sync/auto_enabled", self.auto_sync_enabled)
+        if self.auto_sync_enabled:
+            self._schedule_auto_sync()
+        else:
+            self.auto_sync_timer.stop()
+        self._refresh_sync_state()
+
+    def _schedule_auto_sync(self):
+        if (self.auto_sync_enabled and self.dirty and
+                not self.sync_paused_conflict and self.token and self.sha):
+            self.auto_sync_timer.start(self.auto_sync_delay_ms)
+        self._refresh_sync_state()
+
+    def _autosync_if_needed(self):
+        if not (self.auto_sync_enabled and self.dirty and self.token
+                and self.sha and not self.sync_paused_conflict):
+            self._refresh_sync_state()
+            return
+        if self.busy or self.downloading:
+            # Another background job is active; retry without mutating state.
+            self.auto_sync_timer.start(60_000)
+            return
+        self.save_remote(automatic=True)
+
     def changed(self):
         self.dirty = True
         self.revision += 1
@@ -1310,7 +1390,10 @@ class BOMWindow(QMainWindow):
         self.debugger.event("INFO", "bom", "LOCAL_DRAFT_UPDATED",
                             "ฉบับร่างถูกแก้ไขและบันทึกในเครื่อง")
         self.render_all()
-        self.set_status("บันทึกฉบับร่างในเครื่องแล้ว · กดบันทึก GitHub เพื่อแชร์ไปเครื่องอื่น")
+        self._schedule_auto_sync()
+        self.set_status("บันทึกในเครื่องแล้ว · "+(
+            "จะซิงก์ GitHub อัตโนมัติ" if self.auto_sync_enabled
+            else "Auto Save GitHub ปิดอยู่"))
 
     def edit_record(self, kind, existing=False, defaults=None):
         data = self.payload.setdefault(kind, [])
@@ -1338,6 +1421,13 @@ class BOMWindow(QMainWindow):
                 if not values["from"] or not values["to"]:
                     raise bom_core.DataError("ต้องระบุจุดต้นทางและปลายทาง")
             else:
+                if not values.get("itemId") and index is None:
+                    raise bom_core.DataError("กรุณาเลือกอุปกรณ์จากรายการ BOM ก่อนบันทึกการจัดซื้อ")
+                if values.get("itemId") and not any(
+                    str(i.get("id")) == values["itemId"] for i in
+                    self.payload.get("items", [])):
+                    if index is None:
+                        raise bom_core.DataError("ไม่พบ BOM ID ที่เลือก กรุณาเลือกใหม่")
                 if not values["description"]:
                     raise bom_core.DataError("ต้องกรอกชื่ออุปกรณ์ที่สั่งซื้อ")
                 values["qty"] = bom_core.valid_qty(values["qty"])
