@@ -89,6 +89,29 @@ class MinimalEngineeringTests(unittest.TestCase):
         self.assertEqual(dlg.get_values()["link"],"https://example.org")
         dlg.close()
 
+    def test_update_button_is_in_global_header_and_tracks_availability(self):
+        # Updater must be reachable from ALL pages, not hidden in Reports.
+        self.assertEqual(self.win.update_btn.parentWidget().objectName(), "topbar")
+        self.assertEqual(self.win.update_btn.text(), "ตรวจสอบอัปเดต")
+        self.assertTrue(self.win.install_btn.isHidden())
+        self.assertTrue(self.win.update_btn.isEnabled())
+        from unittest.mock import patch
+        info = {"version": "9.9.9"}
+        with patch.object(self.win, "_job", side_effect=lambda task, ok, fail,
+                          context=None: ok(info)):
+            for page in range(6):
+                self.win.show_page(page)
+                self.win.check_version(silent=True)
+                self.assertFalse(self.win.install_btn.isHidden())
+                self.assertTrue(self.win.install_btn.isEnabled())
+                self.assertIn("9.9.9", self.win.version_label.text())
+        with patch.object(self.win, "_job", side_effect=lambda task, ok, fail,
+                          context=None: ok(None)):
+            self.win.check_version(silent=True)
+        self.assertTrue(self.win.install_btn.isHidden())
+        self.assertFalse(self.win.install_btn.isEnabled())
+        self.assertIn("ล่าสุด", self.win.version_label.text())
+
     def test_redesign_does_not_mutate_bom_on_navigation(self):
         import json
         before=json.dumps(self.win.payload,ensure_ascii=False,sort_keys=True)
