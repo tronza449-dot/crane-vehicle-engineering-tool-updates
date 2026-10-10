@@ -1624,12 +1624,16 @@ class BOMWindow(QMainWindow):
     def load_remote(self, silent=False):
         if self.busy:
             return
-        if self.dirty and QMessageBox.question(
-                self, "มีฉบับร่างค้างอยู่",
-                "ข้อมูลที่แก้ในเครื่องยังไม่ได้บันทึกขึ้น GitHub\n"
-                "ต้องการโหลดข้อมูล GitHub ทับฉบับร่างหรือไม่?\n"
-                "ควรส่งออก JSON Backup ก่อนโหลดทับ") != QMessageBox.StandardButton.Yes:
-            return
+        # Never silently discard recovered crash data during automatic refresh.
+        if self.dirty:
+            if silent or QMessageBox.question(
+                    self, "มีฉบับร่างค้างอยู่",
+                    "ข้อมูลที่แก้ในเครื่องยังไม่ได้บันทึกขึ้น GitHub\n"
+                    "ต้องการโหลดข้อมูล GitHub ทับฉบับร่างหรือไม่?\n"
+                    "ควรส่งออก JSON Backup ก่อนโหลดทับ"
+            ) != QMessageBox.StandardButton.Yes:
+                return
+        starting_revision = self.revision
         self.busy = True
         self.set_status("กำลังโหลด BOM จาก GitHub…")
         def work():
@@ -1640,6 +1644,14 @@ class BOMWindow(QMainWindow):
             return document, raw["sha"]
         def success(result):
             self.busy = False
+            if self.revision != starting_revision:
+                # Editing started while remote data was in flight.
+                self.sync_paused_conflict = True
+                self._write_cache()
+                self._refresh_sync_state()
+                self.set_status("ตรวจพบการแก้ไขระหว่างโหลด GitHub "
+                                "· เก็บฉบับร่างในเครื่องไว้ ไม่โหลดทับ")
+                return
             self.payload, self.sha = result
             self.last_github_sync_at = datetime.now(timezone.utc)
             self.last_git_ok = True
