@@ -533,7 +533,9 @@ class BOMWindow(QMainWindow):
             table.verticalHeader().setDefaultSectionSize(row_h)
             table.horizontalHeader().setFixedHeight(header_h)
         for card in self.cards.values():
-            card.setMinimumHeight(round(147 * zoom))
+            card.setMinimumHeight(round(112 * zoom))
+        for button in getattr(self, "category_buttons", {}).values():
+            button.setMinimumHeight(round(67 * zoom))
 
     def change_font_scale(self, index):
         if index < 0:
@@ -605,46 +607,107 @@ class BOMWindow(QMainWindow):
         table.setSortingEnabled(False)
         return table
 
+    def filter_category(self, category):
+        self.show_page(1)
+        self.search.clear()
+        self.price_filter.setCurrentText("ทุกราคา")
+        if self.category.findText(category) >= 0:
+            self.category.setCurrentText(category)
+        else:
+            self.category.setCurrentIndex(0)
+            self.set_status(f"ยังไม่มีอุปกรณ์ในหมวด {category}")
+
     def _build_dashboard(self):
-        page, body = self._page("ภาพรวมโครงการ", "PROJECT OVERVIEW  /  BUDGET & MATERIAL STATUS")
-        body.addWidget(self._label(
-            "เริ่มต้นใช้งาน:  1  เลือกหน้า BOM เพื่อแก้อุปกรณ์"
-            "    →    2  ตรวจราคาและสเปก"
-            "    →    3  เลือก รายงาน / GitHub เพื่อส่งออก PDF หรือ Excel", "caption"))
+        page, body = self._page(
+            "ภาพรวมโครงการ", "PROJECT OVERVIEW   /   จำนวนอุปกรณ์ ราคา และความครบถ้วนของข้อมูล")
+
+        hero = QFrame()
+        hero.setObjectName("hero")
+        line = QHBoxLayout(hero)
+        line.setContentsMargins(23, 19, 23, 19)
+        heading = QVBoxLayout()
+        heading.setSpacing(6)
+        heading.addWidget(self._label("CRANE VEHICLE  /  ENGINEERING BOM", "caption"))
+        self.hero_project_label = self._label("โครงการรถขนซากสัตว์พร้อมเครน", "heroTitle")
+        self.hero_project_label.setWordWrap(True)
+        heading.addWidget(self.hero_project_label)
+        heading.addWidget(self._label(
+            "ดูข้อมูลอุปกรณ์ในระบบ แก้ไขรายการ แล้วส่งออกรายงาน PDF / Excel",
+            "heroSubtitle"))
+        line.addLayout(heading, 1)
+        quick = QVBoxLayout()
+        quick.addWidget(self._button("เปิดรายการอุปกรณ์  →",
+                                     lambda: self.show_page(1), "primary"))
+        quick.addWidget(self._button("ส่งออกรายงาน", lambda: self.show_page(4)))
+        line.addLayout(quick)
+        body.addWidget(hero)
+
         board = QGridLayout()
-        board.setSpacing(13)
+        board.setHorizontalSpacing(12)
+        board.setVerticalSpacing(12)
         metrics = [
-            ("items", "อุปกรณ์ทั้งหมด", "#36A8FF", "▣", "items"),
-            ("priced", "รายการที่มีราคา", "#29D7A3", "✓", "priced"),
-            ("missing", "รายการยังไม่มีราคา", "#FF7891", "!", "missing"),
-            ("known_cost", "ผลรวมที่ทราบราคา (THB)", "#65B8FF", "฿", "priced"),
-            ("wires", "จุดต่อสาย Wiring", "#AB99FF", "⌁", "wiring"),
-            ("purchase_count", "รายการจัดซื้อ", "#F5BA55", "▤", "purchases"),
+            ("items", "อุปกรณ์ทั้งหมด", "#1768D2", "▣", "items"),
+            ("priced", "มีราคาแล้ว", "#13835C", "✓", "priced"),
+            ("missing", "ยังไม่มีราคา", "#B74A37", "!", "missing"),
+            ("known_cost", "มูลค่าที่ทราบ (บาท)", "#7652BB", "฿", "priced"),
+            ("wires", "รายการเชื่อมต่อสาย", "#377FB5", "⌁", "wiring"),
+            ("purchase_count", "รายการจัดซื้อ", "#A46B20", "▤", "purchases"),
         ]
         self.cards = {}
-        for index, (key, name, tint, icon, target) in enumerate(metrics):
-            card = Card(name, tint=tint, symbol=icon)
+        for index, (key, label, tint, symbol, target) in enumerate(metrics):
+            card = Card(label, tint=tint, symbol=symbol)
             card.clicked.connect(lambda t=target: self.show_metric(t))
             self.cards[key] = card
-            board.addWidget(card, index // 3, index % 3)
-        for i in range(3):
-            board.setColumnStretch(i, 1)
+            if index < 4:
+                board.addWidget(card, 0, index)
+            else:
+                board.addWidget(card, 1, (index-4)*2, 1, 2)
+        for column in range(4):
+            board.setColumnStretch(column, 1)
         body.addLayout(board)
-        breakdown = self._panel("การกระจายอุปกรณ์ตามหมวดหมู่", body, stretch=1)
+
+        panel = self._panel("หมวดอุปกรณ์   ·   เลือกเพื่อดูรายการ", body, stretch=1)
+        tabs = QTabWidget()
+        self.category_tabs = tabs
+        categories_page = QWidget()
+        grid = QGridLayout(categories_page)
+        grid.setContentsMargins(11, 13, 11, 13)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(10)
+        self.category_buttons = {}
+        for i, category in enumerate(bom_categories.CATEGORY_ORDER):
+            button = self._button(
+                category, lambda _checked=False, cat=category: self.filter_category(cat),
+                "categoryAction")
+            button.setMinimumHeight(68)
+            button.setToolTip("เปิดรายการหมวด " + category)
+            grid.addWidget(button, i//4, i%4)
+            self.category_buttons[category] = button
+        for column in range(4):
+            grid.setColumnStretch(column, 1)
+        tabs.addTab(categories_page, "หมวดทั้งหมด")
+        detail_page = QWidget()
+        details_layout = QVBoxLayout(detail_page)
         self.category_table = self._table(["หมวดอุปกรณ์", "จำนวนรายการ"], 0)
-        self.category_table.setColumnWidth(1, 160)
+        self.category_table.setColumnWidth(1, 150)
         self.category_table.cellDoubleClicked.connect(self.open_category_from_dashboard)
-        self.category_table.setToolTip("ดับเบิลคลิกหมวดเพื่อเปิดรายการอุปกรณ์ในหมวดนั้น")
-        breakdown.addWidget(self.category_table, 1)
+        self.category_table.setToolTip("ดับเบิลคลิกหมวดเพื่อเปิดรายการ")
+        details_layout.addWidget(self.category_table)
+        tabs.addTab(detail_page, "ดูเป็นตาราง")
+        panel.addWidget(tabs, 1)
+
+        quality = self._panel("ความครบถ้วนของข้อมูลราคา", body)
         progress = QHBoxLayout()
-        self.price_label = self._label("ความครบถ้วนของราคา 0%", "caption")
+        self.price_label = self._label("กรอกราคาแล้ว 0 รายการ", "caption")
         progress.addWidget(self.price_label)
         self.price_progress = QProgressBar()
         self.price_progress.setTextVisible(False)
         progress.addWidget(self.price_progress, 1)
-        breakdown.addLayout(progress)
-        self.budget_note = self._label("ยอดรวมไม่รวมรายการที่ยังไม่มีราคา", "hint")
-        body.addWidget(self.budget_note)
+        quality.addLayout(progress)
+        self.budget_note = self._label(
+            "ยอดรวมที่ทราบราคา ไม่รวมรายการที่ยังไม่มีราคา", "hint")
+        self.budget_note.setWordWrap(True)
+        quality.addWidget(self.budget_note)
         return page
 
     def _table_panel(self, body, title):
@@ -967,6 +1030,9 @@ class BOMWindow(QMainWindow):
             self.category_table.setItem(row, 0, QTableWidgetItem(category))
             self.category_table.setItem(row, 1, QTableWidgetItem(str(count)))
         self.category_table.clearSelection()
+        for cat, button in self.category_buttons.items():
+            count = info["categories"].get(cat, 0)
+            button.setText(f"{cat}\n{count} รายการ")
         percent = int(round(100 * info["priced"] / max(info["items"], 1)))
         self.price_label.setText(f"กรอกราคาแล้ว {info['priced']}/{info['items']} รายการ  ·  {percent}%")
         self.price_progress.setValue(percent)
