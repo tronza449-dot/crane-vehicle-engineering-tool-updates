@@ -28,6 +28,9 @@ _EMAIL_RE = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 _USER_PATH_RE = re.compile(r"(?i)(?:[A-Z]:\\Users\\|/Users/|/home/)[^\\/\s\"']+")
 _URL_CREDENTIAL_RE = re.compile(r"(?i)https?://[^\s/@]+:[^\s/@]+@")
 _URL_AUTH_QUERY_RE = re.compile(r"(?i)([?&](?:token|access_token|api_key|key|password|secret)=)[^&#\s]+")
+_ABSOLUTE_WIN_PATH_RE = re.compile(r"(?i)\b[A-Z]:\\(?:[^\\\s\"'\r\n]+\\)*[^\\\s\"'\r\n]+")
+_ABSOLUTE_POSIX_PATH_RE = re.compile(r"(?<![:/])/(?:[^/\s\"'\r\n]+/)*[^/\s\"'\r\n]+")
+
 _SAFE_AREA = re.compile(r"^[A-Za-z0-9_.-]{1,45}$")
 _SAFE_CODE = re.compile(r"^[A-Z0-9_]{1,50}$")
 
@@ -63,6 +66,8 @@ class DebugReporter:
         text = _URL_CREDENTIAL_RE.sub("https://[CREDENTIALS]@", text)
         text = _URL_AUTH_QUERY_RE.sub(r"\1[REDACTED]", text)
         text = _USER_PATH_RE.sub("[USER_HOME]", text)
+        text = _ABSOLUTE_WIN_PATH_RE.sub("[LOCAL_PATH]", text)
+        text = _ABSOLUTE_POSIX_PATH_RE.sub("[LOCAL_PATH]", text)
         try:
             home = str(Path.home())
             if len(home) > 4:
