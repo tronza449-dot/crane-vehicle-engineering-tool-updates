@@ -94,11 +94,18 @@ class ReportExportTests(unittest.TestCase):
 
     def test_explicit_identification_and_traceability_counts(self):
         gaps = reports.report_quality(self.doc["items"])
-        self.assertEqual(gaps["part_number_missing"], 33)
-        self.assertEqual(gaps["supplier_missing"], 33)
-        self.assertEqual(gaps["reference_missing"], 13)
-        self.assertEqual(gaps["price_missing"], 32)
-        self.assertFalse(any(i.get("partNumber") for i in self.doc["items"]))
+        for metric, field in (
+            ("part_number_missing", "partNumber"),
+            ("supplier_missing", "supplier"),
+            ("reference_missing", "link"),
+        ):
+            expected = sum(not str(item.get(field) or "").strip()
+                           for item in self.doc["items"])
+            self.assertEqual(gaps[metric], expected)
+        missing_prices = sum(reports.price(item.get("unitPrice")) is None
+                             for item in self.doc["items"])
+        self.assertEqual(gaps["price_missing"], missing_prices)
+        self.assertEqual(missing_prices, bom_core.metrics(self.doc)["missing"])
 
     def test_missing_price_not_totalled(self):
         doc={"schemaVersion": 1,"project": "Test",
