@@ -714,44 +714,63 @@ class BOMWindow(QMainWindow):
         return self._panel(title, body, stretch=1)
 
     def _build_bom(self):
-        page, body = self._page("BOM อุปกรณ์", "BILL OF MATERIALS  /  ค้นหา แก้ไข และวางแผนงบประมาณ")
-        bar = QHBoxLayout()
+        page, body = self._page(
+            "รายการอุปกรณ์ (BOM)",
+            "เลือกอุปกรณ์ ตรวจสอบ Part Number และราคา หรือดับเบิลคลิกเพื่อแก้ไข")
+
+        actions = QHBoxLayout()
+        actions.addWidget(self._button("+ เพิ่มอุปกรณ์", lambda: self.edit_record("items"), "primary"))
+        actions.addWidget(self._button("แก้ไขรายการ", lambda: self.edit_record("items", True)))
+        actions.addWidget(self._button("ลบที่เลือก", lambda: self.delete_record("items"), "danger"))
+        actions.addStretch()
+        actions.addWidget(self._button("ออกเอกสาร PDF / Excel",
+                                       lambda: self.show_page(4)))
+        body.addLayout(actions)
+
+        filters = self._panel("ค้นหาและกรองรายการ", body)
+        search_row = QHBoxLayout()
         self.search = QLineEdit()
-        self.search.setPlaceholderText("ค้นหาอุปกรณ์ รุ่น สเปก หรือผู้ขาย…")
+        self.search.setPlaceholderText("ค้นหาชื่ออุปกรณ์ / รุ่น / Part Number / รหัส BOM…")
         self.search.textChanged.connect(self.render_bom)
-        bar.addWidget(self.search, 3)
+        search_row.addWidget(self.search, 4)
         self.category = QComboBox()
         self.category.addItem("ทุกหมวด")
         self.category.currentIndexChanged.connect(self.render_bom)
-        bar.addWidget(self.category, 2)
+        search_row.addWidget(self.category, 2)
+        filters.addLayout(search_row)
+        filter_row = QHBoxLayout()
         self.price_filter = QComboBox()
         self.price_filter.addItems(["ทุกราคา", "มีราคา", "ไม่มีราคา"])
         self.price_filter.currentIndexChanged.connect(self.render_bom)
-        bar.addWidget(self.price_filter, 1)
+        filter_row.addWidget(self.price_filter)
         self.group_mode = QComboBox()
         self.group_mode.addItems(["จัดกลุ่มตามระบบ", "แสดงรายการต่อเนื่อง"])
         self.group_mode.currentIndexChanged.connect(self.render_bom)
-        self.group_mode.setToolTip("สลับมุมมองแยกหมวดหรือแสดงต่อเนื่อง ไม่เปลี่ยนข้อมูลจริง")
-        bar.addWidget(self.group_mode, 2)
-        body.addLayout(bar)
-        body.addWidget(self._label(
-            "เลือกหมวดจากเมนู · ดับเบิลคลิกแถวเพื่อแก้ไข · "
-            "แถวหัวหมวดเป็นเพียงตัวแบ่งรายการ", "hint"))
-        actions = QHBoxLayout()
-        actions.addWidget(self._button("+ เพิ่มอุปกรณ์", lambda: self.edit_record("items"), "primary"))
-        actions.addWidget(self._button("แก้ไขที่เลือก", lambda: self.edit_record("items", True)))
-        actions.addWidget(self._button("ลบรายการ", lambda: self.delete_record("items"), "danger"))
-        actions.addStretch()
-        actions.addWidget(self._button("สร้างรายการจัดซื้อ", self.purchase_selected))
-        body.addLayout(actions)
-        table_box = self._table_panel(body, "รายการวัสดุ / รายละเอียดอุปกรณ์")
+        self.group_mode.setToolTip("ปรับรูปแบบแสดงผล โดยไม่เปลี่ยนรายการหรือหมวดจริง")
+        filter_row.addWidget(self.group_mode)
+        self.visible_count_label = self._label("กำลังโหลดรายการ…", "caption")
+        filter_row.addWidget(self.visible_count_label)
+        filter_row.addStretch()
+        filters.addLayout(filter_row)
+
+        table_box = self._table_panel(body, "รายการวัสดุและอุปกรณ์")
         self.bom_table = self._table(
-            ["หมวด", "อุปกรณ์ / รุ่น", "จำนวน", "หน่วย",
-             "ราคา/หน่วย", "รวม (บาท)", "สถานะ", "ผู้ขาย"], 1)
-        for i, w in {0: 180, 2: 74, 3: 73, 4: 120, 5: 135, 6: 170, 7: 155}.items():
+            ["BOM ID", "ชื่ออุปกรณ์ / รุ่น", "หมวดระบบ", "Part Number",
+             "จำนวน", "หน่วย", "ราคา/หน่วย (บาท)", "รวม (บาท)", "สถานะ"], 1)
+        for i, w in {0: 84, 2: 170, 3: 140, 4: 74, 5: 65,
+                     6: 132, 7: 135, 8: 160}.items():
             self.bom_table.setColumnWidth(i, w)
-        self.bom_table.cellDoubleClicked.connect(lambda *_: self.edit_record("items", True))
+        self.bom_table.setToolTip("เลือกแถวแล้วกดแก้ไขรายการ หรือดับเบิลคลิก")
+        self.bom_table.cellDoubleClicked.connect(
+            lambda *_: self.edit_record("items", True))
         table_box.addWidget(self.bom_table)
+        footer = QHBoxLayout()
+        footer.addWidget(self._label(
+            "ราคา “—” หมายถึงยังไม่มีข้อมูล ไม่ใช่ราคา 0 บาท", "hint"))
+        footer.addStretch()
+        footer.addWidget(self._button("สร้างรายการจัดซื้อจากที่เลือก",
+                                      self.purchase_selected))
+        table_box.addLayout(footer)
         return page
 
     def _build_wiring(self):
@@ -1094,11 +1113,13 @@ class BOMWindow(QMainWindow):
         else:
             display = [("item", index, item) for index, item in entries]
         self.bom_table.setRowCount(len(display))
+        self.visible_count_label.setText(
+            f"แสดง {len(entries)} จาก {len(values)} รายการ")
         for i, row in enumerate(display):
             if row[0] == "heading":
                 header = QTableWidgetItem(f"▣  {row[1]}    ·    {row[2]} รายการ")
-                header.setBackground(QBrush(QColor("#1C4260")))
-                header.setForeground(QBrush(QColor("#ECF7FF")))
+                header.setBackground(QBrush(QColor("#E7F1FC")))
+                header.setForeground(QBrush(QColor("#174F8C")))
                 font = header.font()
                 font.setBold(True)
                 header.setFont(font)
@@ -1110,16 +1131,21 @@ class BOMWindow(QMainWindow):
             _, index, item = row
             qty = item.get("qty", 0)
             price = item.get("unitPrice")
-            columns = [item.get("category", ""), item.get("name", ""), qty,
-                       item.get("unit", ""), money(price),
+            columns = [item.get("id", ""), item.get("name", ""),
+                       item.get("category", ""), item.get("partNumber", "") or "—",
+                       qty, item.get("unit", ""), money(price),
                        money(float(qty) * float(price)) if price is not None else "—",
-                       item.get("status", ""), item.get("supplier", "")]
+                       item.get("status", "")]
             for col, val in enumerate(columns):
                 cell = QTableWidgetItem(str(val if val is not None else ""))
                 cell.setData(Qt.ItemDataRole.UserRole, index)
-                if col in (2, 4, 5):
+                if col in (4, 6, 7):
                     cell.setTextAlignment(Qt.AlignmentFlag.AlignVCenter |
                                           Qt.AlignmentFlag.AlignRight)
+                if col in (6, 7) and price is None:
+                    cell.setForeground(QBrush(QColor("#A86521")))
+                if col == 8 and "ยัง" in str(val):
+                    cell.setForeground(QBrush(QColor("#A86521")))
                 self.bom_table.setItem(i, col, cell)
         self.bom_table.clearSelection()
 
