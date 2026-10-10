@@ -96,5 +96,5 @@ jobs:
             Write-Host "::warning::BOM release $env:BOM_TAG already exists. Increment bom-manager-desktop/VERSION to publish a new version."
             exit 0
           }
-          gh release create $env:BOM_TAG $installer $checksum --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
+          gh release create $env:BOM_TAG $installer $checksum --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
           if ($LASTEXITCODE -ne 0) { throw "GitHub Release creation failed" }
