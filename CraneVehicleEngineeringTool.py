@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.52"
+APP_VERSION = "53.8.53"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -596,12 +596,12 @@ def make_chip(text, bg="#eaf2ff", fg="#2457a6"):
 
 
 def make_page_header(title, subtitle, back_callback, tag_text=None, tag_bg="#eaf2ff", tag_fg="#2457a6", action_text=None, action_callback=None):
-    """Readable V51 page header with clear hierarchy and compact actions."""
-    frame=QFrame();frame.setObjectName("topHeader");frame.setMinimumHeight(98);add_soft_shadow(frame,20,4,22)
-    row=QHBoxLayout(frame);row.setContentsMargins(18,14,18,14);row.setSpacing(14)
-    back=QPushButton("⌂  หน้าแรก");back.setObjectName("secondaryButton");back.setMinimumWidth(112);back.clicked.connect(back_callback);row.addWidget(back)
+    """Compact page header designed to remain stable from 1366px to wide desktop screens."""
+    frame=QFrame();frame.setObjectName("topHeader");frame.setMinimumHeight(76);frame.setMaximumHeight(92);add_soft_shadow(frame,16,2,16)
+    row=QHBoxLayout(frame);row.setContentsMargins(14,10,14,10);row.setSpacing(11)
+    back=QPushButton("←  หน้าแรก");back.setObjectName("secondaryButton");back.setMinimumWidth(100);back.setMaximumWidth(118);back.clicked.connect(back_callback);row.addWidget(back)
     col=QVBoxLayout();col.setSpacing(3)
-    h=QLabel(title);hf=QFont();hf.setPointSize(15);hf.setBold(True);h.setFont(hf);h.setStyleSheet("color:#101828;background:transparent;")
+    h=QLabel(title);hf=QFont();hf.setPointSize(13.5);hf.setBold(True);h.setFont(hf);h.setStyleSheet("color:#101828;background:transparent;")
     sh=QLabel(subtitle);sh.setWordWrap(True);sh.setStyleSheet("color:#667085;font-size:9.8pt;font-weight:650;background:transparent;")
     col.addWidget(h);col.addWidget(sh);row.addLayout(col,1)
     if tag_text:
@@ -1183,10 +1183,10 @@ class App(QMainWindow):
         self._cloud_applying_remote=False
         self._cloud_pending_force=False
         self.setStyleSheet(APP_STYLE);self.setWindowTitle(f"{APP_NAME} — V{APP_VERSION}"); self.setWindowIcon(QIcon(str(resource_path("assets/CraneEngineeringTool.ico"))));self.setMinimumSize(1024,650);self.resize(1440,860)
-        app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(11.5);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
+        app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(10.8);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
-        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.make_telemetry_page();self.make_integration_suite();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
+        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_telemetry_page();self.make_integration_suite();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
         self.calc_all()
         # Automatically restore the most recently entered values.
         self.restore_last_values(silent=True)
@@ -1403,7 +1403,7 @@ class App(QMainWindow):
             "QFrame#moduleSaveBar{background:#f7fbff;border:1px solid #cddceb;"
             "border-radius:9px;} QLabel{background:transparent;}"
         )
-        lay=QHBoxLayout(bar);lay.setContentsMargins(10,7,10,7);lay.setSpacing(9)
+        lay=QHBoxLayout(bar);lay.setContentsMargins(9,5,9,5);lay.setSpacing(8)
         title=QLabel(f"{module_name} • Save / บันทึก")
         title.setStyleSheet("font-weight:850;color:#294760;font-size:10pt;")
         lay.addWidget(title)
@@ -1411,7 +1411,7 @@ class App(QMainWindow):
         note.setWordWrap(True);note.setStyleSheet("color:#60758b;font-size:9.3pt;")
         lay.addWidget(note,1)
         btn=QPushButton("💾 Save Values")
-        btn.setObjectName("primaryButton");btn.setMinimumWidth(150);btn.setMinimumHeight(36)
+        btn.setObjectName("primaryButton");btn.setMinimumWidth(138);btn.setMinimumHeight(32);btn.setMaximumHeight(36)
         btn.setToolTip("บันทึกค่าปัจจุบันทั้งหมดทันที พร้อมไฟล์สำรองใน Documents/CVET_Data")
         btn.clicked.connect(
             lambda _checked=False,b=btn:self._run_button_action(
@@ -1789,7 +1789,6 @@ class App(QMainWindow):
         self.telemetryLogButton=QPushButton("Start Logging");self.telemetryLogButton.clicked.connect(self.toggle_telemetry_logging)
         export=QPushButton("Export CSV");export.clicked.connect(self.export_telemetry_csv)
         clear=QPushButton("Clear Data");clear.setObjectName("secondaryButton");clear.clicked.connect(self.clear_telemetry_data)
-        openHw=QPushButton("ESP32 I/O Manager");openHw.clicked.connect(self.show_hardware_mode)
         bl.addWidget(self.telemetryConnectButton,0,5);bl.addWidget(self.telemetryDisconnectButton,0,6)
         bl.addWidget(self.telemetryLogButton,0,7);bl.addWidget(export,0,8)
 
@@ -2768,7 +2767,6 @@ void loop() {{
         lay.addWidget(self._make_nav_button("winch","W   Winch",self.show_winch_mode))
         lay.addWidget(self._make_nav_button("stability","S   Stability",self.show_stability_mode))
         lay.addWidget(self._make_nav_button("safety","C   Control Logic",self.show_safety_logic_mode))
-        lay.addWidget(self._make_nav_button("hardware","H   Hardware I/O",self.show_hardware_mode))
         lay.addWidget(self._make_nav_button("telemetry","D   WiFi / Live Telemetry",self.show_telemetry_mode))
         lay.addWidget(self._make_nav_button("integration","I   Engineering Suite",self.show_integration_suite_mode))
 
@@ -2824,7 +2822,7 @@ void loop() {{
         pages=[
             ("Home","homePage"),("Drive_Torque","torquePage"),("Battery_Electrical","electricalPage"),
             ("Winch","winchPage"),("Stability","stabilityHubPage"),("Project_Report","projectToolsPage"),
-            ("Control_Logic","safetyPage"),("Hardware_IO","hardwarePage"),("WiFi_Telemetry","telemetryPage"),
+            ("Control_Logic","safetyPage"),("WiFi_Telemetry","telemetryPage"),
             ("Engineering_Suite","integrationPage"),("Variables","variableDictionaryPage"),
         ]
         for label,attr in pages:
@@ -4383,7 +4381,7 @@ void loop() {{
             "home":self.homePage,"torque":self.torquePage,"electrical":self.electricalPage,"winch":self.winchPage,"crane":self.cranePage,
             "slope":self.slopePage,"fbd":self.fbdPage,"components":self.componentsPage,
             "worst":self.worstPage,"steps":self.stepsPage,"design":self.designPage,
-            "graph":getattr(self,"graphPage",None),"report":self.reportPage,"help":self.helpPage,"tools":self.projectToolsPage,"safety":self.safetyPage,"variables":self.variableDictionaryPage,"hardware":self.hardwarePage,"telemetry":self.telemetryPage,"integration":self.integrationPage}
+            "graph":getattr(self,"graphPage",None),"report":self.reportPage,"help":self.helpPage,"tools":self.projectToolsPage,"safety":self.safetyPage,"variables":self.variableDictionaryPage,"telemetry":self.telemetryPage,"integration":self.integrationPage}
         self.show_home_mode()
 
     def _show_only_page(self,page):
@@ -5091,7 +5089,7 @@ void loop() {{
         self.update_all_variable_tables()
 
     def make_stability_hub(self):
-        hub=QWidget();self.stabilityHubPage=hub;lay=QVBoxLayout(hub);lay.setContentsMargins(16,16,16,16);lay.setSpacing(12)
+        hub=QWidget();self.stabilityHubPage=hub;lay=QVBoxLayout(hub);lay.setContentsMargins(10,8,10,10);lay.setSpacing(7)
         lay.addWidget(make_page_header("STABILITY ANALYSIS","วิเคราะห์การคว่ำ • ทางลาด • FBD • Mass & CG • Worst Case",self.show_home_mode,"SF / FBD","#eee8ff","#6542a5"))
         lay.addWidget(self._make_module_save_bar("stabilityHub","S • STABILITY"))
         self.stabilityTabs=QTabWidget();lay.addWidget(self.stabilityTabs)
@@ -11238,7 +11236,7 @@ void loop() {{
 
     def make_slope(self):
         w=QWidget();self.slopePage=w
-        l=QVBoxLayout(w);l.setContentsMargins(14,14,14,14);l.setSpacing(10)
+        l=QVBoxLayout(w);l.setContentsMargins(8,7,8,8);l.setSpacing(7)
 
         geom=QGroupBox("RAMP GEOMETRY / คำนวณองศาและเปอร์เซ็นต์ความชันจากค่าที่วัดจริง")
         gl=QHBoxLayout(geom)
@@ -11263,12 +11261,12 @@ void loop() {{
         gl.addLayout(gf,1)
 
         self.rampGeomOut=QTextEdit();self.rampGeomOut.setReadOnly(True)
-        self.rampGeomOut.setMinimumHeight(270)
+        self.rampGeomOut.setMinimumHeight(220)
         self.rampGeomOut.setStyleSheet("font-size:11pt;background:white")
         gl.addWidget(self.rampGeomOut,2)
         l.addWidget(geom)
 
-        btnrow=QHBoxLayout()
+        btnrow=QGridLayout();btnrow.setHorizontalSpacing(8);btnrow.setVerticalSpacing(6)
         self.rampCalcButton=QPushButton("คำนวณ Ramp Geometry")
         self.rampCalcButton.setObjectName("primaryButton")
         self.rampCalcButton.clicked.connect(
@@ -11291,11 +11289,13 @@ void loop() {{
                 "กำลังใช้ค่า...","ใช้ระยะแล้ว ✓"
             )
         )
-        btnrow.addWidget(self.rampCalcButton);btnrow.addWidget(self.rampApplyAngleButton);btnrow.addWidget(self.rampApplyLengthButton)
+        btnrow.addWidget(self.rampCalcButton,0,0);btnrow.addWidget(self.rampApplyAngleButton,0,1)
+        btnrow.addWidget(self.rampApplyLengthButton,1,0)
         exportSlope=QPushButton("Export Slope PDF / ส่งออกทางลาด")
         exportSlope.setObjectName("primaryButton")
         exportSlope.clicked.connect(lambda:self.export_stability_mode_pdf("slope"))
-        btnrow.addWidget(exportSlope)
+        btnrow.addWidget(exportSlope,1,1)
+        btnrow.setColumnStretch(0,1);btnrow.setColumnStretch(1,1)
         l.addLayout(btnrow)
 
         g=QGroupBox("UPHILL DRIVING STABILITY / เสถียรภาพขณะรถวิ่งขึ้นทางลาด")
@@ -11414,8 +11414,8 @@ void loop() {{
 
 
     def make_fbd(self):
-        w=QWidget();self.fbdPage=w; l=QVBoxLayout(w);l.setSpacing(8)
-        top=QHBoxLayout();top.setSpacing(7)
+        w=QWidget();self.fbdPage=w; l=QVBoxLayout(w);l.setContentsMargins(8,7,8,8);l.setSpacing(7)
+        top=QGridLayout();top.setHorizontalSpacing(7);top.setVerticalSpacing(6)
 
         self.fbdModeCombo=QComboBox()
         self.fbdModeCombo.addItems([
@@ -11463,12 +11463,17 @@ void loop() {{
         captureAllFBD.setToolTip("บันทึก Geometry + Critical FBD ทั้ง 5 case เป็น PNG อัตโนมัติ")
         captureAllFBD.clicked.connect(self.capture_all_fbd)
 
-        top.addWidget(QLabel("Case:"));top.addWidget(self.fbdModeCombo)
-        top.addWidget(QLabel("View:"));top.addWidget(self.fbdViewMode)
-        top.addWidget(self.fbdSimple)
-        top.addWidget(captureAllFBD)
-        top.addWidget(exportCurrentFBD);top.addWidget(exportAllFBD)
-        top.addStretch(1);top.addWidget(self.fbdCriticalLabel);l.addLayout(top)
+        caseLab=QLabel("Case:")
+        viewLab=QLabel("View:")
+        top.addWidget(caseLab,0,0);top.addWidget(self.fbdModeCombo,0,1)
+        top.addWidget(viewLab,0,2);top.addWidget(self.fbdViewMode,0,3)
+        top.addWidget(self.fbdSimple,0,4)
+        top.addWidget(self.fbdCriticalLabel,0,5)
+        top.addWidget(captureAllFBD,1,1)
+        top.addWidget(exportCurrentFBD,1,2,1,2)
+        top.addWidget(exportAllFBD,1,4,1,2)
+        top.setColumnStretch(1,1);top.setColumnStretch(3,2);top.setColumnStretch(5,1)
+        l.addLayout(top)
 
         self.forceDiagram=ForceDiagram(self);self.forceDiagram.setSimpleMode(True)
         l.addWidget(self.forceDiagram,1)
@@ -12966,7 +12971,7 @@ class ForceDiagram(QWidget):
     - Report exports pass a critical case angle; the interactive view may use the current angle.
     """
     def __init__(self,app):
-        super().__init__();self.app=app;self.mode=0;self.caseAngle=None;self.simpleMode=True;self.setMinimumHeight(500)
+        super().__init__();self.app=app;self.mode=0;self.caseAngle=None;self.simpleMode=True;self.setMinimumHeight(390)
     def setMode(self,i):self.mode=int(i);self.update()
     def setSimpleMode(self,on):
         self.simpleMode=bool(on)
