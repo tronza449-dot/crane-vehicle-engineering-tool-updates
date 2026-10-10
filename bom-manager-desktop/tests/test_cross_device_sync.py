@@ -190,6 +190,21 @@ class CloudBOMTests(unittest.TestCase):
         self.assertEqual(json.loads(self.window.cache_path.read_text())["payload"]
                          ["items"][0]["name"], "Keep offline")
 
+    def test_sync_waits_when_item_dialog_is_open(self):
+        self.window.payload["items"][0]["name"] = "Edit waiting"
+        self.window.changed()
+        self.window.edit_dialog_active = True
+        try:
+            with patch("bom_qt.github_api") as api, \
+                 patch.object(self.window, "save_remote") as save:
+                self.window._autosync_if_needed()
+                self.window._refresh_remote_if_clean()
+                api.assert_not_called()
+                save.assert_not_called()
+                self.assertTrue(self.window.auto_sync_timer.isActive())
+        finally:
+            self.window.edit_dialog_active = False
+
     def test_disabling_autosync_keeps_manual_save_available(self):
         self.window.set_auto_sync(False)
         self.window.payload["items"][0]["name"] = "Manually saved"
