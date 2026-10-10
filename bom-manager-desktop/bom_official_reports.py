@@ -49,6 +49,17 @@ def category_stats(items):
     return result
 
 
+
+def report_quality(items):
+    """Count missing fields without guessing values for engineering components."""
+    return {
+        "part_number_missing": sum(not str(x.get("partNumber") or "").strip() for x in items),
+        "supplier_missing": sum(not str(x.get("supplier") or "").strip() for x in items),
+        "reference_missing": sum(not str(x.get("link") or "").strip() for x in items),
+        "price_missing": sum(price(x.get("unitPrice")) is None for x in items),
+    }
+
+
 def export_pdf(doc, destination, options=None):
     """Landscape A4 academic report with cover, category BOM and appendices."""
     from reportlab.lib import colors
@@ -62,6 +73,7 @@ def export_pdf(doc, destination, options=None):
     stats=bom_core.metrics(doc)
     categories=category_stats(doc["items"])
     items=sorted_items(doc)
+    quality=report_quality(items)
     font=_thai_font()
     navy=colors.HexColor(NAVY)
     line=colors.HexColor(LINE)
@@ -111,7 +123,8 @@ def export_pdf(doc, destination, options=None):
         ["สถาบัน / หน่วยงาน",m["institution"]],
         ["เลขที่เอกสาร",m["document_no"]],
         ["Revision / วันที่",f'{m["revision"]}  /  {m["date"]}'],
-        ["สถานะ", "รายงานประกอบการออกแบบ - ไม่ใช่เอกสารอนุมัติการผลิต"],
+        ["สถานะเอกสาร", "DRAFT / ใช้ประกอบรายงานการออกแบบ ไม่ใช่เอกสารอนุมัติการผลิต"],
+        ["รูปแบบอ้างอิง", "ประยุกต์แนวทาง Parts List ของ ISO 7573; ไม่ใช่การรับรองมาตรฐาน"],
     ]
     meta=LongTable([[P(a,label),P(b)] for a,b in rows],colWidths=[150,width-150])
     meta.setStyle(TableStyle([
