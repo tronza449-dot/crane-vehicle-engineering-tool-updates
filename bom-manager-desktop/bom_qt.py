@@ -324,6 +324,7 @@ class BOMWindow(QMainWindow):
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
         sidebar.setFixedWidth(282)
+        self.sidebar_frame = sidebar
         left = QVBoxLayout(sidebar)
         left.setContentsMargins(17, 26, 17, 20)
         left.setSpacing(10)
@@ -423,6 +424,7 @@ class BOMWindow(QMainWindow):
         area = QScrollArea()
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.Shape.NoFrame)
+        area.setStyleSheet("QScrollArea { border: 0; background: #09111F; }")
         area.setWidget(page)
         return area
 
@@ -440,6 +442,7 @@ class BOMWindow(QMainWindow):
     def _apply_readability_metrics(self):
         """Spacing follows text zoom to prevent Thai glyph clipping in rows."""
         zoom = self.zoom_factor
+        self.sidebar_frame.setFixedWidth(round(245 * zoom))
         row_h = round(53 * zoom)
         header_h = round(49 * zoom)
         for table in (self.category_table, self.bom_table, self.wire_table,
