@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T22:11:55+00:00",
+  "updatedAt": "2026-10-10T22:17:55+00:00",
   "currency": "THB",
   "items": [
     {
@@ -483,6 +483,19 @@
       "po": "",
       "dueDate": "",
       "link": "https://www.modulemore.com/product/128/esp32-wroom-32-dev-board-wifi-bt-ble-mcu",
+      "notes": ""
+    },
+    {
+      "id": "2",
+      "itemId": "28",
+      "description": "เครน",
+      "supplier": "",
+      "qty": 1,
+      "unitPrice": null,
+      "status": "ได้รับแล้ว",
+      "po": "",
+      "dueDate": "",
+      "link": "",
       "notes": ""
     }
   ],
