@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T20:41:28+00:00",
+  "updatedAt": "2026-10-10T21:32:50+00:00",
   "currency": "THB",
   "items": [
     {
@@ -436,6 +436,21 @@
       "link": "https://www.thianthong.com/2-pin-quick-wire-connector-for-car-led-wiring-18-20-awg-low-coltage-dc-12v-24v.html",
       "status": "อุปกรณ์เสริม",
       "notes": "เลือกคู่ปลั๊กให้ครบ และยืนยันพิกัดกระแส/การป้องกันน้ำก่อนติดตั้ง"
+    }
+  ],
+  "purchases": [
+    {
+      "id": "1",
+      "itemId": "1",
+      "description": "บอร์ดควบคุมหลัก — ESP32 DevKit ใช้โมดูล ESP-WROOM-32",
+      "supplier": "",
+      "qty": 1,
+      "unitPrice": 300.0,
+      "status": "ได้รับแล้ว",
+      "po": "",
+      "dueDate": "",
+      "link": "https://www.modulemore.com/product/128/esp32-wroom-32-dev-board-wifi-bt-ble-mcu",
+      "notes": ""
     }
   ]
 }
