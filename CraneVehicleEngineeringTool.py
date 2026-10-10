@@ -4780,9 +4780,24 @@ void loop() {{
                 self.cloudConfig["last_synced_hash"]=remote_hash
                 self.cloudConfig["last_sync_at"]=datetime.now().isoformat(timespec="seconds")
                 self.save_cloud_config();self._set_cloud_status("ข้อมูลตรงกับ GitHub แล้ว","synced");return
-            if baseline and local_hash!=baseline and remote_hash!=baseline:
-                result2=dict(result);result2["type"]="conflict";result2["local_state"]=self.capture_project_state()
-                self._handle_cloud_task_result(result2);return
+            if baseline:
+                local_changed=local_hash!=baseline
+                remote_changed=remote_hash!=baseline
+                if local_changed and remote_changed:
+                    result2=dict(result);result2["type"]="conflict";result2["local_state"]=self.capture_project_state()
+                    self._handle_cloud_task_result(result2);return
+                if local_changed and not remote_changed:
+                    # This PC is newer. Never pull the old remote snapshot over it.
+                    self._set_cloud_status("เครื่องนี้มีข้อมูลใหม่กว่า GitHub • กำลังเตรียม Push","syncing")
+                    if self.cloudConfig.get("auto_push",True):
+                        QTimer.singleShot(30,lambda:self.start_cloud_sync("push",silent=True))
+                    elif not silent:
+                        QMessageBox.information(self,"GitHub Cloud Sync","เครื่องนี้มีข้อมูลใหม่กว่า GitHub — กด This PC → GitHub เพื่อบันทึก")
+                    return
+                if remote_changed and not local_changed:
+                    self._apply_cloud_remote(payload,remote.get("sha",""),silent);return
+                # Same baseline content with only volatile timestamp differences.
+                self._set_cloud_status("ข้อมูลตรงกับ GitHub แล้ว","synced");return
             self._apply_cloud_remote(payload,remote.get("sha",""),silent)
             return
 
