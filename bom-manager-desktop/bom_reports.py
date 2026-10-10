@@ -116,7 +116,7 @@ def export_excel(doc, destination):
             sheet.set_row(i, 29)
         last = max(4, len(rows) + 3)
         sheet.autofilter(3, 0, last, len(headers) - 1)
-        sheet.print_title_rows(0, 3)
+        sheet.repeat_rows(0, 3)
         return sheet
 
     items = doc["items"]
