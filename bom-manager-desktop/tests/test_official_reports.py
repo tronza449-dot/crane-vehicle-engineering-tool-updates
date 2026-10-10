@@ -35,10 +35,13 @@ class ReportExportTests(unittest.TestCase):
     def test_category_totals_match_budget(self):
         rows = reports.category_stats(self.doc["items"])
         stats = bom_core.metrics(self.doc)
-        self.assertEqual(sum(x[1] for x in rows), 33)
+        # Reports must include *every* live BOM item, including additions
+        # after the original 33-item baseline, without changing user data.
+        self.assertEqual(sum(x[1] for x in rows), len(self.doc["items"]))
         self.assertEqual(sum(x[2] for x in rows), stats["missing"])
         self.assertAlmostEqual(sum(x[3] for x in rows), float(stats["known_cost"]))
-        self.assertEqual(len(rows), 7)
+        self.assertEqual(len(rows), len({x.get("category") or "อื่น ๆ / รอจัดหมวด"
+                                         for x in self.doc["items"]}))
 
     def test_custom_item_order_is_preserved_in_formal_reports(self):
         # Names are deliberately reverse alphabetical, as a user-arranged BOM.
