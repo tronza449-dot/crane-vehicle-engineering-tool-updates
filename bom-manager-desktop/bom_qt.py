@@ -109,14 +109,18 @@ class Job(QThread):
     succeeded = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, work, parent=None):
+    def __init__(self, work, parent=None, reporter=None, context="background"):
         super().__init__(parent)
         self.work = work
+        self.reporter = reporter
+        self.context = context
 
     def run(self):
         try:
             self.succeeded.emit(self.work())
         except Exception as exc:
+            if self.reporter:
+                self.reporter.exception(self.context, "JOB_EXCEPTION", exc)
             self.failed.emit(friendly_error(exc))
 
 
@@ -961,7 +965,7 @@ class BOMWindow(QMainWindow):
         dialog.exec()
 
     def _job(self, task, on_success, on_error=None, context="background"):
-        job = Job(task, self)
+        job = Job(task, self, reporter=self.debugger, context=context)
         self.jobs.add(job)
         job.succeeded.connect(on_success)
         def job_failed(message):
