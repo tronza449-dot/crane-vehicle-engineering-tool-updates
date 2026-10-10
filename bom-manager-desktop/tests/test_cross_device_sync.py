@@ -50,6 +50,9 @@ class CloudBOMTests(unittest.TestCase):
         self.window.auto_sync_timer.stop()
         self.window.auto_sync_retry_timer.stop()
         self.window.remote_refresh_timer.stop()
+        # No interactive confirmation dialog during offscreen test teardown.
+        self.window.dirty = False
+        self.window.busy = False
         self.window.close()
         self.window.deleteLater()
 
