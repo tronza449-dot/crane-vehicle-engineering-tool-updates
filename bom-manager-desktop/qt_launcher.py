@@ -30,6 +30,9 @@ def smoke_test():
     assert win.bom_table.columnCount() == 9
     assert len(win.cards) == 6
     assert len(win.category_buttons) == 7
+    assert win.update_btn.parentWidget().objectName() == "topbar"
+    assert win.update_btn.isEnabled()
+    assert win.install_btn.isHidden()  # displayed only when update found
     win.show_page(5)
     assert win.debug_checks.rowCount() >= 3
     assert win.debug_events.columnCount() == 5
