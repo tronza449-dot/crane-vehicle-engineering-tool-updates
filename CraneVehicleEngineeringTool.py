@@ -4387,6 +4387,429 @@ void loop() {{
         self.tabs.setCurrentWidget(page)
         self.tabs.tabBar().hide()
 
+    # =====================================================================
+    # GITHUB CLOUD SYNC — one project state across multiple PCs
+    # =====================================================================
+    def cloud_config_path(self):
+        base=QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation)
+        folder=Path(base) if base else (Path.home()/".CraneVehicleEngineeringTool")
+        folder.mkdir(parents=True,exist_ok=True)
+        return folder/"github_cloud_sync.json"
+
+    def load_cloud_config(self):
+        try:
+            cfg=load_cloud_config_file(self.cloud_config_path())
+        except Exception as ex:
+            self.record_debug_event("ERROR","Cloud config load failed",{"error":str(ex)})
+            cfg={
+                "enabled":False,"repo":CLOUD_DEFAULT_REPO,"branch":CLOUD_DEFAULT_BRANCH,
+                "path":CLOUD_DEFAULT_PATH,"auto_pull":True,"auto_push":True,"poll_seconds":120,
+                "device_id":socket.gethostname(),"token_dpapi":"","last_remote_sha":"",
+                "last_synced_hash":"","last_sync_at":"","last_remote_device":""
+            }
+        self.cloudConfig=cfg
+        return cfg
+
+    def save_cloud_config(self):
+        save_cloud_config_file(self.cloud_config_path(),self.cloudConfig)
+
+    def _cloud_token(self):
+        env=os.environ.get("CVET_GITHUB_TOKEN","").strip()
+        if env:return env
+        if getattr(self,"_cloud_session_token","").strip():return self._cloud_session_token.strip()
+        encoded=str((getattr(self,"cloudConfig",{}) or {}).get("token_dpapi","") or "")
+        if not encoded:return ""
+        try:return unprotect_secret(encoded).strip()
+        except Exception as ex:
+            self.record_debug_event("ERROR","Cloud token decrypt failed",{"error":str(ex)})
+            return ""
+
+    def _set_cloud_status(self,text,state="idle"):
+        palette={
+            "off":("#f2f4f7","#667085","OFF"),
+            "idle":("#eef6ff","#2457a6","READY"),
+            "syncing":("#fff7e8","#a15c00","SYNCING"),
+            "synced":("#ecfdf3","#027a48","SYNCED"),
+            "conflict":("#fff1f3","#c01048","CONFLICT"),
+            "error":("#fef3f2","#b42318","ERROR"),
+            "offline":("#f2f4f7","#667085","OFFLINE"),
+        }
+        bg,fg,label=palette.get(state,palette["idle"])
+        if hasattr(self,"cloudSyncStatusLabel"):
+            self.cloudSyncStatusLabel.setText(str(text))
+            self.cloudSyncStatusLabel.setStyleSheet(f"color:{fg};font-size:9.2pt;font-weight:700;")
+        if hasattr(self,"cloudSyncChip"):
+            self.cloudSyncChip.setText(label)
+            self.cloudSyncChip.setStyleSheet(
+                f"background:{bg};color:{fg};border-radius:11px;padding:5px 11px;font-size:9pt;font-weight:900;"
+            )
+
+    def setup_cloud_sync(self):
+        cfg=self.load_cloud_config()
+        self._cloud_busy=False
+        if not hasattr(self,"cloudPollTimer"):
+            self.cloudPollTimer=QTimer(self)
+            self.cloudPollTimer.timeout.connect(lambda:self.start_cloud_sync("poll",silent=True))
+        self.cloudPollTimer.setInterval(max(30,int(cfg.get("poll_seconds",120)))*1000)
+        if cfg.get("enabled"):
+            self.cloudPollTimer.start()
+            token_ok=bool(self._cloud_token())
+            self._set_cloud_status(
+                "เปิด Auto Sync แล้ว • กำลังเตรียมเชื่อม GitHub" if token_ok
+                else "เปิด Sync อยู่ แต่ยังไม่มี Token สำหรับ Push","idle" if token_ok else "offline"
+            )
+            if cfg.get("auto_pull",True):
+                QTimer.singleShot(2600,lambda:self.start_cloud_sync("smart",silent=True))
+        else:
+            self.cloudPollTimer.stop()
+            self._set_cloud_status("Cloud Sync ปิดอยู่ • Local Auto Save ยังทำงานปกติ","off")
+
+    def schedule_cloud_push(self):
+        cfg=getattr(self,"cloudConfig",{}) or {}
+        if not cfg.get("enabled") or not cfg.get("auto_push",True):return
+        if getattr(self,"_cloud_applying_remote",False):return
+        timer=getattr(self,"cloudPushDebounce",None)
+        if timer is not None:
+            timer.start(2800)
+
+    def _cloud_conflict_folder(self):
+        docs=QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation) or str(Path.home())
+        folder=Path(docs)/"CVET_Cloud_Conflicts";folder.mkdir(parents=True,exist_ok=True)
+        return folder
+
+    def _save_cloud_conflict_backup(self,local_state,remote_payload=None,reason="conflict"):
+        try:
+            stamp=datetime.now().strftime("%Y%m%d_%H%M%S")
+            path=self._cloud_conflict_folder()/f"CVET_{reason}_{stamp}.json"
+            payload={
+                "format":"CVETCloudConflictBackup","created_at":datetime.now().isoformat(timespec="seconds"),
+                "local_state":local_state,
+                "remote":remote_payload if isinstance(remote_payload,dict) else None,
+            }
+            path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
+            return path
+        except Exception as ex:
+            self.record_debug_event("ERROR","Cloud conflict backup failed",{"error":str(ex)})
+            return None
+
+    def show_cloud_sync_settings(self):
+        self.load_cloud_config()
+        cfg=dict(self.cloudConfig)
+        dlg=QDialog(self);dlg.setWindowTitle("GitHub Cloud Sync");dlg.setMinimumWidth(650)
+        root=QVBoxLayout(dlg);root.setContentsMargins(20,18,20,18);root.setSpacing(12)
+
+        title=QLabel("GitHub Cloud Sync")
+        f=QFont();f.setPointSize(16);f.setBold(True);title.setFont(f);root.addWidget(title)
+        intro=QLabel(
+            "ให้ทุกเครื่องใช้ Project State ชุดเดียวกันผ่านไฟล์ JSON บน GitHub\n"
+            "แนะนำ Fine-grained Personal Access Token ที่จำกัดเฉพาะ repository นี้ และให้สิทธิ์ Contents: Read and write"
+        )
+        intro.setWordWrap(True);intro.setObjectName("mutedText");root.addWidget(intro)
+
+        box=QGroupBox("Connection")
+        form=QFormLayout(box)
+        enabled=QCheckBox("เปิด GitHub Cloud Sync")
+        enabled.setChecked(bool(cfg.get("enabled")))
+        repoEdit=QLineEdit(str(cfg.get("repo",CLOUD_DEFAULT_REPO)))
+        branchEdit=QLineEdit(str(cfg.get("branch",CLOUD_DEFAULT_BRANCH)))
+        pathEdit=QLineEdit(str(cfg.get("path",CLOUD_DEFAULT_PATH)))
+        tokenEdit=QLineEdit();tokenEdit.setEchoMode(QLineEdit.Password)
+        tokenEdit.setPlaceholderText("บันทึกแบบ Windows DPAPI แล้ว — เว้นว่างเพื่อใช้ Token เดิม" if self._cloud_token() else "github_pat_... / fine-grained token")
+        autoPull=QCheckBox("Pull/ตรวจ Remote ตอนเปิดโปรแกรม");autoPull.setChecked(bool(cfg.get("auto_pull",True)))
+        autoPush=QCheckBox("Push อัตโนมัติหลัง Local Auto Save");autoPush.setChecked(bool(cfg.get("auto_push",True)))
+        poll=QSpinBox();poll.setRange(30,3600);poll.setSuffix(" s");poll.setValue(int(cfg.get("poll_seconds",120)))
+        form.addRow(enabled)
+        form.addRow("Repository (owner/repo)",repoEdit)
+        form.addRow("Branch",branchEdit)
+        form.addRow("Cloud file",pathEdit)
+        form.addRow("GitHub Token",tokenEdit)
+        form.addRow(autoPull);form.addRow(autoPush)
+        form.addRow("ตรวจ Remote ทุก",poll)
+        root.addWidget(box)
+
+        privacy=QLabel(
+            "ความปลอดภัย: Token ไม่ถูกใส่ใน Project JSON, Debug Report หรือ GitHub file. "
+            "บน Windows จะเข้ารหัสด้วย DPAPI ของ Windows user นี้. ถ้า Repository เป็น Public ข้อมูล Project บน GitHub จะอ่านได้สาธารณะ."
+        )
+        privacy.setWordWrap(True)
+        privacy.setStyleSheet("background:#fff8e8;color:#7a4b00;border:1px solid #f1d69b;border-radius:9px;padding:10px;")
+        root.addWidget(privacy)
+
+        status=QLabel("Initial sync ที่ปลอดภัย: ถ้ามี Remote อยู่แล้ว โปรแกรมจะ Pull ก่อน; ถ้ายังไม่มีจึงสร้างจากเครื่องนี้")
+        status.setWordWrap(True);status.setObjectName("mutedText");root.addWidget(status)
+
+        def save_settings():
+            try:
+                cfg2=dict(self.cloudConfig)
+                cfg2.update({
+                    "enabled":enabled.isChecked(),
+                    "repo":repoEdit.text().strip(),
+                    "branch":branchEdit.text().strip() or CLOUD_DEFAULT_BRANCH,
+                    "path":pathEdit.text().strip() or CLOUD_DEFAULT_PATH,
+                    "auto_pull":autoPull.isChecked(),
+                    "auto_push":autoPush.isChecked(),
+                    "poll_seconds":poll.value(),
+                })
+                # validate via backend normalization without network
+                from cloud_sync import normalize_repo, normalize_path
+                cfg2["repo"]=normalize_repo(cfg2["repo"])
+                cfg2["path"]=normalize_path(cfg2["path"])
+                new_token=tokenEdit.text().strip()
+                if new_token:
+                    self._cloud_session_token=new_token
+                    protected=protect_secret(new_token)
+                    if protected:cfg2["token_dpapi"]=protected
+                self.cloudConfig=cfg2
+                self.save_cloud_config()
+                self.setup_cloud_sync()
+                status.setText("บันทึก Cloud Settings แล้ว ✓")
+                status.setStyleSheet("color:#027a48;font-weight:800;")
+                return True
+            except Exception as ex:
+                QMessageBox.warning(dlg,"Cloud Settings",str(ex));return False
+
+        row=QHBoxLayout()
+        saveBtn=QPushButton("Save settings");saveBtn.setObjectName("primaryButton");saveBtn.clicked.connect(save_settings)
+        testBtn=QPushButton("Test connection")
+        def do_test():
+            if save_settings():
+                self.start_cloud_sync("test",silent=False)
+        testBtn.clicked.connect(do_test)
+        pullBtn=QPushButton("Use GitHub → This PC")
+        def do_pull():
+            if save_settings():
+                dlg.accept();self.start_cloud_sync("pull",silent=False,force=True)
+        pullBtn.clicked.connect(do_pull)
+        pushBtn=QPushButton("This PC → GitHub")
+        def do_push():
+            if save_settings():
+                dlg.accept();self.start_cloud_sync("push",silent=False,force=True)
+        pushBtn.clicked.connect(do_push)
+        closeBtn=QPushButton("Close");closeBtn.setObjectName("secondaryButton");closeBtn.clicked.connect(dlg.accept)
+        row.addWidget(saveBtn);row.addWidget(testBtn);row.addWidget(pullBtn);row.addWidget(pushBtn);row.addStretch(1);row.addWidget(closeBtn)
+        root.addLayout(row)
+        dlg.exec()
+
+    def start_cloud_sync(self,operation="smart",silent=True,force=False):
+        cfg=getattr(self,"cloudConfig",{}) or self.load_cloud_config()
+        if operation!="test" and not cfg.get("enabled"):
+            if not silent:self.show_cloud_sync_settings()
+            return False
+        if getattr(self,"_cloud_busy",False):
+            return False
+
+        token=self._cloud_token()
+        if operation in ("push","smart") and not token:
+            self._set_cloud_status("ต้องใส่ GitHub Token ก่อน Push","offline")
+            if not silent:QMessageBox.information(self,"GitHub Cloud Sync","กรุณาเปิด Settings แล้วใส่ Fine-grained GitHub Token")
+            return False
+
+        local_state=None;local_payload=None
+        if operation in ("push","smart"):
+            local_state=self.capture_project_state()
+            local_payload=make_cloud_payload(local_state,str(cfg.get("device_id","pc")),APP_VERSION)
+
+        self._cloud_busy=True
+        self._set_cloud_status("กำลังตรวจ GitHub…","syncing")
+        cfg_copy=dict(cfg)
+
+        def worker():
+            try:
+                repo=cfg_copy.get("repo",CLOUD_DEFAULT_REPO);branch=cfg_copy.get("branch",CLOUD_DEFAULT_BRANCH);path=cfg_copy.get("path",CLOUD_DEFAULT_PATH)
+                if operation=="test":
+                    info=github_repo_info(repo,token)
+                    remote=github_get_file(repo,branch,path,token)
+                    self.cloudTaskFinished.emit({"ok":True,"type":"test","info":info,"remote_exists":bool(remote),"silent":silent})
+                    return
+
+                remote=github_get_file(repo,branch,path,token)
+                remote_payload=None
+                if remote and remote.get("content","").strip():
+                    remote_payload=validate_cloud_payload(json.loads(remote["content"]))
+
+                if operation in ("pull","poll"):
+                    self.cloudTaskFinished.emit({
+                        "ok":True,"type":"remote","mode":operation,"remote":remote,"payload":remote_payload,
+                        "silent":silent,"force":force
+                    })
+                    return
+
+                local_hash=local_payload["state_hash"]
+                remote_hash=remote_payload.get("state_hash","") if remote_payload else ""
+                baseline_hash=str(cfg_copy.get("last_synced_hash","") or "")
+                baseline_sha=str(cfg_copy.get("last_remote_sha","") or "")
+                remote_sha=str((remote or {}).get("sha","") or "")
+
+                if not remote:
+                    result=github_put_file(
+                        repo,branch,path,json.dumps(local_payload,ensure_ascii=False,indent=2),token,
+                        f"CVET cloud sync V{APP_VERSION} [{cfg_copy.get('device_id','pc')}]"
+                    )
+                    self.cloudTaskFinished.emit({"ok":True,"type":"pushed","payload":local_payload,"result":result,"silent":silent})
+                    return
+
+                if remote_hash==local_hash:
+                    self.cloudTaskFinished.emit({"ok":True,"type":"same","payload":remote_payload,"sha":remote_sha,"silent":silent})
+                    return
+
+                remote_changed=bool(baseline_hash and remote_hash!=baseline_hash)
+                local_changed=bool(baseline_hash and local_hash!=baseline_hash)
+
+                # First sync or remote changed while this PC has not changed: GitHub is authoritative.
+                if not force and (not baseline_hash or (remote_changed and not local_changed)):
+                    self.cloudTaskFinished.emit({
+                        "ok":True,"type":"remote_newer","remote":remote,"payload":remote_payload,
+                        "local_state":local_state,"silent":silent
+                    })
+                    return
+
+                # Both sides changed since the last common hash: never overwrite silently.
+                if not force and remote_changed and local_changed:
+                    self.cloudTaskFinished.emit({
+                        "ok":True,"type":"conflict","remote":remote,"payload":remote_payload,
+                        "local_state":local_state,"silent":silent
+                    })
+                    return
+
+                # SHA changed but content still equals baseline: safe to update using current SHA.
+                result=github_put_file(
+                    repo,branch,path,json.dumps(local_payload,ensure_ascii=False,indent=2),token,
+                    f"CVET cloud sync V{APP_VERSION} [{cfg_copy.get('device_id','pc')}]",
+                    sha=remote_sha
+                )
+                self.cloudTaskFinished.emit({"ok":True,"type":"pushed","payload":local_payload,"result":result,"silent":silent})
+            except Exception as ex:
+                self.cloudTaskFinished.emit({"ok":False,"type":operation,"error":str(ex),"silent":silent})
+        threading.Thread(target=worker,daemon=True).start()
+        return True
+
+    def _apply_cloud_remote(self,payload,remote_sha="",silent=True):
+        payload=validate_cloud_payload(dict(payload))
+        remote_state=payload["state"]
+        local_state=self.capture_project_state()
+        local_hash=canonical_state_hash(local_state)
+        if local_hash!=payload["state_hash"]:
+            self._save_cloud_conflict_backup(local_state,payload,"before_remote_pull")
+        self._cloud_applying_remote=True
+        try:
+            self.apply_project_state(remote_state,True)
+            self._write_state_file(self.last_values_path(),remote_state)
+            self._write_state_file(self.backup_values_path(),remote_state)
+        finally:
+            self._cloud_applying_remote=False
+        self.cloudConfig["last_remote_sha"]=str(remote_sha or "")
+        self.cloudConfig["last_synced_hash"]=payload["state_hash"]
+        self.cloudConfig["last_sync_at"]=datetime.now().isoformat(timespec="seconds")
+        self.cloudConfig["last_remote_device"]=str(payload.get("device_id",""))
+        self.save_cloud_config()
+        self._set_quick_save_status(f"โหลดข้อมูลจาก GitHub แล้ว ✓ • {payload.get('updated_at','-')}","#176337")
+        self._set_cloud_status(f"Synced จาก {payload.get('device_id','GitHub')} • {payload.get('updated_at','-')}","synced")
+        self.record_debug_event("INFO","Cloud remote applied",{"device":payload.get("device_id",""),"hash":payload["state_hash"][:12]})
+        if not silent:
+            QMessageBox.information(self,"GitHub Cloud Sync","โหลดข้อมูลล่าสุดจาก GitHub แล้ว ✓")
+
+    def _handle_cloud_task_result(self,result):
+        self._cloud_busy=False
+        if not isinstance(result,dict):return
+        silent=bool(result.get("silent",True))
+        if not result.get("ok"):
+            err=str(result.get("error","Unknown cloud error"))
+            self._set_cloud_status("Sync ไม่สำเร็จ • "+err,"error")
+            self.record_debug_event("ERROR","GitHub Cloud Sync failed",{"operation":result.get("type"),"error":err})
+            if not silent:QMessageBox.warning(self,"GitHub Cloud Sync",err)
+            return
+
+        typ=result.get("type")
+        if typ=="test":
+            info=result.get("info") or {}
+            visibility="Private" if info.get("private") else "Public"
+            remote="พบ Cloud Project แล้ว" if result.get("remote_exists") else "ยังไม่มี Cloud Project — Push ครั้งแรกจะสร้างให้"
+            self._set_cloud_status(f"GitHub พร้อม • {visibility} repo • {remote}","idle")
+            if not silent:
+                QMessageBox.information(
+                    self,"GitHub Cloud Sync",
+                    f"เชื่อมต่อสำเร็จ ✓\nRepository: {info.get('full_name','-')}\nVisibility: {visibility}\n{remote}\n\n"
+                    +("แนะนำใช้ Private repository ถ้าไม่ต้องการให้ Project data เป็นสาธารณะ" if not info.get("private") else "")
+                )
+            return
+
+        if typ=="same":
+            payload=result.get("payload") or {}
+            self.cloudConfig["last_remote_sha"]=str(result.get("sha",""))
+            self.cloudConfig["last_synced_hash"]=str(payload.get("state_hash",""))
+            self.cloudConfig["last_sync_at"]=datetime.now().isoformat(timespec="seconds")
+            self.cloudConfig["last_remote_device"]=str(payload.get("device_id",""))
+            self.save_cloud_config()
+            self._set_cloud_status("ข้อมูลเครื่องนี้ตรงกับ GitHub แล้ว","synced")
+            return
+
+        if typ=="pushed":
+            payload=result.get("payload") or {}
+            put=result.get("result") or {}
+            self.cloudConfig["last_remote_sha"]=str(put.get("content_sha",""))
+            self.cloudConfig["last_synced_hash"]=str(payload.get("state_hash",""))
+            self.cloudConfig["last_sync_at"]=datetime.now().isoformat(timespec="seconds")
+            self.cloudConfig["last_remote_device"]=str(payload.get("device_id",""))
+            self.save_cloud_config()
+            self._set_cloud_status(f"Push แล้ว ✓ • {datetime.now().strftime('%H:%M:%S')}","synced")
+            self.record_debug_event("INFO","Cloud push completed",{"hash":str(payload.get("state_hash",""))[:12]})
+            if not silent:QMessageBox.information(self,"GitHub Cloud Sync","บันทึก Project ขึ้น GitHub แล้ว ✓")
+            return
+
+        if typ=="remote":
+            payload=result.get("payload")
+            remote=result.get("remote") or {}
+            if not payload:
+                self._set_cloud_status("GitHub ยังไม่มี Cloud Project","idle")
+                if self.cloudConfig.get("auto_push",True) and result.get("mode")!="poll":
+                    QTimer.singleShot(50,lambda:self.start_cloud_sync("push",silent=True,force=True))
+                elif not silent:
+                    QMessageBox.information(self,"GitHub Cloud Sync","ยังไม่มี Cloud Project บน GitHub")
+                return
+            if result.get("force"):
+                self._apply_cloud_remote(payload,remote.get("sha",""),silent)
+                return
+            local_hash=canonical_state_hash(self.capture_project_state())
+            baseline=str(self.cloudConfig.get("last_synced_hash","") or "")
+            remote_hash=str(payload.get("state_hash",""))
+            if local_hash==remote_hash:
+                self.cloudConfig["last_remote_sha"]=str(remote.get("sha",""))
+                self.cloudConfig["last_synced_hash"]=remote_hash
+                self.cloudConfig["last_sync_at"]=datetime.now().isoformat(timespec="seconds")
+                self.save_cloud_config();self._set_cloud_status("ข้อมูลตรงกับ GitHub แล้ว","synced");return
+            if baseline and local_hash!=baseline and remote_hash!=baseline:
+                result2=dict(result);result2["type"]="conflict";result2["local_state"]=self.capture_project_state()
+                self._handle_cloud_task_result(result2);return
+            self._apply_cloud_remote(payload,remote.get("sha",""),silent)
+            return
+
+        if typ=="remote_newer":
+            self._apply_cloud_remote(result.get("payload") or {},(result.get("remote") or {}).get("sha",""),silent)
+            return
+
+        if typ=="conflict":
+            local_state=result.get("local_state") or self.capture_project_state()
+            payload=result.get("payload") or {}
+            backup=self._save_cloud_conflict_backup(local_state,payload,"sync_conflict")
+            self._set_cloud_status("พบข้อมูลใหม่ทั้ง 2 ฝั่ง • ไม่ได้เขียนทับอัตโนมัติ","conflict")
+            self.record_debug_event("ERROR","Cloud sync conflict",{"backup":self._debug_safe_path(backup) if backup else ""})
+            if silent:return
+            msg=QMessageBox(self)
+            msg.setWindowTitle("GitHub Cloud Sync — Conflict")
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText("ทั้งเครื่องนี้และ GitHub ถูกแก้หลัง Sync ครั้งล่าสุด")
+            msg.setInformativeText(
+                "โปรแกรมเก็บ Conflict Backup แล้ว\n\n"
+                "Yes = ใช้ข้อมูล GitHub\nNo = ใช้ข้อมูลเครื่องนี้แล้ว Push ทับ GitHub\nCancel = ยังไม่ทำอะไร"
+            )
+            msg.setStandardButtons(QMessageBox.Yes|QMessageBox.No|QMessageBox.Cancel)
+            choice=msg.exec()
+            if choice==QMessageBox.Yes:
+                self._apply_cloud_remote(payload,(result.get("remote") or {}).get("sha",""),False)
+            elif choice==QMessageBox.No:
+                self.start_cloud_sync("push",silent=False,force=True)
+            return
+
     def _web_server_command(self):
         """Return the bundled Web Server command for installed and source modes."""
         if getattr(sys,"frozen",False):
@@ -6164,6 +6587,15 @@ void loop() {{
             "self_checks":self.debug_self_checks(),
             "updater":updater,
             "web_server":web_status,
+            "cloud_sync":{
+                "enabled":bool((getattr(self,"cloudConfig",{}) or {}).get("enabled",False)),
+                "repo":str((getattr(self,"cloudConfig",{}) or {}).get("repo","")),
+                "branch":str((getattr(self,"cloudConfig",{}) or {}).get("branch","")),
+                "path":str((getattr(self,"cloudConfig",{}) or {}).get("path","")),
+                "token_present":bool(self._cloud_token()),
+                "last_sync_at":str((getattr(self,"cloudConfig",{}) or {}).get("last_sync_at","")),
+                "last_remote_device":str((getattr(self,"cloudConfig",{}) or {}).get("last_remote_device",""))
+            },
             "storage":storage,
             "last_exception":last_exception,
             "previous_exception":previous_exception,
