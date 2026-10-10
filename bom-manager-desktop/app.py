@@ -481,5 +481,5 @@ class BOMApp(tk.Tk):
 
 if __name__ == "__main__":
     from bom_ui import make_app
-    EnhancedApp = make_app(BOMApp, ItemDialog, api_request, APP_VERSION, API_URL, SERVICE)
+    EnhancedApp = make_app(BOMApp, ItemDialog, api_request, APP_VERSION, API_URL, SERVICE, FIELDS)
     EnhancedApp().mainloop()
