@@ -197,7 +197,7 @@ def protect_secret(secret: str) -> str:
     in_blob, _buf = _blob_from_bytes(raw)
     out_blob = _DATA_BLOB()
     ok = ctypes.windll.crypt32.CryptProtectData(
-        ctypes.byref(in_blob), "CVET GitHub Token", None, None, None, 0, ctypes.byref(out_blob)
+        ctypes.byref(in_blob), None, None, None, None, 0, ctypes.byref(out_blob)
     )
     if not ok:
         raise ctypes.WinError()
@@ -205,7 +205,7 @@ def protect_secret(secret: str) -> str:
         encrypted = ctypes.string_at(out_blob.pbData, out_blob.cbData)
         return base64.b64encode(encrypted).decode("ascii")
     finally:
-        ctypes.windll.kernel32.LocalFree(out_blob.pbData)
+        ctypes.windll.kernel32.LocalFree(ctypes.cast(out_blob.pbData, ctypes.c_void_p))
 
 
 def unprotect_secret(encoded: str) -> str:
@@ -223,7 +223,7 @@ def unprotect_secret(encoded: str) -> str:
         decrypted = ctypes.string_at(out_blob.pbData, out_blob.cbData)
         return decrypted.decode("utf-8")
     finally:
-        ctypes.windll.kernel32.LocalFree(out_blob.pbData)
+        ctypes.windll.kernel32.LocalFree(ctypes.cast(out_blob.pbData, ctypes.c_void_p))
 
 
 def cloud_config_defaults() -> Dict[str, Any]:
