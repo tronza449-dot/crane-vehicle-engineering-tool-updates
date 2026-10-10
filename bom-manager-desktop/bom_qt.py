@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import threading
 import webbrowser
 from datetime import datetime, timezone
@@ -18,10 +19,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import keyring
-from PySide6.QtCore import QThread, Signal, Qt, QRectF, QSettings
+from PySide6.QtCore import QThread, Signal, Qt, QRectF, QSettings, QTimer
 from PySide6.QtGui import QBrush, QColor, QFont, QPen, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QFrame, QGraphicsScene, QGraphicsView, QGridLayout, QHBoxLayout,
     QHeaderView, QLabel, QLineEdit, QMainWindow, QMessageBox, QTabWidget,
     QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
@@ -227,6 +228,22 @@ class RecordDialog(QDialog):
                     control.addItem(current)
                 control.setCurrentText(current)
                 control.setToolTip("คลิกเลือกหมวดอุปกรณ์จากรายการ ไม่ต้องพิมพ์เอง")
+            elif key == "itemId" and "จัดซื้อ" in title:
+                control = QComboBox()
+                control.setEditable(False)
+                control.addItem("— เลือกอุปกรณ์จาก BOM —", "")
+                for bom_item in (parent.payload.get("items", []) if parent else []):
+                    item_id = str(bom_item.get("id") or "").strip()
+                    if item_id:
+                        control.addItem(
+                            f'{item_id}  |  {bom_item.get("name") or "ไม่ระบุชื่อ"}', item_id)
+                old_id = str(val or "").strip()
+                matched = control.findData(old_id)
+                if matched == -1 and old_id:
+                    control.addItem(f"{old_id}  |  รายการอ้างอิงเก่า", old_id)
+                    matched = control.findData(old_id)
+                control.setCurrentIndex(max(0, matched))
+                control.setToolTip("เลือกรายการอุปกรณ์ แล้วโปรแกรมจะดึงรายละเอียดจาก BOM อัตโนมัติ")
             elif key in MULTILINE:
                 control = QPlainTextEdit()
                 control.setPlainText("" if val is None else str(val))
@@ -247,6 +264,15 @@ class RecordDialog(QDialog):
                     control.setPlaceholderText("จำนวนต้องมากกว่า 0")
             self.widgets[key] = control
             (groups.get(key) if is_bom else form).addRow(QLabel(label), control)
+        if "จัดซื้อ" in title and "itemId" in self.widgets:
+            self.widgets["itemId"].currentIndexChanged.connect(
+                lambda _: self._fill_purchase_from_bom(parent))
+            summary = QLabel(
+                "เลือกรายการจาก BOM ด้านบนเพื่อดึงข้อมูลตั้งต้น จากนั้นแก้จำนวน "
+                "ราคา และผู้ขายตามใบเสนอราคาจริงได้")
+            summary.setWordWrap(True)
+            summary.setObjectName("hint")
+            form.addRow(summary)
         if not is_bom:
             scroll.setWidget(content)
             outer.addWidget(scroll, 1)
@@ -258,13 +284,33 @@ class RecordDialog(QDialog):
         actions.rejected.connect(self.reject)
         outer.addWidget(actions)
 
+    def _fill_purchase_from_bom(self, owner):
+        """Copy BOM values into the purchase draft, never editing the BOM row."""
+        if owner is None or not hasattr(owner, "payload"):
+            return
+        item_id = str(self.widgets["itemId"].currentData() or "")
+        if not item_id:
+            return
+        item = next((entry for entry in owner.payload.get("items", [])
+                     if str(entry.get("id")) == item_id), None)
+        if item is None:
+            return
+        for field, source in (("description", "name"), ("qty", "qty"),
+                              ("unitPrice", "unitPrice"), ("supplier", "supplier"),
+                              ("link", "link")):
+            widget = self.widgets.get(field)
+            if isinstance(widget, QLineEdit):
+                value = item.get(source)
+                widget.setText("" if value is None else str(value))
+
     def get_values(self):
         data = {}
         for key, widget in self.widgets.items():
             if isinstance(widget, QPlainTextEdit):
                 val = widget.toPlainText()
             elif isinstance(widget, QComboBox):
-                val = widget.currentText()
+                val = (str(widget.currentData() or "") if key == "itemId"
+                       else widget.currentText())
             else:
                 val = widget.text()
             data[key] = val.strip()
@@ -841,13 +887,16 @@ class BOMWindow(QMainWindow):
     def _build_purchases(self):
         page, body = self._page("จัดซื้อ / Purchasing", "PROCUREMENT TRACKER  /  วางแผน ซื้อ และรับสินค้า")
         actions = QHBoxLayout()
-        actions.addWidget(self._button("+ เพิ่มการจัดซื้อ", lambda: self.edit_record("purchases"), "primary"))
+        actions.addWidget(self._button("+ เลือกอุปกรณ์จาก BOM", lambda: self.edit_record("purchases"), "primary"))
         actions.addWidget(self._button("แก้ไข", lambda: self.edit_record("purchases", True)))
         actions.addWidget(self._button("ลบ", lambda: self.delete_record("purchases"), "danger"))
+        info = self._label("เลือกรายการจาก BOM ในหน้าต่างใหม่ แล้วตรวจราคา/จำนวนสั่งซื้อจริง", "hint")
+        info.setWordWrap(True)
         actions.addStretch()
         self.purchase_total = self._label("ยอดรวมจัดซื้อ: —", "sectionTitle")
         actions.addWidget(self.purchase_total)
         body.addLayout(actions)
+        body.addWidget(info)
         section = self._table_panel(body, "Purchase Orders / รายการสั่งซื้อ")
         self.purchase_table = self._table(
             ["BOM ID", "รายการ", "ผู้ขาย", "จำนวน", "ราคา/หน่วย", "ยอดรวม", "สถานะ", "PO", "กำหนดรับ"], 1)
