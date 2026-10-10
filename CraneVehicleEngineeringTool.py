@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.51"
+APP_VERSION = "53.8.52"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -51,10 +51,10 @@ def resource_path(relative_path):
     return base / relative_path
 
 APP_STYLE = """
-/* ==================== V51 MODERN / READABLE UI ==================== */
-QMainWindow { background:#f6f8fb; }
-QWidget { color:#1d2939; }
-QLabel { color:#344054; font-size:10.6pt; }
+/* ==================== V53.8.52 CLEAN / MODERN UI ==================== */
+QMainWindow { background:#f7f8fa; }
+QWidget { color:#182230; }
+QLabel { color:#344054; font-size:10.4pt; }
 QLabel#mutedText { color:#667085; font-size:9.2pt; }
 QLabel#cardEyebrow { color:#667085; font-size:8.4pt; font-weight:900; letter-spacing:0.4px; }
 QToolTip {
@@ -85,10 +85,10 @@ QGroupBox::title {
     background:#ffffff; color:#344054;
 }
 QFrame#topHeader {
-    background:#ffffff; border:1px solid #e4e7ec; border-radius:16px;
+    background:#ffffff; border:1px solid #e4e7ec; border-radius:14px;
 }
 QFrame#softPanel {
-    background:#ffffff; border:1px solid #e4e7ec; border-radius:14px;
+    background:#ffffff; border:1px solid #e4e7ec; border-radius:12px;
 }
 QFrame#metricPanel {
     background:#f9fafb; border:1px solid #eaecf0; border-radius:12px;
@@ -123,7 +123,7 @@ QRadioButton::indicator { width:19px; height:19px; }
 
 /* ---------- Buttons ---------- */
 QPushButton {
-    min-height:38px; border-radius:9px; padding:7px 14px;
+    min-height:38px; border-radius:8px; padding:7px 14px;
     background:#ffffff; border:1px solid #d0d5dd;
     color:#344054; font-size:10.1pt; font-weight:750;
 }
@@ -178,8 +178,8 @@ QPushButton#dangerButton {
 
 /* ---------- Persistent left navigation ---------- */
 QPushButton#navButton {
-    min-height:43px; max-height:47px; text-align:left;
-    padding:7px 11px; border-radius:9px; border:1px solid transparent;
+    min-height:41px; max-height:45px; text-align:left;
+    padding:7px 11px; border-radius:8px; border:1px solid transparent;
     background:transparent; color:#475467; font-size:10.1pt; font-weight:750;
 }
 QPushButton#navButton:hover {
@@ -2777,11 +2777,14 @@ void loop() {{
         lay.addWidget(self._make_nav_button("tools","R   Project / Report",self.show_project_tools_mode))
         lay.addStretch(1)
 
-        autosave=QLabel("● Auto Save ON")
-        autosave.setStyleSheet("color:#177245;background:#eaf7ef;border:1px solid #c8e7d2;border-radius:8px;padding:7px;font-size:9pt;font-weight:800;")
-        update=QLabel("● GitHub Update ON")
-        update.setStyleSheet("color:#245f9e;background:#edf5ff;border:1px solid #d0e2f7;border-radius:8px;padding:7px;font-size:9pt;font-weight:800;")
-        lay.addWidget(autosave);lay.addWidget(update)
+        autosave=QLabel("● Auto Save  ON")
+        autosave.setStyleSheet("color:#177245;background:#ecfdf3;border:1px solid #abefc6;border-radius:8px;padding:7px;font-size:9pt;font-weight:800;")
+        self.navCloudStatus=QLabel("● Cloud Sync  CHECKING")
+        self.navCloudStatus.setWordWrap(True)
+        self.navCloudStatus.setStyleSheet("color:#2457a6;background:#eef6ff;border:1px solid #c7dcff;border-radius:8px;padding:7px;font-size:9pt;font-weight:800;")
+        update=QLabel("● App Update  ON")
+        update.setStyleSheet("color:#475467;background:#f8fafc;border:1px solid #e4e7ec;border-radius:8px;padding:7px;font-size:9pt;font-weight:800;")
+        lay.addWidget(autosave);lay.addWidget(self.navCloudStatus);lay.addWidget(update)
 
         dock.setWidget(panel)
         self.addDockWidget(Qt.LeftDockWidgetArea,dock)
@@ -4446,6 +4449,11 @@ void loop() {{
             self.cloudSyncChip.setStyleSheet(
                 f"background:{bg};color:{fg};border-radius:11px;padding:5px 11px;font-size:9pt;font-weight:900;"
             )
+        if hasattr(self,"navCloudStatus"):
+            self.navCloudStatus.setText(f"● Cloud Sync  {label}\n{str(text)[:64]}")
+            self.navCloudStatus.setStyleSheet(
+                f"color:{fg};background:{bg};border:1px solid {fg}33;border-radius:8px;padding:7px;font-size:8.7pt;font-weight:800;"
+            )
 
     def setup_cloud_sync(self):
         cfg=self.load_cloud_config()
@@ -4458,8 +4466,9 @@ void loop() {{
             self.cloudPollTimer.start()
             token_ok=bool(self._cloud_token())
             self._set_cloud_status(
-                "เปิด Auto Sync แล้ว • กำลังเตรียมเชื่อม GitHub" if token_ok
-                else "เปิด Sync อยู่ แต่ยังไม่มี Token สำหรับ Push","idle" if token_ok else "offline"
+                "Auto Sync พร้อม • Pull + Push อัตโนมัติ" if token_ok
+                else "Read-only Sync • Auto Pull ทำงานได้ • ใส่ Token เพื่อ Auto Push",
+                "idle" if token_ok else "offline"
             )
             if cfg.get("auto_pull",True):
                 QTimer.singleShot(2600,lambda:self.start_cloud_sync("smart",silent=True))
@@ -4602,13 +4611,16 @@ void loop() {{
             return False
 
         token=self._cloud_token()
-        if operation in ("push","smart") and not token:
-            self._set_cloud_status("ต้องใส่ GitHub Token ก่อน Push","offline")
-            if not silent:QMessageBox.information(self,"GitHub Cloud Sync","กรุณาเปิด Settings แล้วใส่ Fine-grained GitHub Token")
+        if operation=="push" and not token:
+            self._set_cloud_status("Read-only • ดึงข้อมูลได้ แต่ต้องใส่ Token ก่อน Push","offline")
+            if not silent:QMessageBox.information(self,"GitHub Cloud Sync","เครื่องนี้ใช้งานแบบ Read-only อยู่\nกรุณาเปิด Settings แล้วใส่ Fine-grained GitHub Token หากต้องการ Push")
             return False
 
+        # Smart Sync remains useful on PCs without a token: pull/check remote automatically.
+        effective_operation="pull" if operation=="smart" and not token else operation
+
         local_state=None;local_payload=None
-        if operation in ("push","smart"):
+        if effective_operation in ("push","smart"):
             local_state=self.capture_project_state()
             local_payload=make_cloud_payload(local_state,str(cfg.get("device_id","pc")),APP_VERSION)
 
@@ -4630,9 +4642,9 @@ void loop() {{
                 if remote and remote.get("content","").strip():
                     remote_payload=validate_cloud_payload(json.loads(remote["content"]))
 
-                if operation in ("pull","poll"):
+                if effective_operation in ("pull","poll"):
                     self.cloudTaskFinished.emit({
-                        "ok":True,"type":"remote","mode":operation,"remote":remote,"payload":remote_payload,
+                        "ok":True,"type":"remote","mode":effective_operation,"remote":remote,"payload":remote_payload,
                         "silent":silent,"force":force
                     })
                     return
@@ -5174,8 +5186,8 @@ void loop() {{
         self.cloudSyncStatusLabel=QLabel("ใช้ข้อมูลชุดเดียวกันทุกเครื่อง • Pull ตอนเปิด + Push หลัง Auto Save")
         self.cloudSyncStatusLabel.setWordWrap(True);self.cloudSyncStatusLabel.setObjectName("mutedText");cl.addWidget(self.cloudSyncStatusLabel)
         cr=QHBoxLayout()
-        cloudSyncNow=QPushButton("Sync now");cloudSyncNow.setObjectName("primaryButton");cloudSyncNow.clicked.connect(lambda:self.start_cloud_sync("smart",silent=False))
-        cloudSettings=QPushButton("Settings");cloudSettings.setObjectName("secondaryButton");cloudSettings.clicked.connect(self.show_cloud_sync_settings)
+        cloudSyncNow=QPushButton("Sync now / ซิงค์ตอนนี้");cloudSyncNow.setObjectName("primaryButton");cloudSyncNow.clicked.connect(lambda:self.start_cloud_sync("smart",silent=False))
+        cloudSettings=QPushButton("Cloud settings");cloudSettings.setObjectName("secondaryButton");cloudSettings.clicked.connect(self.show_cloud_sync_settings)
         cr.addWidget(cloudSyncNow);cr.addWidget(cloudSettings);cr.addStretch(1);cl.addLayout(cr)
         system.addWidget(cloud,0,1)
 
