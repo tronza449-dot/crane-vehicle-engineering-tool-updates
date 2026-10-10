@@ -1,5 +1,6 @@
 import base64
 import json
+import subprocess
 import threading
 import tkinter as tk
 from datetime import datetime, timezone
@@ -8,8 +9,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import keyring
+import updater
 
 
+APP_VERSION = updater.current_version()
 OWNER = "tronza449-dot"
 REPO = "crane-vehicle-engineering-tool-updates"
 BRANCH = "main"
@@ -95,10 +98,17 @@ class BOMApp(tk.Tk):
         self.file_sha = None
         self.token = keyring.get_password(SERVICE, "github-token")
         self.search_var = tk.StringVar()
+        self.dirty = False
+        self._remote_busy = False
+        self._checking_update = False
+        self._update_busy = False
+        self.available_update = None
+        self.update_status_var = tk.StringVar(value="ยังไม่ได้ตรวจสอบเวอร์ชัน")
         self.status_var = tk.StringVar(value="ยังไม่ได้โหลดข้อมูลจาก GitHub")
         self._build_ui()
         self.refresh_table()
         self.after(350, self.load_remote)
+        self.after(2000, lambda: self.check_updates(silent=True))
 
     def _build_ui(self):
         top = ttk.Frame(self, padding=10)
@@ -107,6 +117,19 @@ class BOMApp(tk.Tk):
         ttk.Button(top, text="ตั้งค่า GitHub Token", command=self.configure_token).pack(side="right", padx=4)
         ttk.Button(top, text="โหลดจาก GitHub", command=self.load_remote).pack(side="right", padx=4)
         ttk.Button(top, text="บันทึกขึ้น GitHub", command=self.save_remote).pack(side="right", padx=4)
+
+
+        update_bar = ttk.Frame(self, padding=(10, 0, 10, 8))
+        update_bar.pack(fill="x")
+        ttk.Label(update_bar, text=f"เวอร์ชันปัจจุบัน: v{APP_VERSION}",
+                  font=("Segoe UI", 10, "bold")).pack(side="left", padx=(0, 12))
+        ttk.Label(update_bar, textvariable=self.update_status_var).pack(side="left")
+        self.check_update_button = ttk.Button(update_bar, text="ตรวจสอบเวอร์ชัน",
+                                               command=self.check_updates)
+        self.check_update_button.pack(side="right", padx=4)
+        self.install_update_button = ttk.Button(update_bar, text="อัปเดตตอนนี้",
+                                                 command=self.install_update, state="disabled")
+        self.install_update_button.pack(side="right", padx=4)
 
         actions = ttk.Frame(self, padding=(10, 0, 10, 8))
         actions.pack(fill="x")
@@ -176,13 +199,20 @@ class BOMApp(tk.Tk):
 
     def _run_async(self, work, success, title):
         self.status_var.set(title)
+        self._remote_busy = True
         def runner():
             try:
                 result = work()
-                self.after(0, lambda: success(result))
+                def complete():
+                    self._remote_busy = False
+                    success(result)
+                self.after(0, complete)
             except Exception as exc:
                 text = self._error_text(exc)
-                self.after(0, lambda msg=text: self._show_error(msg))
+                def failed(msg=text):
+                    self._remote_busy = False
+                    self._show_error(msg)
+                self.after(0, failed)
         threading.Thread(target=runner, daemon=True).start()
 
     def _show_error(self, message):
@@ -198,6 +228,7 @@ class BOMApp(tk.Tk):
             return json.loads(content), result["sha"]
         def success(data):
             self.payload, self.file_sha = data[0], data[1]
+            self.dirty = False
             self.refresh_table()
             self.status_var.set(f"โหลดแล้ว • {len(self.payload.get('items', []))} รายการ • branch {BRANCH}")
         self._run_async(work, success, "กำลังโหลด BOM จาก GitHub…")
@@ -217,6 +248,7 @@ class BOMApp(tk.Tk):
             return api_request("PUT", {"message": "Update BOM from desktop manager", "content": base64.b64encode(content.encode("utf-8")).decode("ascii"), "sha": expected_sha, "branch": BRANCH}, self.token)
         def success(result):
             self.file_sha = result["content"]["sha"]
+            self.dirty = False
             commit = result.get("commit", {}).get("html_url", "")
             self.status_var.set("บันทึกสำเร็จ • GitHub commit ถูกสร้างแล้ว")
             messagebox.showinfo("บันทึกแล้ว", f"BOM ถูกบันทึกขึ้น GitHub แล้ว.\n\n{commit}", parent=self)
@@ -250,6 +282,7 @@ class BOMApp(tk.Tk):
         if dialog.result is not None:
             new_id = str(max([int(x.get("id", 0)) for x in self.payload["items"] if str(x.get("id", "")).isdigit()] + [0]) + 1)
             self.payload["items"].append({"id": new_id, **dialog.result})
+            self.dirty = True
             self.refresh_table()
 
     def edit_item(self):
@@ -263,6 +296,7 @@ class BOMApp(tk.Tk):
         self.wait_window(dialog)
         if dialog.result is not None:
             self.payload["items"][idx] = {"id": item.get("id", str(idx + 1)), **dialog.result}
+            self.dirty = True
             self.refresh_table()
             self.tree.selection_set(str(idx))
 
@@ -275,7 +309,151 @@ class BOMApp(tk.Tk):
         item = self.payload["items"][idx]
         if messagebox.askyesno("ลบรายการ", f"ลบ “{item.get('name', '')}” ใช่หรือไม่?", parent=self):
             del self.payload["items"][idx]
+            self.dirty = True
             self.refresh_table()
+
+
+    def check_updates(self, silent=False):
+        if self._checking_update or self._update_busy:
+            return
+        self._checking_update = True
+        self.check_update_button.config(state="disabled")
+        self.update_status_var.set("กำลังตรวจสอบ GitHub Releases…")
+
+        def complete(info):
+            self._checking_update = False
+            self.check_update_button.config(state="normal")
+            self.available_update = info
+            if info:
+                self.install_update_button.config(state="normal")
+                self.update_status_var.set(f"พบเวอร์ชันใหม่ v{info['version']} — พร้อมอัปเดต")
+                if not silent:
+                    messagebox.showinfo("มีเวอร์ชันใหม่", f"ปัจจุบัน v{APP_VERSION}\n"
+                                        f"เวอร์ชันใหม่ v{info['version']}\n"
+                                        "กด 'อัปเดตตอนนี้' เพื่อดาวน์โหลดและติดตั้ง", parent=self)
+            else:
+                self.install_update_button.config(state="disabled")
+                self.update_status_var.set(f"เป็นเวอร์ชันล่าสุดแล้ว (v{APP_VERSION})")
+                if not silent:
+                    messagebox.showinfo("ตรวจสอบแล้ว", "คุณใช้ BOM Manager เวอร์ชันล่าสุดอยู่แล้ว",
+                                        parent=self)
+
+        def failed(message):
+            self._checking_update = False
+            self.check_update_button.config(state="normal")
+            self.update_status_var.set("ตรวจสอบเวอร์ชันไม่ได้ — ลองใหม่อีกครั้ง")
+            if not silent:
+                messagebox.showerror("ตรวจสอบเวอร์ชันไม่ได้", message, parent=self)
+
+        def worker():
+            try:
+                info = updater.find_update(APP_VERSION)
+                self.after(0, lambda data=info: complete(data))
+            except Exception as exc:
+                self.after(0, lambda message=str(exc): failed(message))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def install_update(self):
+        info = self.available_update
+        if not info or self._checking_update or self._update_busy:
+            return
+        if self._remote_busy:
+            messagebox.showwarning("กำลังทำงาน", "รอให้การโหลด/บันทึก GitHub เสร็จก่อน",
+                                   parent=self)
+            return
+        if self.dirty:
+            messagebox.showwarning("มีข้อมูลยังไม่บันทึก",
+                                   "คุณแก้ไข BOM แต่ยังไม่ได้กด 'บันทึกขึ้น GitHub'\n"
+                                   "กรุณาบันทึกข้อมูลก่อนอัปเดต เพื่อป้องกันข้อมูลสูญหาย",
+                                   parent=self)
+            return
+        if not messagebox.askyesno("ยืนยันอัปเดต",
+                                   f"อัปเดตจาก v{APP_VERSION} เป็น v{info['version']} หรือไม่?\n"
+                                   "โปรแกรมจะดาวน์โหลด ตรวจ SHA256 และเปิดตัวติดตั้ง Windows\n"
+                                   "จากนั้นปิด BOM Manager ตัวปัจจุบัน",
+                                   parent=self):
+            return
+
+        self._update_busy = True
+        self.install_update_button.config(state="disabled")
+        self.check_update_button.config(state="disabled")
+        dialog = tk.Toplevel(self)
+        dialog.title("กำลังดาวน์โหลด BOM Manager")
+        dialog.transient(self)
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        frame = ttk.Frame(dialog, padding=18)
+        frame.pack(fill="both", expand=True)
+        info_text = tk.StringVar(value=f"กำลังดาวน์โหลด v{info['version']}…")
+        ttk.Label(frame, textvariable=info_text).pack(anchor="w", pady=(0, 8))
+        progress = ttk.Progressbar(frame, length=390, maximum=100, mode="determinate")
+        progress.pack(fill="x")
+        cancel = threading.Event()
+
+        def cancel_download():
+            cancel.set()
+            info_text.set("กำลังยกเลิกการดาวน์โหลด…")
+            cancel_button.config(state="disabled")
+
+        cancel_button = ttk.Button(frame, text="ยกเลิก", command=cancel_download)
+        cancel_button.pack(anchor="e", pady=(10, 0))
+        dialog.protocol("WM_DELETE_WINDOW", cancel_download)
+
+        def clean_dialog():
+            self._update_busy = False
+            self.check_update_button.config(state="normal")
+            self.install_update_button.config(state="normal")
+            dialog.grab_release()
+            dialog.destroy()
+
+        def set_progress(received, total):
+            def redraw():
+                if not cancel.is_set() and dialog.winfo_exists():
+                    progress["value"] = min(100, received * 100 / total)
+                    info_text.set(f"ดาวน์โหลดแล้ว {received / 1048576:.1f} / "
+                                  f"{total / 1048576:.1f} MB")
+            self.after(0, redraw)
+
+        def failed(message, was_cancelled=False):
+            clean_dialog()
+            if was_cancelled:
+                self.update_status_var.set("ยกเลิกการอัปเดตแล้ว")
+            else:
+                self.update_status_var.set("อัปเดตไม่สำเร็จ — ตรวจสอบแล้วลองใหม่")
+                messagebox.showerror("อัปเดตไม่สำเร็จ", message, parent=self)
+
+        def downloaded(installer):
+            if cancel.is_set():
+                from shutil import rmtree
+                rmtree(installer.parent, ignore_errors=True)
+                failed("ยกเลิกการดาวน์โหลด", True)
+                return
+            info_text.set("ตรวจ SHA256 ผ่านแล้ว — กำลังเปิดตัวติดตั้ง…")
+            try:
+                import os
+                if os.name != "nt" or not getattr(__import__("sys"), "frozen", False):
+                    raise updater.UpdateError("ติดตั้งอัตโนมัติได้เฉพาะโปรแกรม .exe บน Windows")
+                subprocess.Popen([str(installer), "/NORESTART"], cwd=str(installer.parent),
+                                 close_fds=True)
+            except Exception as exc:
+                from shutil import rmtree
+                rmtree(installer.parent, ignore_errors=True)
+                failed(str(exc))
+                return
+            self.update_status_var.set("เปิดตัวติดตั้งแล้ว — ปิดโปรแกรมเวอร์ชันเก่า")
+            dialog.grab_release()
+            dialog.destroy()
+            self.destroy()
+
+        def worker():
+            try:
+                installer = updater.download_update(info, progress=set_progress, cancelled=cancel)
+                self.after(0, lambda path=installer: downloaded(path))
+            except updater.DownloadCanceled as exc:
+                self.after(0, lambda message=str(exc): failed(message, True))
+            except Exception as exc:
+                self.after(0, lambda message=str(exc): failed(message))
+        threading.Thread(target=worker, daemon=True).start()
 
     def export_csv(self):
         from csv import DictWriter
