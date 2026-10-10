@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.54"
+APP_VERSION = "53.8.55"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -51,7 +51,7 @@ def resource_path(relative_path):
     return base / relative_path
 
 APP_STYLE = """
-/* ==================== V53.8.54 CLEAN / MODERN UI ==================== */
+/* ==================== V53.8.55 CLEAN / MODERN UI ==================== */
 QMainWindow { background:#f7f8fa; }
 QWidget { color:#182230; }
 QLabel { color:#344054; font-size:10.4pt; }
@@ -1411,7 +1411,7 @@ class App(QMainWindow):
         note.setWordWrap(True);note.setStyleSheet("color:#60758b;font-size:9.3pt;")
         lay.addWidget(note,1)
         btn=QPushButton("💾 Save Values")
-        btn.setObjectName("primaryButton");btn.setMinimumWidth(138);btn.setMinimumHeight(32);btn.setMaximumHeight(36)
+        btn.setObjectName("primaryButton");btn.setMinimumWidth(138);btn.setMinimumHeight(36);btn.setMaximumHeight(36)
         btn.setToolTip("บันทึกค่าปัจจุบันทั้งหมดทันที พร้อมไฟล์สำรองใน Documents/CVET_Data")
         btn.clicked.connect(
             lambda _checked=False,b=btn:self._run_button_action(
