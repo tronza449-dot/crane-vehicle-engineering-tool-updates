@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: bom-manager-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-windows-installer:
@@ -58,6 +58,7 @@ jobs:
           python -m py_compile bom-manager-desktop/qt_launcher.py
 
       - name: Run updater and GUI tests (offscreen)
+        timeout-minutes: 10
         shell: pwsh
         env:
           QT_QPA_PLATFORM: offscreen
