@@ -70,6 +70,32 @@ def next_id(rows):
     return str(candidate)
 
 
+def purchased_item_ids(doc, excluding_purchase_id=None):
+    """BOM IDs already selected for purchasing (not merely ordered/received).
+
+    While editing a purchase, its own item remains selectable. Deleting the
+    purchase returns that item to the available picker.
+    """
+    excluded = str(excluding_purchase_id or "")
+    return {
+        str(purchase.get("itemId") or "").strip()
+        for purchase in doc.get("purchases", [])
+        if str(purchase.get("id") or "") != excluded
+        and str(purchase.get("itemId") or "").strip()
+    }
+
+
+def move_item_next_to(doc, source_id, neighbour_id):
+    """Swap two BOM records by stable ID; never renumber IDs used by wiring/POs."""
+    items = doc.get("items", [])
+    positions = {str(item.get("id")): index for index, item in enumerate(items)}
+    first, second = positions.get(str(source_id)), positions.get(str(neighbour_id))
+    if first is None or second is None or first == second:
+        return False
+    items[first], items[second] = items[second], items[first]
+    return True
+
+
 def metrics(doc):
     items = doc.get("items", [])
     count = len(items)
