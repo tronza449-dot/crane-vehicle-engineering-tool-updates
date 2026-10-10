@@ -1509,20 +1509,22 @@ class BOMWindow(QMainWindow):
         self.busy = True
         self.set_status("กู้คืนฉบับร่างในเครื่องแล้ว · กำลังตรวจ GitHub อัตโนมัติ…")
 
-        def success(remote_sha):
+        def work():
+            raw = github_api("GET", token=self.token)
+            document = json.loads(base64.b64decode(raw["content"]).decode("utf-8-sig"))
+            bom_core.ensure_doc(document)
+            return document, raw["sha"]
+        def success(result):
             self.busy = False
             self.last_github_sync_at = datetime.now(timezone.utc)
             self.last_git_ok = True
+            document, remote_sha = result
             if not self.dirty:
-                self.load_remote(silent=True)
-            elif not local_sha or local_sha != remote_sha:
-                self.sync_paused_conflict = True
-                self._write_cache()
-                self.set_status("GitHub มีข้อมูลใหม่กว่า · เก็บฉบับร่างไว้และหยุด Auto Save เพื่อป้องกันข้อมูลหาย")
-                self.debugger.event("WARNING", "github", "STARTUP_DRAFT_CONFLICT",
-                                    "GitHub เปลี่ยนระหว่างออฟไลน์; ไม่โหลดทับฉบับร่าง")
+                self._merge_with_remote(document, remote_sha, automatic=True)
+            elif local_sha != remote_sha:
+                self._merge_with_remote(document, remote_sha, automatic=True)
             else:
-                self.set_status("ตรวจ GitHub แล้ว · ฉบับร่างในเครื่องพร้อมซิงก์อัตโนมัติ")
+                self.set_status("ตรวจ GitHub แล้ว · ฉบับร่างพร้อมซิงก์อัตโนมัติ")
                 self._schedule_auto_sync()
             self._refresh_sync_state()
 
@@ -1531,8 +1533,7 @@ class BOMWindow(QMainWindow):
             self.last_git_ok = False
             self.set_status("เปิดฉบับร่างในเครื่องแล้ว · ตรวจ GitHub ไม่ได้ จะลองใหม่")
             self._refresh_sync_state()
-        self._job(lambda: github_api("GET", token=self.token)["sha"],
-                  success, failed, context="github")
+        self._job(work, success, failed, context="github")
 
     def _refresh_remote_if_clean(self):
         """Fetch changed GitHub documents across PCs without clobbering drafts."""
@@ -1923,7 +1924,9 @@ class BOMWindow(QMainWindow):
             # GitHub PUT's SHA also protects against a race after this GET.
             remote = github_api("GET", token=saved_token)
             if remote.get("sha") != expected_sha:
-                return {"conflict": True, "remote_sha": remote.get("sha")}
+                return {"conflict": True, "remote_sha": remote.get("sha"),
+                        "remote_document": json.loads(base64.b64decode(
+                            remote["content"]).decode("utf-8-sig"))}
             result = github_api("PUT", {
                 "message": ("Auto Save BOM" if automatic else "Save BOM") +
                            f" from Desktop v{VERSION}",
@@ -1949,7 +1952,11 @@ class BOMWindow(QMainWindow):
             self.busy = False
             self.sync_btn.setEnabled(True)
             if data.get("conflict"):
-                conflict_detected()
+                self._merge_with_remote(data["remote_document"],
+                                        data["remote_sha"], automatic=automatic)
+                if self.sync_paused_conflict and not automatic:
+                    QMessageBox.warning(self, "ข้อมูลชนกัน",
+                        "มีข้อมูลแก้ไขซ้ำ กรุณากดปุ่มเปรียบเทียบข้อมูลเพื่อเลือกเวอร์ชัน")
                 return
             result = data["result"]
             self.sha = result["content"]["sha"]
