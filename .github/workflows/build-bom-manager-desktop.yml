@@ -81,6 +81,9 @@ jobs:
           if (!(Test-Path "output\IndustrialDarkPreview.png")) {
             throw "GUI preview screenshot was not generated"
           }
+          if (!(Test-Path "output\DebugReportPreview.png")) {
+            throw "Debug Report screenshot was not generated"
+          }
 
       - name: Build one-click installer
         working-directory: bom-manager-desktop
@@ -106,6 +109,7 @@ jobs:
             bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe
             bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe.sha256
             bom-manager-desktop/output/IndustrialDarkPreview.png
+            bom-manager-desktop/output/DebugReportPreview.png
           if-no-files-found: error
           retention-days: 30
 
@@ -120,10 +124,11 @@ jobs:
           $installer="bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe"
           $checksum="$installer.sha256"
           $preview="bom-manager-desktop/output/IndustrialDarkPreview.png"
+          $debugPreview="bom-manager-desktop/output/DebugReportPreview.png"
           gh release view $env:BOM_TAG --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "::warning::BOM release $env:BOM_TAG already exists. Increment bom-manager-desktop/VERSION to publish a new version."
             exit 0
           }
-          gh release create $env:BOM_TAG $installer $checksum $preview --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
+          gh release create $env:BOM_TAG $installer $checksum $preview $debugPreview --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
           if ($LASTEXITCODE -ne 0) { throw "GitHub Release creation failed" }
