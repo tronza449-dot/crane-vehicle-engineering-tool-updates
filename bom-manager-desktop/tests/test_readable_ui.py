@@ -46,7 +46,8 @@ class ReadabilityTests(unittest.TestCase):
         self.assertGreaterEqual(self.window.bom_table.verticalHeader().defaultSectionSize(), 60)
         self.assertGreaterEqual(self.window.bom_table.horizontalHeader().height(), 50)
         self.assertIn("font-size: 20px", self.app.styleSheet())
-        self.assertIn('color: #F1F7FE;', self.app.styleSheet())
+        self.assertIn("color: #172D45;", self.app.styleSheet())
+        self.assertIn("background: #10243D;", self.app.styleSheet())
 
     def test_switch_fonts_and_persist_text_zoom(self):
         import bom_qt_theme as theme
