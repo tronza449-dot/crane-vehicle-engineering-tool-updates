@@ -381,11 +381,13 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                       style="Hint.TLabel").pack(anchor="w", pady=(6, 0))
 
         def _build_wiring(self):
-            controls = ttk.Frame(self.wire_tab, padding=(0, 0, 0, 9))
+            self._page_header(self.wire_tab, "Wiring Manager",
+                              "จัดเก็บข้อมูลจุดต่อสาย พร้อมแรงดัน ฟิวส์ และการตรวจสอบก่อนประกอบจริง")
+            controls = ttk.Frame(self.wire_tab, padding=(0, 0, 0, 15))
             controls.pack(fill="x")
-            ttk.Button(controls, text="+ เพิ่มสาย/จุดต่อ", command=self.add_wire).pack(side="left", padx=4)
+            ttk.Button(controls, text="+ เพิ่มสาย/จุดต่อ", style="Primary.TButton", command=self.add_wire).pack(side="left", padx=4)
             ttk.Button(controls, text="แก้ไขจุดต่อ", command=self.edit_wire).pack(side="left", padx=4)
-            ttk.Button(controls, text="ลบจุดต่อ", command=self.delete_wire).pack(side="left", padx=4)
+            ttk.Button(controls, text="ลบจุดต่อ", style="Danger.TButton", command=self.delete_wire).pack(side="left", padx=4)
             ttk.Button(controls, text="ตรวจสอบข้อมูล", command=self.check_wiring).pack(side="right", padx=4)
             ttk.Button(controls, text="ส่งออก .drawio", command=self.export_drawio).pack(side="right", padx=4)
             ttk.Button(controls, text="ดูแผนภาพการต่อ", command=self.preview_wiring).pack(side="right", padx=4)
@@ -404,14 +406,16 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                       style="Hint.TLabel").pack(anchor="w", pady=(7, 0))
 
         def _build_purchasing(self):
-            controls = ttk.Frame(self.buy_tab, padding=(0, 0, 0, 9))
+            self._page_header(self.buy_tab, "จัดซื้ออุปกรณ์ / Purchasing",
+                              "ติดตามราคา ผู้ขาย รายการสั่งซื้อ และสถานะการรับสินค้า")
+            controls = ttk.Frame(self.buy_tab, padding=(0, 0, 0, 15))
             controls.pack(fill="x")
-            ttk.Button(controls, text="+ เพิ่มรายการจัดซื้อ", command=self.add_purchase).pack(side="left", padx=4)
+            ttk.Button(controls, text="+ เพิ่มรายการจัดซื้อ", style="Primary.TButton", command=self.add_purchase).pack(side="left", padx=4)
             ttk.Button(controls, text="แก้ไขการจัดซื้อ", command=self.edit_purchase).pack(side="left", padx=4)
-            ttk.Button(controls, text="ลบรายการ", command=self.delete_purchase).pack(side="left", padx=4)
+            ttk.Button(controls, text="ลบรายการ", style="Danger.TButton", command=self.delete_purchase).pack(side="left", padx=4)
             self.purchase_label = tk.StringVar(value="ยอดรวมรายการจัดซื้อ: 0 บาท")
             ttk.Label(controls, textvariable=self.purchase_label,
-                      font=("Segoe UI", 11, "bold")).pack(side="right", padx=8)
+                      font=(bom_theme.FONT, 12, "bold")).pack(side="right", padx=8)
             columns = ("itemId", "description", "supplier", "qty", "unitPrice",
                        "lineTotal", "status", "po", "dueDate")
             self.purchase_tree = self._table(self.buy_tab, columns,
@@ -429,11 +433,12 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                       style="Hint.TLabel").pack(anchor="w", pady=(7, 0))
 
         def _build_sync(self):
-            ttk.Label(self.sync_tab, text="GitHub Sync / สำรองข้อมูล / รายงาน", style="Header.TLabel").pack(anchor="w", pady=(0, 15))
+            self._page_header(self.sync_tab, "GitHub Sync / สำรองข้อมูล / รายงาน",
+                              "แชร์ BOM ข้ามเครื่อง ส่งออกรายงาน และดูประวัติการแก้ไข")
             top = ttk.LabelFrame(self.sync_tab, text="ข้อมูล GitHub", padding=12)
             top.pack(fill="x", pady=7)
             ttk.Button(top, text="โหลดล่าสุด", command=self.load_remote).pack(side="left", padx=5)
-            ttk.Button(top, text="บันทึกเป็น GitHub Commit", command=self.save_remote).pack(side="left", padx=5)
+            ttk.Button(top, text="บันทึกเป็น GitHub Commit", style="Primary.TButton", command=self.save_remote).pack(side="left", padx=5)
             ttk.Button(top, text="ประวัติ Commit", command=self.show_history).pack(side="left", padx=5)
             ttk.Button(top, text="เปิดหน้า Repository", command=lambda: webbrowser.open(
                 "https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates/tree/main/bom-manager")).pack(side="left", padx=5)
@@ -446,7 +451,7 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                 ttk.Button(export, text=name, command=action).pack(side="left", padx=6)
             restore = ttk.LabelFrame(self.sync_tab, text="กู้คืน/สำรองข้อมูล", padding=12)
             restore.pack(fill="x", pady=7)
-            ttk.Button(restore, text="นำเข้า JSON Backup", command=self.import_json).pack(side="left", padx=5)
+            ttk.Button(restore, text="นำเข้า JSON Backup", style="Primary.TButton", command=self.import_json).pack(side="left", padx=5)
             ttk.Button(restore, text="เปิดโฟลเดอร์ฉบับร่าง", command=self.open_cache).pack(side="left", padx=5)
             ttk.Label(restore, text="ระบบบันทึกฉบับร่างลงเครื่องอัตโนมัติทุกครั้งที่แก้ข้อมูล",
                       style="Hint.TLabel").pack(side="left", padx=16)
@@ -475,6 +480,17 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                     for iid in self.tree.get_children():
                         if str(self.payload["items"][int(iid)].get("category") or "ไม่ระบุ") != selected:
                             self.tree.delete(iid)
+            if hasattr(self, "price_filter_var"):
+                choice = self.price_filter_var.get()
+                if choice != "ทุกราคา":
+                    for iid in self.tree.get_children():
+                        row = self.payload["items"][int(iid)]
+                        value = row.get("unitPrice")
+                        has_price = value is not None and str(value).strip() != ""
+                        if (choice == "มีราคา" and not has_price) or (
+                                choice == "ไม่มีราคา" and has_price):
+                            self.tree.delete(iid)
+            bom_theme.paint_stripes(self.tree, len(self.tree.get_children()))
             if not hasattr(self, "kpi_vars"):
                 return
             summary = bom_core.metrics(self.payload)
@@ -485,6 +501,10 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                 self.category_tree.delete(iid)
             for category, count in sorted(summary["categories"].items()):
                 self.category_tree.insert("", "end", values=(category, count))
+            bom_theme.paint_stripes(self.category_tree, len(self.category_tree.get_children()))
+            percent = int(round(100 * summary["priced"] / max(1, summary["items"])))
+            self.completion_label.set(f"ความครบถ้วนของราคา {percent}%")
+            self.completion_bar["value"] = percent
             self.warning_var.set(
                 f"ยอดรวมเฉพาะรายการที่มีราคา — ยังไม่มีราคา {summary['missing']} รายการ; "
                 f"สายไฟ {summary['wires']} จุดต่อ; การจัดซื้อ {summary['purchase_count']} รายการ")
@@ -501,6 +521,7 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                                         values=tuple(item.get(k, "") for k in
                                                      ("id", "from", "to", "signal", "voltage",
                                                       "cable", "protection", "status")))
+            bom_theme.paint_stripes(self.wiring_tree, len(self.wiring_tree.get_children()))
 
         def _refresh_purchases(self):
             for iid in self.purchase_tree.get_children():
@@ -515,6 +536,7 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                                                   item.get("unitPrice", ""), value,
                                                   item.get("status", ""), item.get("po", ""),
                                                   item.get("dueDate", "")))
+            bom_theme.paint_stripes(self.purchase_tree, len(self.purchase_tree.get_children()))
             summary = bom_core.metrics(self.payload)
             self.purchase_label.set(f"ยอดรวมจัดซื้อที่มีราคา: {summary['purchase_total']:,.2f} บาท")
 
