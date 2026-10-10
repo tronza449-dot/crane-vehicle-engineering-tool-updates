@@ -41,6 +41,14 @@ def ensure_doc(doc):
     for list_key in ("wiring", "purchases"):
         if list_key in doc and not isinstance(doc[list_key], list):
             raise DataError(f"{list_key} ต้องเป็นรายการ")
+    for wiring in doc.get("wiring", []):
+        if not isinstance(wiring, dict):
+            raise DataError("พบ Wiring ที่ไม่ใช่ข้อมูลรายการ")
+    for order in doc.get("purchases", []):
+        if not isinstance(order, dict):
+            raise DataError("พบข้อมูลจัดซื้อที่ไม่ใช่รายการ")
+        valid_qty(order.get("qty"))
+        decimal_or_none(order.get("unitPrice"))
     seen = set()
     for item in doc["items"]:
         if not isinstance(item, dict):
