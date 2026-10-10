@@ -28,9 +28,13 @@ def metadata(doc, values=None):
 
 
 def sorted_items(doc):
-    return sorted(doc["items"], key=lambda x: (
-        bom_categories.sort_key(x.get("category")),
-        str(x.get("name") or "").casefold(), str(x.get("id") or "")))
+    """Keep the manually saved BOM order inside each engineering category.
+
+    Python's stable sort preserves the existing relative order of items with
+    the same category, including custom ↑/↓ moves made on another computer.
+    """
+    return sorted(doc["items"], key=lambda x:
+                  bom_categories.sort_key(x.get("category")))
 
 
 def price(value):
