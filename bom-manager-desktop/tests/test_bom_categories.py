@@ -92,9 +92,9 @@ class QtCategoryTests(unittest.TestCase):
         self.assertEqual(table.rowCount(), 5)
         self.assertTrue(table.item(0, 0).text().startswith("▣"))
         self.assertIsNone(table.item(0, 0).data(Qt.ItemDataRole.UserRole))
-        self.assertEqual(table.item(1, 1).text(), "Hub motor")
-        self.assertEqual(table.item(1, 0).data(Qt.ItemDataRole.UserRole), 2)
-        self.assertEqual(table.item(2, 0).data(Qt.ItemDataRole.UserRole), 1)
+        self.assertEqual(table.item(1, 1).text(), "VESC")
+        self.assertEqual(table.item(1, 0).data(Qt.ItemDataRole.UserRole), 1)
+        self.assertEqual(table.item(2, 0).data(Qt.ItemDataRole.UserRole), 2)
         self.window.group_mode.setCurrentIndex(1)
         self.assertEqual(table.rowCount(), 3)
 
