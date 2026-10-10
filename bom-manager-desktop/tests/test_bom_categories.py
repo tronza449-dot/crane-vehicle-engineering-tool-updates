@@ -112,10 +112,38 @@ class QtCategoryTests(unittest.TestCase):
         }, self.window)
         picker = dialog.widgets["category"]
         self.assertIsInstance(picker, QComboBox)
-        self.assertTrue(picker.isEditable())
+        self.assertFalse(picker.isEditable())
         self.assertEqual(picker.currentText(), "ระบบเครนและวินช์")
         self.assertIn("ระบบขับเคลื่อน", [picker.itemText(i) for i in range(picker.count())])
+        self.assertEqual(len(bom_categories.CATEGORY_OPTIONS), 8)
+        picker.setCurrentText("ระบบขับเคลื่อน")
+        self.assertEqual(dialog.get_values()["category"], "ระบบขับเคลื่อน")
         dialog.close()
+
+    def test_unknown_existing_category_is_selectable_not_lost(self):
+        from bom_qt import RecordDialog, ITEM_FIELDS
+        self.window.payload["items"].append({
+            "id": "9", "category": "หมวดเก่าพิเศษ", "name": "Old item",
+            "qty": 1, "unitPrice": None
+        })
+        editor = RecordDialog("แก้ไขอุปกรณ์", ITEM_FIELDS,
+                              {"category": "หมวดเก่าพิเศษ"}, self.window)
+        selector = editor.widgets["category"]
+        self.assertFalse(selector.isEditable())
+        self.assertEqual(selector.currentText(), "หมวดเก่าพิเศษ")
+        self.assertIn("หมวดเก่าพิเศษ",
+                      [selector.itemText(i) for i in range(selector.count())])
+        editor.close()
+
+    def test_add_form_disallows_freetext_category(self):
+        from bom_qt import RecordDialog, ITEM_FIELDS
+        editor = RecordDialog("เพิ่มอุปกรณ์", ITEM_FIELDS,
+                              {"category": bom_categories.UNCATEGORIZED}, self.window)
+        selector = editor.widgets["category"]
+        self.assertIsNone(selector.lineEdit())
+        self.assertFalse(selector.isEditable())
+        self.assertEqual(selector.count(), len(bom_categories.CATEGORY_OPTIONS))
+        editor.close()
 
 
 if __name__ == "__main__":
