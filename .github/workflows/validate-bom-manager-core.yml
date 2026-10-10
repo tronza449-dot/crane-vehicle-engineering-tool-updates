@@ -1,0 +1,35 @@
+name: Validate BOM Manager Core
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bom-manager-desktop/**"
+      - ".github/workflows/validate-bom-manager-core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-bom-manager-core
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install report dependencies
+        run: python -m pip install xlsxwriter reportlab
+      - name: Compile BOM source
+        run: |
+          python -m py_compile bom-manager-desktop/bom_core.py
+          python -m py_compile bom-manager-desktop/bom_advanced.py
+          python -m py_compile bom-manager-desktop/bom_import_excel.py
+          python -m py_compile bom-manager-desktop/bom_purchase_pdf.py
+          python -m py_compile bom-manager-desktop/bom_qt.py
+      - name: Test merge, audit, purchases, Excel import
+        run: python -m unittest discover -s bom-manager-desktop/tests -p test_advanced_features.py -v
