@@ -112,3 +112,33 @@ pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --colle
 
 GitHub Actions สร้าง installer ของเวอร์ชันนี้จาก `bom-manager-desktop/VERSION`
 พร้อม smoke test: เปิด 5 แท็บ, ตรวจฟอนต์ >= 12pt, ตรวจตัวกรองราคา และตัวเลข KPI
+
+
+## v1.4.0 — Industrial Dark (Windows PySide6)
+
+เวอร์ชันนี้เปลี่ยน **UI ของไฟล์ติดตั้ง Windows เป็น PySide6 (Qt)** ใช้ธีม Industrial Dark แทน Tkinter พร้อมปุ่มและตารางที่ใช้งานได้จริง:
+
+- แถบเมนูด้านซ้าย 5 หน้า: ภาพรวม, BOM, Wiring, จัดซื้อ, GitHub/ส่งออก
+- โทนสี Navy/Dark Steel ตัดด้วย Cyan, Emerald, Amber, Violet และข้อความภาษาไทยสีสว่าง
+- Dashboard การ์ด 6 ช่องกดเพื่อเปิดหน้าข้อมูลและกรองรายการได้
+- ตาราง BOM ค้นหา/กรองหมวด/กรองรายการที่มีหรือไม่มีราคา
+- เพิ่ม/แก้ไข/ลบรายการ BOM, Wiring และ Purchasing ผ่านหน้าต่างฟอร์ม
+- Wiring Preview + Draw.io, Import JSON, Export Excel/PDF/CSV/JSON, GitHub Commit History
+- บันทึกฉบับร่างใน `%LOCALAPPDATA%\CraneVehicleBOMManager\draft.json` โดยไม่เปลี่ยนโครงสร้างข้อมูลเดิม
+- ใช้ Token เดิมจาก Windows Credential Manager; ยังคงอัปเดตเวอร์ชันผ่าน BOM GitHub Release และตรวจ SHA256
+- PySide6 รองรับหน้าจอ High DPI ของ Windows โดยอัตโนมัติ พร้อมตัวอักษร Leelawadee UI
+
+### เปิดจากซอร์ส (Windows)
+
+```powershell
+python -m pip install PySide6 keyring xlsxwriter reportlab
+cd bom-manager-desktop
+python qt_launcher.py
+```
+
+### สร้างไฟล์ติดตั้ง
+
+GitHub Actions จะทดสอบ UI ด้วย Qt `offscreen` ก่อนสร้าง `CraneVehicleBOMManager_Setup.exe` ด้วย PyInstaller
+และ Inno Setup แล้วจึงเผยแพร่ GitHub Release แยก `bom-v1.4.0`
+
+หมายเหตุ: `app.py` เป็นส่วน Tkinter รุ่นเก่าเพื่ออ้างอิง/ทดสอบย้อนหลัง แต่ไฟล์ติดตั้ง Windows รุ่น v1.4.0 เรียก `qt_launcher.py`
