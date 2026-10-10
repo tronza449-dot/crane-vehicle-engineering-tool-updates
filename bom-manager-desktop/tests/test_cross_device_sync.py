@@ -187,7 +187,7 @@ class CloudBOMTests(unittest.TestCase):
             self.window._autosync_if_needed()
         self.assertTrue(self.window.dirty)
         self.assertFalse(self.window.sync_paused_conflict)
-        self.assertEqual(json.loads(self.window.cache_path.read_text())["payload"]
+        self.assertEqual(json.loads(self.window.cache_path.read_text(encoding="utf-8"))["payload"]
                          ["items"][0]["name"], "Keep offline")
 
     def test_sync_waits_when_item_dialog_is_open(self):
