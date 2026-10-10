@@ -232,9 +232,12 @@ class RecordDialog(QDialog):
                 control = QComboBox()
                 control.setEditable(False)
                 control.addItem("— เลือกอุปกรณ์จาก BOM —", "")
+                taken_ids = (bom_core.purchased_item_ids(
+                    parent.payload, excluding_purchase_id=self.values.get("id"))
+                    if parent else set())
                 for bom_item in (parent.payload.get("items", []) if parent else []):
                     item_id = str(bom_item.get("id") or "").strip()
-                    if item_id:
+                    if item_id and item_id not in taken_ids:
                         control.addItem(
                             f'{item_id}  |  {bom_item.get("name") or "ไม่ระบุชื่อ"}', item_id)
                 old_id = str(val or "").strip()
@@ -433,11 +436,9 @@ class BOMWindow(QMainWindow):
         self.debugger.event("INFO", "application", "APP_STARTED",
                             f"Minimal Engineering desktop v{VERSION} started")
         if auto_load:
-            if self.dirty:
-                self.set_status("กู้คืนข้อมูลฉบับร่างที่ยังไม่ได้บันทึก GitHub — กรุณาตรวจสอบก่อนโหลดทับ")
-            else:
-                self.load_remote(silent=True)
-            # Start update checking after event loop has begun; network is in a worker.
+            # Every launch checks GitHub without requiring a click. Protect
+            # recovered unsynced drafts while checking the remote SHA.
+            QTimer.singleShot(0, self._startup_sync)
             QTimer.singleShot(1500, lambda: self.check_version(silent=True))
 
     @staticmethod
@@ -840,6 +841,11 @@ class BOMWindow(QMainWindow):
         actions.addWidget(self._button("+ เพิ่มอุปกรณ์", lambda: self.edit_record("items"), "primary"))
         actions.addWidget(self._button("แก้ไขรายการ", lambda: self.edit_record("items", True)))
         actions.addWidget(self._button("ลบที่เลือก", lambda: self.delete_record("items"), "danger"))
+        self.move_up_btn = self._button("↑ เลื่อนขึ้น", lambda: self.move_bom_item(-1))
+        self.move_down_btn = self._button("↓ เลื่อนลง", lambda: self.move_bom_item(1))
+        for button in (self.move_up_btn, self.move_down_btn):
+            button.setToolTip("เลือกอุปกรณ์แล้วเลื่อนลำดับ (ในโหมดจัดกลุ่มจะเลื่อนได้ภายในหมวดเดียวกัน)")
+            actions.addWidget(button)
         actions.addStretch()
         actions.addWidget(self._button("ออกเอกสาร PDF / Excel",
                                        lambda: self.show_page(4)))
@@ -1255,8 +1261,8 @@ class BOMWindow(QMainWindow):
         self.bom_table.clearSpans()
         grouped = self.group_mode.currentIndex() == 0
         if grouped:
-            entries.sort(key=lambda x: (bom_categories.sort_key(x[1].get("category")),
-                                        str(x[1].get("name") or "").casefold()))
+            # Stable sort preserves user-defined order inside each category.
+            entries.sort(key=lambda x: bom_categories.sort_key(x[1].get("category")))
             display = []
             previous = None
             for index, item in entries:
@@ -1305,6 +1311,53 @@ class BOMWindow(QMainWindow):
                     cell.setForeground(QBrush(QColor("#A86521")))
                 self.bom_table.setItem(i, col, cell)
         self.bom_table.clearSelection()
+
+    def move_bom_item(self, direction):
+        """Move the selected row in the *visible* order, persisting to GitHub.
+
+        Category headings cannot move. Grouped display only allows movement
+        inside the same category; continuous display allows all categories.
+        """
+        row = self.bom_table.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "เรียงลำดับ", "กรุณาเลือกรายการอุปกรณ์ก่อน")
+            return
+        cell = self.bom_table.item(row, 0)
+        source_index = cell.data(Qt.ItemDataRole.UserRole) if cell else None
+        if source_index is None:
+            QMessageBox.information(self, "เรียงลำดับ", "กรุณาเลือกแถวอุปกรณ์ ไม่ใช่ชื่อหมวด")
+            return
+        target_row = row + direction
+        while 0 <= target_row < self.bom_table.rowCount():
+            target_cell = self.bom_table.item(target_row, 0)
+            target_index = (target_cell.data(Qt.ItemDataRole.UserRole)
+                            if target_cell else None)
+            if target_index is not None:
+                break
+            target_row += direction
+        else:
+            self.set_status("รายการอยู่สุดลำดับแล้ว")
+            return
+        source = self.payload["items"][int(source_index)]
+        target = self.payload["items"][int(target_index)]
+        if (self.group_mode.currentIndex() == 0 and
+                source.get("category") != target.get("category")):
+            self.set_status("การจัดกลุ่มเลื่อนได้เฉพาะในหมวดเดียวกัน · เลือก 'แสดงรายการต่อเนื่อง' เพื่อเลื่อนข้ามหมวด")
+            return
+        source_id = str(source["id"])
+        if bom_core.move_item_next_to(self.payload, source_id, target["id"]):
+            self.changed()
+            # render_all() clears selection, so restore it using stable BOM ID.
+            for display_row in range(self.bom_table.rowCount()):
+                display_cell = self.bom_table.item(display_row, 0)
+                item_index = (display_cell.data(Qt.ItemDataRole.UserRole)
+                              if display_cell else None)
+                if (item_index is not None and
+                        str(self.payload["items"][int(item_index)]["id"]) == source_id):
+                    self.bom_table.selectRow(display_row)
+                    self.bom_table.scrollToItem(display_cell)
+                    break
+            self.set_status("เปลี่ยนลำดับแล้ว · เก็บในเครื่อง และจะซิงก์ GitHub อัตโนมัติ")
 
     def render_wiring(self):
         rows = self.payload.get("wiring", [])
@@ -1424,6 +1477,42 @@ class BOMWindow(QMainWindow):
             return
         self.save_remote(automatic=True)
 
+    def _startup_sync(self):
+        """Always check latest GitHub data at startup; never erase a dirty draft."""
+        if not self.dirty:
+            self.load_remote(silent=True)
+            return
+        if self.busy:
+            return
+        local_sha = self.sha
+        self.busy = True
+        self.set_status("กู้คืนฉบับร่างในเครื่องแล้ว · กำลังตรวจ GitHub อัตโนมัติ…")
+
+        def success(remote_sha):
+            self.busy = False
+            self.last_github_sync_at = datetime.now(timezone.utc)
+            self.last_git_ok = True
+            if not self.dirty:
+                self.load_remote(silent=True)
+            elif not local_sha or local_sha != remote_sha:
+                self.sync_paused_conflict = True
+                self._write_cache()
+                self.set_status("GitHub มีข้อมูลใหม่กว่า · เก็บฉบับร่างไว้และหยุด Auto Save เพื่อป้องกันข้อมูลหาย")
+                self.debugger.event("WARNING", "github", "STARTUP_DRAFT_CONFLICT",
+                                    "GitHub เปลี่ยนระหว่างออฟไลน์; ไม่โหลดทับฉบับร่าง")
+            else:
+                self.set_status("ตรวจ GitHub แล้ว · ฉบับร่างในเครื่องพร้อมซิงก์อัตโนมัติ")
+                self._schedule_auto_sync()
+            self._refresh_sync_state()
+
+        def failed(message):
+            self.busy = False
+            self.last_git_ok = False
+            self.set_status("เปิดฉบับร่างในเครื่องแล้ว · ตรวจ GitHub ไม่ได้ จะลองใหม่")
+            self._refresh_sync_state()
+        self._job(lambda: github_api("GET", token=self.token)["sha"],
+                  success, failed, context="github")
+
     def _refresh_remote_if_clean(self):
         """Fetch changed GitHub documents across PCs without clobbering drafts."""
         if (self.busy or self.downloading or self.dirty or
@@ -1518,6 +1607,10 @@ class BOMWindow(QMainWindow):
                 if not values["from"] or not values["to"]:
                     raise bom_core.DataError("ต้องระบุจุดต้นทางและปลายทาง")
             else:
+                if values.get("itemId") in bom_core.purchased_item_ids(
+                        self.payload, excluding_purchase_id=prev.get("id")):
+                    raise bom_core.DataError(
+                        "อุปกรณ์นี้อยู่ในรายการจัดซื้อแล้ว กรุณาเลือกรายการอื่น")
                 if not values.get("itemId") and index is None:
                     raise bom_core.DataError("กรุณาเลือกอุปกรณ์จากรายการ BOM ก่อนบันทึกการจัดซื้อ")
                 if values.get("itemId") and not any(
@@ -1554,6 +1647,12 @@ class BOMWindow(QMainWindow):
         if index is None:
             return
         item = self.payload["items"][index]
+        if str(item.get("id") or "") in bom_core.purchased_item_ids(self.payload):
+            self.show_page(3)
+            QMessageBox.information(self, "มีในรายการจัดซื้อแล้ว",
+                                    "อุปกรณ์นี้ถูกเพิ่มในรายการจัดซื้อแล้ว จึงไม่แสดงให้เลือกซ้ำ\n"
+                                    "หากต้องการแก้จำนวนหรือราคา ให้แก้ในตารางจัดซื้อ")
+            return
         self.show_page(3)
         self.edit_record("purchases", defaults={
             "itemId": str(item.get("id") or ""),
@@ -1655,7 +1754,7 @@ class BOMWindow(QMainWindow):
             self.debugger.event("INFO", "credentials", "TOKEN_CONFIGURED",
                                 "ตั้งค่า GitHub Credential เรียบร้อย")
             self.set_status("ตรวจ Token และเก็บใน Windows Credential Manager แล้ว")
-            self._schedule_auto_sync()
+            self._startup_sync()
             QMessageBox.information(self, "เชื่อม GitHub สำเร็จ", "บันทึก GitHub Token อย่างปลอดภัยแล้ว")
         self._job(lambda: github_api("GET", token=token), success, context="github")
 
