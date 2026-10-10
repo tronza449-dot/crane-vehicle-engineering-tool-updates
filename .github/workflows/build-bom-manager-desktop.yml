@@ -64,6 +64,24 @@ jobs:
         working-directory: bom-manager-desktop
         run: pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --collect-all keyring --collect-all reportlab --collect-all xlsxwriter --add-data "VERSION;." qt_launcher.py
 
+      - name: Smoke-test Windows EXE and capture real dashboard preview
+        working-directory: bom-manager-desktop
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $exe = ".\dist\CraneVehicleBOMManager\CraneVehicleBOMManager.exe"
+          if (!(Test-Path $exe)) { throw "Built EXE is missing" }
+          $process = Start-Process -FilePath $exe -ArgumentList "--capture-preview" -PassThru
+          if (-not $process.WaitForExit(90000)) {
+            $process.Kill()
+            throw "Windows EXE smoke test timed out"
+          }
+          if ($process.ExitCode -ne 0) { throw "Windows EXE smoke test failed ($($process.ExitCode))" }
+          if (!(Test-Path "output\IndustrialDarkPreview.png")) {
+            throw "GUI preview screenshot was not generated"
+          }
+
       - name: Build one-click installer
         working-directory: bom-manager-desktop
         shell: pwsh
@@ -87,6 +105,7 @@ jobs:
           path: |
             bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe
             bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe.sha256
+            bom-manager-desktop/output/IndustrialDarkPreview.png
           if-no-files-found: error
           retention-days: 30
 
@@ -100,10 +119,11 @@ jobs:
         run: |
           $installer="bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe"
           $checksum="$installer.sha256"
+          $preview="bom-manager-desktop/output/IndustrialDarkPreview.png"
           gh release view $env:BOM_TAG --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "::warning::BOM release $env:BOM_TAG already exists. Increment bom-manager-desktop/VERSION to publish a new version."
             exit 0
           }
-          gh release create $env:BOM_TAG $installer $checksum --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
+          gh release create $env:BOM_TAG $installer $checksum $preview --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
           if ($LASTEXITCODE -ne 0) { throw "GitHub Release creation failed" }
