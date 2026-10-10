@@ -1,3 +1,13 @@
+## V53.8.52 — Clean UI + GitHub Smart Cloud Sync
+
+- ปรับ Desktop UI/UX ให้ clean ขึ้น: card/button/navigation radius และ spacing สม่ำเสมอ อ่านง่ายขึ้น
+- เพิ่มสถานะ Cloud Sync แบบ dynamic ที่แถบซ้าย เห็น OFF / READY / SYNCING / SYNCED / CONFLICT / ERROR / OFFLINE ได้ทันที
+- GitHub Smart Sync รองรับ Read-only PC: ไม่มี Token ก็ Auto Pull ข้อมูลล่าสุดได้
+- เครื่องที่มี Fine-grained Token จะ Auto Push หลัง Local Auto Save และตรวจ Remote อัตโนมัติ
+- เปิด Cloud Sync เป็นค่าเริ่มต้นสำหรับการติดตั้งใหม่ และตรวจ Remote ทุก 90 วินาที
+- ยังคง conflict backup และไม่เขียนทับข้อมูลสองฝั่งแบบเงียบ ๆ
+- Token ไม่ถูกฝังในโปรแกรม: เก็บด้วย Windows DPAPI หรือ environment variable เท่านั้น
+
 # Crane Vehicle Engineering Tool V53.8.51
 
 ## Clean UI/UX + GitHub Cloud Sync
