@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T22:17:55+00:00",
+  "updatedAt": "2026-10-10T22:31:08+00:00",
   "currency": "THB",
   "items": [
     {
@@ -120,10 +120,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "ขาออก 5 V ไป VIN/5V ของ DevKit ตามข้อกำหนดบอร์ด | GPIO/จุดต่อ: ESP32 VIN/5V; GND ร่วมฝั่งควบคุม",
-      "unitPrice": null,
+      "unitPrice": 99.0,
       "link": "https://www.allnewstep.com/product/5485/%E0%B9%82%E0%B8%A1%E0%B8%94%E0%B8%B9%E0%B8%A5%E0%B9%81%E0%B8%9B%E0%B8%A5%E0%B8%87%E0%B9%84%E0%B8%9F%E0%B8%A5%E0%B8%87-9-120vdc-%E0%B9%80%E0%B8%9B%E0%B9%87%E0%B8%99-5v-3a-dc-step-down-power-module-9-120vdc-wide-voltage-input-to-5v-high-c",
       "status": "เลือกตัวอย่างรุ่นไว้; ยืนยันรุ่น",
-      "notes": "ตัวเลือกสินค้า: 5 V 3 A, input 9–120 VDC; 72 V Li-ion เต็มราว 84 V อยู่ในช่วง input ที่ระบุ. เป็น buck non-isolated; ตรวจพิกัดกระแสรวม/ความร้อนก่อนติดตั้ง."
+      "notes": "ตัวเลือกสินค้า: 5 V 3 A, input 9–120 VDC; 72 V Li-ion เต็มราว 84 V อยู่ในช่วง input ที่ระบุ. เป็น buck non-isolated; ตรวจพิกัดกระแสรวม/ความร้อนก่อนติดตั้ง.",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "10",
@@ -133,10 +135,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "จ่ายไฟให้ไฟเตือน; +12 V ผ่านฟิวส์สาขาและหน้าสัมผัส relay COM2/NO2 | GPIO/จุดต่อ: CH2 relay สั่งด้วย GPIO33; แยกจากแบตวินช์",
-      "unitPrice": null,
+      "unitPrice": 78.0,
       "link": "https://shopee.co.th/Voltage-Regulator-Module-%E0%B9%82%E0%B8%A1%E0%B8%94%E0%B8%B9%E0%B8%A5%E0%B8%84%E0%B8%87%E0%B9%81%E0%B8%A3%E0%B8%87%E0%B8%94%E0%B8%B1%E0%B8%99-DC-DC-Buck-Step-Down-Converter-9-120V-to-5V-3A-16-120V-to-12V-3A-%E0%B8%A1%E0%B8%B5%E0%B8%82%E0%B8%AD%E0%B8%87%E0%B8%9E%E0%B8%A3%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%AA%E0%B9%88%E0%B8%87%21-i.117988183.19627205800",
       "status": "เลือก option 12 V 3 A; ตรวจสเปก/ร้านก่อนซื้อ",
-      "notes": "เลือก option 12 V 3 A, input 16–120 V; non-isolated buck. ไฟเตือน 10 W ≈0.83 A nominal; ยืนยันกระแสเริ่มต้นและอุณหภูมิจริง. Relay contacts สวิตช์ +12 V; ห้ามป้อน 72 V เข้า relay/load branch."
+      "notes": "เลือก option 12 V 3 A, input 16–120 V; non-isolated buck. ไฟเตือน 10 W ≈0.83 A nominal; ยืนยันกระแสเริ่มต้นและอุณหภูมิจริง. Relay contacts สวิตช์ +12 V; ห้ามป้อน 72 V เข้า relay/load branch.",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "11",
@@ -303,10 +307,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "ควบคุมขึ้น/ลงด้วยรีเลย์/คอนแทคเตอร์กลับขั้วหรือชุดควบคุมจากร้าน | GPIO/จุดต่อ: แยกจากการขับรถ; ยังไม่กำหนด GPIO",
-      "unitPrice": null,
-      "link": null,
+      "unitPrice": 0.0,
+      "link": "",
       "status": "สเปกร้านยังไม่พอระบุรุ่น",
-      "notes": "กระแสใช้งาน/กระแสติดขัด, remote, duty cycle, เบรก | ยังไม่มีลิงก์ซื้อ: ร้านยังไม่ระบุรุ่น/กระแส stall/duty cycle ของวินช์ 12 V 1400 W"
+      "notes": "กระแสใช้งาน/กระแสติดขัด, remote, duty cycle, เบรก | ยังไม่มีลิงก์ซื้อ: ร้านยังไม่ระบุรุ่น/กระแส stall/duty cycle ของวินช์ 12 V 1400 W",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "23",
