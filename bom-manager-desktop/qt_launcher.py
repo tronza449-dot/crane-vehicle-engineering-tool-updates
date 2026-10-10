@@ -9,6 +9,10 @@ from bom_qt import main
 def smoke_test():
     """Verify packaged PySide6 can load all pages without any GitHub access."""
     from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtCore import Qt
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     from bom_qt import BOMWindow
     from bom_qt_theme import apply_theme
     app = QApplication([])
