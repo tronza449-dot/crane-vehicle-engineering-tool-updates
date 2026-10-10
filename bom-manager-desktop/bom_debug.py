@@ -161,9 +161,27 @@ class DebugReporter:
                            "detail": f"เอกสาร BOM ไม่ถูกต้อง ({type(exc).__name__})"})
         return checks, counts
 
-    def snapshot(self, document, *, dirty=False, remote_loaded=False, github_token_present=False):
+    def snapshot(self, document, *, dirty=False, remote_loaded=False, github_token_present=False,
+                 github_connected=None):
         checks, counts = self.inspect_document(document)
+        try:
+            self.folder.mkdir(parents=True, exist_ok=True)
+            probe = self.folder / ".diagnostic-probe"
+            probe.write_text("OK", encoding="utf-8")
+            probe.unlink()
+            storage_ok = True
+        except OSError:
+            storage_ok = False
         checks.extend([
+            {"name": "Local storage", "status": "PASS" if storage_ok else "FAIL",
+             "detail": "บันทึกไฟล์ได้" if storage_ok else "ไม่สามารถเขียนไฟล์ในโฟลเดอร์ Debug"},
+            {"name": "Credential setup", "status": "PASS" if github_token_present else "WARN",
+             "detail": "มี Token ใน Credential Manager" if github_token_present
+                       else "ยังไม่ได้ตั้งค่า Token สำหรับบันทึก GitHub"},
+            {"name": "GitHub connectivity", "status": "PASS" if github_connected is True else "WARN",
+             "detail": "GitHub API ติดต่อได้" if github_connected is True else
+                       "GitHub API ติดต่อไม่ได้" if github_connected is False else
+                       "ยังไม่ได้ทดสอบ GitHub ในรอบนี้"}, 
             {"name": "Local diagnostics", "status": "WARN" if self.write_error else "PASS",
              "detail": "เขียน log ไม่สำเร็จ" if self.write_error else "พร้อมบันทึกเหตุการณ์"},
             {"name": "GitHub state", "status": "WARN" if not remote_loaded else "PASS",
@@ -184,6 +202,8 @@ class DebugReporter:
                 "unsaved_changes": bool(dirty),
                 "github_reference_loaded": bool(remote_loaded),
                 "github_credential_configured": bool(github_token_present),
+                "github_connectivity_checked": github_connected is not None,
+                "github_api_reachable": github_connected if github_connected is not None else None,
                 "counts": counts,
             },
             "checks": checks,
