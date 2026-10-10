@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T21:37:56+00:00",
+  "updatedAt": "2026-10-10T21:46:38+00:00",
   "currency": "THB",
   "items": [
     {
@@ -20,13 +20,13 @@
     {
       "id": "2",
       "category": "ระบบขับเคลื่อน",
-      "name": "คอนโทรลเลอร์มอเตอร์ — Flipsky Dual FSESC75100 with Aluminum PCB",
+      "name": "Flipsky Dual 75100 With Aluminum PCB Based on VESC For Electric Skateboard / Electric Scooter / Ebike Speed Controller",
       "spec": "ขับมอเตอร์ฮับซ้ายและขวา | ไฟเลี้ยง: แบตเตอรี่ 72 V; ตรวจแรงดันเต็ม 84 V กับพิกัดบอร์ด",
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "VESC; CAN bus ร่วมถึง VESC ทั้งสองชุด | GPIO/จุดต่อ: CAN #5 และ #12 ตามป้ายบอร์ด; รายละเอียดสายต้องเช็กคู่มือรุ่น",
-      "unitPrice": 5500.0,
-      "link": "https://flipsky.net/products/flipsky-dual-75100-with-aluminum-pcb-based-on-vesc-for-electric-skateboard-electric-scooter-ebike-speed-controller",
+      "unitPrice": 5771.11,
+      "link": "https://flipsky.net/products/flipsky-dual-75100-with-aluminum-pcb-based-on-vesc-for-electric-skateboard-electric-scooter-ebike-speed-controller?_pos=3&_sid=5a3190fd0&_ss=r",
       "status": "เลือกรุ่นแล้ว; สั่งจากผู้ผลิต",
       "notes": "ยืนยันรุ่น/เฟิร์มแวร์/พิกัดกระแสและการต่อ CAN ของ Dual",
       "partNumber": "",
