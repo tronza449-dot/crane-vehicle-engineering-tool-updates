@@ -25,8 +25,8 @@ class IndustrialDarkTests(unittest.TestCase):
         self.window.deleteLater()
 
     def test_navigation_and_dashboard(self):
-        self.assertEqual(len(self.window.nav_buttons), 5)
-        self.assertEqual(self.window.stack.count(), 5)
+        self.assertEqual(len(self.window.nav_buttons), 6)
+        self.assertEqual(self.window.stack.count(), 6)
         self.assertEqual(len(self.window.cards), 6)
         self.assertFalse(self.window.install_btn.isEnabled())
         self.window.payload = {
