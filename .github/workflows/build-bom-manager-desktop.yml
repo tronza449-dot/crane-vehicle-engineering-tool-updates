@@ -9,7 +9,11 @@ on:
       - ".github/workflows/build-bom-manager-desktop.yml"
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: bom-manager-release
+  cancel-in-progress: false
 
 jobs:
   build-windows-installer:
@@ -23,6 +27,15 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Read and validate app version
+        id: version
+        shell: pwsh
+        run: |
+          $version=(Get-Content bom-manager-desktop/VERSION -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid BOM Manager VERSION: $version" }
+          "value=$version" >> $env:GITHUB_OUTPUT
+          "tag=bom-v$version" >> $env:GITHUB_OUTPUT
+
       - name: Install build tools
         shell: pwsh
         run: |
@@ -31,21 +44,57 @@ jobs:
           choco install innosetup --yes --no-progress
 
       - name: Check Python syntax
-        run: python -m py_compile bom-manager-desktop/app.py
+        run: |
+          python -m py_compile bom-manager-desktop/app.py
+          python -m py_compile bom-manager-desktop/updater.py
+
+      - name: Run updater tests
+        run: python -m unittest discover -s bom-manager-desktop/tests -v
 
       - name: Build desktop application
         working-directory: bom-manager-desktop
-        run: pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --collect-all keyring app.py
+        run: pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --collect-all keyring --add-data "VERSION;." app.py
 
       - name: Build one-click installer
         working-directory: bom-manager-desktop
         shell: pwsh
-        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer.iss'
+        run: |
+          $version="${{ steps.version.outputs.value }}"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" installer.iss
 
-      - name: Upload installer
+      - name: Prepare SHA256 checksum
+        working-directory: bom-manager-desktop/output
+        shell: pwsh
+        run: |
+          $filename="CraneVehicleBOMManager_Setup.exe"
+          $hash=(Get-FileHash -Algorithm SHA256 $filename).Hash.ToLowerInvariant()
+          "$hash  $filename" | Set-Content -Encoding ascii "$filename.sha256"
+          Get-Content "$filename.sha256"
+
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: CraneVehicleBOMManager-Setup-Windows
-          path: bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe
+          path: |
+            bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe
+            bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe.sha256
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish dedicated BOM Manager Release
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BOM_TAG: ${{ steps.version.outputs.tag }}
+          BOM_VER: ${{ steps.version.outputs.value }}
+        run: |
+          $installer="bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe"
+          $checksum="$installer.sha256"
+          gh release view $env:BOM_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "::warning::BOM release $env:BOM_TAG already exists. Increment bom-manager-desktop/VERSION to publish a new version."
+            exit 0
+          }
+          gh release create $env:BOM_TAG $installer $checksum --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
+          if ($LASTEXITCODE -ne 0) { throw "GitHub Release creation failed" }
