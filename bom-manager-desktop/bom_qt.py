@@ -1558,6 +1558,7 @@ class BOMWindow(QMainWindow):
             self.debugger.event("INFO", "credentials", "TOKEN_CONFIGURED",
                                 "ตั้งค่า GitHub Credential เรียบร้อย")
             self.set_status("ตรวจ Token และเก็บใน Windows Credential Manager แล้ว")
+            self._schedule_auto_sync()
             QMessageBox.information(self, "เชื่อม GitHub สำเร็จ", "บันทึก GitHub Token อย่างปลอดภัยแล้ว")
         self._job(lambda: github_api("GET", token=token), success, context="github")
 
@@ -1585,6 +1586,8 @@ class BOMWindow(QMainWindow):
             self.debugger.event("INFO", "github", "BOM_LOADED",
                                 "โหลดข้อมูล BOM จาก GitHub สำเร็จ")
             self.dirty = False
+            self.sync_paused_conflict = False
+            self.auto_sync_timer.stop()
             self.revision += 1
             self._write_cache()
             self.render_all()
@@ -1597,60 +1600,134 @@ class BOMWindow(QMainWindow):
                 self._message_error(message)
         self._job(work, success, failed, context="github")
 
-    def save_remote(self):
-        if self.busy:
-            QMessageBox.information(self, "กำลังทำงาน", "รอให้งาน GitHub ก่อนหน้าเสร็จก่อน")
+    def save_remote(self, checked=False, *, automatic=False):
+        """Save one snapshot using GitHub optimistic concurrency.
+
+        Automatic saves never open modal dialogs. A remote edit from another
+        machine pauses auto sync, keeping the durable local draft unchanged.
+        """
+        if self.busy or self.downloading:
+            if not automatic:
+                QMessageBox.information(self, "กำลังทำงาน",
+                                        "กรุณารอการเชื่อมต่อ GitHub ก่อนหน้าเสร็จ")
             return
         try:
             bom_core.ensure_doc(self.payload)
         except bom_core.DataError as exc:
-            self._message_error(str(exc))
+            if automatic:
+                self.set_status(f"รอแก้ข้อมูล BOM ก่อน Auto Save: {exc}")
+            else:
+                self._message_error(str(exc))
             return
         if not self.token:
-            QMessageBox.information(self, "ยังไม่มี Token", "กรุณาตั้งค่า GitHub Token ก่อนบันทึก")
-            self.configure_token()
+            if not automatic:
+                QMessageBox.information(self, "ยังไม่มี Token",
+                                        "กรุณาตั้งค่า GitHub Token ก่อนบันทึก")
+                self.configure_token()
+            self._refresh_sync_state()
             return
         if not self.sha:
-            QMessageBox.warning(self, "ยังไม่มี GitHub SHA",
-                                "ต้องโหลดข้อมูล GitHub อย่างน้อยหนึ่งครั้งก่อนบันทึก")
+            if not automatic:
+                QMessageBox.warning(self, "ยังไม่มี GitHub SHA",
+                                    "ต้องโหลดข้อมูล GitHub อย่างน้อยหนึ่งครั้งก่อนบันทึก")
+            self._refresh_sync_state()
             return
-        if QMessageBox.question(
+        if automatic and (not self.auto_sync_enabled or
+                          not self.dirty or self.sync_paused_conflict):
+            return
+        if not automatic and QMessageBox.question(
                 self, "บันทึก GitHub Commit",
-                f"บันทึก BOM {len(self.payload['items'])} รายการ พร้อม Wiring และ Purchasing หรือไม่?") != QMessageBox.StandardButton.Yes:
+                f"บันทึก BOM {len(self.payload['items'])} รายการ "
+                "พร้อม Wiring และ Purchasing หรือไม่?"
+        ) != QMessageBox.StandardButton.Yes:
             return
+
         self.busy = True
         self.sync_btn.setEnabled(False)
+        self.auto_sync_timer.stop()
+        self._refresh_sync_state()
         rev = self.revision
         snapshot = copy.deepcopy(self.payload)
         snapshot["updatedAt"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         expected_sha = self.sha
-        content = json.dumps(snapshot, ensure_ascii=False, indent=2).encode("utf-8")
+        body = base64.b64encode(
+            json.dumps(snapshot, ensure_ascii=False, indent=2).encode("utf-8")
+        ).decode("ascii")
+        saved_token = self.token
+
         def work():
-            return github_api("PUT", {
-                "message": f"Update BOM from Qt Desktop v{VERSION}",
-                "branch": "main", "sha": expected_sha,
-                "content": base64.b64encode(content).decode("ascii"),
-            }, token=self.token)
-        def finish(result):
+            # Check against the live GitHub file before each attempted push.
+            # GitHub PUT's SHA also protects against a race after this GET.
+            remote = github_api("GET", token=saved_token)
+            if remote.get("sha") != expected_sha:
+                return {"conflict": True, "remote_sha": remote.get("sha")}
+            result = github_api("PUT", {
+                "message": ("Auto Save BOM" if automatic else "Save BOM") +
+                           f" from Desktop v{VERSION}",
+                "branch": "main", "sha": expected_sha, "content": body,
+            }, token=saved_token)
+            return {"conflict": False, "result": result}
+
+        def conflict_detected():
+            self.sync_paused_conflict = True
+            self.last_git_ok = False
+            self._write_cache()
+            self._refresh_sync_state()
+            text = ("ข้อมูลบน GitHub เปลี่ยนจากเครื่องอื่นแล้ว "
+                    "ระบบหยุด Auto Save เพื่อป้องกันการบันทึกทับ "
+                    "ฉบับร่างในเครื่องยังอยู่ครบ กรุณาส่งออก JSON Backup "
+                    "แล้วตรวจสอบ/โหลดข้อมูล GitHub ล่าสุดก่อนซิงก์อีกครั้ง")
+            self.debugger.event("WARNING", "github", "AUTO_SYNC_CONFLICT", text)
+            self.set_status(text)
+            if not automatic:
+                QMessageBox.warning(self, "GitHub ข้อมูลชนกัน", text)
+
+        def finish(data):
             self.busy = False
             self.sync_btn.setEnabled(True)
+            if data.get("conflict"):
+                conflict_detected()
+                return
+            result = data["result"]
             self.sha = result["content"]["sha"]
+            self.sync_paused_conflict = False
             self.last_git_ok = True
-            self.debugger.event("INFO", "github", "BOM_COMMITTED",
-                                "บันทึก GitHub Commit สำเร็จ")
+            self.debugger.event(
+                "INFO", "github",
+                "AUTO_SYNC_OK" if automatic else "BOM_COMMITTED",
+                "Auto Save GitHub สำเร็จ" if automatic else "บันทึก GitHub Commit สำเร็จ")
             if rev == self.revision:
                 self.payload = snapshot
                 self.dirty = False
             else:
+                # Newer edits were made while the network was working.
                 self.dirty = True
             self._write_cache()
             self.render_all()
-            self.set_status("สร้าง GitHub Commit สำเร็จ" +
-                            (" · มีการแก้ไขใหม่ที่ยังไม่บันทึก" if self.dirty else ""))
-        def failed(msg):
+            self.set_status("ซิงก์ GitHub สำเร็จ" +
+                            (" · มีข้อมูลแก้ไขใหม่รอซิงก์" if self.dirty else ""))
+            if self.dirty:
+                self._schedule_auto_sync()
+
+        def failed(message):
             self.busy = False
             self.sync_btn.setEnabled(True)
-            self._message_error(msg)
+            if ("conflict" in message.casefold() or
+                    "ข้อมูลใหม่กว่าที่โหลดไว้" in message):
+                conflict_detected()
+                return
+            self.last_git_ok = False
+            self._write_cache()
+            self._refresh_sync_state()
+            self.debugger.event(
+                "WARNING", "github", "AUTO_SYNC_RETRY" if automatic else "SYNC_FAILED",
+                "GitHub Sync ไม่สำเร็จ; เก็บข้อมูลไว้ในเครื่องและจะลองอีกครั้ง")
+            if automatic:
+                self.set_status("GitHub ไม่พร้อม · เก็บฉบับร่างในเครื่องแล้ว "
+                                "· จะลองซิงก์ใหม่อัตโนมัติ")
+            else:
+                self._message_error(message)
+
         self._job(work, finish, failed, context="github")
 
     def show_history(self):
