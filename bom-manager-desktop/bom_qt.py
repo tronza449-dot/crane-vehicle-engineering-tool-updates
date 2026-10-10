@@ -83,6 +83,10 @@ def money(value):
 
 
 def github_api(method="GET", payload=None, token=None, url=BOM_URL):
+    # Repository is public: everyone can READ without a personal credential.
+    # Never ship a shared PAT or attempt anonymous GitHub writes.
+    if method.upper() != "GET" and not token:
+        raise PermissionError("ต้องมีสิทธิ์ GitHub ของตนเองเพื่อบันทึกข้อมูลส่วนกลาง")
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
     headers = {
         "Accept": "application/vnd.github+json",
@@ -94,8 +98,18 @@ def github_api(method="GET", payload=None, token=None, url=BOM_URL):
     if data is not None:
         headers["Content-Type"] = "application/json"
     request = Request(url, data=data, headers=headers, method=method)
-    with urlopen(request, timeout=30) as response:
-        return json.load(response)
+    try:
+        with urlopen(request, timeout=30) as response:
+            return json.load(response)
+    except HTTPError as exc:
+        # A revoked/stale keyring PAT must not prevent public read access.
+        # Retry *only* GET, never write requests or private resources.
+        if method.upper() != "GET" or not token or exc.code != 401:
+            raise
+        headers.pop("Authorization", None)
+        public_request = Request(url, headers=headers, method="GET")
+        with urlopen(public_request, timeout=30) as response:
+            return json.load(response)
 
 
 def friendly_error(exc):
@@ -780,8 +794,13 @@ class BOMWindow(QMainWindow):
         self.hero_project_label.setWordWrap(True)
         heading.addWidget(self.hero_project_label)
         heading.addWidget(self._label(
-            "ดูข้อมูลอุปกรณ์ในระบบ แก้ไขรายการ แล้วส่งออกรายงาน PDF / Excel",
+            "เปิดโปรแกรมแล้วอ่าน BOM ล่าสุดจาก GitHub ได้เลย • ไม่ต้องใส่ Token",
             "heroSubtitle"))
+        public_hint = self._label(
+            "โหมดผู้ชม: ดูและส่งออกรายงานได้ทันที | การแก้ไขที่ยังไม่มีสิทธิ์จะเก็บในเครื่องเท่านั้น",
+            "hint")
+        public_hint.setWordWrap(True)
+        heading.addWidget(public_hint)
         line.addLayout(heading, 1)
         quick = QVBoxLayout()
         quick.addWidget(self._button("เปิดรายการอุปกรณ์  →",
@@ -1004,7 +1023,11 @@ class BOMWindow(QMainWindow):
             "รายงานและการจัดเก็บข้อมูล",
             "ส่งออกเอกสารสำหรับใส่รายงาน หรือจัดการข้อมูล GitHub")
         body.addWidget(self._label(
-            "ขั้นตอนง่าย ๆ : เลือก PDF หรือ Excel → กรอกชื่อผู้จัดทำ / สถาบัน → เลือกที่บันทึก",
+            "เปิดโปรแกรมได้ทันทีโดยไม่ต้องมี Token • ข้อมูล BOM จาก GitHub สาธารณะจะโหลดอัตโนมัติ "
+            "• ต้องมีสิทธิ์เฉพาะเมื่อต้องการบันทึกการแก้ไขขึ้น GitHub",
+            "caption"))
+        body.addWidget(self._label(
+            "ขั้นตอนออกรายงาน: เลือก PDF หรือ Excel → กรอกชื่อผู้จัดทำ / สถาบัน → เลือกที่บันทึก",
             "caption"))
         group = self._panel("1  ส่งออกรายงานแบบทางการ (แนะนำสำหรับส่งอาจารย์)", body)
         text = self._label(
@@ -1546,6 +1569,8 @@ class BOMWindow(QMainWindow):
             return
         if self.sync_paused_conflict:
             state = "ข้อมูลชนกัน · หยุด Auto Save จนกว่าจะตรวจสอบ"
+        elif not self.dirty and not self.token and self.sha and self.last_git_ok is True:
+            state = "ดู BOM สาธารณะ · โหลดจาก GitHub อัตโนมัติ · ไม่ต้อง Token"
         elif not self.dirty:
             state = ("ซิงก์ GitHub แล้ว · ตรวจข้อมูลใหม่ทุก 2 นาที"
                      if self.sha and self.last_git_ok is True else
@@ -1553,10 +1578,10 @@ class BOMWindow(QMainWindow):
                      self.last_git_ok is False else
                      "มีข้อมูลในเครื่อง · กำลังตรวจ GitHub" if self.sha else
                      "ข้อมูลในเครื่อง · รอโหลด GitHub")
+        elif not self.token:
+            state = "แก้ไขฉบับร่างในเครื่อง · GitHub ส่วนกลางเป็นโหมดอ่านอย่างเดียว"
         elif not self.auto_sync_enabled:
             state = "บันทึกในเครื่อง · Auto Save GitHub ปิด"
-        elif not self.token:
-            state = "บันทึกในเครื่อง · รอตั้งค่า GitHub Token"
         elif not self.sha:
             state = "บันทึกในเครื่อง · ต้องโหลด GitHub ก่อน"
         elif self.busy:
@@ -1906,7 +1931,7 @@ class BOMWindow(QMainWindow):
         from PySide6.QtWidgets import QInputDialog, QLineEdit as _LineEdit
         token, ok = QInputDialog.getText(
             self, "GitHub Token",
-            "Fine-grained token สำหรับ Repository นี้เท่านั้น\nสิทธิ์ Contents: Read and write",
+            "สำหรับผู้ได้รับสิทธิ์แก้ไขเท่านั้น (ผู้ชมไม่ต้องใส่ Token)\nสิทธิ์ Contents: Read and write",
             _LineEdit.EchoMode.Password)
         if not ok:
             return
@@ -2029,7 +2054,8 @@ class BOMWindow(QMainWindow):
         if not self.token:
             if not automatic:
                 QMessageBox.information(self, "ยังไม่มี Token",
-                                        "กรุณาตั้งค่า GitHub Token ก่อนบันทึก")
+                                        "ผู้ชมสามารถโหลด BOM และส่งออก PDF/Excel ได้โดยไม่ต้องใช้ Token\n"
+                                        "การบันทึกขึ้น GitHub ต้องใช้บัญชี/Token ของผู้ได้รับสิทธิ์")
                 self.configure_token()
             self._refresh_sync_state()
             return
