@@ -1748,6 +1748,11 @@ class BOMWindow(QMainWindow):
 
 
 def main():
+    # Qt 6 is per-monitor DPI aware. Keep fractional Windows display scaling
+    # accurate so glyphs are rasterized for the real device scale.
+    from PySide6.QtGui import QGuiApplication
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     reporter = bom_debug.DebugReporter(version=VERSION)
     bom_debug.install_hooks(reporter)
     app = QApplication(sys.argv)
