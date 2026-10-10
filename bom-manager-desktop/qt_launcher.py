@@ -39,6 +39,12 @@ def smoke_test():
         filename.parent.mkdir(parents=True, exist_ok=True)
         if not win.grab().save(str(filename), "PNG"):
             raise RuntimeError("Failed to save Industrial Dark GUI screenshot")
+        win.show_page(5)
+        app.processEvents()
+        debug_preview = Path("output") / "DebugReportPreview.png"
+        if not win.grab().save(str(debug_preview), "PNG"):
+            raise RuntimeError("Failed to capture Debug Report GUI")
+        win.show_page(0)
     win.close()
     return 0
 
