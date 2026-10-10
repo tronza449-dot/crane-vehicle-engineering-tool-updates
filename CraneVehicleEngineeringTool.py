@@ -52,9 +52,11 @@ def resource_path(relative_path):
 
 APP_STYLE = """
 /* ==================== V51 MODERN / READABLE UI ==================== */
-QMainWindow { background:#edf3f8; }
-QWidget { color:#203246; }
-QLabel { color:#2a3d50; font-size:10.8pt; }
+QMainWindow { background:#f6f8fb; }
+QWidget { color:#1d2939; }
+QLabel { color:#344054; font-size:10.6pt; }
+QLabel#mutedText { color:#667085; font-size:9.2pt; }
+QLabel#cardEyebrow { color:#667085; font-size:8.4pt; font-weight:900; letter-spacing:0.4px; }
 QToolTip {
     background:#102a43; color:white; border:0; padding:7px 10px;
     border-radius:6px; font-size:10pt;
@@ -62,51 +64,53 @@ QToolTip {
 
 /* ---------- Tabs ---------- */
 QTabWidget::pane {
-    border:1px solid #d7e1eb; background:#ffffff; border-radius:12px; top:-1px;
+    border:1px solid #e4e7ec; background:#ffffff; border-radius:14px; top:-1px;
 }
 QTabBar::tab {
-    background:#eef3f8; color:#53677d; padding:9px 14px; margin-right:4px;
-    min-height:30px; font-weight:750; font-size:10.4pt;
-    border-top-left-radius:9px; border-top-right-radius:9px;
+    background:transparent; color:#667085; padding:9px 14px; margin-right:3px;
+    min-height:29px; font-weight:750; font-size:10.1pt;
+    border-radius:8px;
 }
-QTabBar::tab:hover { background:#e4edf6; color:#17324d; }
-QTabBar::tab:selected { background:#245fbb; color:white; }
+QTabBar::tab:hover { background:#f2f4f7; color:#344054; }
+QTabBar::tab:selected { background:#eff4ff; color:#175cd3; }
 
 /* ---------- Cards / sections ---------- */
 QGroupBox {
-    font-weight:800; font-size:11pt; color:#17324d;
-    border:1px solid #d8e2ec; border-radius:12px;
+    font-weight:800; font-size:10.8pt; color:#344054;
+    border:1px solid #e4e7ec; border-radius:14px;
     margin-top:14px; padding:17px 14px 14px 14px; background:#ffffff;
 }
 QGroupBox::title {
     subcontrol-origin:margin; left:15px; padding:0 8px;
-    background:#ffffff; color:#17324d;
+    background:#ffffff; color:#344054;
 }
 QFrame#topHeader {
-    background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #123554,stop:1 #1d638f);
-    border:0; border-radius:15px;
+    background:#ffffff; border:1px solid #e4e7ec; border-radius:16px;
 }
 QFrame#softPanel {
-    background:#ffffff; border:1px solid #d8e3ed; border-radius:13px;
+    background:#ffffff; border:1px solid #e4e7ec; border-radius:14px;
 }
 QFrame#metricPanel {
-    background:#f6faff; border:1px solid #d7e5f3; border-radius:12px;
+    background:#f9fafb; border:1px solid #eaecf0; border-radius:12px;
+}
+QFrame#heroSummary {
+    background:#f9fafb; border:1px solid #eaecf0; border-radius:12px;
 }
 QFrame#navPanel {
-    background:#f8fbfe; border-right:1px solid #d8e3ed;
+    background:#ffffff; border-right:1px solid #eaecf0;
 }
 
 /* ---------- Inputs ---------- */
 QDoubleSpinBox,QSpinBox,QComboBox,QLineEdit {
-    min-height:36px; font-size:10.8pt;
-    border:1px solid #c7d4e1; border-radius:9px; padding:4px 9px;
-    background:#ffffff; selection-background-color:#2f6fd1;
+    min-height:36px; font-size:10.5pt;
+    border:1px solid #d0d5dd; border-radius:9px; padding:4px 9px;
+    background:#ffffff; selection-background-color:#84adff;
 }
 QDoubleSpinBox:hover,QSpinBox:hover,QComboBox:hover,QLineEdit:hover {
-    border-color:#8baed1;
+    border-color:#98a2b3;
 }
 QDoubleSpinBox:focus,QSpinBox:focus,QComboBox:focus,QLineEdit:focus {
-    border:2px solid #3d7bd8; padding:3px 8px;
+    border:2px solid #528bff; padding:3px 8px;
 }
 QDoubleSpinBox:disabled,QSpinBox:disabled,QComboBox:disabled,QLineEdit:disabled {
     background:#f2f5f8; color:#8392a3;
@@ -119,12 +123,12 @@ QRadioButton::indicator { width:19px; height:19px; }
 
 /* ---------- Buttons ---------- */
 QPushButton {
-    min-height:39px; border-radius:9px; padding:7px 15px;
-    background:#ffffff; border:1px solid #c8d5e2;
-    color:#183a57; font-size:10.3pt; font-weight:750;
+    min-height:38px; border-radius:9px; padding:7px 14px;
+    background:#ffffff; border:1px solid #d0d5dd;
+    color:#344054; font-size:10.1pt; font-weight:750;
 }
-QPushButton:hover { background:#f2f7fc; border-color:#84a9ce; }
-QPushButton:pressed { background:#dbeafe; border:2px solid #2f6fd1; padding:6px 14px; }
+QPushButton:hover { background:#f9fafb; border-color:#98a2b3; }
+QPushButton:pressed { background:#f2f4f7; border:2px solid #84adff; padding:6px 13px; }
 QPushButton[feedbackState="pressed"] {
     background:#dbeafe; border:2px solid #2f6fd1; color:#17456b;
     padding:9px 13px 5px 17px;
@@ -161,13 +165,12 @@ QPushButton#modeCardButton:checked {
 QPushButton#modeCardButton:checked:hover { background:#e2efff; }
 
 QPushButton#primaryButton {
-    color:white; border:0;
-    background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #245fbb,stop:1 #2382c7);
-    font-weight:850;
+    color:white; border:1px solid #175cd3;
+    background:#175cd3; font-weight:850;
 }
-QPushButton#primaryButton:hover { background:#1d64b8; }
+QPushButton#primaryButton:hover { background:#1849a9; border-color:#1849a9; }
 QPushButton#secondaryButton {
-    background:#f5f8fc; border:1px solid #c8d5e2; color:#24445f;
+    background:#ffffff; border:1px solid #d0d5dd; color:#344054;
 }
 QPushButton#dangerButton {
     background:#fff4f4; color:#b42318; border:1px solid #efb6b1;
@@ -175,15 +178,15 @@ QPushButton#dangerButton {
 
 /* ---------- Persistent left navigation ---------- */
 QPushButton#navButton {
-    min-height:46px; max-height:50px; text-align:left;
-    padding:7px 12px; border-radius:10px; border:1px solid transparent;
-    background:transparent; color:#41566c; font-size:10.4pt; font-weight:750;
+    min-height:43px; max-height:47px; text-align:left;
+    padding:7px 11px; border-radius:9px; border:1px solid transparent;
+    background:transparent; color:#475467; font-size:10.1pt; font-weight:750;
 }
 QPushButton#navButton:hover {
-    background:#edf4fb; color:#173f63; border-color:#d8e6f3;
+    background:#f2f4f7; color:#344054; border-color:transparent;
 }
 QPushButton#navButton[active="true"] {
-    background:#e7f0ff; color:#174f96; border:1px solid #c8ddfa;
+    background:#eff4ff; color:#175cd3; border:1px solid #d1e0ff;
     font-weight:900;
 }
 QLabel#navSection {
@@ -598,8 +601,8 @@ def make_page_header(title, subtitle, back_callback, tag_text=None, tag_bg="#eaf
     row=QHBoxLayout(frame);row.setContentsMargins(18,14,18,14);row.setSpacing(14)
     back=QPushButton("⌂  หน้าแรก");back.setObjectName("secondaryButton");back.setMinimumWidth(112);back.clicked.connect(back_callback);row.addWidget(back)
     col=QVBoxLayout();col.setSpacing(3)
-    h=QLabel(title);hf=QFont();hf.setPointSize(16);hf.setBold(True);h.setFont(hf);h.setStyleSheet("color:white;background:transparent;")
-    sh=QLabel(subtitle);sh.setWordWrap(True);sh.setStyleSheet("color:#d9ebf8;font-size:10pt;font-weight:650;background:transparent;")
+    h=QLabel(title);hf=QFont();hf.setPointSize(15);hf.setBold(True);h.setFont(hf);h.setStyleSheet("color:#101828;background:transparent;")
+    sh=QLabel(subtitle);sh.setWordWrap(True);sh.setStyleSheet("color:#667085;font-size:9.8pt;font-weight:650;background:transparent;")
     col.addWidget(h);col.addWidget(sh);row.addLayout(col,1)
     if tag_text:
         row.addWidget(make_chip(tag_text,tag_bg,tag_fg))
@@ -614,25 +617,25 @@ class ModeCardButton(QPushButton):
     def __init__(self,title,subtitle,badge="01",accent="#2463eb",parent=None):
         super().__init__("",parent)
         self.setObjectName("modeCard")
-        self.setFixedHeight(158)
+        self.setFixedHeight(128)
         self.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Fixed)
         self.setCursor(Qt.PointingHandCursor)
         self.setStyleSheet(f"""
             QPushButton#modeCard {{
-                background:#ffffff; border:1px solid #d8e3ed; border-radius:15px; padding:0;
-                min-height:158px; max-height:158px;
+                background:#ffffff; border:1px solid #e4e7ec; border-radius:14px; padding:0;
+                min-height:128px; max-height:128px;
             }}
-            QPushButton#modeCard:hover {{ background:#fbfdff; border:2px solid {accent}; }}
+            QPushButton#modeCard:hover {{ background:#fcfcfd; border:1px solid {accent}; }}
             QPushButton#modeCard:pressed {{ background:#f2f7fb; }}
         """)
         add_soft_shadow(self,20,4,22)
 
         outer=QVBoxLayout(self);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
-        accent_line=QFrame();accent_line.setFixedHeight(5)
+        accent_line=QFrame();accent_line.setFixedHeight(3)
         accent_line.setStyleSheet(f"background:{accent};border-top-left-radius:15px;border-top-right-radius:15px;")
         accent_line.setAttribute(Qt.WA_TransparentForMouseEvents,True);outer.addWidget(accent_line)
 
-        body=QVBoxLayout();body.setContentsMargins(18,14,18,15);body.setSpacing(7);outer.addLayout(body)
+        body=QVBoxLayout();body.setContentsMargins(16,11,16,12);body.setSpacing(5);outer.addLayout(body)
         top=QHBoxLayout();top.setSpacing(8)
         badge_label=QLabel(badge);badge_label.setAlignment(Qt.AlignCenter);badge_label.setFixedSize(40,31)
         badge_label.setStyleSheet(f"background:{accent};color:white;border-radius:9px;font-weight:900;font-size:9.3pt;")
@@ -640,7 +643,7 @@ class ModeCardButton(QPushButton):
         top.addWidget(badge_label);top.addWidget(status);top.addStretch(1);body.addLayout(top)
 
         title_label=QLabel(title);title_label.setWordWrap(True)
-        tf=QFont();tf.setPointSize(13.5);tf.setBold(True);title_label.setFont(tf)
+        tf=QFont();tf.setPointSize(12.2);tf.setBold(True);title_label.setFont(tf)
         title_label.setStyleSheet("color:#102f4a;background:transparent;")
         sub_label=QLabel(subtitle);sub_label.setWordWrap(True)
         sf=QFont();sf.setPointSize(9.6);sf.setWeight(QFont.DemiBold);sub_label.setFont(sf)
