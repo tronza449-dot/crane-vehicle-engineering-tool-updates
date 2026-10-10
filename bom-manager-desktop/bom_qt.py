@@ -1995,6 +1995,187 @@ class BOMWindow(QMainWindow):
 
         self._job(work, finish, failed, context="github")
 
+    def validate_bom(self):
+        """Review quality gaps without deleting records or guessing prices."""
+        issues = bom_advanced.audit_bom(self.payload)
+        dialog = QDialog(self)
+        dialog.setWindowTitle("ตรวจสอบความครบถ้วน BOM / Quality Audit")
+        dialog.resize(880, 620)
+        layout = QVBoxLayout(dialog)
+        failures = sum(x["level"] == "ERROR" for x in issues)
+        layout.addWidget(self._label(
+            f"พบข้อผิดพลาด {failures} จุด • ข้อควรตรวจสอบ {len(issues)-failures} จุด", "sectionTitle"))
+        table = self._table(["ระดับ", "รายการ", "รายละเอียด"], 2)
+        table.setColumnWidth(0, 90)
+        table.setColumnWidth(1, 150)
+        table.setRowCount(len(issues))
+        for row, issue in enumerate(issues):
+            for col, value in enumerate((issue["level"], issue["where"], issue["detail"])):
+                table.setItem(row, col, QTableWidgetItem(value))
+        layout.addWidget(table)
+        layout.addWidget(self._label(
+            "ช่องราคาและ Part Number ที่ยังว่างเป็นข้อควรตรวจสอบ ไม่ใช่ราคา 0 หรือข้อบังคับให้กรอกเดา", "hint"))
+        layout.addWidget(self._button("ปิด", dialog.accept))
+        dialog.exec()
+
+    def import_excel(self):
+        """Add nonduplicate XLSX BOM rows, preserving existing BOM/Wiring IDs."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "เลือก Excel BOM", "", "Excel files (*.xlsx)")
+        if not path:
+            return
+        try:
+            rows = bom_import_excel.read_bom_xlsx(path)
+            incoming, added = bom_import_excel.add_imported_items(self.payload, rows)
+        except Exception as exc:
+            self._message_error("นำเข้า Excel ไม่สำเร็จ: " + str(exc))
+            return
+        if not added:
+            QMessageBox.information(self, "ไม่มีรายการใหม่",
+                                    "พบรายการที่มีชื่อและ Part Number ตรงกับ BOM เดิมทั้งหมด")
+            return
+        answer = QMessageBox.question(
+            self, "ยืนยันนำเข้า Excel",
+            f"อ่าน Excel {len(rows)} แถว • เพิ่มรายการใหม่ {added} รายการ\n"
+            "ระบบจะเก็บอุปกรณ์เดิม รหัส BOM, Wiring และจัดซื้อไว้ทั้งหมด\n"
+            "นำเข้าเป็นฉบับร่าง แล้ว Auto Save ไป GitHub หรือไม่?")
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        if self._backup_local_draft() is None:
+            return
+        self.payload = incoming
+        self.changed()
+        self.show_page(1)
+        self.set_status(f"นำเข้า Excel สำเร็จ • เพิ่ม {added} รายการ • รอซิงก์ GitHub")
+
+    def export_purchase_order(self):
+        """Export one PO/supplier at a time; never combine unrelated vendors."""
+        row = self._selected_index("purchases")
+        if row is None:
+            return
+        selected = self.payload["purchases"][row]
+        if selected.get("status") == "ยกเลิก":
+            QMessageBox.warning(self, "รายการยกเลิก", "ไม่สามารถออกใบสั่งซื้อจากรายการที่ยกเลิก")
+            return
+        supplier = str(selected.get("supplier") or "").strip()
+        po_number = str(selected.get("po") or "").strip()
+        if po_number:
+            orders = [p for p in self.payload.get("purchases", [])
+                      if str(p.get("po") or "").strip() == po_number
+                      and str(p.get("supplier") or "").strip() == supplier
+                      and p.get("status") != "ยกเลิก"]
+        else:
+            orders = [selected]
+        percent, ok = QInputDialog.getDouble(
+            self, "ภาษีมูลค่าเพิ่ม", "VAT (%)", 7.0, 0.0, 100.0, 2)
+        if not ok:
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "ส่งออกใบสั่งซื้อ PDF", "Purchase_Order_Draft.pdf", "PDF files (*.pdf)")
+        if not filename:
+            return
+        try:
+            bom_purchase_pdf.export_po_pdf(
+                self.payload, orders, filename, vat_percent=percent)
+            self.set_status("ส่งออกใบสั่งซื้อฉบับร่างสำเร็จ")
+            QMessageBox.information(self, "ส่งออก PO สำเร็จ",
+                                    "ไฟล์นี้เป็นใบสั่งซื้อฉบับร่าง ตรวจรายละเอียดก่อนอนุมัติ")
+        except Exception as exc:
+            self._message_error("ไม่สามารถส่งออก PO: " + str(exc))
+
+    def _merge_with_remote(self, remote_doc, remote_sha, automatic=True):
+        """Resolve safe edits automatically; require a person for true conflicts."""
+        if not self.dirty:
+            self.payload = remote_doc
+            self.sha = remote_sha
+            self.base_payload = copy.deepcopy(remote_doc)
+            self.revision += 1
+            self._write_cache()
+            self.render_all()
+            return
+        if self.base_payload is None:
+            self.sync_paused_conflict = True
+            self._refresh_sync_state()
+            self.set_status("ไม่พบข้อมูลฐานเปรียบเทียบ GitHub • โปรดสำรองฉบับร่างก่อนรวม")
+            if not automatic:
+                QMessageBox.warning(self, "ไม่สามารถรวมอัตโนมัติ",
+                                    "ไม่มี GitHub รุ่นฐานของฉบับร่างนี้ กรุณาส่งออก JSON Backup ก่อน")
+            return
+        try:
+            merged, conflicts = bom_advanced.merge_docs(
+                self.base_payload, self.payload, remote_doc)
+        except (ValueError, bom_core.DataError) as exc:
+            self.sync_paused_conflict = True
+            self.set_status("รวมข้อมูลไม่สำเร็จ: " + str(exc))
+            return
+        if conflicts and automatic:
+            self.sync_paused_conflict = True
+            self._write_cache()
+            self._refresh_sync_state()
+            self.set_status(
+                f"มีข้อมูลแก้ซ้ำ {len(conflicts)} จุด • กด 'เปรียบเทียบข้อมูล' เพื่อเลือกเก็บ")
+            return
+        if conflicts:
+            msg = ("พบการแก้ไขซ้ำ " + str(len(conflicts)) + " จุด:\n" +
+                   "\n".join(conflicts[:12]) +
+                   ("\n…" if len(conflicts) > 12 else "") +
+                   "\n\nYes = เก็บค่าจากเครื่องนี้\nNo = ใช้ค่าบน GitHub"
+                   "\nCancel = ยังไม่รวมข้อมูล")
+            answer = QMessageBox.question(
+                self, "GitHub Conflict — เลือกวิธีรวมข้อมูล", msg,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No |
+                QMessageBox.StandardButton.Cancel)
+            if answer == QMessageBox.StandardButton.Cancel:
+                return
+            preference = ("local" if answer == QMessageBox.StandardButton.Yes
+                          else "remote")
+            merged, _ = bom_advanced.merge_docs(
+                self.base_payload, self.payload, remote_doc, preference=preference)
+        try:
+            bom_core.ensure_doc(merged)
+        except bom_core.DataError as exc:
+            self.set_status("รวม BOM แล้วข้อมูลไม่ผ่านตรวจสอบ: " + str(exc))
+            return
+        if self._backup_local_draft() is None:
+            return
+        self.payload = merged
+        self.sha = remote_sha
+        self.base_payload = copy.deepcopy(remote_doc)
+        self.sync_paused_conflict = False
+        self.dirty = True
+        self.changed()
+        self.set_status(
+            "รวมข้อมูลต่างเครื่องแล้ว • เก็บสำรองฉบับเก่าและเตรียมซิงก์ GitHub")
+
+    def reconcile_remote(self):
+        if self.busy:
+            return
+        start_revision = self.revision
+        self.busy = True
+        self.set_status("กำลังดึง GitHub เพื่อเปรียบเทียบการแก้ไข…")
+        def task():
+            raw = github_api("GET", token=self.token)
+            document = json.loads(base64.b64decode(raw["content"]).decode("utf-8-sig"))
+            bom_core.ensure_doc(document)
+            return document, raw["sha"]
+        def success(result):
+            self.busy = False
+            if self.revision != start_revision:
+                self.set_status("พบการแก้ข้อมูลขณะตรวจ GitHub • เก็บฉบับร่างเดิมไว้")
+                return
+            document, sha = result
+            if sha == self.sha:
+                self.sync_paused_conflict = False
+                self.set_status("ข้อมูล GitHub ยังเป็นรุ่นเดียวกับในเครื่อง")
+                if self.dirty:
+                    self._schedule_auto_sync()
+            else:
+                self._merge_with_remote(document, sha, automatic=False)
+        def failed(message):
+            self.busy = False
+            self._message_error(message)
+        self._job(task, success, failed, context="github")
+
     def show_history(self):
         self.set_status("กำลังอ่าน GitHub Commit History…")
         def display(data):
