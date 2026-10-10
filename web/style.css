@@ -360,3 +360,63 @@ footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;paddin
 
 .debug-report-output{white-space:pre;overflow:auto;max-height:560px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.78rem;line-height:1.45}
 .debug-report-card .revision-buttons{margin:8px 0}.debug-report-card button{min-width:120px}
+
+
+/* V53.8.51 — CLEAN / MODERN UI SYSTEM */
+:root{
+  --bg:#f7f8fa;--panel:#ffffff;--ink:#101828;--muted:#667085;--line:#e4e7ec;
+  --blue:#175cd3;--blue2:#1849a9;--green:#027a48;--red:#b42318;--amber:#b54708;
+  --shadow:0 1px 2px rgba(16,24,40,.04)
+}
+body{background:var(--bg);color:var(--ink)}
+.topbar{
+  background:#fff;color:var(--ink);padding:18px max(18px,4vw);
+  border-bottom:1px solid var(--line);box-shadow:none
+}
+.topbar h1{font-size:clamp(22px,3.2vw,32px);letter-spacing:-.025em}
+.topbar p,.small,.brand-meta{color:var(--muted)}
+.brand-kicker,.server-title{color:#175cd3}
+.server-box{border:1px solid var(--line);background:#f9fafb;border-radius:12px;min-width:230px}
+.tabs{background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);padding-top:8px;padding-bottom:8px}
+.tab{border:1px solid transparent;background:transparent;color:#475467;border-radius:8px;padding:8px 12px}
+.tab:hover{background:#f2f4f7}.tab.active{background:#eff4ff;color:#175cd3;border-color:#d1e0ff}
+.desktop-sync-button{border:1px solid #d0d5dd;background:#fff;color:#344054;border-radius:8px;padding:8px 12px}
+.desktop-sync-button:hover{background:#f9fafb}
+main{max-width:1360px;padding-top:18px}
+.hero-card,.panel,.summary-grid article,.notice,.parameter-panel,.summary-panel,.status-panel{
+  border:1px solid var(--line);border-radius:14px;box-shadow:none
+}
+.dashboard-hero{
+  background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:16px;
+  padding:22px 24px;box-shadow:none;margin-bottom:14px
+}
+.dashboard-hero h2{font-size:clamp(24px,3vw,34px);letter-spacing:-.025em}
+.dashboard-hero p{color:var(--muted)}
+.dash-eyebrow{color:#175cd3}
+.badge{color:#344054;border:1px solid #d0d5dd;background:#f9fafb;padding:7px 9px}
+.dashboard-grid{gap:12px;margin-bottom:14px}
+.dash-card{
+  min-height:158px;border:1px solid var(--line);border-radius:14px;background:#fff;
+  padding:16px;box-shadow:none;transition:border-color .15s ease,background .15s ease,transform .15s ease
+}
+.dash-card:hover{transform:translateY(-1px);box-shadow:none;background:#fcfcfd;border-color:#98a2b3}
+.card-icon{width:32px;height:32px;border-radius:9px;margin-bottom:12px}
+.card-title{font-size:16px;margin-bottom:5px}.card-text{min-height:44px;font-size:12px}.card-link{color:#175cd3}
+.home-status-row{gap:12px}.status-panel{padding:14px 15px}.status-value{color:#344054}
+.panel{padding:16px}
+.form-grid{gap:11px}.form-grid label{color:#344054;font-size:12.5px}
+.form-grid input,.form-grid select,.pinbar input,.web-fbd-controls select{
+  border:1px solid #d0d5dd;border-radius:9px;padding:9px 10px
+}
+.form-grid input:focus,.form-grid select:focus,.pinbar input:focus{
+  outline:3px solid rgba(23,92,211,.10);border-color:#84adff
+}
+.primary,.secondary{border-radius:9px;padding:10px 14px}
+.primary{background:#175cd3}.primary:hover{background:#1849a9}
+.secondary{background:#fff;border:1px solid #d0d5dd;color:#344054}
+.metric{background:#f9fafb;border:1px solid #eaecf0;border-radius:10px}
+.formula{background:#f9fafb;border-left:3px solid #84adff}
+.detail-scroll{border-color:#e4e7ec}.detail-table th{background:#f9fafb;color:#344054}
+footer{background:#fff;color:#667085;border-top:1px solid var(--line)}
+.telemetry-tile{border-radius:14px;box-shadow:none}
+.notice{box-shadow:none}
