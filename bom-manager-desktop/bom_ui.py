@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 
 import bom_core
 import bom_reports
+import bom_theme
 
 
 WIRE_FIELDS = [
@@ -105,7 +106,8 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
             self._first_load = True
             super().__init__()
             self.title("Crane Vehicle BOM Manager — v" + app_version)
-            self.geometry("1440x850")
+            self.geometry("1460x900")
+            self.minsize(1150, 720)
             self.protocol("WM_DELETE_WINDOW", self._close_app)
             self.bind_all("<Control-s>", lambda e: self.save_remote())
             self.bind_all("<Control-e>", lambda e: self.export_excel())
@@ -159,81 +161,167 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
             self.destroy()
 
         def _build_ui(self):
-            style = ttk.Style(self)
-            if "clam" in style.theme_names():
-                style.theme_use("clam")
-            style.configure("TNotebook.Tab", font=("Segoe UI", 10), padding=(17, 10))
-            style.configure("Treeview", font=("Segoe UI", 10), rowheight=31)
-            style.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"))
-            style.configure("Header.TLabel", font=("Segoe UI", 17, "bold"), foreground="#173853")
-            style.configure("Metric.TLabel", font=("Segoe UI", 17, "bold"), foreground="#173853")
-            style.configure("Hint.TLabel", foreground="#65788B")
-            self.configure(background="#F4F7FB")
-
-            top = ttk.Frame(self, padding=(14, 12))
-            top.pack(fill="x")
-            ttk.Label(top, text="CRANE VEHICLE · BOM MANAGER", style="Header.TLabel").pack(side="left")
-            ttk.Button(top, text="ตั้งค่า GitHub Token", command=self.configure_token).pack(side="right", padx=4)
-            ttk.Button(top, text="โหลดจาก GitHub", command=self.load_remote).pack(side="right", padx=4)
-            ttk.Button(top, text="บันทึกขึ้น GitHub", command=self.save_remote).pack(side="right", padx=4)
-            version_row = ttk.Frame(self, padding=(14, 0, 14, 10))
-            version_row.pack(fill="x")
-            ttk.Label(version_row, text=f"v{app_version}  •  Windows Desktop", style="Hint.TLabel").pack(side="left")
-            ttk.Label(version_row, textvariable=self.update_status_var, style="Hint.TLabel").pack(side="left", padx=16)
-            self.check_update_button = ttk.Button(version_row, text="ตรวจสอบเวอร์ชัน", command=self.check_updates)
-            self.check_update_button.pack(side="right", padx=4)
-            self.install_update_button = ttk.Button(version_row, text="อัปเดตตอนนี้",
-                                                     command=self.install_update, state="disabled")
-            self.install_update_button.pack(side="right", padx=4)
+            bom_theme.activate(self)
+            header = tk.Frame(self, bg=bom_theme.PANEL, padx=23, pady=14,
+                              highlightthickness=0)
+            header.pack(fill="x")
+            brand = tk.Frame(header, bg=bom_theme.PANEL)
+            brand.pack(side="left", anchor="w")
+            logo = tk.Label(brand, text="▦", bg="#E8F2FF", fg=bom_theme.PRIMARY,
+                            font=(bom_theme.FONT, 27, "bold"), width=3, pady=4)
+            logo.pack(side="left", padx=(0, 13))
+            headings = tk.Frame(brand, bg=bom_theme.PANEL)
+            headings.pack(side="left")
+            tk.Label(headings, text="CRANE VEHICLE  ·  BOM MANAGER",
+                     bg=bom_theme.PANEL, fg=bom_theme.NAVY,
+                     font=(bom_theme.FONT, 20, "bold")).pack(anchor="w")
+            tk.Label(headings, text=f"ระบบจัดการรายการวัสดุและอุปกรณ์   •   Windows Desktop v{app_version}",
+                     bg=bom_theme.PANEL, fg=bom_theme.MUTED,
+                     font=(bom_theme.FONT, 11)).pack(anchor="w", pady=(3, 0))
+            header_actions = tk.Frame(header, bg=bom_theme.PANEL)
+            header_actions.pack(side="right", anchor="e", padx=(8, 0))
+            first = tk.Frame(header_actions, bg=bom_theme.PANEL)
+            first.pack(anchor="e")
+            ttk.Button(first, text="บันทึกขึ้น GitHub", style="Primary.TButton",
+                       command=self.save_remote).pack(side="left", padx=3)
+            ttk.Button(first, text="โหลดจาก GitHub",
+                       command=self.load_remote).pack(side="left", padx=3)
+            ttk.Button(first, text="GitHub Token",
+                       command=self.configure_token).pack(side="left", padx=3)
+            second = tk.Frame(header_actions, bg=bom_theme.PANEL)
+            second.pack(anchor="e", pady=(8, 0))
+            ttk.Label(second, textvariable=self.update_status_var,
+                      style="Hint.TLabel").pack(side="left", padx=(0, 12))
+            self.install_update_button = ttk.Button(second, text="อัปเดตตอนนี้",
+                      command=self.install_update, state="disabled",
+                      style="Success.TButton")
+            self.install_update_button.pack(side="right", padx=3)
+            self.check_update_button = ttk.Button(second, text="ตรวจสอบเวอร์ชัน",
+                                                  command=self.check_updates)
+            self.check_update_button.pack(side="right", padx=3)
 
             self.tabs = ttk.Notebook(self)
-            self.tabs.pack(fill="both", expand=True, padx=12, pady=(0, 7))
-            self.home_tab = ttk.Frame(self.tabs, padding=14)
-            self.bom_tab = ttk.Frame(self.tabs, padding=8)
-            self.wire_tab = ttk.Frame(self.tabs, padding=8)
-            self.buy_tab = ttk.Frame(self.tabs, padding=8)
-            self.sync_tab = ttk.Frame(self.tabs, padding=12)
-            for tab, name in [(self.home_tab, "ภาพรวม"), (self.bom_tab, "BOM อุปกรณ์"),
-                              (self.wire_tab, "Wiring Manager"), (self.buy_tab, "จัดซื้อ"),
-                              (self.sync_tab, "GitHub / ส่งออก")]:
+            self.tabs.pack(fill="both", expand=True, padx=18, pady=(14, 8))
+            self.home_tab = ttk.Frame(self.tabs, padding=16)
+            self.bom_tab = ttk.Frame(self.tabs, padding=14)
+            self.wire_tab = ttk.Frame(self.tabs, padding=14)
+            self.buy_tab = ttk.Frame(self.tabs, padding=14)
+            self.sync_tab = ttk.Frame(self.tabs, padding=16)
+            for tab, name in [(self.home_tab, "⌂  ภาพรวม"), (self.bom_tab, "▣  BOM อุปกรณ์"),
+                              (self.wire_tab, "↔  Wiring Manager"), (self.buy_tab, "▤  จัดซื้อ"),
+                              (self.sync_tab, "⇄  GitHub / ส่งออก")]:
                 self.tabs.add(tab, text=name)
+
             self._build_dashboard()
             self._build_bom()
             self._build_wiring()
             self._build_purchasing()
             self._build_sync()
 
-            footer = ttk.Frame(self, padding=(13, 5, 13, 9))
-            footer.pack(fill="x")
-            self.total_label = ttk.Label(footer, text="ยอดรวมที่ทราบ: —", font=("Segoe UI", 10, "bold"))
+            bottom = tk.Frame(self, bg=bom_theme.PANEL, padx=19, pady=8)
+            bottom.pack(fill="x", side="bottom")
+            self.total_label = tk.Label(bottom, text="ยอดรวมที่ทราบ: —",
+                                        bg=bom_theme.PANEL, fg=bom_theme.NAVY,
+                                        font=(bom_theme.FONT, 12, "bold"))
             self.total_label.pack(side="left")
-            ttk.Label(footer, textvariable=self.status_var, style="Hint.TLabel").pack(side="right")
+            tk.Label(bottom, textvariable=self.status_var, bg=bom_theme.PANEL,
+                     fg=bom_theme.MUTED, font=(bom_theme.FONT, 10),
+                     anchor="e").pack(side="right")
+
+        @staticmethod
+        def _page_header(parent, title, description):
+            ttk.Label(parent, text=title, style="Section.TLabel").pack(
+                anchor="w", pady=(0, 3))
+            ttk.Label(parent, text=description, style="Hint.TLabel").pack(
+                anchor="w", pady=(0, 15))
+
+        def _dashboard_navigate(self, key):
+            if key == "wires":
+                self.tabs.select(self.wire_tab)
+            elif key == "purchase_count":
+                self.tabs.select(self.buy_tab)
+            else:
+                self.tabs.select(self.bom_tab)
+                self.category_var.set("ทุกหมวด")
+                self.search_var.set("")
+                mapping = {"missing": "ไม่มีราคา",
+                           "priced": "มีราคา", "known_cost": "มีราคา"}
+                self.price_filter_var.set(mapping.get(key, "ทุกราคา"))
+                self.refresh_table()
 
         def _build_dashboard(self):
-            ttk.Label(self.home_tab, text="ภาพรวมโครงการ / Budget", style="Header.TLabel").pack(anchor="w", pady=(0, 12))
-            row = ttk.Frame(self.home_tab)
-            row.pack(fill="x")
+            self._page_header(
+                self.home_tab, "ภาพรวมโครงการ / Budget",
+                "ติดตามรายการวัสดุ ราคา การเดินสาย และการจัดซื้อในมุมมองเดียว")
+            cards = ttk.Frame(self.home_tab)
+            cards.pack(fill="x", pady=(0, 14))
             self.kpi_vars = {}
-            tiles = [("items", "รายการอุปกรณ์"), ("priced", "รายการมีราคา"),
-                     ("missing", "รายการยังไม่มีราคา"), ("known_cost", "ยอดรวมที่ทราบ (THB)"),
-                     ("wires", "จุดต่อสาย"), ("purchase_count", "รายการจัดซื้อ")]
-            for idx, (key, label) in enumerate(tiles):
-                tile = ttk.LabelFrame(row, text=label, padding=14)
-                tile.grid(row=idx // 3, column=idx % 3, sticky="nsew", padx=5, pady=7)
+            specs = [
+                ("items", "รายการอุปกรณ์ทั้งหมด", "▣", "#EEF6FF", "#1263CE"),
+                ("priced", "รายการที่มีราคา", "✓", "#EBFAF3", "#128453"),
+                ("missing", "รายการที่ยังไม่มีราคา", "!", "#FFF0F1", "#C42C47"),
+                ("known_cost", "ผลรวมที่ทราบราคา (THB)", "฿", "#EEF5FE", "#1257A4"),
+                ("wires", "จุดต่อสาย", "↔", "#F3F0FF", "#6548C8"),
+                ("purchase_count", "รายการจัดซื้อ", "▤", "#FFF6E9", "#AD630B"),
+            ]
+            for col in range(3):
+                cards.columnconfigure(col, weight=1, uniform="metric")
+            for row in range(2):
+                cards.rowconfigure(row, weight=1)
+            for index, (key, label, symbol, bg, accent) in enumerate(specs):
+                tile = tk.Frame(cards, bg=bg, highlightthickness=1,
+                                highlightbackground=bom_theme.BORDER, cursor="hand2")
+                tile.grid(row=index // 3, column=index % 3, sticky="nsew",
+                          padx=6, pady=6, ipady=8)
+                inner = tk.Frame(tile, bg=bg, padx=17, pady=14)
+                inner.pack(fill="both", expand=True)
+                ico = tk.Label(inner, text=symbol, bg="#FFFFFF", fg=accent,
+                               font=(bom_theme.FONT, 23, "bold"),
+                               width=3, height=2, cursor="hand2")
+                ico.pack(side="left", padx=(0, 16))
+                info = tk.Frame(inner, bg=bg)
+                info.pack(side="left", fill="both", expand=True)
+                title = tk.Label(info, text=label, bg=bg, fg=bom_theme.NAVY,
+                                 font=(bom_theme.FONT, 12, "bold"),
+                                 anchor="w", cursor="hand2")
+                title.pack(anchor="w")
                 self.kpi_vars[key] = tk.StringVar(value="—")
-                ttk.Label(tile, textvariable=self.kpi_vars[key], style="Metric.TLabel").pack(anchor="w")
-            for idx in range(3):
-                row.columnconfigure(idx, weight=1)
-            ttk.Label(self.home_tab, text="การกระจายอุปกรณ์ตามหมวด", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(25, 8))
-            self.category_tree = ttk.Treeview(self.home_tab, columns=("category", "count"), show="headings", height=9)
-            self.category_tree.heading("category", text="หมวด")
+                figure = tk.Label(info, textvariable=self.kpi_vars[key],
+                                  bg=bg, fg=accent, font=(bom_theme.FONT, 26, "bold"),
+                                  anchor="w", cursor="hand2")
+                figure.pack(anchor="w", pady=(4, 0))
+                for w in (tile, inner, ico, info, title, figure):
+                    w.bind("<Button-1>", lambda _event, k=key: self._dashboard_navigate(k))
+            panel = tk.Frame(self.home_tab, bg=bom_theme.PANEL,
+                             highlightthickness=1, highlightbackground=bom_theme.BORDER)
+            panel.pack(fill="both", expand=True, padx=5, pady=(6, 0))
+            section = tk.Frame(panel, bg=bom_theme.PANEL, padx=16, pady=13)
+            section.pack(fill="x")
+            tk.Label(section, text="การกระจายอุปกรณ์ตามหมวด",
+                     bg=bom_theme.PANEL, fg=bom_theme.NAVY,
+                     font=(bom_theme.FONT, 16, "bold")).pack(side="left")
+            self.category_tree = ttk.Treeview(
+                panel, columns=("category", "count"),
+                show="headings", height=6, selectmode="browse")
+            self.category_tree.heading("category", text="หมวดหมู่อุปกรณ์")
             self.category_tree.heading("count", text="จำนวนรายการ")
-            self.category_tree.column("category", width=360)
-            self.category_tree.column("count", width=110, anchor="center")
-            self.category_tree.pack(fill="both", expand=True)
+            self.category_tree.column("category", width=580, minwidth=230, anchor="w",
+                                       stretch=True)
+            self.category_tree.column("count", width=190, minwidth=140,
+                                       anchor="center", stretch=False)
+            self.category_tree.pack(fill="both", expand=True, padx=16, pady=(2, 11))
+            completion = tk.Frame(panel, bg=bom_theme.PANEL, padx=16, pady=7)
+            completion.pack(fill="x")
+            self.completion_label = tk.StringVar(value="ข้อมูลราคาครบ 0%")
+            tk.Label(completion, textvariable=self.completion_label,
+                     bg=bom_theme.PANEL, fg=bom_theme.MUTED,
+                     font=(bom_theme.FONT, 11, "bold")).pack(side="left")
+            self.completion_bar = ttk.Progressbar(completion, maximum=100)
+            self.completion_bar.pack(side="left", fill="x", expand=True, padx=16, ipady=2)
             self.warning_var = tk.StringVar()
-            ttk.Label(self.home_tab, textvariable=self.warning_var, style="Hint.TLabel",
-                      wraplength=1160).pack(anchor="w", pady=(10, 0))
+            ttk.Label(self.home_tab, textvariable=self.warning_var,
+                      style="Hint.TLabel", wraplength=1150).pack(
+                      anchor="w", padx=8, pady=(10, 0))
 
         @staticmethod
         def _table(parent, columns, headings, widths):
@@ -255,7 +343,9 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
             return tree
 
         def _build_bom(self):
-            controls = ttk.Frame(self.bom_tab, padding=(0, 0, 0, 9))
+            self._page_header(self.bom_tab, "รายการอุปกรณ์ (BOM)",
+                              "แก้ไขวัสดุ รุ่น ราคา และสถานะ โดยบันทึกข้อมูลลง GitHub ได้")
+            controls = ttk.Frame(self.bom_tab, padding=(0, 0, 0, 14))
             controls.pack(fill="x")
             ttk.Label(controls, text="ค้นหา:").pack(side="left")
             self.search_entry = ttk.Entry(controls, textvariable=self.search_var, width=30)
@@ -266,9 +356,16 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                                           state="readonly", width=27, values=["ทุกหมวด"])
             self.cat_combo.pack(side="left", padx=6)
             self.cat_combo.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
-            ttk.Button(controls, text="+ เพิ่มอุปกรณ์", command=self.add_item).pack(side="left", padx=3)
+            ttk.Label(controls, text="ราคา:").pack(side="left", padx=(9, 2))
+            self.price_filter_var = tk.StringVar(value="ทุกราคา")
+            price_filter = ttk.Combobox(controls, textvariable=self.price_filter_var,
+                                        state="readonly", width=12,
+                                        values=("ทุกราคา", "มีราคา", "ไม่มีราคา"))
+            price_filter.pack(side="left", padx=(0, 8))
+            price_filter.bind("<<ComboboxSelected>>", lambda e: self.refresh_table())
+            ttk.Button(controls, text="+ เพิ่มอุปกรณ์", style="Primary.TButton", command=self.add_item).pack(side="left", padx=3)
             ttk.Button(controls, text="แก้ไข", command=self.edit_item).pack(side="left", padx=3)
-            ttk.Button(controls, text="ลบ", command=self.delete_item).pack(side="left", padx=3)
+            ttk.Button(controls, text="ลบ", style="Danger.TButton", command=self.delete_item).pack(side="left", padx=3)
             ttk.Button(controls, text="สร้างรายการจัดซื้อจากที่เลือก", command=self.buy_selected_bom).pack(side="right", padx=3)
             columns = ("category", "name", "qty", "unit", "unitPrice", "lineTotal", "status")
             self.tree = self._table(self.bom_tab, columns,
@@ -278,6 +375,7 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                                     {"category": 220, "name": 470, "qty": 85, "unit": 90,
                                      "unitPrice": 130, "lineTotal": 130, "status": 280})
             self.tree.bind("<Double-1>", lambda e: self.edit_item())
+            self.tree.bind("<MouseWheel>", lambda e: None)
             ttk.Label(self.bom_tab,
                       text="หมายเหตุ: ช่องราคาว่างไม่นับเป็น 0 บาทในการประเมินงบประมาณ",
                       style="Hint.TLabel").pack(anchor="w", pady=(6, 0))
