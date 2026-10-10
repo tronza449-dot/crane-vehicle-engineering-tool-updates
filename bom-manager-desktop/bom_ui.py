@@ -289,6 +289,8 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
             ttk.Button(controls, text="แก้ไขจุดต่อ", command=self.edit_wire).pack(side="left", padx=4)
             ttk.Button(controls, text="ลบจุดต่อ", command=self.delete_wire).pack(side="left", padx=4)
             ttk.Button(controls, text="ตรวจสอบข้อมูล", command=self.check_wiring).pack(side="right", padx=4)
+            ttk.Button(controls, text="ส่งออก .drawio", command=self.export_drawio).pack(side="right", padx=4)
+            ttk.Button(controls, text="ดูแผนภาพการต่อ", command=self.preview_wiring).pack(side="right", padx=4)
             columns = ("id", "from", "to", "signal", "voltage", "cable", "protection", "status")
             self.wiring_tree = self._table(self.wire_tab, columns,
                                           {"id": "ID", "from": "ต้นทาง / Terminal",
@@ -523,6 +525,43 @@ def make_app(BaseApp, ItemDialog, api_request, app_version, api_url, service, it
                        if errors else "ไม่พบข้อมูลอ้างอิงที่หายหรือจุดต่อที่ไม่ครบจากการตรวจอัตโนมัติ")
             messagebox.showinfo("ตรวจข้อมูล Wiring", message +
                                 "\n\nผลนี้ไม่ใช่การตรวจรับรองทางไฟฟ้า/ความปลอดภัย", parent=self)
+
+        def preview_wiring(self):
+            win = tk.Toplevel(self)
+            win.title("Wiring Diagram Preview — Draft")
+            win.geometry("1220x700")
+            ttk.Label(win, text="แผนภาพการเชื่อมต่อแบบแยกแถว: ไม่ใช่วงจรไฟฟ้าที่ผ่านการตรวจสอบ",
+                      style="Hint.TLabel").pack(anchor="w", padx=12, pady=8)
+            outer = ttk.Frame(win)
+            outer.pack(fill="both", expand=True)
+            canvas = tk.Canvas(outer, bg="#FFFFFF", highlightthickness=0,
+                               scrollregion=(0, 0, 1160, max(560, len(self.payload.get("wiring", [])) * 120 + 90)))
+            scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+            canvas.configure(yscrollcommand=scrollbar.set)
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            for i, wire in enumerate(self.payload.get("wiring", [])):
+                y = 32 + i * 120
+                canvas.create_rectangle(22, y+30, 315, y+83, fill="#E9F1F8", outline="#6F92B2", width=2)
+                canvas.create_rectangle(842, y+30, 1135, y+83, fill="#E9F1F8", outline="#6F92B2", width=2)
+                canvas.create_text(168, y+56, text=str(wire.get("from") or "ไม่ระบุต้นทาง"),
+                                   width=275, justify="center", font=("Segoe UI", 11))
+                canvas.create_text(988, y+56, text=str(wire.get("to") or "ไม่ระบุปลายทาง"),
+                                   width=275, justify="center", font=("Segoe UI", 11))
+                canvas.create_line(315, y+56, 840, y+56, arrow=tk.LAST, fill="#567DA0", width=2)
+                label = " / ".join(str(wire.get(key) or "—") for key in ("signal", "voltage", "cable", "protection"))
+                canvas.create_text(578, y+17, text=label, width=510, justify="center",
+                                   fill="#405D78", font=("Segoe UI", 10))
+                canvas.create_line(22, y+103, 1135, y+103, fill="#E5ECF3")
+            if not self.payload.get("wiring"):
+                canvas.create_text(568, 160, text="ยังไม่มีรายการเดินสาย — กด เพิ่มสาย/จุดต่อ ก่อน",
+                                   font=("Segoe UI", 12), fill="#65788B")
+            ttk.Button(win, text="บันทึกเป็นไฟล์ Draw.io",
+                       command=self.export_drawio).pack(pady=8)
+
+        def export_drawio(self):
+            self._choose_export(".drawio", "CraneVehicle_Wiring.drawio",
+                                [("Draw.io Diagram", "*.drawio")], bom_reports.export_drawio)
 
         def add_purchase(self):
             self._edit_rows("purchases", PURCHASE_FIELDS, "เพิ่มรายการจัดซื้อ",
