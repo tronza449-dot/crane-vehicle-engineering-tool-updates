@@ -2257,11 +2257,54 @@ class BOMWindow(QMainWindow):
                 if 0 <= row < len(data):
                     webbrowser.open(data[row]["html_url"])
             l.addWidget(self._button("เปิด Commit ที่เลือก", open_commit))
+            def restore_selected():
+                index = history.currentRow()
+                if not (0 <= index < len(data)):
+                    QMessageBox.information(dlg, "เลือกเวอร์ชัน", "กรุณาเลือก Commit ก่อน")
+                    return
+                selected_commit = data[index]["sha"]
+                answer = QMessageBox.question(
+                    dlg, "กู้คืนข้อมูล BOM",
+                    "นำ BOM จาก Commit นี้กลับมาเป็นฉบับร่างหรือไม่?\n"
+                    "โปรแกรมจะสำรองข้อมูลปัจจุบันก่อน และการกู้คืนจะสร้าง Commit ใหม่\n"
+                    "ข้อมูลเก่าใน GitHub จะยังมีอยู่ในประวัติ")
+                if answer != QMessageBox.StandardButton.Yes:
+                    return
+                dlg.accept()
+                self.restore_commit(selected_commit)
+            l.addWidget(self._button("กู้คืน Commit ที่เลือกเป็นฉบับร่าง", restore_selected))
             self.set_status(f"พบประวัติการเปลี่ยนแปลง {len(data)} Commit")
             dlg.exec()
         self._job(lambda: github_api(
             "GET", token=self.token,
             url=f"{API}/commits?path=bom-manager%2Fbom.json&per_page=30"), display)
+
+    def restore_commit(self, sha):
+        if self.busy:
+            return
+        revision = self.revision
+        self.busy = True
+        self.set_status("กำลังอ่านไฟล์ BOM จาก GitHub Commit ที่เลือก…")
+        def work():
+            raw = github_api("GET", token=self.token,
+                             url=f"{BOM_URL}?ref={sha}")
+            document = json.loads(base64.b64decode(raw["content"]).decode("utf-8-sig"))
+            bom_core.ensure_doc(document)
+            return document
+        def done(document):
+            self.busy = False
+            if self.revision != revision:
+                self.set_status("มีการแก้ข้อมูลระหว่างกู้คืน • ยังไม่เปลี่ยน BOM")
+                return
+            if self._backup_local_draft() is None:
+                return
+            self.payload = document
+            self.changed()
+            self.set_status("กู้คืน GitHub รุ่นเก่าเป็นฉบับร่างแล้ว • Auto Save จะสร้าง Commit ใหม่")
+        def failed(error):
+            self.busy = False
+            self._message_error(error)
+        self._job(work, done, failed, context="github")
 
     def _report_options(self):
         dialog = ReportOptionsDialog(self.payload, self)
