@@ -48,6 +48,9 @@ jobs:
           python -m py_compile bom-manager-desktop/app.py
           python -m py_compile bom-manager-desktop/updater.py
           python -m py_compile bom-manager-desktop/bom_core.py
+          python -m py_compile bom-manager-desktop/bom_advanced.py
+          python -m py_compile bom-manager-desktop/bom_import_excel.py
+          python -m py_compile bom-manager-desktop/bom_purchase_pdf.py
           python -m py_compile bom-manager-desktop/bom_reports.py
           python -m py_compile bom-manager-desktop/bom_official_reports.py
           python -m py_compile bom-manager-desktop/generate_report_samples.py
