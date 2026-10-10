@@ -1162,7 +1162,8 @@ class BOMWindow(QMainWindow):
             document = json.loads(Path(path).read_text(encoding="utf-8-sig"))
             bom_core.ensure_doc(document)
         except (OSError, ValueError) as exc:
-            self._message_error(str(exc))
+            self.debugger.exception("import", "IMPORT_FAILED", exc)
+            self._message_error("นำเข้า JSON ไม่สำเร็จ กรุณาดู Debug Report")
             return
         if QMessageBox.question(
                 self, "ยืนยันนำเข้า Backup",
@@ -1170,6 +1171,7 @@ class BOMWindow(QMainWindow):
                 "ข้อมูลใหม่จะอยู่เป็นฉบับร่างในเครื่อง ยังไม่ Commit ขึ้น GitHub") != QMessageBox.StandardButton.Yes:
             return
         self.payload = document
+        self.debugger.event("INFO", "import", "BACKUP_IMPORTED", "นำเข้า JSON Backup แล้ว")
         self.changed()
         self.show_page(1)
 
@@ -1242,7 +1244,8 @@ class BOMWindow(QMainWindow):
                         info, progress=percent, cancelled=self.cancel_download)
                     inner.succeeded.emit(path)
                 except Exception as exc:
-                    inner.failed.emit(str(exc))
+                    self.debugger.exception("updater", "INSTALLER_DOWNLOAD_FAILED", exc)
+                    inner.failed.emit(friendly_error(exc))
         job = UpdaterJob(self)
         self.jobs.add(job)
         job.amount.connect(progress.setValue)
@@ -1259,6 +1262,8 @@ class BOMWindow(QMainWindow):
                 shutil.rmtree(path.parent, ignore_errors=True)
                 self._message_error(str(exc))
                 return
+            self.debugger.event("INFO", "updater", "INSTALLER_STARTED",
+                                "ดาวน์โหลดและเปิดตัวติดตั้งอัปเดตแล้ว")
             self.set_status("เปิดตัวติดตั้งแล้ว · กำลังปิดเวอร์ชันเก่า")
             QApplication.instance().quit()
         def failed(msg):
