@@ -45,8 +45,16 @@ class ReadabilityTests(unittest.TestCase):
         self.assertIsInstance(self.window.stack.widget(0), QScrollArea)
         self.assertGreaterEqual(self.window.bom_table.verticalHeader().defaultSectionSize(), 60)
         self.assertGreaterEqual(self.window.bom_table.horizontalHeader().height(), 50)
-        self.assertIn("font-size: 20px", self.app.styleSheet())
+        from PySide6.QtGui import QFont
+        self.assertEqual(theme.current_font(), "Tahoma")
+        self.assertEqual(self.window.font_family_selector.currentText(), "Tahoma")
+        self.assertEqual(self.app.font().family(), "Tahoma")
+        self.assertEqual(self.app.font().hintingPreference(),
+                         QFont.HintingPreference.PreferFullHinting)
+        self.assertIn("font-size: 18px", self.app.styleSheet())
+        self.assertIn('font-family: "Tahoma";', self.app.styleSheet())
         self.assertIn("color: #172D45;", self.app.styleSheet())
+        self.assertIn("color: #344B63;", self.app.styleSheet())
         self.assertIn("background: #10243D;", self.app.styleSheet())
 
     def test_switch_fonts_and_persist_text_zoom(self):
@@ -55,9 +63,12 @@ class ReadabilityTests(unittest.TestCase):
         self.assertEqual(theme.current_scale(), 1.3)
         self.assertEqual(self.window.zoom_factor, 1.3)
         self.assertGreaterEqual(self.window.bom_table.verticalHeader().defaultSectionSize(), 68)
+        self.window.font_family_selector.setCurrentText("Leelawadee UI")
+        self.assertEqual(theme.current_font(), "Leelawadee UI")
+        self.assertIn('font-family: "Leelawadee UI";', self.app.styleSheet())
         self.window.font_family_selector.setCurrentText("Tahoma")
         self.assertEqual(theme.current_font(), "Tahoma")
-        self.assertIn('"Tahoma"', self.app.styleSheet())
+        self.assertIn('font-family: "Tahoma";', self.app.styleSheet())
         self.window.increase_font_scale()
         self.assertEqual(theme.current_scale(), 1.45)
         self.window.reset_font_scale()
