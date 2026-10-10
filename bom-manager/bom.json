@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-10T21:46:38+00:00",
+  "updatedAt": "2026-10-10T21:59:55+00:00",
   "currency": "THB",
   "items": [
     {
@@ -146,10 +146,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "TXD/RXD ฝั่ง ESP32; CANH/CANL ต่อเป็นบัสคู่ | GPIO/จุดต่อ: GPIO16 TX และ GPIO17 RX เป็นการจัดสรรที่เสนอ; ต้องยืนยัน mapping ใน firmware",
-      "unitPrice": null,
+      "unitPrice": 28.0,
       "link": "https://www.modulemore.com/product/2310/sn65hvd230-can-bus-transceiver-module",
       "status": "รุ่นเลือกไว้; GPIO ยังเสนอ",
-      "notes": "ขา TX/RX บนบอร์ด transceiver และตำแหน่ง termination"
+      "notes": "ขา TX/RX บนบอร์ด transceiver และตำแหน่ง termination",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "12",
@@ -259,7 +261,9 @@
       "unitPrice": null,
       "link": "https://shopee.co.th/%E0%B8%A7%E0%B8%B4%E0%B8%97%E0%B8%A2%E0%B8%B8%E0%B8%9A%E0%B8%B1%E0%B8%87%E0%B8%84%E0%B8%B1%E0%B8%9A-Flysky-FS-i6X-2.4GHz10CH-%E0%B8%9E%E0%B8%A3%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%95%E0%B8%B1%E0%B8%A7%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%AA%E0%B8%B1%E0%B8%8D%E0%B8%8D%E0%B8%B2%E0%B8%93-FS-iA6B-%E0%B9%81%E0%B8%A5%E0%B8%B0-FS-iA10B-%E0%B8%AA%E0%B8%B3%E0%B8%AB%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%A3%E0%B8%96-%E0%B8%AE%E0%B8%AD-%E0%B9%80%E0%B8%84%E0%B8%A3%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%87%E0%B8%9A%E0%B8%B4%E0%B8%99-%E0%B9%82%E0%B8%94%E0%B8%A3%E0%B8%99%28%E0%B8%AA%E0%B9%88%E0%B8%87%E0%B8%88%E0%B8%B2%E0%B8%81%E0%B8%81%E0%B8%A3%E0%B8%B8%E0%B8%87%E0%B9%80%E0%B8%97%E0%B8%9E%29-i.553680739.26265727576",
       "status": "ตัวเลือกที่แนะนำ; ยืนยันร้านส่งรุ่น FS-iA6B",
-      "notes": "ตรวจว่า receiver มี iBUS output ที่ใช้ได้จริง, ตั้ง failsafe ให้ตัดคำสั่งขับเมื่อสัญญาณหาย และทดสอบ output level ก่อนต่อ ESP32"
+      "notes": "ตรวจว่า receiver มี iBUS output ที่ใช้ได้จริง, ตั้ง failsafe ให้ตัดคำสั่งขับเมื่อสัญญาณหาย และทดสอบ output level ก่อนต่อ ESP32",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "20",
