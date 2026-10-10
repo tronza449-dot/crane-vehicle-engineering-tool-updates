@@ -131,6 +131,23 @@ class Job(QThread):
             self.failed.emit(friendly_error(exc))
 
 
+class ReorderTable(QTableWidget):
+    """Drop rows without letting Qt mutate the table independently of BOM data."""
+    drop_requested = Signal(int, int)
+
+    def dropEvent(self, event):
+        if event.source() is not self:
+            event.ignore()
+            return
+        src = self.currentRow()
+        target = self.rowAt(event.position().toPoint().y())
+        if src < 0 or target < 0 or src == target:
+            event.ignore()
+            return
+        self.drop_requested.emit(src, target)
+        event.acceptProposedAction()
+
+
 class Card(QFrame):
     clicked = Signal()
 
@@ -720,7 +737,8 @@ class BOMWindow(QMainWindow):
 
     @staticmethod
     def _table(headers, stretch_col=0):
-        table = QTableWidget(0, len(headers))
+        table = (ReorderTable(0, len(headers)) if headers and headers[0] == "BOM ID"
+                 else QTableWidget(0, len(headers)))
         table.setHorizontalHeaderLabels(headers)
         table.setAlternatingRowColors(True)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -896,6 +914,11 @@ class BOMWindow(QMainWindow):
         self.bom_table.setToolTip("เลือกแถวแล้วกดแก้ไขรายการ หรือดับเบิลคลิก")
         self.bom_table.cellDoubleClicked.connect(
             lambda *_: self.edit_record("items", True))
+        self.bom_table.setDragEnabled(True)
+        self.bom_table.setAcceptDrops(True)
+        self.bom_table.setDropIndicatorShown(True)
+        self.bom_table.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.bom_table.drop_requested.connect(self.move_bom_to_display_row)
         table_box.addWidget(self.bom_table)
         footer = QHBoxLayout()
         footer.addWidget(self._label(
@@ -1373,6 +1396,34 @@ class BOMWindow(QMainWindow):
                     self.bom_table.scrollToItem(display_cell)
                     break
             self.set_status("เปลี่ยนลำดับแล้ว · เก็บในเครื่อง และจะซิงก์ GitHub อัตโนมัติ")
+
+    def move_bom_to_display_row(self, from_row, to_row):
+        """Drag & Drop: persist the new order while keeping every BOM ID stable."""
+        a = self.bom_table.item(from_row, 0)
+        b = self.bom_table.item(to_row, 0)
+        ai = a.data(Qt.ItemDataRole.UserRole) if a else None
+        bi = b.data(Qt.ItemDataRole.UserRole) if b else None
+        if ai is None or bi is None:
+            self.set_status("ลากวางรายการได้ แต่ไม่สามารถย้ายชื่อหมวด")
+            return
+        ai, bi = int(ai), int(bi)
+        items = self.payload["items"]
+        if self.group_mode.currentIndex() == 0 and (
+                items[ai].get("category") != items[bi].get("category")):
+            self.set_status("การลากข้ามหมวดให้เลือกโหมดแสดงรายการต่อเนื่อง")
+            return
+        selected_id = str(items[ai]["id"])
+        moved = items.pop(ai)
+        items.insert(bi, moved)
+        self.changed()
+        for row in range(self.bom_table.rowCount()):
+            item = self.bom_table.item(row, 0)
+            idx = item.data(Qt.ItemDataRole.UserRole) if item else None
+            if idx is not None and str(items[int(idx)]["id"]) == selected_id:
+                self.bom_table.selectRow(row)
+                self.bom_table.scrollToItem(item)
+                break
+        self.set_status("บันทึกลำดับจากการลากวางแล้ว • เตรียมซิงก์ GitHub")
 
     def render_wiring(self):
         rows = self.payload.get("wiring", [])
