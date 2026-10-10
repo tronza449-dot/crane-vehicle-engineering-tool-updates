@@ -1009,7 +1009,7 @@ jobs:
           assert "Push อัตโนมัติหลัง Local Auto Save" in source
           assert "Fine-grained Personal Access Token" in source
           assert "protect_secret" in source and "unprotect_secret" in source
-          assert "Cloud Sync" in w.debug_report_text(w.debug_report_data())
+          assert "GITHUB CLOUD SYNC" in w.debug_report_text(w.debug_report_data())
           assert "cloud_sync" in w.debug_report_data()
 
           # Cloud controls and secrets must never enter the engineering Project JSON.
