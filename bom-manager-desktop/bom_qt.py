@@ -486,18 +486,36 @@ class BOMWindow(QMainWindow):
         top_layout = QVBoxLayout(top)
         top_layout.setContentsMargins(20, 15, 20, 15)
         top_layout.setSpacing(8)
+        heading_row = QHBoxLayout()
+        heading_row.setSpacing(16)
         titles = QVBoxLayout()
         titles.setSpacing(4)
         titles.addWidget(self._label("BOM Manager  /  Engineering Workspace", "sectionTitle"))
         self.top_project_label = self._label("กำลังโหลดข้อมูลโครงการ…", "caption")
         titles.addWidget(self.top_project_label)
-        top_layout.addLayout(titles)
+        heading_row.addLayout(titles, 1)
+
+        # Keep the updater available on EVERY page, not hidden under Reports/GitHub.
+        update_controls = QVBoxLayout()
+        update_controls.setSpacing(5)
+        update_heading = QHBoxLayout()
+        update_heading.setSpacing(9)
+        self.version_label = self._label(f"เวอร์ชัน v{VERSION}", "caption")
+        update_heading.addWidget(self.version_label)
+        self.update_btn = self._button("ตรวจสอบอัปเดต", self.check_version)
+        self.update_btn.setToolTip("ตรวจสอบเวอร์ชันใหม่จาก GitHub")
+        update_heading.addWidget(self.update_btn)
+        update_controls.addLayout(update_heading)
+        self.install_btn = self._button("ดาวน์โหลดและอัปเดต", self.install_update, "success")
+        self.install_btn.setEnabled(False)
+        self.install_btn.setVisible(False)
+        self.install_btn.setToolTip("จะเปิดได้เมื่อพบ BOM Manager เวอร์ชันใหม่")
+        update_controls.addWidget(self.install_btn)
+        heading_row.addLayout(update_controls)
+        top_layout.addLayout(heading_row)
         action_row = QHBoxLayout()
         action_row.setSpacing(9)
         action_row.addStretch()
-        self.update_btn = self._button("ตรวจสอบเวอร์ชัน", self.check_version)
-        self.install_btn = self._button("อัปเดตตอนนี้", self.install_update, "success")
-        self.install_btn.setEnabled(False)
         action_row.addWidget(self._button("+ เพิ่มอุปกรณ์",
                                            lambda: self.edit_record("items"), "primary"))
         action_row.addWidget(self._button("ส่งออก PDF / Excel",
@@ -899,11 +917,8 @@ class BOMWindow(QMainWindow):
         row.addWidget(self._button("นำเข้า JSON Backup", self.import_backup))
         row.addWidget(self._button("เปิดโฟลเดอร์ฉบับร่าง", self.open_cache_dir))
         group.addLayout(row)
-        row = QHBoxLayout()
-        row.addWidget(self.update_btn)
-        row.addWidget(self.install_btn)
-        row.addStretch()
-        group.addLayout(row)
+        group.addWidget(self._label(
+            "ตรวจสอบเวอร์ชันหรืออัปเดตโปรแกรมได้จากมุมขวาบนทุกหน้า", "hint"))
         body.addWidget(self._label(
             "ข้อควรทราบ: ข้อมูลราคาที่ไม่ครบจะไม่ถูกคิดเป็นศูนย์ "
             "และรายงานไม่มีลายเซ็นอนุมัติที่ไม่ได้ให้ข้อมูล", "hint"))
@@ -1630,6 +1645,9 @@ class BOMWindow(QMainWindow):
             self.debugger.event("INFO", "updater", "VERSION_CHECK_OK",
                                 "พบเวอร์ชันใหม่" if info else "ใช้เวอร์ชันล่าสุด")
             self.install_btn.setEnabled(info is not None)
+            self.install_btn.setVisible(info is not None)
+            self.version_label.setText(
+                f"มี v{info['version']} ใหม่" if info else f"เวอร์ชัน v{VERSION} • ล่าสุด")
             self.set_status(f"พบเวอร์ชันใหม่ v{info['version']}" if info
                             else f"BOM Manager v{VERSION} เป็นเวอร์ชันล่าสุด")
             if info and not silent:
