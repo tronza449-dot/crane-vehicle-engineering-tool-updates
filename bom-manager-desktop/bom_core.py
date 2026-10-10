@@ -80,7 +80,7 @@ def purchased_item_ids(doc, excluding_purchase_id=None):
     return {
         str(purchase.get("itemId") or "").strip()
         for purchase in doc.get("purchases", [])
-        if str(purchase.get("id") or "") != excluded
+        if (not excluded or str(purchase.get("id") or "") != excluded)
         and str(purchase.get("itemId") or "").strip()
     }
 
