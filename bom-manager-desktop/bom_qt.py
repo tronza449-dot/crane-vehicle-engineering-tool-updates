@@ -881,16 +881,20 @@ class BOMWindow(QMainWindow):
         actions.addWidget(self._button("+ เพิ่มอุปกรณ์", lambda: self.edit_record("items"), "primary"))
         actions.addWidget(self._button("แก้ไขรายการ", lambda: self.edit_record("items", True)))
         actions.addWidget(self._button("ลบที่เลือก", lambda: self.delete_record("items"), "danger"))
-        self.move_up_btn = self._button("↑ เลื่อนขึ้น", lambda: self.move_bom_item(-1))
-        self.move_down_btn = self._button("↓ เลื่อนลง", lambda: self.move_bom_item(1))
-        for button in (self.move_up_btn, self.move_down_btn):
-            button.setToolTip("เลือกอุปกรณ์แล้วเลื่อนลำดับ (ในโหมดจัดกลุ่มจะเลื่อนได้ภายในหมวดเดียวกัน)")
-            actions.addWidget(button)
-        actions.addWidget(self._button("↶ ย้อนลำดับ", self.undo_bom_order))
         actions.addStretch()
         actions.addWidget(self._button("ออกเอกสาร PDF / Excel",
                                        lambda: self.show_page(4)))
         body.addLayout(actions)
+        ordering = QHBoxLayout()
+        ordering.addWidget(self._label("จัดลำดับรายการด้วย ↑ ↓ หรือลากวางแถว", "hint"))
+        ordering.addStretch()
+        self.move_up_btn = self._button("↑ เลื่อนขึ้น", lambda: self.move_bom_item(-1))
+        self.move_down_btn = self._button("↓ เลื่อนลง", lambda: self.move_bom_item(1))
+        for button in (self.move_up_btn, self.move_down_btn):
+            button.setToolTip("จัดลำดับอุปกรณ์โดยไม่แก้ BOM ID")
+            ordering.addWidget(button)
+        ordering.addWidget(self._button("↶ ย้อนลำดับ", self.undo_bom_order))
+        body.addLayout(ordering)
 
         filters = self._panel("ค้นหาและกรองรายการ", body)
         search_row = QHBoxLayout()
@@ -972,7 +976,6 @@ class BOMWindow(QMainWindow):
         actions.addWidget(self._button("+ สั่งเพิ่มส่วนที่ขาด", self.purchase_remaining))
         actions.addWidget(self._button("แก้ไข", lambda: self.edit_record("purchases", True)))
         actions.addWidget(self._button("ลบ", lambda: self.delete_record("purchases"), "danger"))
-        actions.addWidget(self._button("สร้างใบสั่งซื้อ PDF", self.export_purchase_order))
         info = self._label("เลือกรายการจาก BOM ในหน้าต่างใหม่ แล้วตรวจราคา/จำนวนสั่งซื้อจริง", "hint")
         info.setWordWrap(True)
         actions.addStretch()
@@ -989,6 +992,11 @@ class BOMWindow(QMainWindow):
             self.purchase_table.setColumnWidth(i, w)
         self.purchase_table.cellDoubleClicked.connect(lambda *_: self.edit_record("purchases", True))
         section.addWidget(self.purchase_table)
+        footer = QHBoxLayout()
+        footer.addWidget(self._label("เลือกแถวจัดซื้อที่ต้องการออกเป็นใบสั่งซื้อ", "hint"))
+        footer.addStretch()
+        footer.addWidget(self._button("สร้างใบสั่งซื้อ PDF", self.export_purchase_order))
+        section.addLayout(footer)
         return page
 
     def _build_sync(self):
