@@ -229,6 +229,7 @@ def export_excel(doc,destination,options=None):
     stats=bom_core.metrics(doc)
     items=sorted_items(doc)
     categories=category_stats(items)
+    quality=report_quality(items)
     wb=xlsxwriter.Workbook(str(destination))
     wb.set_properties({"title":"Engineering Bill of Materials / BOM",
                        "author":m["author"],"subject":m["project"],
@@ -287,10 +288,10 @@ def export_excel(doc,destination,options=None):
                               "รายการที่ยังไม่มีราคา","ยอดรวมที่ทราบ (บาท)",
                               "ยอดจัดซื้อที่บันทึก (บาท)"],17):
         summary.write(row,0,key,label)
-    summary.write_formula(17,1,"=COUNTA("+startend("C")+")",number,count)
-    summary.write_formula(18,1,"=COUNT("+startend("F")+")",number,stats["priced"])
+    summary.write_formula(17,1,"=COUNTA("+startend("D")+")",number,count)
+    summary.write_formula(18,1,"=COUNT("+startend("G")+")",number,stats["priced"])
     summary.write_formula(19,1,"=B18-B19",number,stats["missing"])
-    summary.write_formula(20,1,"=SUM("+startend("G")+")",money,stats["known_cost"])
+    summary.write_formula(20,1,"=SUM("+startend("H")+")",money,stats["known_cost"])
     summary.write_formula(21,1,"=SUM(Purchasing!G8:G5000)",
                           money,stats["purchase_total"])
     summary.merge_range("A24:D24","ภาพรวมตามหมวดวิศวกรรม",bar)
@@ -302,17 +303,17 @@ def export_excel(doc,destination,options=None):
         summary.write_formula(row,1,"=COUNTIF("+startend("B")+",A"+str(erow)+")",
                               number,total)
         summary.write_formula(row,2,"=COUNTIFS("+startend("B")+",A"+str(erow)+
-                              ","+startend("F")+',""'+")",number,missing)
+                              ","+startend("G")+',""'+")",number,missing)
         summary.write_formula(row,3,"=SUMIF("+startend("B")+",A"+str(erow)+
-                              ","+startend("G")+")",money,amount)
+                              ","+startend("H")+")",money,amount)
         summary.set_row(row,28)
     summary.merge_range("A36:D38",
         "หมายเหตุ: รายการที่ไม่ทราบราคาไม่ถูกถือว่ามีราคา 0 บาท "
         "และยอดรวมยังไม่ใช่งบประมาณสุดท้าย "
         "ไม่รวมค่าจัดส่ง ภาษี และค่าแรงที่ไม่ได้บันทึก",notice)
     summary.print_area("A1:D38")
-    bom=sheet("BOM",[11,27,48,11,11,20,20,26],
-        ["ID","ระบบ / หมวด","อุปกรณ์ / รุ่น","จำนวน","หน่วย",
+    bom=sheet("BOM",[11,27,25,46,11,11,20,21,26],
+        ["BOM ID","ระบบ / หมวด","Part Number","อุปกรณ์ / รุ่น","จำนวน","หน่วย",
          "ราคา/หน่วย (บาท)","รวม (บาท)","สถานะ"],True)
     details=sheet("Specification",[12,29,50,68,27,36,54],
         ["ID","หมวด","อุปกรณ์ / รุ่น","สเปกทางเทคนิค",
@@ -322,18 +323,18 @@ def export_excel(doc,destination,options=None):
         category=item.get("category") or bom_categories.UNCATEGORIZED
         qty=price(item.get("qty")) or 0
         amount=price(item.get("unitPrice"))
-        entries=[item.get("id"),category,item.get("name"),
+        entries=[item.get("id"),category,item.get("partNumber"),item.get("name"),
                  qty,item.get("unit"),amount,None,item.get("status")]
         for col,val in enumerate(entries):
             style=alternate if idx%2 else normal
-            if col==6:
-                bom.write_formula(row,col,'=IF(F'+str(erow)+'="","",D'+
-                                  str(erow)+'*F'+str(erow)+')',money,
+            if col==7:
+                bom.write_formula(row,col,'=IF(G'+str(erow)+'="","",E'+
+                                  str(erow)+'*G'+str(erow)+')',money,
                                   "" if amount is None else float(qty*amount))
             elif val is None:
                 bom.write_blank(row,col,None,style)
-            elif col in (3,5):
-                bom.write_number(row,col,float(val),number if col==3 else money)
+            elif col in (4,6):
+                bom.write_number(row,col,float(val),number if col==4 else money)
             else:
                 bom.write_string(row,col,str(val),category_fmt if col==1 else style)
         bom.set_row(row,43)
@@ -346,11 +347,11 @@ def export_excel(doc,destination,options=None):
                                  alternate if idx%2 else normal)
         details.set_row(row,61)
     if count:
-        bom.autofilter(6,0,6+count,7)
+        bom.autofilter(6,0,6+count,8)
         details.autofilter(6,0,6+count,6)
-        bom.conditional_format(7,5,6+count,5,
+        bom.conditional_format(7,6,6+count,6,
                                {"type":"blanks","format":notice})
-    bom.print_area(0,0,max(7,6+count),7)
+    bom.print_area(0,0,max(7,6+count),8)
     details.print_area(0,0,max(7,6+count),6)
     wiring=sheet("Wiring",[11,32,32,22,20,28,37,25],
         ["ID","ต้นทาง","ปลายทาง","สัญญาณ","แรงดัน",
