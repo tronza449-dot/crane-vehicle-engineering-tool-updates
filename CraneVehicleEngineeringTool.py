@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.53"
+APP_VERSION = "53.8.54"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -51,7 +51,7 @@ def resource_path(relative_path):
     return base / relative_path
 
 APP_STYLE = """
-/* ==================== V53.8.52 CLEAN / MODERN UI ==================== */
+/* ==================== V53.8.54 CLEAN / MODERN UI ==================== */
 QMainWindow { background:#f7f8fa; }
 QWidget { color:#182230; }
 QLabel { color:#344054; font-size:10.4pt; }
@@ -1186,7 +1186,7 @@ class App(QMainWindow):
         app_font=QFont(choose_ui_font_family());app_font.setPointSizeF(10.8);app_font.setStyleStrategy(QFont.PreferAntialias);self.setFont(app_font)
         self.tabs=QTabWidget()
         self.tabs.tabBar().hide();self.setCentralWidget(self.tabs)
-        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_telemetry_page();self.make_integration_suite();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
+        self.make_home();self.make_torque();self.make_electrical();self.make_winch();self.make_crane();self.make_slope();self.make_fbd();self.make_components();self.make_worstcase();self.make_calc_steps();self.make_design();self.make_graph();self.make_report();self.make_thai_help();self.make_stability_hub();self.make_project_tools();self.make_safety_logic_simulator();self.make_variable_dictionary_page();self.make_hardware_io_manager();self.make_telemetry_page();self.make_integration_suite();self.setup_navigation_dock();self.setup_status_bar_ui();self.setup_dynamic_tabs()
         self.calc_all()
         # Automatically restore the most recently entered values.
         self.restore_last_values(silent=True)
@@ -1798,7 +1798,7 @@ class App(QMainWindow):
         self.telemetryRefreshPorts=QPushButton("Refresh COM");self.telemetryRefreshPorts.clicked.connect(self.refresh_serial_ports);bl.addWidget(self.telemetryRefreshPorts,1,2)
         self.telemetryBaudLabel=QLabel("Baud");bl.addWidget(self.telemetryBaudLabel,1,3)
         self.telemetryBaud=QComboBox();self.telemetryBaud.addItems(["115200","230400","460800","921600"]);bl.addWidget(self.telemetryBaud,1,4)
-        bl.addWidget(clear,1,7);bl.addWidget(openHw,1,8)
+        bl.addWidget(clear,1,7)
 
         self.telemetryWifiLabel=QLabel("WiFi UDP")
         bl.addWidget(self.telemetryWifiLabel,2,0)
@@ -5241,15 +5241,13 @@ void loop() {{
         bs=ModeCardButton("STABILITY","Side / Front / Rear tipping • Worst Case • CG","04","#7c3aed")
         bc=ModeCardButton("CONTROL LOGIC","E-stop • RC Failsafe • IMU • Limit • Interlock","05","#c45114")
         bv=ModeCardButton("VARIABLE DICTIONARY","ความหมายตัวแปร • หน่วย • ค่าปัจจุบัน","06","#4b647a")
-        bh=ModeCardButton("HARDWARE I/O & WIRING","Animated Board • All GPIO • Used/Free/Conflict","07","#0b7a75")
-        btele=ModeCardButton("LIVE TELEMETRY","ESP32 WiFi/Serial • Live Graph • CSV Data Logger","08","#087e8b")
-        binteg=ModeCardButton("ENGINEERING SUITE","Validation • Diagnostics • BOM • Revisions • Final Check","09","#5b4bb7")
+        btele=ModeCardButton("LIVE TELEMETRY","ESP32 WiFi/Serial • Live Graph • CSV Data Logger","07","#087e8b")
+        binteg=ModeCardButton("ENGINEERING SUITE","Validation • Diagnostics • BOM • Revisions • Final Check","08","#5b4bb7")
 
         cards.addWidget(bt,0,0);cards.addWidget(be,0,1)
         cards.addWidget(bw,1,0);cards.addWidget(bs,1,1)
         cards.addWidget(bc,2,0);cards.addWidget(bv,2,1)
-        cards.addWidget(bh,3,0);cards.addWidget(btele,3,1)
-        cards.addWidget(binteg,4,0,1,2)
+        cards.addWidget(btele,3,0);cards.addWidget(binteg,3,1)
         cards.setColumnStretch(0,1);cards.setColumnStretch(1,1)
         root.addLayout(cards)
 
@@ -5259,7 +5257,6 @@ void loop() {{
         bs.clicked.connect(self.show_stability_mode)
         bc.clicked.connect(self.show_safety_logic_mode)
         bv.clicked.connect(self.show_variable_dictionary_mode)
-        bh.clicked.connect(self.show_hardware_mode)
         btele.clicked.connect(self.show_telemetry_mode)
         binteg.clicked.connect(self.show_integration_suite_mode)
 
