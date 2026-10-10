@@ -3,6 +3,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
+from PySide6.QtCore import Qt
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -18,7 +19,6 @@ class IndustrialDarkTests(unittest.TestCase):
 
     def setUp(self):
         from bom_qt import BOMWindow
-        from PySide6.QtCore import Qt
         self.window = BOMWindow(auto_load=False)
 
     def tearDown(self):
