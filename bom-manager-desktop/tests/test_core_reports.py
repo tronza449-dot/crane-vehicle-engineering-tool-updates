@@ -78,6 +78,24 @@ class DataRulesTests(unittest.TestCase):
             self.assertTrue(restored["otherField"]["keep"])
             self.assertEqual(restored["items"][0]["extraKey"], "must remain")
 
+    def test_drawio_wiring_rows_do_not_overlap(self):
+        from xml.etree import ElementTree as ET
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "wiring.drawio"
+            self.document["wiring"].append({
+                "id": "2", "from": "ESP32 GPIO25", "to": "Relay IN1",
+                "signal": "ALARM", "voltage": "3.3V logic",
+                "cable": "signal pair", "protection": "Not specified"
+            })
+            bom_reports.export_drawio(self.document, path)
+            root = ET.parse(path).getroot()
+            vertices = [c for c in root.iter("mxCell") if c.attrib.get("id", "").startswith("source_")]
+            edges = [c for c in root.iter("mxCell") if c.attrib.get("id", "").startswith("edge_")]
+            self.assertEqual(len(vertices), 2)
+            self.assertEqual(len(edges), 2)
+            ys = [int(list(cell)[0].attrib["y"]) for cell in vertices]
+            self.assertEqual(ys[1] - ys[0], 125)
+
     def test_wiring_reference_check(self):
         self.document["wiring"][0]["fromItemId"] = "999"
         issues = bom_core.connection_warnings(self.document)
