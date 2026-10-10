@@ -410,3 +410,17 @@ GitHub Token อยู่ใน Windows Credential Manager แต่ละเค
 - ในหน้า **BOM อุปกรณ์** เลือกแถวแล้วกด **↑ เลื่อนขึ้น / ↓ เลื่อนลง**; โหมดจัดกลุ่มเลื่อนภายในหมวดเดียวกัน ถ้าจะเรียงข้ามหมวดให้เลือก **แสดงรายการต่อเนื่อง**
 - การเรียงเป็นการเปลี่ยนลำดับอาร์เรย์ items ใน `bom.json` ไม่แก้ BOM ID ทำให้ references ของ Wiring/Purchasing คงเดิม; ลำดับใหม่ซิงก์ไปเครื่องอื่นเมื่อ GitHub Auto Save สำเร็จ
 - หน้าเว็บยังคงโหลด GitHub เมื่อเปิด และตรวจข้อมูลใหม่ทุก 2 นาทีเมื่อไม่มีการแก้ค้าง พร้อมปุ่ม ↑ ↓ สำหรับเรียงรายการภายในหมวด
+
+## v1.10.0 — Procurement & Collaboration Tools
+
+- Three-way GitHub merge compares the cached remote ancestor, local draft, and latest GitHub JSON. Independent field edits and newly added rows can merge automatically. True conflicts pause Auto Save and can be resolved through **เปรียบเทียบข้อมูล** with a backup before applying. Never force-push conflicting drafts.
+- Purchase quantities: status **ได้รับบางส่วน**, editable **จำนวนรับจริง**, dashboard shows ordered/received counts and outstanding quantities. The default item selector hides already selected BOM IDs; an explicit **+ สั่งเพิ่มส่วนที่ขาด** flow allows further orders for missing quantities.
+- BOM: manual ↑/↓ and drag/drop ordering persist as BOM JSON item order, without renumbering referenced IDs.
+- Github history panel offers a restore action that imports a previous BOM file as a new local draft and preserves the current draft in a recovery backup.
+- Dashboard shows known budget, recorded purchasing total and unpriced remaining components. Unknown prices are not assumed zero.
+- **ตรวจสอบ BOM** audits item names, duplicate Part Numbers and names, unknown prices, suppliers, product links, wiring references, PO references and overordering.
+- **นำเข้า Excel (.xlsx)** imports the BOM worksheet of standard .xlsx without executing macros or formulas, skips matching name+part-number pairs, and allocates fresh stable IDs when an imported ID would clash. Existing wiring and purchases are retained.
+- **สร้างใบสั่งซื้อ PDF** exports a single selected PO/supplier as a clearly marked DRAFT with editable VAT, no invented vendor approval or signatures.
+- Windows app and the existing browser page use the same GitHub JSON file. The browser-only BOM page remains a simpler editor; it does not yet have every Windows tool. Publishing GitHub Pages is separate from storing index.html in the repository.
+
+**Manual verification before rollout:** build the Windows installer via GitHub Actions, review unit test results and run cross-PC acceptance tests with real credentials. A GitHub source commit alone is not proof that the installer is published.
