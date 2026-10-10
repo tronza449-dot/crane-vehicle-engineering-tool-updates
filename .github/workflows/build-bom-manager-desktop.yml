@@ -91,8 +91,17 @@ jobs:
             throw "Windows EXE smoke test timed out"
           }
           if ($process.ExitCode -ne 0) { throw "Windows EXE smoke test failed ($($process.ExitCode))" }
-          if (!(Test-Path "output\IndustrialDarkPreview.png")) {
-            throw "GUI preview screenshot was not generated"
+          if (!(Test-Path "output\MinimalDashboardPreview.png")) {
+            throw "Minimal Engineering dashboard preview was not generated"
+          }
+          if (!(Test-Path "output\MinimalBOMPreview.png")) {
+            throw "Minimal Engineering BOM preview was not generated"
+          }
+          if (!(Test-Path "output\MinimalFormPreview.png")) {
+            throw "Minimal Engineering item editor preview was not generated"
+          }
+          if (!(Test-Path "output\MinimalReportsPreview.png")) {
+            throw "Minimal Engineering export preview was not generated"
           }
           if (!(Test-Path "output\DebugReportPreview.png")) {
             throw "Debug Report screenshot was not generated"
@@ -124,7 +133,10 @@ jobs:
           path: |
             bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe
             bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe.sha256
-            bom-manager-desktop/output/IndustrialDarkPreview.png
+            bom-manager-desktop/output/MinimalDashboardPreview.png
+            bom-manager-desktop/output/MinimalBOMPreview.png
+            bom-manager-desktop/output/MinimalFormPreview.png
+            bom-manager-desktop/output/MinimalReportsPreview.png
             bom-manager-desktop/output/DebugReportPreview.png
             bom-manager-desktop/output/ReadableBOMPreview.png
             bom-manager-desktop/output/EngineeringBOM_Example.pdf
@@ -144,7 +156,10 @@ jobs:
         run: |
           $installer="bom-manager-desktop/output/CraneVehicleBOMManager_Setup.exe"
           $checksum="$installer.sha256"
-          $preview="bom-manager-desktop/output/IndustrialDarkPreview.png"
+          $preview="bom-manager-desktop/output/MinimalDashboardPreview.png"
+          $bomPreview="bom-manager-desktop/output/MinimalBOMPreview.png"
+          $formPreview="bom-manager-desktop/output/MinimalFormPreview.png"
+          $reportPreview="bom-manager-desktop/output/MinimalReportsPreview.png"
           $debugPreview="bom-manager-desktop/output/DebugReportPreview.png"
           $readablePreview="bom-manager-desktop/output/ReadableBOMPreview.png"
           $pdf="bom-manager-desktop/output/EngineeringBOM_Example.pdf"
@@ -156,5 +171,5 @@ jobs:
             Write-Host "::warning::BOM release $env:BOM_TAG already exists. Increment bom-manager-desktop/VERSION to publish a new version."
             exit 0
           }
-          gh release create $env:BOM_TAG $installer $checksum $preview $debugPreview $readablePreview $pdf $excel $cover $tablePreview --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
+          gh release create $env:BOM_TAG $installer $checksum $preview $bomPreview $formPreview $reportPreview $debugPreview $readablePreview $pdf $excel $cover $tablePreview --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
           if ($LASTEXITCODE -ne 0) { throw "GitHub Release creation failed" }
