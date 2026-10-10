@@ -6633,6 +6633,8 @@ void loop() {{
         for k,v in data.get("updater",{}).items():lines.append(f"{k}: {v}")
         lines+=["","[WEB SERVER]"]
         for k,v in data.get("web_server",{}).items():lines.append(f"{k}: {v}")
+        lines+=["","[GITHUB CLOUD SYNC]"]
+        for k,v in data.get("cloud_sync",{}).items():lines.append(f"{k}: {v}")
         lines+=["","[STORAGE — REDACTED]"]
         for k,v in data.get("storage",{}).items():lines.append(f"{k}: {v}")
         lines+=["","[LAST EXCEPTION]"]
