@@ -387,6 +387,7 @@ class BOMWindow(QMainWindow):
         self.sha = None
         self.dirty = False
         self.revision = 0
+        self.edit_dialog_active = False
         self.busy = False
         self.jobs = set()
         try:
@@ -1398,8 +1399,8 @@ class BOMWindow(QMainWindow):
                 and self.sha and not self.sync_paused_conflict):
             self._refresh_sync_state()
             return
-        if self.busy or self.downloading:
-            # Another background job is active; retry without mutating state.
+        if self.busy or self.downloading or self.edit_dialog_active:
+            # Another network job or an open editor: retry after changes settle.
             self.auto_sync_timer.start(60_000)
             return
         self.save_remote(automatic=True)
@@ -1407,7 +1408,7 @@ class BOMWindow(QMainWindow):
     def _refresh_remote_if_clean(self):
         """Fetch changed GitHub documents across PCs without clobbering drafts."""
         if (self.busy or self.downloading or self.dirty or
-                self.sync_paused_conflict):
+                self.edit_dialog_active or self.sync_paused_conflict):
             return
         current_sha = self.sha
         if current_sha is None:
@@ -1432,7 +1433,7 @@ class BOMWindow(QMainWindow):
                 self._refresh_sync_state()
                 return
             # A user may edit while the request is in flight; preserve it.
-            if self.dirty or self.sha != current_sha:
+            if self.dirty or self.edit_dialog_active or self.sha != current_sha:
                 self._refresh_sync_state()
                 return
             self.payload, self.sha = result
@@ -1483,7 +1484,12 @@ class BOMWindow(QMainWindow):
             "purchases": ("แก้ไขการจัดซื้อ" if existing else "เพิ่มการจัดซื้อ"),
         }[kind]
         dlg = RecordDialog(title, FIELD_SET[kind], row, self)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
+        self.edit_dialog_active = True
+        try:
+            accepted = dlg.exec() == QDialog.DialogCode.Accepted
+        finally:
+            self.edit_dialog_active = False
+        if not accepted:
             return
         values = dlg.get_values()
         try:
