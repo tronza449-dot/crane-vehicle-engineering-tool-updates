@@ -1358,7 +1358,11 @@ class BOMWindow(QMainWindow):
             state = "ข้อมูลชนกัน · หยุด Auto Save จนกว่าจะตรวจสอบ"
         elif not self.dirty:
             state = ("ซิงก์ GitHub แล้ว · ตรวจข้อมูลใหม่ทุก 2 นาที"
-                     if self.sha else "ข้อมูลในเครื่อง · รอโหลด GitHub")
+                     if self.sha and self.last_git_ok is True else
+                     "ใช้ข้อมูลในเครื่อง · GitHub ติดต่อไม่ได้" if
+                     self.last_git_ok is False else
+                     "มีข้อมูลในเครื่อง · กำลังตรวจ GitHub" if self.sha else
+                     "ข้อมูลในเครื่อง · รอโหลด GitHub")
         elif not self.auto_sync_enabled:
             state = "บันทึกในเครื่อง · Auto Save GitHub ปิด"
         elif not self.token:
