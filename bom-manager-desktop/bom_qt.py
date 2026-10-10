@@ -413,6 +413,7 @@ class BOMWindow(QMainWindow):
         self.base_payload = None  # shared GitHub ancestor for three-way merge
         self.dirty = False
         self.revision = 0
+        self.last_reorder_state = None
         self.edit_dialog_active = False
         self.busy = False
         self.jobs = set()
@@ -885,6 +886,7 @@ class BOMWindow(QMainWindow):
         for button in (self.move_up_btn, self.move_down_btn):
             button.setToolTip("เลือกอุปกรณ์แล้วเลื่อนลำดับ (ในโหมดจัดกลุ่มจะเลื่อนได้ภายในหมวดเดียวกัน)")
             actions.addWidget(button)
+        actions.addWidget(self._button("↶ ย้อนลำดับ", self.undo_bom_order))
         actions.addStretch()
         actions.addWidget(self._button("ออกเอกสาร PDF / Excel",
                                        lambda: self.show_page(4)))
@@ -1416,6 +1418,7 @@ class BOMWindow(QMainWindow):
             self.set_status("การจัดกลุ่มเลื่อนได้เฉพาะในหมวดเดียวกัน · เลือก 'แสดงรายการต่อเนื่อง' เพื่อเลื่อนข้ามหมวด")
             return
         source_id = str(source["id"])
+        self.last_reorder_state = [str(row["id"]) for row in self.payload["items"]]
         if bom_core.move_item_next_to(self.payload, source_id, target["id"]):
             self.changed()
             # render_all() clears selection, so restore it using stable BOM ID.
@@ -1446,6 +1449,7 @@ class BOMWindow(QMainWindow):
             self.set_status("การลากข้ามหมวดให้เลือกโหมดแสดงรายการต่อเนื่อง")
             return
         selected_id = str(items[ai]["id"])
+        self.last_reorder_state = [str(row["id"]) for row in items]
         moved = items.pop(ai)
         items.insert(bi, moved)
         self.changed()
@@ -1457,6 +1461,22 @@ class BOMWindow(QMainWindow):
                 self.bom_table.scrollToItem(item)
                 break
         self.set_status("บันทึกลำดับจากการลากวางแล้ว • เตรียมซิงก์ GitHub")
+
+    def undo_bom_order(self):
+        """One-step Undo of a manual reorder, respecting current BOM IDs."""
+        previous = self.last_reorder_state
+        if not previous:
+            self.set_status("ยังไม่มีการเรียงลำดับให้ย้อนกลับ")
+            return
+        items = self.payload.get("items", [])
+        if set(previous) != {str(item["id"]) for item in items}:
+            self.set_status("รายการอุปกรณ์ถูกเพิ่มหรือลบแล้ว ไม่สามารถย้อนลำดับเก่าได้")
+            return
+        by_id = {str(row["id"]): row for row in items}
+        self.payload["items"] = [by_id[key] for key in previous]
+        self.last_reorder_state = None
+        self.changed()
+        self.set_status("ย้อนลำดับอุปกรณ์แล้ว • จะซิงก์ GitHub อัตโนมัติ")
 
     def render_wiring(self):
         rows = self.payload.get("wiring", [])
