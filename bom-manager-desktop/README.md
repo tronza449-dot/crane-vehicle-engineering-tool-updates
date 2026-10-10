@@ -29,8 +29,8 @@
 ติดตั้ง Python 3.12, PyInstaller, keyring และ Inno Setup จากนั้นสั่ง:
 
 ```powershell
-python -m pip install pyinstaller keyring
-pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --collect-all keyring --add-data "VERSION;." app.py
+python -m pip install pyinstaller keyring xlsxwriter reportlab
+pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --collect-all keyring --collect-all reportlab --collect-all xlsxwriter --add-data "VERSION;." app.py
 & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$((Get-Content VERSION -Raw).Trim())" installer.iss
 ```
 
@@ -62,3 +62,34 @@ pyinstaller --noconfirm --clean --windowed --name CraneVehicleBOMManager --colle
 **หมายเหตุ:** แอปที่ติดตั้งรุ่น 1.0.0 ไม่มีปุ่มอัปเดต จึงต้องติดตั้งรุ่น 1.1.0 ด้วยตนเองเพียงครั้งแรก เมื่อเปลี่ยนโค้ดแต่ไม่เปลี่ยน `VERSION` ระบบจะไม่ทับ Release เดิม ระบบ Release ของ BOM Manager แยก tag `bom-v...` จาก Crane Vehicle Engineering Tool และไม่กำหนดให้เป็น Latest Release หลักของ repository
 
 **ข้อจำกัด:** SHA256 ตรวจความครบถ้วนของไฟล์ แต่ไม่ทดแทนการเซ็นโค้ด Windows; บางเครื่องอาจแสดงคำเตือน SmartScreen
+
+
+## v1.2.0 — Dashboard / Wiring / Purchasing / Export
+
+แอป Windows จัดเป็น 5 แท็บ:
+
+| แท็บ | ฟังก์ชัน |
+| --- | --- |
+| ภาพรวม | จำนวนรายการ, จำนวนที่มีราคา/ขาดราคา, ยอดรวมที่ทราบ, หมวดหมู่ |
+| BOM อุปกรณ์ | ค้นหา, กรองหมวด, เพิ่ม/แก้/ลบ, Part Number, ผู้ขาย, ลิงก์สินค้า |
+| Wiring Manager | เพิ่ม/แก้/ลบจุดต่อ (ต้นทาง/ปลายทาง/อ้างอิง BOM ID/สัญญาณ/แรงดัน/สาย/ฟิวส์/สถานะ), ตรวจข้อมูล, ดูแผนภาพ, ส่งออก Draw.io |
+| จัดซื้อ | สร้างรายการจาก BOM, บันทึกร้านค้า/ราคา/จำนวน/สถานะ/PO/กำหนดรับ/ลิงก์, สรุปยอด |
+| GitHub / ส่งออก | โหลด/บันทึก Commit, ดู Commit History, Export Excel/PDF/CSV/JSON, Import JSON Backup, เปิดโฟลเดอร์ฉบับร่าง |
+
+**ข้อมูลที่แชร์บน GitHub:** ยังคงใช้ `bom-manager/bom.json` (`schemaVersion: 1`) เพื่อรักษาการทำงานร่วมกับเว็บเดิม เพิ่มอาร์เรย์ `wiring` และ `purchases` เฉพาะเมื่อเริ่มใช้งาน ไม่เปลี่ยนรายการอุปกรณ์เดิมหรือสร้างจุดต่อสายที่ไม่เคยยืนยัน
+
+**ป้องกันข้อมูลหาย:** ทุกครั้งที่แก้โปรแกรมจะบันทึกฉบับร่างลงโฟลเดอร์ `%LOCALAPPDATA%\CraneVehicleBOMManager\draft.json` ด้วยการเขียนไฟล์ชั่วคราวก่อนแทนที่ไฟล์จริง ถ้าปิดโดยยังไม่ GitHub Commit ครั้งต่อไปจะคืนฉบับร่างอัตโนมัติและไม่โหลด GitHub ทับทันที การบันทึก GitHub ใช้ blob SHA เพื่อปฏิเสธการเขียนทับข้อมูลที่คนอื่นแก้ไปแล้ว
+
+**Excel (.xlsx):** มีชีต `Summary`, `BOM`, `Wiring`, `Purchasing` รวมสูตรคูณราคากับจำนวนและยอดรวม ไม่มีการนับราคาที่เว้นว่างเป็นศูนย์เพื่อหลอกให้ยอดดูครบ
+
+**PDF:** รายงาน A4 แนวนอนภาษาไทย (ใช้ฟอนต์ Tahoma ที่ติดตั้งใน Windows) พร้อม BOM / Wiring / Purchasing และคำเตือนว่าข้อมูลต้องตรวจสอบก่อนนำไปประกอบจริง
+
+**CSV:** ส่งเฉพาะรายการอุปกรณ์พร้อม BOM ID และยอดรวม ป้องกันสูตร CSV ที่มาจากชื่อรายการ/ข้อความที่ผู้ใช้กรอก
+
+**Draw.io:** เป็นผังแสดงการเชื่อมต่อทีละแถวเพื่อไม่ให้เส้นไขว้หรือทับกัน เปิดแก้ใน diagrams.net ได้ ไม่ใช่ผังไฟฟ้าที่รับรองการออกแบบ
+
+### สร้างตัวติดตั้งเวอร์ชันใหม่
+
+แก้ `bom-manager-desktop/VERSION` เป็นเวอร์ชันที่สูงขึ้น เช่น `1.3.0` แล้ว Push ไปยัง `main` ระบบ GitHub Actions จะตรวจสอบไวยากรณ์, รัน Unit Tests, ทดสอบการสร้างรายงานกับ BOM จริง, สร้างไฟล์ EXE/Inno Setup และตรวจ SHA256 ก่อนปล่อย GitHub Release ที่ใช้ tag `bom-v1.3.0` จากนั้นโปรแกรมเดิมจะพบเวอร์ชันใหม่ผ่านปุ่ม **ตรวจสอบเวอร์ชัน** และกด **อัปเดตตอนนี้** ได้
+
+การติดตั้งรุ่นใหม่ไม่ลบ GitHub Token ใน Windows Credential Manager และไม่ลบฉบับร่างใน Local AppData
