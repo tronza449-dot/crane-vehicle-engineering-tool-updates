@@ -2068,8 +2068,9 @@ class BOMWindow(QMainWindow):
             remote = github_api("GET", token=saved_token)
             if remote.get("sha") != expected_sha:
                 return {"conflict": True, "remote_sha": remote.get("sha"),
-                        "remote_document": json.loads(base64.b64decode(
-                            remote["content"]).decode("utf-8-sig"))}
+                        "remote_document": (json.loads(base64.b64decode(
+                            remote["content"]).decode("utf-8-sig"))
+                            if remote.get("content") else None)}
             result = github_api("PUT", {
                 "message": ("Auto Save BOM" if automatic else "Save BOM") +
                            f" from Desktop v{VERSION}",
@@ -2095,6 +2096,9 @@ class BOMWindow(QMainWindow):
             self.busy = False
             self.sync_btn.setEnabled(True)
             if data.get("conflict"):
+                if data.get("remote_document") is None:
+                    conflict_detected()  # Remote response had no snapshot to merge safely.
+                    return
                 self._merge_with_remote(data["remote_document"],
                                         data["remote_sha"], automatic=automatic)
                 if self.sync_paused_conflict and not automatic:
