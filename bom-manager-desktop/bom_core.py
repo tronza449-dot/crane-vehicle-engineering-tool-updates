@@ -81,6 +81,7 @@ def purchased_item_ids(doc, excluding_purchase_id=None):
         str(purchase.get("itemId") or "").strip()
         for purchase in doc.get("purchases", [])
         if (not excluded or str(purchase.get("id") or "") != excluded)
+        and purchase.get("status") != "ยกเลิก"
         and str(purchase.get("itemId") or "").strip()
     }
 
