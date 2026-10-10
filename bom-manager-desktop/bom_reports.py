@@ -260,3 +260,59 @@ def export_pdf(doc, destination):
         canvas.drawString(31, 18, "BOM Manager — Engineering draft / ไม่ใช่เอกสารอนุมัติทางไฟฟ้า")
         canvas.drawRightString(landscape(A4)[0]-31, 18, f"หน้า {document.page}")
     doc_pdf.build(story, onFirstPage=footer, onLaterPages=footer)
+
+
+
+def export_drawio(doc, destination):
+    """Create an editable, non-crossing row-per-connection diagrams.net drawing.
+
+    This is a terminal schedule visualisation, NOT a certified electrical schematic.
+    Rows are deliberately independent; no guessed electrical net connections.
+    """
+    from xml.etree.ElementTree import Element, SubElement, ElementTree
+    bom_core.ensure_doc(doc)
+    mx = Element("mxfile", {"host": "app.diagrams.net", "type": "device"})
+    diagram = SubElement(mx, "diagram", {"id": "bom-wiring", "name": "Wiring Connections"})
+    graph = SubElement(diagram, "mxGraphModel", {
+        "dx": "1180", "dy": "760", "grid": "1", "gridSize": "10",
+        "guides": "1", "tooltips": "1", "connect": "1", "arrows": "1", "fold": "1",
+        "page": "1", "pageScale": "1", "pageWidth": "1300",
+        "pageHeight": str(max(900, 170 + len(doc.get("wiring", [])) * 125))})
+    root = SubElement(graph, "root")
+    SubElement(root, "mxCell", {"id": "0"})
+    SubElement(root, "mxCell", {"id": "1", "parent": "0"})
+
+    def vertex(cell_id, value, x, y, width, height, style):
+        cell = SubElement(root, "mxCell", {"id": str(cell_id), "value": str(value),
+                                          "style": style, "vertex": "1", "parent": "1"})
+        SubElement(cell, "mxGeometry", {"x": str(x), "y": str(y),
+                                        "width": str(width), "height": str(height),
+                                        "as": "geometry"})
+        return cell
+
+    vertex("title", "BOM WIRING — DRAFT (verify ratings and pinouts before wiring)",
+           30, 16, 1160, 38,
+           "text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=18;fontStyle=1;fontColor=#193B58;")
+    wires = doc.get("wiring", [])
+    for idx, wire in enumerate(wires):
+        y = 100 + idx * 125
+        sid, tid = f"source_{idx}", f"target_{idx}"
+        left = wire.get("from", "") or "(not specified)"
+        right = wire.get("to", "") or "(not specified)"
+        vertex(sid, left, 30, y, 305, 52,
+               "rounded=1;whiteSpace=wrap;html=1;align=center;fillColor=#E9F1F8;strokeColor=#6F92B2;fontSize=13;")
+        vertex(tid, right, 885, y, 305, 52,
+               "rounded=1;whiteSpace=wrap;html=1;align=center;fillColor=#E9F1F8;strokeColor=#6F92B2;fontSize=13;")
+        note = " | ".join(str(wire.get(x) or "—") for x in
+                          ("signal", "voltage", "cable", "protection"))
+        vertex(f"label_{idx}", f"{wire.get('id', idx+1)}  {note}",
+               355, y - 7, 505, 36,
+               "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#4C5B69;")
+        edge = SubElement(root, "mxCell", {
+            "id": f"edge_{idx}", "edge": "1", "parent": "1",
+            "source": sid, "target": tid,
+            "style": "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;"
+                     "html=1;endArrow=block;endFill=1;strokeColor=#567DA0;strokeWidth=2;"
+        })
+        SubElement(edge, "mxGeometry", {"relative": "1", "as": "geometry"})
+    ElementTree(mx).write(destination, encoding="utf-8", xml_declaration=True)
