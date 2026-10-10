@@ -395,4 +395,61 @@ def export_excel(doc,destination,options=None):
         notes.write(row,0,labeltext,label);notes.write(row,1,text,normal)
         notes.set_row(row,40)
     notes.print_area("A1:B15")
+
+    # Traceability is distinct from a formal manufacturer P/N.
+    # Existing project IDs remain unchanged, and missing values remain blank.
+    sources=sheet("References",[12,44,25,29,52,36,56],
+        ["BOM ID","อุปกรณ์ / รุ่น","Part Number","ผู้ขาย","ลิงก์แหล่งข้อมูล",
+         "สถานะการเลือก","หมายเหตุการอ้างอิง"],True)
+    sourcefmt=fmt(font_color=BLUE,underline=True,text_wrap=True)
+    for idx,item in enumerate(items):
+        row=7+idx
+        values=[item.get("id"),item.get("name"),item.get("partNumber"),
+                item.get("supplier"),item.get("link"),
+                item.get("status"),item.get("notes")]
+        for col,val in enumerate(values):
+            value=str(val or "")
+            if col==4 and value.lower().startswith(("https://","http://")):
+                try:
+                    sources.write_url(row,col,value,sourcefmt,"เปิดแหล่งอ้างอิง")
+                except (ValueError,TypeError):
+                    sources.write_string(row,col,value,alternate if idx%2 else normal)
+            else:
+                sources.write_string(row,col,value,alternate if idx%2 else normal)
+        sources.set_row(row,54)
+    if count:
+        sources.autofilter(6,0,6+count,6)
+    sources.print_area(0,0,max(7,6+count),6)
+
+    review=sheet("Completeness",[37,28,29,36])
+    review.merge_range("A5:D5","รายการข้อมูลที่ต้องตรวจสอบก่อนนำไปจัดซื้อ",bar)
+    review.merge_range("A7:D7","DATA QUALITY CHECK / Preliminary design",bar)
+    indicators=[
+        ("Part Number ไม่ระบุ",quality["part_number_missing"]),
+        ("ผู้ขายไม่ระบุ",quality["supplier_missing"]),
+        ("ลิงก์อ้างอิงไม่ระบุ",quality["reference_missing"]),
+        ("ราคาที่ยังไม่ทราบ",quality["price_missing"]),
+    ]
+    for row,(name,value) in enumerate(indicators,8):
+        review.write(row,0,name,label)
+        review.write_number(row,1,value,number)
+    review.merge_range("A16:D16","หมายเหตุสำคัญ",bar)
+    review.merge_range("A18:D20",
+        "รหัส BOM ภายในโครงการ ไม่เท่ากับ Part Number จากผู้ผลิต "
+        "ไม่ควรเติม Part Number หรือผู้ขายจากการคาดเดา "
+        "เอกสารนี้เป็น DRAFT ไม่ใช่ใบสั่งซื้อหรือเอกสารอนุมัติการผลิต",notice)
+    review.merge_range("A23:D23","แนวทางการจัดรายการอุปกรณ์ที่ใช้อ้างอิง",bar)
+    review.write_string("A25","ISO 7573:2008 / Technical product documentation - Parts lists",normal)
+    review.write_url("B25","https://www.iso.org/standard/43883.html",sourcefmt,"หน้าเอกสาร ISO")
+    review.write_string("A26","SOLIDWORKS / BOM columns and part properties",normal)
+    review.write_url("B26","https://help.solidworks.com/2021/English/SolidWorks/sldworks/c_Bill_of_Materials_-_Custom_Properties.htm",sourcefmt,"ดูแหล่งอ้างอิง")
+    review.write_string("A27","OpenBOM / Parts list data fields and cost context",normal)
+    review.write_url("B27","https://www.openbom.com/blog/bill-of-materials-types-formats-and-examples",sourcefmt,"ดูแหล่งอ้างอิง")
+    review.print_area("A1:D30")
+
+    summary.merge_range("A41:D41","ตรวจสอบความครบถ้วนของข้อมูล (DRAFT)",bar)
+    for row,(name,value) in enumerate(indicators,42):
+        summary.write(row,0,name,label)
+        summary.write_number(row,1,value,number)
+    summary.print_area("A1:D49")
     wb.close()
