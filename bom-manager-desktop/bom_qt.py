@@ -852,14 +852,30 @@ class BOMWindow(QMainWindow):
             "และ BOM แยกหมวด พร้อมข้อมูลสเปก Wiring และจัดซื้อ", "caption")
         text.setWordWrap(True)
         group.addWidget(text)
-        buttons = QHBoxLayout()
-        buttons.addWidget(self._button("ส่งออก PDF สำหรับรายงาน",
-                                       lambda: self.export("pdf"), "primary"))
-        buttons.addWidget(self._button("ส่งออก Excel สำหรับรายงาน",
-                                       lambda: self.export("xlsx"), "success"))
-        buttons.addWidget(self._button("ส่งออกทั้ง PDF + Excel",
-                                       self.export_report_pair))
-        group.addLayout(buttons)
+        export_cards = QGridLayout()
+        export_cards.setHorizontalSpacing(13)
+        for column, (heading, description, title, action, role) in enumerate((
+            ("PDF สำหรับรายงาน", "เอกสาร A4 มีเลขหน้า ภาคผนวก และ Revision",
+             "สร้าง PDF", lambda: self.export("pdf"), "primary"),
+            ("Excel ตรวจสอบข้อมูล", "ตาราง BOM พร้อมสูตรและชีตสเปก / แหล่งอ้างอิง",
+             "สร้าง Excel", lambda: self.export("xlsx"), "success"),
+            ("ชุดเอกสารรายงาน", "สร้างไฟล์ PDF และ Excel พร้อมกันในโฟลเดอร์เดียว",
+             "สร้างทั้งสองไฟล์", self.export_report_pair, None),
+        )):
+            card = QFrame()
+            card.setObjectName("formPanel")
+            stack = QVBoxLayout(card)
+            stack.setContentsMargins(17, 16, 17, 16)
+            stack.setSpacing(10)
+            stack.addWidget(self._label(heading, "sectionTitle"))
+            description_label = self._label(description, "caption")
+            description_label.setWordWrap(True)
+            stack.addWidget(description_label)
+            stack.addStretch()
+            stack.addWidget(self._button(title, action, role))
+            export_cards.addWidget(card, 0, column)
+            export_cards.setColumnStretch(column, 1)
+        group.addLayout(export_cards)
         text = self._label(
             "PDF: A4 แนวนอน พร้อมเลขหน้าและภาคผนวก  |  "
             "Excel: แยกชีตสรุป อุปกรณ์ สเปก สายไฟ และจัดซื้อ พร้อมสูตรคำนวณ", "hint")
