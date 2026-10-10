@@ -73,7 +73,7 @@ class ReadabilityTests(unittest.TestCase):
         self.window.render_all()
         self.window.font_scale_selector.setCurrentIndex(3)
         self.assertEqual(self.window.stack.count(), 6)
-        self.assertEqual(self.window.bom_table.rowCount(), 1)
+        self.assertEqual(self.window.bom_table.rowCount(), 2)
         self.assertTrue(self.window.update_btn.isEnabled())
         self.assertEqual(self.window.cards["missing"].figure.text(), "1")
 
