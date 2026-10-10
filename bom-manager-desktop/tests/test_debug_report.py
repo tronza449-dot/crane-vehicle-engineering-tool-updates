@@ -124,7 +124,10 @@ class DebugQtTests(unittest.TestCase):
         self.assertEqual(self.win.stack.currentIndex(), 5)
         self.assertIn("ERROR 1", self.win.debug_summary.text())
         self.assertGreaterEqual(self.win.debug_checks.rowCount(), 3)
-        self.assertEqual(self.win.debug_events.rowCount(), 1)
+        self.assertGreaterEqual(self.win.debug_events.rowCount(), 2)
+        self.assertTrue(any(
+            self.win.debug_events.item(i, 3).text() == "EXPORT_FAILED"
+            for i in range(self.win.debug_events.rowCount())))
         data = self.win.refresh_diagnostics()
         self.assertEqual(data["state"]["counts"]["without_price"], 1)
 
