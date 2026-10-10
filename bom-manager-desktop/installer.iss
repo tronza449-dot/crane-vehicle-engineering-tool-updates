@@ -1,5 +1,7 @@
 #define AppName "Crane Vehicle BOM Manager"
-#define AppVersion "1.0.0"
+#ifndef AppVersion
+  #error "Pass /DAppVersion=x.y.z from the VERSION file when building."
+#endif
 #define AppExeName "CraneVehicleBOMManager.exe"
 
 [Setup]
@@ -17,6 +19,8 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayIcon={app}\{#AppExeName}
+CloseApplications=yes
+RestartApplications=no
 
 [Files]
 Source: "dist\CraneVehicleBOMManager\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
