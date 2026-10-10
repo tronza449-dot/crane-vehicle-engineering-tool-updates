@@ -26,13 +26,15 @@ from PySide6.QtWidgets import (
     QFrame, QGraphicsScene, QGraphicsView, QGridLayout, QHBoxLayout,
     QHeaderView, QLabel, QLineEdit, QMainWindow, QMessageBox, QTabWidget,
     QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy,
-    QStackedWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+    QStackedWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QAbstractItemView, QInputDialog
 )
 
 import bom_core
 import bom_categories
 import bom_reports
 import bom_official_reports
+import bom_advanced
+import bom_import_excel
 import bom_debug
 import bom_qt_theme as theme
 import updater
@@ -65,12 +67,13 @@ PURCHASE_FIELDS = [
     ("itemId", "BOM ID อ้างอิง"), ("description", "รายการสั่งซื้อ"),
     ("supplier", "ผู้ขาย"), ("qty", "จำนวน"),
     ("unitPrice", "ราคา/หน่วย (บาท)"), ("status", "สถานะ"),
+    ("receivedQty", "จำนวนรับจริง"),
     ("po", "เลขอ้างอิง PO"), ("dueDate", "กำหนดรับ YYYY-MM-DD"),
     ("link", "ลิงก์ร้านค้า"), ("notes", "หมายเหตุ"),
 ]
 FIELD_SET = {"items": ITEM_FIELDS, "wiring": WIRE_FIELDS, "purchases": PURCHASE_FIELDS}
 WIRE_STATUS = ["รอตรวจสอบ", "ตรวจสอบแล้ว", "แก้ไขแบบ", "ยกเลิก"]
-PURCHASE_STATUS = ["วางแผน", "ขอราคา", "สั่งแล้ว", "ได้รับแล้ว", "ยกเลิก"]
+PURCHASE_STATUS = ["วางแผน", "ขอราคา", "สั่งแล้ว", "ได้รับบางส่วน", "ได้รับแล้ว", "ยกเลิก"]
 MULTILINE = {"spec", "connection", "notes"}
 
 
@@ -925,6 +928,7 @@ class BOMWindow(QMainWindow):
         actions.addWidget(self._button("+ เลือกอุปกรณ์จาก BOM", lambda: self.edit_record("purchases"), "primary"))
         actions.addWidget(self._button("แก้ไข", lambda: self.edit_record("purchases", True)))
         actions.addWidget(self._button("ลบ", lambda: self.delete_record("purchases"), "danger"))
+        actions.addWidget(self._button("สร้างใบสั่งซื้อ PDF", self.export_purchase_order))
         info = self._label("เลือกรายการจาก BOM ในหน้าต่างใหม่ แล้วตรวจราคา/จำนวนสั่งซื้อจริง", "hint")
         info.setWordWrap(True)
         actions.addStretch()
@@ -932,6 +936,8 @@ class BOMWindow(QMainWindow):
         actions.addWidget(self.purchase_total)
         body.addLayout(actions)
         body.addWidget(info)
+        self.purchase_progress_label = self._label("กำลังสรุปสถานะจัดซื้อ…", "caption")
+        body.addWidget(self.purchase_progress_label)
         section = self._table_panel(body, "Purchase Orders / รายการสั่งซื้อ")
         self.purchase_table = self._table(
             ["BOM ID", "รายการ", "ผู้ขาย", "จำนวน", "ราคา/หน่วย", "ยอดรวม", "สถานะ", "PO", "กำหนดรับ"], 1)
@@ -990,7 +996,8 @@ class BOMWindow(QMainWindow):
         row.addWidget(self._button("โหลดข้อมูลล่าสุด", self.load_remote))
         row.addWidget(self._button("บันทึก GitHub", self.save_remote))
         row.addWidget(self._button("ตั้งค่า Token", self.configure_token))
-        row.addWidget(self._button("ประวัติการแก้ไข", self.show_history))
+        row.addWidget(self._button("ประวัติ / กู้คืน", self.show_history))
+        row.addWidget(self._button("เปรียบเทียบข้อมูล", self.reconcile_remote))
         group.addLayout(row)
         sync_settings = QHBoxLayout()
         self.auto_sync_toggle = QCheckBox("Auto Save ไป GitHub เมื่อแก้ไขรายการ")
@@ -1018,6 +1025,8 @@ class BOMWindow(QMainWindow):
             row.addWidget(self._button(title,
                                        lambda _checked=False, k=kind: self.export(k)))
         row.addWidget(self._button("นำเข้า JSON Backup", self.import_backup))
+        row.addWidget(self._button("นำเข้า Excel (.xlsx)", self.import_excel))
+        row.addWidget(self._button("ตรวจสอบ BOM", self.validate_bom))
         row.addWidget(self._button("เปิดโฟลเดอร์ฉบับร่าง", self.open_cache_dir))
         group.addLayout(row)
         group.addWidget(self._label(
@@ -1382,6 +1391,12 @@ class BOMWindow(QMainWindow):
         self.purchase_table.clearSelection()
         total = bom_core.metrics(self.payload)["purchase_total"]
         self.purchase_total.setText(f"ยอดรวมที่มีราคา: ฿ {money(total)}")
+        info = bom_advanced.purchase_progress(self.payload)
+        remaining = sum(1 for q in info["remaining_to_order"].values() if q > 0)
+        self.purchase_progress_label.setText(
+            f"สั่งครบ {info['ordered_lines']}/{info['lines']} รายการ   •   "
+            f"รับครบ {info['received_lines']}/{info['lines']} รายการ   •   "
+            f"ยังสั่งไม่ครบ {remaining} รายการ")
 
     @staticmethod
     def _fill_table(table, rows, keys):
@@ -1622,6 +1637,13 @@ class BOMWindow(QMainWindow):
                     raise bom_core.DataError("ต้องกรอกชื่ออุปกรณ์ที่สั่งซื้อ")
                 values["qty"] = bom_core.valid_qty(values["qty"])
                 values["unitPrice"] = bom_core.valid_price(values["unitPrice"])
+                if values.get("receivedQty"):
+                    received = bom_core.decimal_or_none(values["receivedQty"])
+                    if received > bom_core.decimal_or_none(values["qty"]):
+                        raise bom_core.DataError("จำนวนรับจริงต้องไม่มากกว่าจำนวนสั่ง")
+                    values["receivedQty"] = float(received)
+                else:
+                    values["receivedQty"] = None
                 if values.get("dueDate"):
                     datetime.strptime(values["dueDate"], "%Y-%m-%d")
         except (ValueError, bom_core.DataError) as exc:
