@@ -252,7 +252,7 @@ class BOMWindow(QMainWindow):
         self.cancel_download = threading.Event()
         self.cache_path = self._cache_path()
         self.nav_buttons = []
-        self.last_git_ok = False
+        self.last_git_ok = None
         self._make_ui()
         self._read_cache()
         self.render_all()
@@ -615,6 +615,7 @@ class BOMWindow(QMainWindow):
             "dirty": self.dirty,
             "remote_loaded": self.sha is not None,
             "github_token_present": bool(self.token),
+            "github_connected": self.last_git_ok,
         }
 
     def refresh_diagnostics(self):
