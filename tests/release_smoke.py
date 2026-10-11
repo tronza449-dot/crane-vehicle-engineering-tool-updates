@@ -74,9 +74,11 @@ try:
     # Simulate a real user unchecking the battery link and typing a value.
     w.slopeScroll.verticalScrollBar().setValue(0)
     QApplication.processEvents()
+    print("CHECKBOX_GEO",w.rampUseMainMass.width(),w.rampUseMainMass.sizeHint().width(),
+          "checked",w.rampUseMainMass.isChecked(),"enabled",w.rampUseMainMass.isEnabled(),flush=True)
     QTest.mouseClick(w.rampUseMainMass,Qt.LeftButton)
     QApplication.processEvents()
-    assert not w.rampUseMainMass.isChecked()
+    assert not w.rampUseMainMass.isChecked(), "Main Battery checkbox must respond to a mouse click on its center"
     assert w.rampMass.isEnabled()
     field=w.rampRiseCm.lineEdit()
     QTest.mouseClick(field,Qt.LeftButton)
