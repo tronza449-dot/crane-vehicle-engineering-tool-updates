@@ -1,3 +1,12 @@
+## V53.8.78 — Battery PDF report: Thai Step 5 reading and corrected Step 6 BMS substitutions
+
+- STEP 5: Replace a vague description with the literal Thai reading of `E_total = E_drive,cycle × N_cycle + P_aux × t_runtime` and explain the meaning of complete round trips versus auxiliary power for all runtime hours.
+- Use HTML subscript notation for Step 5–6 formulas so exported PDF symbols are easier to read.
+- STEP 6: Correct the displayed BMS Continuous and Peak formulas to explicitly include `I_aux`. Previous report could incorrectly show `max(4.02,0) = 4.71 A` and `max(4.71,4.37) = 5.06 A` despite calculations having added auxiliary current.
+- Add a short warning that modeled peak is not a measured starting/stall transient.
+- **No calculation policy or battery-cycle counting changes**; this is a PDF presentation/formula traceability fix.
+- Add a release smoke regression for Thai Step 5 and exact Step 6 numeric substitutions.
+
 ## V53.8.77 — Fix inconsistent BMS current checks found during formula audit
 
 - Main 72 V BMS Continuous and modeled Peak checks now use the **same reference** as Battery Selection, including simultaneously active auxiliary current.
