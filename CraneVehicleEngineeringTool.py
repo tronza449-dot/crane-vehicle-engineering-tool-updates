@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.68"
+APP_VERSION = "53.8.69"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -11414,7 +11414,13 @@ void loop() {{
             row=(i//2)*2
             field.setMinimumWidth(135);field.setMaximumWidth(230)
             field.setMinimumHeight(37)
-            field.setButtonSymbols(QAbstractSpinBox.NoButtons)
+            field.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
+            # Explicit foreground prevents blank numeric input text on some
+            # Windows DPI / Qt stylesheet combinations.
+            field.setStyleSheet(
+                "QDoubleSpinBox{color:#182230;background:#ffffff;font-weight:700;}"
+                "QDoubleSpinBox:disabled{color:#64748b;background:#f2f5f8;}"
+            )
             field.setAlignment(Qt.AlignLeft)
             tag=QLabel(label)
             tag.setWordWrap(True)
@@ -11505,7 +11511,13 @@ void loop() {{
             tag.setStyleSheet("color:#344054;font-size:10pt;font-weight:700;")
             field.setMinimumWidth(135);field.setMaximumWidth(210)
             field.setMinimumHeight(37);field.setAlignment(Qt.AlignLeft)
-            field.setButtonSymbols(QAbstractSpinBox.NoButtons)
+            field.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
+            # Explicit foreground prevents blank numeric input text on some
+            # Windows DPI / Qt stylesheet combinations.
+            field.setStyleSheet(
+                "QDoubleSpinBox{color:#182230;background:#ffffff;font-weight:700;}"
+                "QDoubleSpinBox:disabled{color:#64748b;background:#f2f5f8;}"
+            )
             df.addWidget(tag,row,column)
             df.addWidget(field,row+1,column,Qt.AlignLeft)
             df.setColumnStretch(column,1)
@@ -11677,7 +11689,19 @@ void loop() {{
 
 
     def make_fbd(self):
-        w=QWidget();self.fbdPage=w; l=QVBoxLayout(w);l.setContentsMargins(8,7,8,8);l.setSpacing(7)
+        w=QWidget();self.fbdPage=w
+        outer=QVBoxLayout(w);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
+        # Interactive FBD must never shrink under its explanatory panels.
+        # The full diagram and notes scroll together on laptop displays.
+        self.fbdScroll=QScrollArea(w)
+        self.fbdScroll.setObjectName("fbdScrollArea")
+        self.fbdScroll.setWidgetResizable(True)
+        self.fbdScroll.setFrameShape(QFrame.NoFrame)
+        self.fbdScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.fbdScroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        outer.addWidget(self.fbdScroll)
+        fbdContent=QWidget()
+        l=QVBoxLayout(fbdContent);l.setContentsMargins(8,8,8,14);l.setSpacing(10)
         top=QGridLayout();top.setHorizontalSpacing(7);top.setVerticalSpacing(6)
 
         self.fbdModeCombo=QComboBox()
@@ -11739,7 +11763,9 @@ void loop() {{
         l.addLayout(top)
 
         self.forceDiagram=ForceDiagram(self);self.forceDiagram.setSimpleMode(True)
-        l.addWidget(self.forceDiagram,1)
+        self.forceDiagram.setMinimumHeight(525)
+        self.forceDiagram.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.MinimumExpanding)
+        l.addWidget(self.forceDiagram)
 
         self.fbdContextNote=QLabel()
         self.fbdContextNote.setWordWrap(True)
@@ -11775,6 +11801,8 @@ Current Angle Snapshot ≠ Critical Case: ตัวเลขจะตรงก�
         self.fbdModeCombo.currentIndexChanged.connect(lambda _i:self.update_auto_fbd())
         self.fbdViewMode.currentIndexChanged.connect(lambda _i:self.update_auto_fbd())
         self.fbdSimple.toggled.connect(self.forceDiagram.setSimpleMode)
+        l.addStretch(1)
+        self.fbdScroll.setWidget(fbdContent)
         self.tabs.addTab(w,"3. FBD / แผนภาพแรง")
         self.update_auto_fbd()
 
