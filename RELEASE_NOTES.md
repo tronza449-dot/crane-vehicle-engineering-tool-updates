@@ -1,3 +1,12 @@
+## V53.8.72 — Separate boom mass and payload in front/rear FBD
+
+- Treat `m_B` as the boom/arm mass (20 kg in the reference input), applied at the boom midpoint; `m_L` is the carried load, applied at the hook position.
+- Add a clearly labeled boom-profile schematic in the FBD inset with distinct downward weight arrows for arm and payload.
+- Keep the true longitudinal x-projection in the main force diagram: when the boom points sideways at ±90°, both weights project onto the same x line and must NOT be drawn at invented longitudinal lever arms.
+- Label the mast/base mass as part of the remaining vehicle mass `W_V` under the current lumped-mass model; a separate actual mast/base mass and CG input is not yet introduced.
+- Fix rear overturning/resisting captions and preserve numerical tipping moments/SF.
+- Expand release smoke tests to check both the front separated arrows and rear coincident projection.
+
 ## V53.8.69 — Engineering FBD readability and Slope number fields
 
 - **Engineering FBD:** prevent force diagram being squeezed under convention/help panels at laptop resolutions; move the whole page inside a vertical scrolling workspace and reserve 525px minimum height for the diagram.
