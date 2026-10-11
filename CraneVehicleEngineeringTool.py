@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.60"
+APP_VERSION = "53.8.61"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -11307,28 +11307,29 @@ void loop() {{
             ("ความยาวทฤษฎี","slopeSummaryLength"),
             ("ผลต่างจากที่วัด","slopeSummaryDifference"),
         ]
-        for column,(name,attr) in enumerate(metric_specs):
+        for i,(name,attr) in enumerate(metric_specs):
+            column=i%2
+            row=(i//2)*2
             header=QLabel(name)
             header.setStyleSheet("color:#52677e;font-weight:700;font-size:9.6pt;")
             value=QLabel("—")
             value.setObjectName(attr)
             value.setStyleSheet("color:#175cd3;font-weight:900;font-size:14pt;")
             setattr(self,attr,value)
-            sm.addWidget(header,0,column)
-            sm.addWidget(value,1,column)
+            sm.addWidget(header,row,column)
+            sm.addWidget(value,row+1,column)
             sm.setColumnStretch(column,1)
         l.addWidget(summary)
 
         geom=QGroupBox("01  RAMP GEOMETRY  /  ขนาดและมุมทางลาด")
-        gl=QHBoxLayout(geom)
-        gl.setContentsMargins(16,24,16,14);gl.setSpacing(18)
-        left=QWidget();left.setMinimumWidth(280);left.setMaximumWidth(375)
-        ll=QVBoxLayout(left);ll.setContentsMargins(0,0,0,0);ll.setSpacing(11)
-        gf=QFormLayout()
-        gf.setLabelAlignment(Qt.AlignLeft|Qt.AlignVCenter)
-        gf.setFormAlignment(Qt.AlignTop)
-        gf.setHorizontalSpacing(10);gf.setVerticalSpacing(9)
-        gf.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
+        # Stack inputs above results: avoids hidden right-hand content at
+        # 1024px when the navigation sidebar and Windows scaling consume width.
+        gl=QVBoxLayout(geom)
+        gl.setContentsMargins(16,24,16,14);gl.setSpacing(12)
+        left=QWidget()
+        ll=QVBoxLayout(left);ll.setContentsMargins(0,0,0,0);ll.setSpacing(10)
+        gf=QGridLayout()
+        gf.setHorizontalSpacing(20);gf.setVerticalSpacing(8)
 
         self.rampRiseCm=spin(55,0,10000,.1,1)
         self.rampRunCm=spin(280,.1,100000,.1,1)
@@ -11337,20 +11338,24 @@ void loop() {{
         self.rampUseMainMass=QCheckBox("ใช้มวลจาก Main Battery 72 V")
         self.rampUseMainMass.setChecked(True)
 
-        for label,field in [
+        for i,(label,field) in enumerate([
             ("ความสูง h (cm)",self.rampRiseCm),
             ("ระยะราบ x (cm)",self.rampRunCm),
             ("ระยะลาดที่วัด (cm)",self.rampMeasuredCm),
             ("มวลรถ m (kg)",self.rampMass),
-        ]:
-            field.setMinimumWidth(135);field.setMaximumWidth(170)
+        ]):
+            column=i%2
+            row=(i//2)*2
+            field.setMinimumWidth(135);field.setMaximumWidth(230)
             field.setMinimumHeight(37)
             field.setButtonSymbols(QAbstractSpinBox.NoButtons)
-            field.setAlignment(Qt.AlignRight)
+            field.setAlignment(Qt.AlignLeft)
             tag=QLabel(label)
             tag.setWordWrap(True)
             tag.setStyleSheet("font-size:10pt;color:#344054;font-weight:700;")
-            gf.addRow(tag,field)
+            gf.addWidget(tag,row,column)
+            gf.addWidget(field,row+1,column,Qt.AlignLeft)
+            gf.setColumnStretch(column,1)
         ll.addLayout(gf)
         ll.addWidget(self.rampUseMainMass)
 
@@ -11363,7 +11368,7 @@ void loop() {{
         )
         ll.addWidget(self.rampSourceInfo)
         ll.addStretch(1)
-        gl.addWidget(left,0,Qt.AlignTop)
+        gl.addWidget(left)
 
         self.rampGeomOut=QTextEdit()
         self.rampGeomOut.setReadOnly(True)
@@ -11373,7 +11378,7 @@ void loop() {{
             "QTextEdit{font-size:10.8pt;background:#ffffff;"
             "border:1px solid #dde5ef;border-radius:8px;padding:11px;}"
         )
-        gl.addWidget(self.rampGeomOut,1)
+        gl.addWidget(self.rampGeomOut)
         l.addWidget(geom)
 
         actions=QGroupBox("02  ACTIONS  /  นำผลคำนวณไปใช้")
