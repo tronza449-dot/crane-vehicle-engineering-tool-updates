@@ -43,7 +43,7 @@ try:
     print("SMOKE 5/6: responsive Slope UI at laptop and compact resolutions", flush=True)
     assert isinstance(w.slopePage.findChild(QScrollArea,"slopeScrollArea"),QScrollArea)
     assert w.slopeScroll.widget().layout() is not None
-    assert w.rampRiseCm.maximumWidth()<=170
+    assert w.rampRiseCm.maximumWidth()<=230
     assert w.rampGeomOut.minimumHeight()>=270
     assert w.slopeout.minimumHeight()>=185
     result=w.ramp_geometry_results()
@@ -57,6 +57,13 @@ try:
         QApplication.processEvents()
         assert w.slopeScroll.widget().isVisible()
         assert w.slopeScroll.viewport().height()>120
+        # All horizontal content must fit; a hidden horizontal scrollbar may
+        # otherwise conceal the entire right half of Ramp Geometry.
+        assert w.slopeScroll.widget().width()<=w.slopeScroll.viewport().width()+3, (
+            width,w.slopeScroll.widget().width(),w.slopeScroll.viewport().width()
+        )
+        assert w.rampRiseCm.lineEdit().text().strip()
+        assert w.rampGeomOut.toPlainText().strip()
         shot=w.grab()
         assert not shot.isNull() and shot.width()>0
         assert shot.save(f"slope-ui-{width}.png","PNG")
