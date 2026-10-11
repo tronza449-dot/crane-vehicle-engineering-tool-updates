@@ -7806,7 +7806,8 @@ void loop() {{
         if not spec:return
         attr,unit,lo,hi,step,impact=spec
         field=getattr(self,attr)
-        cur=float(field.value())
+        # Show the currently loaded real design, not a stale scenario editor value.
+        cur=float(self._live_what_if_baseline().get(key,field.value()))
         q=self.whatIfQuickValue
         q.blockSignals(True);q.setRange(lo,hi);q.setSingleStep(step)
         q.setDecimals(2 if unit in ("kg","deg","km/h") else 3);q.setValue(cur);q.blockSignals(False)
@@ -8399,6 +8400,12 @@ void loop() {{
     def update_project_tools(self):
         if not hasattr(self,"projectTabs"):return
         self.update_input_source_indicators()
+        if hasattr(self,"whatIfQuickCurrent") and hasattr(self,"whatIfQuickParam"):
+            key=self.whatIfQuickParam.currentData()
+            live=self._live_what_if_baseline()
+            if key in live:
+                unit=self._simple_what_if_spec().get(key,("", "",0,0,0,""))[1]
+                self.whatIfQuickCurrent.setText(f"{live[key]:.2f} {unit}")
         try:
             self.update_motor_operating()
             if hasattr(self,"bmsView"):self.bmsView.setHtml(self.bms_check_html())
