@@ -11,6 +11,12 @@ on:
 permissions:
   contents: write
 
+# Never publish two versions simultaneously; overlapping V53.8.65/V53.8.66
+# releases previously caused git rebase conflicts in latest.json and the ISS file.
+concurrency:
+  group: crane-vehicle-engineering-windows-release
+  cancel-in-progress: false
+
 jobs:
   build-release:
     runs-on: windows-latest
