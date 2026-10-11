@@ -135,6 +135,53 @@ try:
         QApplication.processEvents()
         assert w.grab().save(f"fbd-ui-bottom-{width}.png","PNG")
         w.fbdScroll.verticalScrollBar().setValue(0)
+
+    print("SMOKE: geometry FBD direct rendering regression (6 cases × 2 sizes)", flush=True)
+    # Call the actual painter methods, so Python exceptions from QPaintEvent cannot be swallowed by Qt.
+    from PySide6.QtGui import QImage, QPainter
+    fd=cvet.ForceDiagram(w)
+    d=w.inputs()
+    original_txt=fd.txt
+    recorded=[]
+    def tracking_txt(p,x,y,value,*args,**kwargs):
+        recorded.append(str(value))
+        return original_txt(p,x,y,value,*args,**kwargs)
+    fd.txt=tracking_txt
+    cases_render=[
+        ("geometry",0,90.0),
+        ("left",1,-90.0),
+        ("right",2,90.0),
+        ("front",3,0.0),
+        ("rear",4,-90.0),
+        ("slope",5,None),
+    ]
+    for width,height in ((1180,760),(920,590)):
+        fd.resize(width,height)
+        for name,mode,angle in cases_render:
+            fd.setCaseAngle(angle)
+            fd.setMode(mode)
+            recorded.clear()
+            picture=QImage(width,height,QImage.Format_ARGB32_Premultiplied)
+            picture.fill(Qt.white)
+            painter=QPainter(picture)
+            assert painter.isActive(), "FBD QPainter initialization failed"
+            try:
+                if mode==0:fd.geometry(painter,d)
+                elif mode==1:fd.side(painter,d,"left")
+                elif mode==2:fd.side(painter,d,"right")
+                elif mode==3:fd.longitudinal(painter,d,"front")
+                elif mode==4:fd.longitudinal(painter,d,"rear")
+                else:fd.slope(painter,d)
+            finally:
+                painter.end()
+            if mode==0:
+                assert any("Right tipping axis (+y)" in x for x in recorded), "Top view +y axis label wrong"
+                assert any("Left tipping axis (-y)" in x for x in recorded), "Top view -y axis label wrong"
+            if mode in (1,2,3,4):
+                assert any("R_opp → 0 at tipping" in x for x in recorded), "Missing limit-state reaction note"
+                assert any("CRANE PLAN VIEW" in x for x in recorded), "Missing crane plan-view inset"
+            assert picture.save(f"fbd-engineering-{name}-{width}.png","PNG"), name
+    fd.deleteLater()
     print("SMOKE 6/6: close safely", flush=True)
 finally:
     w.close()
