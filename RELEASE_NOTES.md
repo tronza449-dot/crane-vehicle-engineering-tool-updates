@@ -1,3 +1,13 @@
+## V53.8.59 — Reliable Windows build and visible update progress
+
+- Fix repeated GitHub Actions cancellations: remove the long-running full regression from the release-blocking pipeline.
+- Add fast syntax, desktop startup, engineering and update-UI smoke checks before packaging.
+- Preserve the complete regression in tests/full_regression.py and a separate Deep Engineering Regression workflow, run after successful release or manually.
+- Add a timeout and step-by-step logs so a stuck test is reported clearly.
+- Update screen shows a prominent progress bar, live percent, stage name, and downloaded MB.
+- Hide Hardware I/O from the visible Home, side navigation, telemetry shortcuts and main routing, retaining internal compatibility for project saves.
+- Carry forward compact UI fixes for Stability, Slope and Engineering FBD.
+
 ## V53.8.53 — Stability UI cleanup + Hardware I/O removed
 
 - ใช้ V53.8.52 ล่าสุดจาก main เป็นฐานแก้ไข
