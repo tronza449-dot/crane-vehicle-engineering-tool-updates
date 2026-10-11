@@ -49,9 +49,17 @@ jobs:
       - name: Validate Python and JavaScript syntax
         shell: pwsh
         run: |
-          python -m py_compile CraneVehicleEngineeringTool.py cloud_sync.py web_engine.py web_server.py web_launcher.py tests/release_smoke.py tests/full_regression.py
+          python -m py_compile CraneVehicleEngineeringTool.py cloud_sync.py web_engine.py web_server.py web_launcher.py tests/release_smoke.py tests/full_regression.py tests/formula_audit.py
           node --check web/app.js
           Write-Host "SYNTAX_OK"
+
+      - name: Engineering formula invariants and independent reference calculations
+        shell: pwsh
+        timeout-minutes: 2
+        run: |
+          $env:PYTHONPATH=(Get-Location).Path
+          python -u tests/formula_audit.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Desktop startup and engineering release smoke
         shell: pwsh
