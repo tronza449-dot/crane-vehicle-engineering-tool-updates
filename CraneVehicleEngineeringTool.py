@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.59"
+APP_VERSION = "53.8.60"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -51,7 +51,7 @@ def resource_path(relative_path):
     return base / relative_path
 
 APP_STYLE = """
-/* ==================== V53.8.56 CLEAN / MODERN UI ==================== */
+/* ==================== V53.8.60 CLEAN / MODERN UI ==================== */
 QMainWindow { background:#f7f8fa; }
 QWidget { color:#182230; }
 QLabel { color:#344054; font-size:10.4pt; }
@@ -11268,39 +11268,120 @@ void loop() {{
         self.th.setValue(v)
 
     def make_slope(self):
-        w=QWidget();self.slopePage=w
-        l=QVBoxLayout(w);l.setContentsMargins(8,7,8,8);l.setSpacing(7)
+        """Readable, scrolling Ramp + driving-stability workspace (V53.8.60).
 
-        geom=QGroupBox("RAMP GEOMETRY / คำนวณองศาและเปอร์เซ็นต์ความชันจากค่าที่วัดจริง")
+        Long reports must scroll instead of compressing the input controls at
+        1024x650 or when Windows display scaling is above 100%.
+        """
+        w=QWidget();self.slopePage=w
+        outer=QVBoxLayout(w);outer.setContentsMargins(0,0,0,0);outer.setSpacing(0)
+
+        self.slopeScroll=QScrollArea(w)
+        self.slopeScroll.setObjectName("slopeScrollArea")
+        self.slopeScroll.setWidgetResizable(True)
+        self.slopeScroll.setFrameShape(QFrame.NoFrame)
+        self.slopeScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.slopeScroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        outer.addWidget(self.slopeScroll)
+
+        content=QWidget()
+        content.setObjectName("slopeWorkspace")
+        self.slopeScroll.setWidget(content)
+        l=QVBoxLayout(content);l.setContentsMargins(14,12,14,20);l.setSpacing(12)
+
+        intro=QLabel("ข้อมูลทางลาดและเสถียรภาพขณะขึ้นทางลาด")
+        intro.setStyleSheet("color:#17324d;font-size:13pt;font-weight:850;")
+        l.addWidget(intro)
+
+        # Live summary stays visible near the input instead of hiding key
+        # answers deep inside the multi-page calculation report.
+        summary=QFrame();summary.setObjectName("slopeSummaryStrip")
+        summary.setStyleSheet(
+            "QFrame#slopeSummaryStrip{background:#f5f9ff;"
+            "border:1px solid #cfe0f5;border-radius:10px;}"
+        )
+        sm=QGridLayout(summary)
+        sm.setContentsMargins(14,10,14,10);sm.setHorizontalSpacing(18);sm.setVerticalSpacing(2)
+        metric_specs=[
+            ("มุมทางลาด","slopeSummaryAngle"),
+            ("ความชัน","slopeSummaryPercent"),
+            ("ความยาวทฤษฎี","slopeSummaryLength"),
+            ("ผลต่างจากที่วัด","slopeSummaryDifference"),
+        ]
+        for column,(name,attr) in enumerate(metric_specs):
+            header=QLabel(name)
+            header.setStyleSheet("color:#52677e;font-weight:700;font-size:9.6pt;")
+            value=QLabel("—")
+            value.setObjectName(attr)
+            value.setStyleSheet("color:#175cd3;font-weight:900;font-size:14pt;")
+            setattr(self,attr,value)
+            sm.addWidget(header,0,column)
+            sm.addWidget(value,1,column)
+            sm.setColumnStretch(column,1)
+        l.addWidget(summary)
+
+        geom=QGroupBox("01  RAMP GEOMETRY  /  ขนาดและมุมทางลาด")
         gl=QHBoxLayout(geom)
+        gl.setContentsMargins(16,24,16,14);gl.setSpacing(18)
+        left=QWidget();left.setMinimumWidth(280);left.setMaximumWidth(375)
+        ll=QVBoxLayout(left);ll.setContentsMargins(0,0,0,0);ll.setSpacing(11)
         gf=QFormLayout()
+        gf.setLabelAlignment(Qt.AlignLeft|Qt.AlignVCenter)
+        gf.setFormAlignment(Qt.AlignTop)
+        gf.setHorizontalSpacing(10);gf.setVerticalSpacing(9)
+        gf.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
+
         self.rampRiseCm=spin(55,0,10000,.1,1)
         self.rampRunCm=spin(280,.1,100000,.1,1)
         self.rampMeasuredCm=spin(290,0,100000,.1,1)
         self.rampMass=spin(300,0,5000,1,1)
         self.rampUseMainMass=QCheckBox("ใช้มวลจาก Main Battery 72 V")
         self.rampUseMainMass.setChecked(True)
-        for lab,q in [
+
+        for label,field in [
             ("ความสูง h (cm)",self.rampRiseCm),
             ("ระยะราบ x (cm)",self.rampRunCm),
-            ("ความยาวทางลาดที่วัดได้ (cm)",self.rampMeasuredCm),
-            ("มวลสำหรับคำนวณ F_slope (kg)",self.rampMass),
+            ("ระยะลาดที่วัด (cm)",self.rampMeasuredCm),
+            ("มวลรถ m (kg)",self.rampMass),
         ]:
-            q.setMinimumWidth(150);gf.addRow(lab,q)
-        gf.addRow(self.rampUseMainMass)
-        self.rampSourceInfo=QLabel();self.rampSourceInfo.setWordWrap(True)
-        self.rampSourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
-        gf.addRow(self.rampSourceInfo)
-        gl.addLayout(gf,1)
+            field.setMinimumWidth(135);field.setMaximumWidth(170)
+            field.setMinimumHeight(37)
+            field.setButtonSymbols(QAbstractSpinBox.NoButtons)
+            field.setAlignment(Qt.AlignRight)
+            tag=QLabel(label)
+            tag.setWordWrap(True)
+            tag.setStyleSheet("font-size:10pt;color:#344054;font-weight:700;")
+            gf.addRow(tag,field)
+        ll.addLayout(gf)
+        ll.addWidget(self.rampUseMainMass)
 
-        self.rampGeomOut=QTextEdit();self.rampGeomOut.setReadOnly(True)
-        self.rampGeomOut.setMinimumHeight(220)
-        self.rampGeomOut.setStyleSheet("font-size:11pt;background:white")
-        gl.addWidget(self.rampGeomOut,2)
+        self.rampSourceInfo=QLabel()
+        self.rampSourceInfo.setWordWrap(True)
+        self.rampSourceInfo.setMinimumHeight(52)
+        self.rampSourceInfo.setStyleSheet(
+            "QLabel{background:#f4f8fc;border:1px solid #d9e4ec;"
+            "border-radius:8px;padding:8px;color:#40566b;font-size:9.4pt;}"
+        )
+        ll.addWidget(self.rampSourceInfo)
+        ll.addStretch(1)
+        gl.addWidget(left,0,Qt.AlignTop)
+
+        self.rampGeomOut=QTextEdit()
+        self.rampGeomOut.setReadOnly(True)
+        self.rampGeomOut.setMinimumHeight(270)
+        self.rampGeomOut.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
+        self.rampGeomOut.setStyleSheet(
+            "QTextEdit{font-size:10.8pt;background:#ffffff;"
+            "border:1px solid #dde5ef;border-radius:8px;padding:11px;}"
+        )
+        gl.addWidget(self.rampGeomOut,1)
         l.addWidget(geom)
 
-        btnrow=QGridLayout();btnrow.setHorizontalSpacing(8);btnrow.setVerticalSpacing(6)
-        self.rampCalcButton=QPushButton("คำนวณ Ramp Geometry")
+        actions=QGroupBox("02  ACTIONS  /  นำผลคำนวณไปใช้")
+        actionsLayout=QGridLayout(actions)
+        actionsLayout.setContentsMargins(16,23,16,12)
+        actionsLayout.setHorizontalSpacing(10);actionsLayout.setVerticalSpacing(8)
+        self.rampCalcButton=QPushButton("คำนวณทางลาดใหม่")
         self.rampCalcButton.setObjectName("primaryButton")
         self.rampCalcButton.clicked.connect(
             lambda:self._run_button_action(
@@ -11308,46 +11389,75 @@ void loop() {{
                 "กำลังคำนวณ...","คำนวณเสร็จ ✓"
             )
         )
-        self.rampApplyAngleButton=QPushButton("ใช้มุมนี้กับ Torque + Main Battery + Stability")
+        self.rampApplyAngleButton=QPushButton("ใช้มุมกับ Torque / Battery / Stability")
         self.rampApplyAngleButton.clicked.connect(
             lambda:self._run_button_action(
                 self.rampApplyAngleButton,self.apply_ramp_angle_to_project,
                 "กำลังใช้ค่า...","ใช้มุมแล้ว ✓"
             )
         )
-        self.rampApplyLengthButton=QPushButton("ใช้ L ทฤษฎีกับ Slope Length ใน Main Battery")
+        self.rampApplyLengthButton=QPushButton("ส่งระยะลาดไป Battery")
         self.rampApplyLengthButton.clicked.connect(
             lambda:self._run_button_action(
                 self.rampApplyLengthButton,self.apply_ramp_length_to_battery,
-                "กำลังใช้ค่า...","ใช้ระยะแล้ว ✓"
+                "กำลังใช้ระยะ...","ใช้ระยะแล้ว ✓"
             )
         )
-        btnrow.addWidget(self.rampCalcButton,0,0);btnrow.addWidget(self.rampApplyAngleButton,0,1)
-        btnrow.addWidget(self.rampApplyLengthButton,1,0)
-        exportSlope=QPushButton("Export Slope PDF / ส่งออกทางลาด")
-        exportSlope.setObjectName("primaryButton")
+        exportSlope=QPushButton("Export Slope PDF")
+        exportSlope.setObjectName("secondaryButton")
         exportSlope.clicked.connect(lambda:self.export_stability_mode_pdf("slope"))
-        btnrow.addWidget(exportSlope,1,1)
-        btnrow.setColumnStretch(0,1);btnrow.setColumnStretch(1,1)
-        l.addLayout(btnrow)
+        for col,button in enumerate((self.rampCalcButton,self.rampApplyAngleButton,
+                                     self.rampApplyLengthButton,exportSlope)):
+            button.setMinimumHeight(40)
+            button.setToolTip(button.text())
+            actionsLayout.addWidget(button,col//2,col%2)
+        actionsLayout.setColumnStretch(0,1);actionsLayout.setColumnStretch(1,1)
+        l.addWidget(actions)
 
-        g=QGroupBox("UPHILL DRIVING STABILITY / เสถียรภาพขณะรถวิ่งขึ้นทางลาด")
-        f=QFormLayout(g)
-        self.slope=spin(19,0,45,.01,2);self.hcg=spin(.55,.05,3,.05);self.acc=spin(.278,0,5,.05,3)
-        for a,b in [
-            ("Slope angle α / มุมทางลาด (deg)",self.slope),
-            ("Combined CG height hCG / ความสูง CG รวม (m)",self.hcg),
-            ("Acceleration a / ความเร่งรถ (m/s²)",self.acc)
-        ]:
-            f.addRow(a,b);b.valueChanged.connect(self.calc_all)
-        self.slopeSourceInfo=QLabel();self.slopeSourceInfo.setWordWrap(True)
-        self.slopeSourceInfo.setStyleSheet("background:#f8fbfd;border:1px solid #d9e4ec;border-radius:8px;padding:8px;color:#40566b")
-        f.addRow(self.slopeSourceInfo)
-        l.addWidget(g)
+        drive=QGroupBox("03  UPHILL STABILITY  /  ค่าที่ใช้วิเคราะห์การคว่ำ")
+        df=QGridLayout(drive);df.setContentsMargins(16,24,16,14)
+        df.setHorizontalSpacing(16);df.setVerticalSpacing(8)
+        self.slope=spin(19,0,45,.01,2)
+        self.hcg=spin(.55,.05,3,.05)
+        self.acc=spin(.278,0,5,.05,3)
+        for column,(label,field) in enumerate((
+            ("มุมทางลาด α (deg)",self.slope),
+            ("ความสูง CG รวม hCG (m)",self.hcg),
+            ("ความเร่งรถ a (m/s²)",self.acc),
+        )):
+            tag=QLabel(label);tag.setWordWrap(True)
+            tag.setStyleSheet("color:#344054;font-size:10pt;font-weight:700;")
+            field.setMinimumWidth(135);field.setMaximumWidth(210)
+            field.setMinimumHeight(37);field.setAlignment(Qt.AlignRight)
+            field.setButtonSymbols(QAbstractSpinBox.NoButtons)
+            df.addWidget(tag,0,column)
+            df.addWidget(field,1,column,Qt.AlignLeft)
+            df.setColumnStretch(column,1)
+            field.valueChanged.connect(self.calc_all)
+        self.slopeSourceInfo=QLabel()
+        self.slopeSourceInfo.setWordWrap(True)
+        self.slopeSourceInfo.setMinimumHeight(50)
+        self.slopeSourceInfo.setStyleSheet(
+            "QLabel{background:#f4f8fc;border:1px solid #d9e4ec;"
+            "border-radius:8px;padding:9px;color:#40566b;font-size:9.4pt;}"
+        )
+        df.addWidget(self.slopeSourceInfo,2,0,1,3)
+        l.addWidget(drive)
 
-        self.slopeout=QPlainTextEdit();self.slopeout.setReadOnly(True)
-        self.slopeout.setStyleSheet("font-size:12px")
-        l.addWidget(self.slopeout,1)
+        result=QGroupBox("04  RESULT  /  สรุปการคำนวณ Uphill Driving Stability")
+        resultLayout=QVBoxLayout(result)
+        resultLayout.setContentsMargins(16,24,16,14)
+        self.slopeout=QPlainTextEdit()
+        self.slopeout.setReadOnly(True)
+        self.slopeout.setMinimumHeight(185)
+        self.slopeout.setMaximumHeight(300)
+        self.slopeout.setStyleSheet(
+            "QPlainTextEdit{font-size:10.5pt;background:white;"
+            "border:1px solid #dde5ef;border-radius:8px;padding:10px;}"
+        )
+        resultLayout.addWidget(self.slopeout)
+        l.addWidget(result)
+        l.addStretch(1)
 
         for q in (self.rampRiseCm,self.rampRunCm,self.rampMeasuredCm,self.rampMass):
             q.valueChanged.connect(self.update_ramp_geometry)
@@ -11384,6 +11494,15 @@ void loop() {{
         if not hasattr(self,"rampGeomOut"):return
         self.update_input_source_indicators()
         r=self.ramp_geometry_results()
+        # Live headline metrics are updated with each input change.
+        for attr,value in (
+            ("slopeSummaryAngle",f'{r["angle"]:.2f}°'),
+            ("slopeSummaryPercent",f'{r["slope_pct"]:.2f}%'),
+            ("slopeSummaryLength",f'{r["L"]/100.0:.3f} m'),
+            ("slopeSummaryDifference",f'{r["diff_abs"]:.2f} cm'),
+        ):
+            label=getattr(self,attr,None)
+            if label is not None:label.setText(value)
         measured_angle=("—" if r["measured_angle"] is None else f'{r["measured_angle"]:.2f}°')
         self.rampGeomOut.setHtml(f"""
         <h2 style='color:#17456b'>การคำนวณองศาและความชันของทางลาด</h2>
