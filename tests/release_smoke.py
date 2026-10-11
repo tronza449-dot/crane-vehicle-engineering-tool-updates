@@ -4,6 +4,8 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM","offscreen")
 import math
 from PySide6.QtWidgets import QApplication, QPushButton, QScrollArea, QGroupBox
+from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 import CraneVehicleEngineeringTool as cvet
 
 print("SMOKE 1/5: QApplication startup", flush=True)
@@ -52,6 +54,44 @@ try:
     w.show_stability_mode()
     idx=next(i for i in range(w.stabilityTabs.count()) if w.stabilityTabs.tabText(i)=="Slope")
     w.stabilityTabs.setCurrentIndex(idx)
+    print("SMOKE: Final Design lock -> visible warning -> actual mouse click unlock", flush=True)
+    w.resize(1366,768)
+    QApplication.processEvents()
+    w.designLockButton.setChecked(True)
+    QApplication.processEvents()
+    assert not w.rampRiseCm.isEnabled() and not w.rampUseMainMass.isEnabled()
+    assert w.stabilityLockBanner.isVisible(), "User must see why inputs are disabled"
+    assert w.stabilityUnlockButton.isVisible() and w.stabilityUnlockButton.isEnabled()
+    QTest.mouseClick(w.stabilityUnlockButton,Qt.LeftButton)
+    QApplication.processEvents()
+    assert not w._design_inputs_locked(), "Click must unlock Final Design"
+    assert not w.stabilityLockBanner.isVisible()
+    assert w.rampRiseCm.isEnabled() and w.rampRunCm.isEnabled() and w.rampMeasuredCm.isEnabled()
+    assert w.rampUseMainMass.isEnabled()
+    assert w.slope.isEnabled() and w.hcg.isEnabled() and w.acc.isEnabled()
+    assert not w.rampMass.isEnabled(), "Linked mass must not appear manually editable"
+
+    # Simulate a real user unchecking the battery link and typing a value.
+    w.slopeScroll.verticalScrollBar().setValue(0)
+    QApplication.processEvents()
+    QTest.mouseClick(w.rampUseMainMass,Qt.LeftButton)
+    QApplication.processEvents()
+    assert not w.rampUseMainMass.isChecked()
+    assert w.rampMass.isEnabled()
+    field=w.rampRiseCm.lineEdit()
+    QTest.mouseClick(field,Qt.LeftButton)
+    QTest.keyClick(field,Qt.Key_A,Qt.ControlModifier)
+    QTest.keyClicks(field,"65.0")
+    QTest.keyClick(field,Qt.Key_Return)
+    QApplication.processEvents()
+    assert abs(w.rampRiseCm.value()-65.0)<0.01, "Ramp field must accept real keyboard entry"
+    assert "65.0" in w.rampGeomOut.toPlainText()
+    # Other inputs remain live when battery mass is linked again.
+    QTest.mouseClick(w.rampUseMainMass,Qt.LeftButton)
+    QApplication.processEvents()
+    assert w.rampUseMainMass.isChecked() and not w.rampMass.isEnabled()
+    assert w.rampRiseCm.isEnabled()
+
     for width,height in ((1366,768),(1024,650)):
         w.resize(width,height)
         QApplication.processEvents()
@@ -74,6 +114,11 @@ try:
         if width==1024:
             assert w.slopeScroll.verticalScrollBar().maximum()>0
 
+    w.resize(1366,768)
+    idx=next(i for i in range(w.stabilityTabs.count()) if w.stabilityTabs.tabText(i)=="Engineering FBD")
+    w.stabilityTabs.setCurrentIndex(idx)
+    QApplication.processEvents()
+    assert w.grab().save("fbd-ui-1366.png","PNG")
     print("SMOKE 6/6: close safely", flush=True)
 finally:
     w.close()
