@@ -34,6 +34,17 @@ try:
     cases=w.stability_fbd_cases()
     assert len(cases)==5, "Expected side L/R + front + rear + slope"
 
+    print("SMOKE: BMS checks use consistent auxiliary-inclusive current references",flush=True)
+    bms=w.battery_selection_results()
+    rows=w.design_check_rows()
+    cont=next(x for x in rows if x[0]=="Main BMS" and x[1]=="Continuous current")
+    peak=next(x for x in rows if x[0]=="Main BMS" and x[1]=="Peak current (calculated)")
+    winch_peak=next(x for x in rows if x[0]=="Winch BMS" and "Starting/stall" in x[1])
+    assert f"{bms['cont_req']:.1f} A" in cont[2],(cont,bms["cont_req"])
+    assert f"{bms['peak_calc']:.1f} A" in peak[2],(peak,bms["peak_calc"])
+    assert winch_peak[4]=="CHECK", "Missing winch starting/stall data cannot PASS"
+    html=w.bms_check_html()
+    assert "including auxiliary" in html and "stall/start surge unknown" in html
     print("SMOKE: simple What-if payload comparison after saved-state restore",flush=True)
     preserved=w.capture_project_state()
     try:
