@@ -159,6 +159,8 @@ assert web_battery["candidate"]["bms_cont_ok"] is True
 assert web_battery["candidate"]["bms_peak_model_ok"] is True
 assert web_battery["candidate"]["bms_peak_ok"] is False
 assert web_battery["peak_verified"] is False
+assert web_battery["rated_current_reference_a"] > web_battery["operating_current_a"]
+assert tuple(webcalc.STANDARD_AH)==(5,10,15,20,25,30,40,50,60,80,100,120,150,200)
 
 web_stability=webcalc.calculate_stability({
     "total_mass_kg":300.0,"payload_mass_kg":100.0,"boom_mass_kg":20.0,
