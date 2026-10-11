@@ -65,6 +65,21 @@ try:
     assert "ไม่ใช่กระแสสูงสุดจริงของมอเตอร์" in battery_html
     assert f"ceil({report_sel['cont_req']:.2f} ÷ 5) × 5 = <b>{report_sel['bms_cont']:.0f} A</b>" in battery_html
     assert f"ceil({report_sel['peak_calc']:.2f} ÷ 5) × 5 = <b>{report_sel['bms_peak']:.0f} A</b>" in battery_html
+    print("SMOKE: print STEP5/6 report to a real PDF",flush=True)
+    from pathlib import Path
+    from PySide6.QtGui import QTextDocument, QPageSize, QFont
+    from PySide6.QtPrintSupport import QPrinter
+    output_path=Path("battery-step56-smoke.pdf").resolve()
+    document=QTextDocument()
+    document.setDefaultFont(QFont("Noto Sans Thai",10))
+    document.setHtml(battery_html)
+    printer=QPrinter(QPrinter.HighResolution)
+    printer.setOutputFormat(QPrinter.PdfFormat)
+    printer.setOutputFileName(str(output_path))
+    printer.setPageSize(QPageSize(QPageSize.A4))
+    document.print_(printer)
+    pdf_content=output_path.read_bytes()
+    assert pdf_content[:5]==b"%PDF-" and len(pdf_content)>15000, "PDF report invalid or empty"
     print("SMOKE: simple What-if payload comparison after saved-state restore",flush=True)
     preserved=w.capture_project_state()
     try:
