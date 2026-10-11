@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.73"
+APP_VERSION = "53.8.74"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -13436,6 +13436,11 @@ class ForceDiagram(QWidget):
         p.setPen(QPen(QColor("#f59e0b"),5,Qt.SolidLine,Qt.RoundCap))
         p.drawLine(QPointF(mast,by+32),QPointF(mast,by))
         p.drawLine(QPointF(mast,by),QPointF(end,by))
+        # L-shaped crane is FIXED at a right angle; θ rotates in plan.
+        p.setPen(QPen(QColor("#92400e"),1.4))
+        p.drawLine(QPointF(mast+10,by),QPointF(mast+10,by+10))
+        p.drawLine(QPointF(mast+10,by+10),QPointF(mast,by+10))
+        self.txt(p,mast+14,by+21,"90°",7,True,"#92400e")
         bm=mast+(end-mast)/2
         p.setPen(QPen(QColor("#92400e"),1.5))
         p.setBrush(QColor("white"))
@@ -13456,21 +13461,25 @@ class ForceDiagram(QWidget):
         if abs(xl-xc)>=8:
             p.drawLine(QPointF(xc,boom_y),QPointF(xl,boom_y))
         else:
-            # At ±90 degrees the physical boom points sideways, out of the
-            # longitudinal elevation plane. A dashed perspective stub makes
-            # its physical presence visible WITHOUT creating a fake x lever arm.
-            # Every moment arm and weight arrow still acts at projected xb/xl.
+            # At ±90° the horizontal arm points perpendicular to this side
+            # elevation. Show a DASHED, explicitly diagrammatic L-shaped cue;
+            # NEVER use its decorative length as an actual x moment arm.
+            # The real force lines remain x_B=x_L=x_C in this view.
             p.setPen(QPen(QColor("#f59e0b"),5,Qt.DashLine,Qt.RoundCap))
-            stub_end=QPointF(xc+56,boom_y-23)
+            stub_end=QPointF(xc+56,boom_y)
             p.drawLine(QPointF(xc,boom_y),stub_end)
-            p.setPen(QPen(QColor("#b45309"),1.8))
+            p.setPen(QPen(QColor("#b45309"),1.7))
             p.setBrush(QColor("#fff7ed"))
             p.drawEllipse(stub_end,5,5)
-            # A projection symbol at the mast marks both CGs on one x line.
+            # Show the nominal right angle between the vertical column and arm.
+            corner=11
+            p.drawLine(QPointF(xc+corner,boom_y),QPointF(xc+corner,boom_y+corner))
+            p.drawLine(QPointF(xc+corner,boom_y+corner),QPointF(xc,boom_y+corner))
+            # Force projection is still through the top of the column.
             p.setBrush(Qt.NoBrush)
             p.drawEllipse(QPointF(xc,boom_y),9,9)
-            self.txt(p,xc+26,boom_y+40,
-                     "BOOM OUT OF PLANE - SKETCH ONLY",7,True,"#92400e")
+            self.txt(p,xc+66,boom_y+24,
+                     "90° TO MAST - OUT OF PLANE (SKETCH ONLY)",7,True,"#92400e")
         # Mass of boom acts at xb (its midpoint projection).
         # Mass of payload acts at xl (the hook projection). Caller draws weights.
 
