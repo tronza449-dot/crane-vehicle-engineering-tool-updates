@@ -1170,6 +1170,7 @@ class TelemetryChartWidget(QWidget):
 class App(QMainWindow):
     updateTaskFinished=Signal(object)
     updateProgressChanged=Signal(int)
+    updateStageChanged=Signal(str)
     telemetryNetworkPacket=Signal(object)
     cloudTaskFinished=Signal(object)
     def __init__(self):
@@ -1196,6 +1197,7 @@ class App(QMainWindow):
         # Built-in updater: all network/file work happens in a background thread.
         self.updateTaskFinished.connect(self._handle_update_task_result)
         self.updateProgressChanged.connect(self._set_update_progress)
+        self.updateStageChanged.connect(self._set_update_stage)
         self.pending_update_manifest=None
         self._update_busy=False
         self._update_auto_requested=False
@@ -5197,9 +5199,19 @@ void loop() {{
         uhead.addWidget(upTitle);uhead.addStretch(1);uhead.addWidget(uver);upl.addLayout(uhead)
         self.updateStatusLabel=QLabel("ตรวจเวอร์ชันใหม่จาก GitHub อัตโนมัติ")
         self.updateStatusLabel.setWordWrap(True);self.updateStatusLabel.setObjectName("mutedText")
+        progressHead=QHBoxLayout()
+        self.updateStageLabel=QLabel("พร้อมตรวจสอบอัปเดต")
+        self.updateStageLabel.setStyleSheet("color:#344054;font-size:9pt;font-weight:750;")
+        self.updateStageLabel.setWordWrap(True)
+        self.updatePercentLabel=QLabel("0%")
+        self.updatePercentLabel.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
+        self.updatePercentLabel.setMinimumWidth(44)
+        self.updatePercentLabel.setStyleSheet("color:#175cd3;font-size:9.5pt;font-weight:900;")
+        progressHead.addWidget(self.updateStageLabel,1);progressHead.addWidget(self.updatePercentLabel)
         self.updateProgress=QProgressBar();self.updateProgress.setRange(0,100);self.updateProgress.setValue(0)
-        self.updateProgress.setMaximumHeight(7);self.updateProgress.setTextVisible(False);self.updateProgress.hide()
-        upl.addWidget(self.updateStatusLabel);upl.addWidget(self.updateProgress)
+        self.updateProgress.setMinimumHeight(20);self.updateProgress.setMaximumHeight(22)
+        self.updateProgress.setTextVisible(True);self.updateProgress.setFormat("%p%")
+        upl.addWidget(self.updateStatusLabel);upl.addLayout(progressHead);upl.addWidget(self.updateProgress)
         ur=QHBoxLayout()
         checkUpdate=QPushButton("Check");checkUpdate.setObjectName("primaryButton");checkUpdate.clicked.connect(lambda:self.check_for_update(False))
         self.updateNowButton=QPushButton("Update");self.updateNowButton.setEnabled(False);self.updateNowButton.clicked.connect(self.download_pending_update)
@@ -5358,14 +5370,18 @@ void loop() {{
         color="#66788a" if ok is None else ("#176337" if ok else "#b42318")
         self.updateStatusLabel.setStyleSheet(f"color:{color};font-size:9.5pt;")
 
+    def _set_update_stage(self,text):
+        if hasattr(self,"updateStageLabel"):
+            self.updateStageLabel.setText(str(text))
+
     def _set_update_progress(self,value):
         if not hasattr(self,"updateProgress"):
             return
         value=max(0,min(100,int(value)))
         self.updateProgress.show()
         self.updateProgress.setValue(value)
-        if value>=100:
-            QTimer.singleShot(1200,self.updateProgress.hide)
+        if hasattr(self,"updatePercentLabel"):
+            self.updatePercentLabel.setText(f"{value}%")
 
     def auto_check_for_update(self):
         cfg=self.load_update_config()
@@ -5389,14 +5405,18 @@ void loop() {{
         self._update_busy=True
         self._update_auto_requested=bool(silent)
         self._set_update_status("กำลังตรวจสอบเวอร์ชันใหม่...")
+        self._set_update_stage("ขั้นตอน 1/4 • ตรวจสอบเวอร์ชันจาก GitHub")
         self._set_update_progress(5)
 
         def worker():
             errors=[]
             candidates=[]
+            self.updateProgressChanged.emit(10)
+            self.updateStageChanged.emit("ขั้นตอน 1/4 • อ่านข้อมูลเวอร์ชัน")
             # 1) User-configured source first.
             try:
                 candidates.append(self._read_update_manifest(source))
+                self.updateProgressChanged.emit(18)
             except Exception as exc:
                 errors.append(f"Configured source: {exc}")
 
@@ -5404,12 +5424,15 @@ void loop() {{
             if source != DEFAULT_UPDATE_MANIFEST_URL:
                 try:
                     candidates.append(self._read_update_manifest(DEFAULT_UPDATE_MANIFEST_URL))
+                    self.updateProgressChanged.emit(24)
                 except Exception as exc:
                     errors.append(f"Official raw: {exc}")
 
             # 3) GitHub Contents API fallback bypasses raw.githubusercontent.com/CDN issues.
+            self.updateStageChanged.emit("ขั้นตอน 1/4 • ยืนยันเวอร์ชันล่าสุด")
             try:
                 candidates.append(self._read_official_manifest_api())
+                self.updateProgressChanged.emit(30)
             except Exception as exc:
                 errors.append(f"GitHub API: {exc}")
 
@@ -5508,6 +5531,7 @@ void loop() {{
             if not result.get("ok"):
                 self.record_debug_event("ERROR","Updater check failed",{"error":result.get("error","Unknown error")})
                 self._set_update_progress(0)
+                self._set_update_stage("ตรวจสอบไม่สำเร็จ • ดูข้อความข้อผิดพลาด")
                 self._set_update_status("ตรวจสอบอัปเดตไม่สำเร็จ: "+result.get("error","Unknown error"),ok=False)
                 if not result.get("silent"):
                     QMessageBox.warning(self,"Check for Update",result.get("error","Unknown error"))
@@ -5520,7 +5544,8 @@ void loop() {{
                 self.pending_update_manifest=manifest
                 if hasattr(self,"updateNowButton"):self.updateNowButton.setEnabled(True)
                 notes=manifest.get("notes","")
-                self._set_update_progress(100)
+                self._set_update_progress(35)
+                self._set_update_stage(f"ขั้นตอน 2/4 • พบ V{latest} • พร้อมดาวน์โหลด")
                 source=manifest.get("_source",self.load_update_config().get("manifest_url",""))
                 self._set_update_status(f"มีเวอร์ชันใหม่ V{latest} • Current V{APP_VERSION}",ok=True)
                 if not result.get("silent"):
@@ -5533,6 +5558,7 @@ void loop() {{
                 self.pending_update_manifest=None
                 if hasattr(self,"updateNowButton"):self.updateNowButton.setEnabled(False)
                 self._set_update_progress(100)
+                self._set_update_stage("เสร็จแล้ว • โปรแกรมเป็นเวอร์ชันล่าสุด")
                 source=manifest.get("_source",self.load_update_config().get("manifest_url",""))
                 self._set_update_status(f"Current V{APP_VERSION} • Latest V{latest}",ok=True)
                 if not result.get("silent"):
@@ -5544,13 +5570,15 @@ void loop() {{
         elif typ=="download":
             if not result.get("ok"):
                 self.record_debug_event("ERROR","Updater download failed",{"error":result.get("error","Unknown error")})
+                self._set_update_stage("ดาวน์โหลดไม่สำเร็จ • สามารถกด Update เพื่อลองใหม่")
                 self._set_update_status("ดาวน์โหลดอัปเดตไม่สำเร็จ: "+result.get("error","Unknown error"),ok=False)
                 QMessageBox.warning(self,"Update Download",result.get("error","Unknown error"))
                 return
             path=Path(result.get("path",""))
             self.record_debug_event("INFO","Updater download completed",{"file":path.name})
             self._set_update_progress(100)
-            self._set_update_status(f"ดาวน์โหลดเสร็จแล้ว • {path.name}",ok=True)
+            self._set_update_stage("ขั้นตอน 4/4 • พร้อมติดตั้งอัปเดต")
+            self._set_update_status(f"ดาวน์โหลด + ตรวจสอบไฟล์เสร็จแล้ว • {path.name}",ok=True)
             msg=(
                 f"ดาวน์โหลดอัปเดตเรียบร้อย\\n\\n{path}\\n\\n"
                 "กด Yes เพื่อปิดโปรแกรมและเริ่มติดตั้งอัปเดต\\n"
@@ -5573,7 +5601,8 @@ void loop() {{
 
         self._update_busy=True
         self._set_update_status(f"กำลังดาวน์โหลด V{manifest.get('latest_version','')}...")
-        self._set_update_progress(2)
+        self._set_update_stage("ขั้นตอน 2/4 • กำลังดาวน์โหลดไฟล์ติดตั้ง")
+        self._set_update_progress(40)
 
         def worker():
             try:
@@ -5608,7 +5637,12 @@ void loop() {{
                             if not chunk:break
                             f.write(chunk);done+=len(chunk)
                             if total>0:
-                                self.updateProgressChanged.emit(min(95,int(done*95/total)))
+                                pct=min(95,40+int(done*55/total))
+                                self.updateProgressChanged.emit(pct)
+                                done_mb=done/(1024*1024);total_mb=total/(1024*1024)
+                                self.updateStageChanged.emit(
+                                    f"ขั้นตอน 2/4 • ดาวน์โหลด {done_mb:.1f} / {total_mb:.1f} MB"
+                                )
                     last_error=None
                     break
                 except Exception as exc:
@@ -5632,6 +5666,8 @@ void loop() {{
         if target.suffix.lower()!=".exe":
             raise ValueError("ไฟล์อัปเดตต้องเป็น .exe")
 
+        self.updateStageChanged.emit("ขั้นตอน 3/4 • ตรวจสอบความถูกต้อง SHA256")
+        self.updateProgressChanged.emit(97)
         expected=manifest.get("sha256","").strip().lower()
         if expected:
             actual=hashlib.sha256(target.read_bytes()).hexdigest().lower()
