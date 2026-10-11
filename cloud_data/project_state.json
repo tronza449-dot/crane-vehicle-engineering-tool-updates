@@ -1,14 +1,14 @@
 {
   "format": "CVETCloudProject",
   "schema_version": 1,
-  "updated_at": "2026-10-11T18:10:59+00:00",
+  "updated_at": "2026-10-11T18:31:14+00:00",
   "device_id": "DESKTOP-GBNC5JS-070e5f28",
   "app_version": "53.8.81",
-  "state_hash": "4a78b07a7f547b35e7cb2fa9051c0185e9a668f871b5ca4d2a04ba297f5b0955",
+  "state_hash": "98264dcba894be4458dd0e808bc77b810013cbfe8881339022287837ea8b7ea8",
   "state": {
     "format": "CraneVehicleEngineeringToolProject",
     "version": "53.8.81",
-    "saved_at": "2026-10-11T11:10:59",
+    "saved_at": "2026-10-11T11:31:14",
     "widgets": {
       "tm": {
         "kind": "double",
@@ -228,7 +228,7 @@
       },
       "bselMinVoltage": {
         "kind": "double",
-        "value": 60.0
+        "value": 72.0
       },
       "bselRatedEfficiency": {
         "kind": "double",
