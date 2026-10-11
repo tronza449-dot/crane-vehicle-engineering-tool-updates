@@ -13398,7 +13398,7 @@ class ForceDiagram(QWidget):
         The profile deliberately does NOT give longitudinal force coordinates.
         Only the main orthographic FBD supplies the real projected x/y moment arms.
         """
-        w=260;h=298;x=self.width()-w-20;y=122
+        w=260;h=316;x=self.width()-w-20;y=122
         p.save()
         p.setPen(QPen(QColor("#cbd5e1"),1))
         p.setBrush(QColor("#ffffff"))
@@ -13443,9 +13443,10 @@ class ForceDiagram(QWidget):
         p.drawEllipse(QPointF(end,by),4,4)
         self.arrow(p,QPointF(bm,by+5),QPointF(bm,by+34),"","#111827",width=1.6)
         self.arrow(p,QPointF(end,by+5),QPointF(end,by+34),"","#111827",width=1.6)
-        self.txt(p,x+74,y+261,f"W_B: {d['mb']:.1f} kg",7,True,"#334155")
-        self.txt(p,x+174,y+261,f"W_L: {d['ml']:.1f} kg",7,True,"#334155")
-        self.txt(p,x+12,y+287,"Not used for tipping moment arms",7,False,"#64748b")
+        self.txt(p,x+74,y+261,f"m_B: {d['mb']:.1f} kg",7,True,"#334155")
+        self.txt(p,x+174,y+261,f"m_L: {d['ml']:.1f} kg",7,True,"#334155")
+        self.txt(p,x+12,y+287,"Sketch only; use projected arms below",7,False,"#64748b")
+        self.txt(p,x+12,y+304,"Mast/base included in W_V",7,False,"#64748b")
         p.restore()
 
     def draw_longitudinal_crane(self,p,xc,xb,xl,boom_y,deck_top,angle):
