@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.76"
+APP_VERSION = "53.8.77"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -8241,8 +8241,11 @@ void loop() {{
 
     def bms_check_html(self):
         t=self.torque_results();e=self.electrical_results();w=self.winch_results()
-        main_cont_req=max(t['Ibatt'],e['Icalc_up']);main_peak_ind=max(e['Icalc_up'],self.controllerCurrent.value()*t['n'])
         br=self.battery_selection_results() if hasattr(self,"bselTargetContC") else None
+        aux_current=max(0.0,e.get("Iaux",0.0))
+        main_cont_req=(br["cont_req"] if br else max(e["Icalc_up"],e.get("Iturn_avg",0.0))+aux_current)
+        main_peak_ind=(br["peak_calc"] if br else max(main_cont_req,t["Ibatt"]+aux_current))
+        controller_limit_indicator=self.controllerCurrent.value()*t["n"]
         winch_cont_req=w['iup'];label_current=self.wrated.value()/max(self.wvolt.value(),.1);winch_peak_ind=max(w['iup'],w.get("max_spec_current",140.0))
         def st(sel,req):
             if sel<=0:return "NOT SET / กรุณากรอก"
@@ -8254,13 +8257,14 @@ void loop() {{
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Calculated minimum</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td><td>Practical target {e.get('Ah_recommended',e['Ah']):.2f} Ah (Kb={e.get('Kb',1):.2f})</td></tr>
         <tr><td>Selected capacity check</td><td>≥ {e.get('Ah_recommended',e['Ah']):.2f} Ah</td><td>Selected {self.mainSelectedAh.value():.1f} Ah → {st(self.mainSelectedAh.value(),e.get('Ah_recommended',e['Ah']))}</td></tr>
-        <tr><td>Continuous-current indicator</td><td>max(Torque {t['Ibatt']:.1f}, Uphill {e['Icalc_up']:.1f}, Turn {e.get('Iturn_avg',0):.1f}) = {main_cont_req:.1f} A</td><td>BMS {self.mainBMSCont.value():.1f} A → {st(self.mainBMSCont.value(),main_cont_req)}</td></tr>
-        <tr><td>Peak/conservative indicator</td><td>max(Simple-cycle uphill {e['Icalc_up']:.1f}, controller-limit indicator {self.controllerCurrent.value()*t['n']:.1f}) = {main_peak_ind:.1f} A</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → {st(self.mainBMSPeak.value(),main_peak_ind)}</td></tr></table>
+        <tr><td>Continuous current, including auxiliary</td><td>max(Uphill {e['Icalc_up']:.1f}, Turn {e.get('Iturn_avg',0):.1f}) + Aux {aux_current:.1f} = {main_cont_req:.1f} A</td><td>BMS {self.mainBMSCont.value():.1f} A → {st(self.mainBMSCont.value(),main_cont_req)}</td></tr>
+        <tr><td>Modeled peak current, including auxiliary</td><td>max(Continuous, Torque design {t['Ibatt']:.1f} + Aux {aux_current:.1f}) = {main_peak_ind:.1f} A</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → {st(self.mainBMSPeak.value(),main_peak_ind)}</td></tr>
+        <tr><td>Controller current indicator — not battery current</td><td>{controller_limit_indicator:.1f} A (potential phase/motor current)</td><td>CHECK actual battery-current settings and transient surge</td></tr></table>
         <h3>Winch 12 V Separate Battery</h3>
         <table border='1' cellspacing='0' cellpadding='6'>
         <tr><td>Required design capacity</td><td>{w['ah']:.2f} Ah @ {w['v']:.1f} V</td><td>Selected {self.winchSelectedAh.value():.1f} Ah → {st(self.winchSelectedAh.value(),w['ah'])}</td></tr>
         <tr><td>Interpolated current @ {w['m']:.1f} kg</td><td>{winch_cont_req:.1f} A (First-layer table)</td><td>BMS {self.winchBMSCont.value():.1f} A → {st(self.winchBMSCont.value(),winch_cont_req)}</td></tr>
-        <tr><td>Manufacturer-table maximum</td><td>140 A at 4500 lb / 2041 kg first-layer pull; start/stall surge not stated</td><td>BMS peak {self.winchBMSPeak.value():.1f} A → {st(self.winchBMSPeak.value(),winch_peak_ind)}</td></tr></table>
+        <tr><td>Manufacturer-table reference only</td><td>140 A at 4500 lb / 2041 kg first-layer pull</td><td>BMS peak {self.winchBMSPeak.value():.1f} A → CHECK (stall/start surge unknown; reference only)</td></tr></table>
         <p><b>ข้อจำกัด:</b> Controller current อาจเป็น phase/motor-current setting ไม่ใช่ battery current โดยตรง และ Winch stall current ยังไม่ทราบ จึงต้องยืนยัน datasheet/วัดจริงก่อนเลือก BMS ขั้นสุดท้าย</p>"""
 
     def update_bms_check(self):
@@ -8290,14 +8294,20 @@ void loop() {{
             br=self.battery_selection_results()
             add("Main Battery","Suggested standard size",f"≥ {br['design_ah']:.2f} Ah by energy/C-rate target",
                 f"{br['suggested']:.0f} Ah standard size",False,f"Target {br['target_cont']:.1f}C continuous / {br['target_peak']:.1f}C peak",True)
-        main_cont=max(t['Ibatt'],e['Icalc_up'],e.get('Iturn_avg',0.0))
+        # Match Battery Selection: uphill/pivot demand plus simultaneous auxiliary.
+        br_current=self.battery_selection_results() if hasattr(self,"bselTargetContC") else None
+        iaux=max(0.0,e.get("Iaux",0.0))
+        main_cont=br_current["cont_req"] if br_current else max(e["Icalc_up"],e.get("Iturn_avg",0.0))+iaux
         if self.mainBMSCont.value()>0:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A",f"{self.mainBMSCont.value():.1f} A",self.mainBMSCont.value()>=main_cont)
         else:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A","Not set",False,"กรอกพิกัด BMS",True)
-        peak_calc=max(e['Icalc_up'],e.get('Iturn_avg',0.0),0.0)
+        peak_calc=br_current["peak_calc"] if br_current else max(main_cont,t["Ibatt"]+iaux)
         if self.mainBMSPeak.value()>0:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A",f"{self.mainBMSPeak.value():.1f} A",self.mainBMSPeak.value()>=peak_calc,"VESC battery-current limit ต้องตรวจแยกจาก phase/motor current")
         else:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A","Not set",False,"กรอกพิกัด Peak ของ Pack/BMS",True)
         if self.winchSelectedAh.value()>0:add("Winch Battery","Energy capacity",f"≥ {w['ah']:.2f} Ah",f"{self.winchSelectedAh.value():.1f} Ah",self.winchSelectedAh.value()>=w['ah'])
         else:add("Winch Battery","Energy capacity",f"{w['ah']:.2f} Ah required","Selected not set",False,"กรอกใน Battery+BMS",True)
+        add("Winch BMS","Starting/stall peak current","Manufacturer current transient not supplied",
+            f"Selected {self.winchBMSPeak.value():.1f} A",False,
+            "CHECK: first-layer max 140 A is not confirmed startup/stall peak",True)
         add("Winch","Duty cycle assumption",f"≤ {duty['allowed']:.1f}%",f"{duty['duty']:.1f}%",duty['duty_pass'],"Allowed value ยังเป็นสมมติฐาน",True if duty['allowed']==20 else False)
         add("Winch","Continuous run assumption",f"≤ {duty['maxcont']:.1f} s",f"{duty['maxsegment']:.1f} s",duty['continuous_pass'],"ใช้ข้อมูลผู้ผลิตเมื่อมี",True if duty['maxcont']==60 else False)
         if hasattr(self,"hwRows"):
