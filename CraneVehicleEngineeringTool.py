@@ -13364,19 +13364,23 @@ class ForceDiagram(QWidget):
 
     def geometry(self,p,d):
         self.header(p,"GEOMETRY & TIPPING-AXIS DEFINITION (TOP VIEW)",
-                    "Support lines and boom rotation; +y points to vehicle right (up on this plan drawing)")
-        ww,hh=self.width(),self.height();cx,cy=ww*.48,hh*.47;L=min(360,ww*.44);W=min(230,hh*.38)
-        x0,x1=cx-L/2,cx+L/2;y0,y1=cy-W/2,cy+W/2
+                    "Support axes use wheel-centre track; chassis outline uses body width; +y (right) points up in this view")
+        ww,hh=self.width(),self.height();cx,cy=ww*.48,hh*.47;L=min(360,ww*.44)
+        body_width=max(0.1,float(d.get("vehicleWidth",d["W"])))
+        body_px=min(230,hh*.38)
+        track_px=body_px*float(d["W"])/body_width
+        x0,x1=cx-L/2,cx+L/2;y0,y1=cy-body_px/2,cy+body_px/2
+        yright,yleft=cy-track_px/2,cy+track_px/2
         p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(x0,y0,L,W))
         rearx=x0+L*.20;frontx=x0+L*.80
         for x in (rearx,frontx):
-            for y in (y0-9,y1+9):
+            for y in (yright,yleft):
                 p.setBrush(QColor("#1f2937"));p.drawRoundedRect(QRectF(x-24,y-7,48,14),4,4)
         p.setPen(QPen(QColor("#7c3aed"),1.7,Qt.DashLine))
-        p.drawLine(QPointF(x0-35,y0),QPointF(x1+35,y0));p.drawLine(QPointF(x0-35,y1),QPointF(x1+35,y1))
-        p.drawLine(QPointF(rearx,y0-35),QPointF(rearx,y1+35));p.drawLine(QPointF(frontx,y0-35),QPointF(frontx,y1+35))
-        self.txt(p,x1+42,y0+4,"Right tipping axis (+y)",8,True,"#7c3aed");self.txt(p,x1+42,y1+4,"Left tipping axis (-y)",8,True,"#7c3aed")
-        self.txt(p,rearx-35,y0-42,"Rear axis",8,True,"#7c3aed");self.txt(p,frontx-35,y0-42,"Front axis",8,True,"#7c3aed")
+        p.drawLine(QPointF(x0-35,yright),QPointF(x1+35,yright));p.drawLine(QPointF(x0-35,yleft),QPointF(x1+35,yleft))
+        p.drawLine(QPointF(rearx,yright-27),QPointF(rearx,yleft+27));p.drawLine(QPointF(frontx,yright-27),QPointF(frontx,yleft+27))
+        self.txt(p,x0-180,yright+4,"Right tipping axis (+y)",8,True,"#7c3aed");self.txt(p,x0-180,yleft+4,"Left tipping axis (-y)",8,True,"#7c3aed")
+        self.txt(p,rearx-35,yright-43,"Rear axis",8,True,"#7c3aed");self.txt(p,frontx-35,yright-43,"Front axis",8,True,"#7c3aed")
         crane_x=rearx+(d["xC"]/max(d["WB"],1e-9))*(frontx-rearx);crane_y=cy
         p.setBrush(QColor("#f59e0b"));p.setPen(QPen(QColor("#a45108"),2));p.drawEllipse(QPointF(crane_x,crane_y),10,10)
         # QPainter screen y grows downward; physical +y is drawn upward.
@@ -13384,7 +13388,7 @@ class ForceDiagram(QWidget):
         p.setPen(QPen(QColor("#f59e0b"),9,Qt.SolidLine,Qt.RoundCap));p.drawLine(QPointF(crane_x,crane_y),tip)
         p.setBrush(QColor("#cbd5e1"));p.setPen(QPen(QColor("#475569"),1.5));p.drawRect(QRectF(tip.x()-15,tip.y()-12,30,24))
         self.dim(p,QPointF(rearx,y1+56),QPointF(frontx,y1+56),f"WB = {d['WB']:.3f} m")
-        self.dim(p,QPointF(x1+105,y0-9),QPointF(x1+105,y1+9),f"Track W = {d['W']:.3f} m",True)
+        self.dim(p,QPointF(x1+105,yright),QPointF(x1+105,yleft),f"Track W = {d['W']:.3f} m",True)
         self.axes(p,QPointF(75,hh-120),"+x forward","+y right",0)
         self.txt(p,20,hh-25,f"Crane angle: -90° left / 0° forward / +90° right   |   θ={self._angle(d):.1f}°   |   Vehicle body width = {d.get('vehicleWidth',d['W']):.3f} m",9,True)
 
