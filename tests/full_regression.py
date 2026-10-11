@@ -150,13 +150,15 @@ assert abs(web_battery["aux_current_a"]-(50.0/72.0))<1e-9
 assert web_battery["continuous_current_required_a"]>=web_battery["uphill_current_calc_a"]+web_battery["aux_current_a"]-1e-9
 assert web_battery["peak_current_required_a"]>=12.5
 assert web_battery["peak_current_required_a"]>=web_battery["continuous_current_required_a"]
-assert web_battery["continuous_current_required_a"]<web_battery["peak_current_required_a"]
+assert web_battery["continuous_current_required_a"]<=web_battery["peak_current_required_a"]
 assert web_battery["suggested_ah"]>=web_battery["design_ah_with_current"]
 assert len(web_battery["comparison"])>=10
 assert web_battery["candidate"]["runtime_h"]>0
 assert web_battery["candidate"]["full_rounds"]>=0
 assert web_battery["candidate"]["bms_cont_ok"] is True
-assert web_battery["candidate"]["bms_peak_ok"] is True
+assert web_battery["candidate"]["bms_peak_model_ok"] is True
+assert web_battery["candidate"]["bms_peak_ok"] is False
+assert web_battery["peak_verified"] is False
 
 web_stability=webcalc.calculate_stability({
     "total_mass_kg":300.0,"payload_mass_kg":100.0,"boom_mass_kg":20.0,
@@ -722,7 +724,12 @@ wb=webcalc.calculate_drive_battery({
     "other_stop_time_per_round_s":0.0,"rolling_coeff":0.02,"drive_eff_pct":60.0,
     "aux_power_w":50.0,"dod_pct":80.0,"reserve_pct":20.0,"battery_design_factor":3.0,
     "turn_enabled":False,"track_width_m":w.W.value(),"target_cont_c":3.0,"target_peak_c":5.0,
-    "drive_reference_current_a":dt["Ibatt"],"candidate_ah":40.0
+    "drive_reference_current_a":dt["Ibatt"],"candidate_ah":40.0,
+    "motor_rated_w":w.motorRatedPower.value(),"motors":w.tmotors.value(),
+    "min_pack_voltage_v":w.bselMinVoltage.value(),
+    "rated_power_eff_pct":w.bselRatedEfficiency.value(),
+    "continuous_margin_pct":w.bselCurrentMargin.value(),
+    "vesc_pack_battery_limit_a":w.bselVescPackBatteryLimit.value()
 })
 assert de["cycles"]==wb["completed_round_trips"]
 assert abs(de["cycle_total_s"]-wb["round_time_s"])<1e-9
@@ -873,7 +880,9 @@ assert br["suggested_runtime"]["full_rounds"]>=0
 assert br["bms_cont"]+1e-9>=br["cont_req"]
 assert br["bms_peak"]+1e-9>=br["peak_calc"]
 assert br["peak_calc"]+1e-9>=br["cont_req"]
-assert abs(br["cont_req"]-(max(e["Icalc_up"],e.get("Iturn_avg",0.0))+e.get("Iaux",0.0)))<1e-9
+assert abs(br["operating_cont"]-(max(e["Icalc_up"],e.get("Iturn_avg",0.0))+e.get("Iaux",0.0)))<1e-9
+assert br["cont_req"]+1e-9>=br["rated_ref"]*(1+br["cont_margin"])
+assert br["peak_verified"] is False
 assert br["peak_calc"]+1e-9>=br["t"]["Ibatt"]
 battery_report=w.battery_report_html(e)
 assert "Executive Summary / สรุปคำตอบก่อน" in battery_report
@@ -883,9 +892,9 @@ assert "อ่านสูตรแบบภาษาไทย" in battery_repor
 assert "แรงต้านทางราบ = ค่าสัมประสิทธิ์แรงต้านการกลิ้ง × มวลรถ × แรงโน้มถ่วง" in battery_report
 assert "พลังงานรวมต่อ 1 Cycle = พลังงานขับรถ + พลังงานอุปกรณ์เสริม" in battery_report
 assert "ความจุแบตขั้นต่ำ = พลังงานที่ออกแบบไว้ ÷ แรงดันแบตเตอรี่" in battery_report
-assert "กระแสสูงสุดตามแบบจำลอง" in battery_report
-assert "6.1 แยกให้ออกก่อน" in battery_report and "6.5 ทำไมสรุปเป็น BMS" in battery_report
-assert "ปัดขึ้นทีละ 5 A" in battery_report
+assert "กระแสช่วงสั้นต้องตรวจ VESC จริง" in battery_report
+assert "6.1 แยกให้ออกก่อน" in battery_report and "6.5 สรุปกระแส" in battery_report
+assert "ปัดขึ้นทีละ 10 A" in battery_report
 assert "What Is / Is Not Included" in battery_report
 assert "Appendix A — Detailed Formula & Substitution" in battery_report
 assert "คำอธิบายภาษาไทยเพิ่มเติม" not in battery_report
@@ -917,7 +926,8 @@ br_ready2=w.battery_selection_results()
 assert w.eCandidateAh.value()+1e-9>=br_ready2["energy_min"]
 assert w.eCandidateContA.value()+1e-9>=br_ready2["cont_req"]
 assert w.eCandidatePeakA.value()+1e-9>=br_ready2["peak_calc"]
-assert "READY TO VERIFY DATASHEET" in w.batterySelectionView.toPlainText()
+assert "NOT READY" in w.batterySelectionView.toPlainText()
+assert "Peak" in w.batterySelectionView.toPlainText()
 
 # ---------- V53.8.43 Engineering Decision Tools ----------
 tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
