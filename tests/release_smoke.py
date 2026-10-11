@@ -136,6 +136,18 @@ try:
         assert w.grab().save(f"fbd-ui-bottom-{width}.png","PNG")
         w.fbdScroll.verticalScrollBar().setValue(0)
 
+    print("SMOKE: moment-balance reference example",flush=True)
+    reference=dict(mt=300.0,ml=100.0,mb=20.0,W=1.10,WB=1.10,L=1.20,
+                   kd=1.20,xC=.15,xCG=0.0,yCG=0.0,req=1.50)
+    left=w.side_moment_balance(reference,-90.0,"left")
+    right=w.side_moment_balance(reference,90.0,"right")
+    front=w.longitudinal_moment_balance(reference,0.0,"front")
+    rear=w.longitudinal_moment_balance(reference,-90.0,"rear")
+    for case,mo,mr in ((left,774.99,971.19),(right,774.99,971.19),
+                       (front,294.30,1039.86),(rear,0.0,1147.77)):
+        assert abs(case["mo"]-mo)<.03,("M_O",case)
+        assert abs(case["mr"]-mr)<.03,("M_R",case)
+    assert left["sf"]<reference["req"] and right["sf"]<reference["req"]
     print("SMOKE: geometry FBD direct rendering regression (6 cases × 2 sizes)", flush=True)
     # Call the actual painter methods, so Python exceptions from QPaintEvent cannot be swallowed by Qt.
     from PySide6.QtGui import QImage, QPainter
