@@ -1,0 +1,1884 @@
+# Full engineering regression formerly embedded in build-release.yml.
+# Run independently to diagnose deep calculation / PDF / UI regressions.
+import ast
+import hashlib
+import json
+import math
+import os
+import socket
+import time
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+from PySide6.QtWidgets import QApplication, QTabWidget, QPushButton, QTableWidgetItem
+import CraneVehicleEngineeringTool as cvet
+import cloud_sync as cloud
+import web_engine as webcalc
+import web_server as webapp
+
+# ---------- Static source audit ----------
+source = Path("CraneVehicleEngineeringTool.py").read_text(encoding="utf-8-sig")
+tree = ast.parse(source)
+for node in [n for n in tree.body if isinstance(n, ast.ClassDef)]:
+    seen = {}
+    for item in node.body:
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if item.name in seen:
+                raise AssertionError(f"Duplicate method {node.name}.{item.name}: lines {seen[item.name]} and {item.lineno}")
+            seen[item.name] = item.lineno
+
+assert "reportlab" not in source.lower(), "Unused ReportLab code remained"
+assert "UnicodeCIDFont" not in source, "Wrong CID PDF font code remained"
+assert "def _winch_interp_first_layer_details" in source
+assert "def winch_interpolation_html" in source
+
+# ---------- V53.8.51 GitHub Cloud Sync backend ----------
+base_state={
+    "format":"CraneVehicleEngineeringToolProject",
+    "version":"53.8.51",
+    "saved_at":"2026-01-01T00:00:00",
+    "widgets":{"mt":{"kind":"double","value":300.0}},
+    "components":[],"hardware":[],"integration":{}
+}
+state2=json.loads(json.dumps(base_state));state2["saved_at"]="2026-01-01T00:01:00"
+assert cloud.canonical_state_hash(base_state)==cloud.canonical_state_hash(state2), "saved_at must not cause cloud commit"
+state2["widgets"]["mt"]["value"]=301.0
+assert cloud.canonical_state_hash(base_state)!=cloud.canonical_state_hash(state2)
+payload=cloud.make_cloud_payload(base_state,"test-pc","53.8.51")
+assert cloud.validate_cloud_payload(payload)["state_hash"]==cloud.canonical_state_hash(base_state)
+assert cloud.normalize_repo("https://github.com/tronza449-dot/crane-vehicle-engineering-tool-updates")==cloud.DEFAULT_REPO
+assert cloud.normalize_path("cloud_data/project_state.json")==cloud.DEFAULT_PATH
+try:
+    cloud.github_put_file(cloud.DEFAULT_REPO,"main",cloud.DEFAULT_PATH,"{}","","test")
+    raise AssertionError("Cloud push without token must fail")
+except ValueError:
+    pass
+with tempfile.TemporaryDirectory() as cloud_td:
+    cfg_path=Path(cloud_td)/"cloud.json"
+    cfg=cloud.cloud_config_defaults()
+    cfg["token"]="PLAINTEXT_MUST_NOT_BE_STORED"
+    cloud.save_config(cfg_path,cfg)
+    cfg_text=cfg_path.read_text(encoding="utf-8")
+    assert "PLAINTEXT_MUST_NOT_BE_STORED" not in cfg_text and '"token"' not in cfg_text
+if os.name=="nt":
+    protected=cloud.protect_secret("CVET_REGRESSION_SECRET")
+    assert protected and "CVET_REGRESSION_SECRET" not in protected
+    assert cloud.unprotect_secret(protected)=="CVET_REGRESSION_SECRET"
+
+# ---------- Updater / installer file-lock regression ----------
+installer_source = Path("installer/CraneEngineeringTool.iss").read_text(encoding="utf-8-sig")
+assert '"/CLOSEAPPLICATIONS","/NORESTARTAPPLICATIONS"' in source
+assert '"/RESTARTAPPLICATIONS"' not in source
+assert "CloseApplications=yes" in installer_source
+assert "RestartApplications=no" in installer_source
+assert "RestartIfNeededByRun=no" in installer_source
+assert '[Run]' in installer_source and '{#MyAppExeName}' in installer_source
+assert source.count("self.save_last_values(silent=True)") >= 2
+
+# ---------- Web engine regression ----------
+web_winch=webcalc.calculate_winch({
+    "load_kg":100.0,"lift_m":1.5,
+    "vehicle_speed_kmh":1.0,"one_way_m":30.0,"operating_hours":3.0,
+    "events_per_round":2,"other_stop_s":0.0,
+    "event_mode":"auto","down_mode":"conservative",
+    "winch_voltage_v":12.0,"dod_pct":80.0,"reserve_pct":20.0,
+    "candidate_ah":40.0
+})
+assert web_winch["operation"]["completed_round_trips"]==32
+assert web_winch["operation"]["lift_events"]==64
+assert web_winch["battery"]["events"]==64
+assert 34.0 < web_winch["battery"]["ah_design"] < 35.5
+assert web_winch["battery"]["candidate_energy_ok"]
+wc=web_winch["core"]
+assert abs(wc["interp_alpha"]-(100.0/454.0))<1e-12
+assert wc["interp_lower_load_kg"]==0.0 and wc["interp_upper_load_kg"]==454.0
+assert wc["interp_lower_speed_m_min"]==3.3 and wc["interp_upper_speed_m_min"]==2.5
+assert wc["interp_lower_current_a"]==12.0 and wc["interp_upper_current_a"]==60.0
+assert wc["performance_basis"]=="First-layer speed/current interpolation"
+assert wc["first_layer_performance_warning"]==""
+long_layer=webcalc.winch_core({"load_kg":100.0,"lift_m":5.0})
+assert long_layer["layer"]>1
+assert "layer > 1" in long_layer["first_layer_performance_warning"]
+assert abs(wc["up_speed_m_min"]-(3.3+(2.5-3.3)*(100.0/454.0)))<1e-9
+assert abs(wc["up_current_a"]-(12.0+(60.0-12.0)*(100.0/454.0)))<1e-9
+
+web_manual=webcalc.calculate_winch({
+    "load_kg":100.0,"lift_m":1.5,"event_mode":"manual","manual_events":50,
+    "down_mode":"conservative","winch_voltage_v":12.0,"dod_pct":80.0,"reserve_pct":20.0
+})
+assert web_manual["battery"]["events"]==50
+assert web_manual["battery"]["up_count"]==50 and web_manual["battery"]["down_count"]==50
+assert web_manual["battery"]["winch_moves"]==100
+
+web_ramp=webcalc.calculate_ramp_geometry({
+    "rise_cm":55.0,"run_cm":280.0,"measured_slant_cm":290.0,"mass_kg":300.0
+})
+assert 285.34 < web_ramp["theoretical_slant_cm"] < 285.36
+assert 11.10 < web_ramp["angle_deg"] < 11.12
+assert 19.64 < web_ramp["slope_percent"] < 19.65
+assert 4.64 < web_ramp["measured_difference_abs_cm"] < 4.66
+assert abs(web_ramp["f_slope_n"]-web_ramp["f_slope_ratio_n"]) < 1e-8
+
+web_torque=webcalc.calculate_drive_torque({
+    "mass_kg":300.0,"wheel_diameter_in":16.0,"slope_deg":19.0,
+    "speed_kmh":1.0,"motors":2,"safety_factor":1.5
+})
+assert all(math.isfinite(float(x)) and x>=0 for x in (
+    web_torque["torque_per_motor_nm"],web_torque["battery_current_a"],web_torque["design_force_n"]
+))
+assert web_torque["motor_rated_w"]==1500.0
+assert web_torque["motor_power_margin"]>0
+assert web_torque["motor_power_ok"] is True
+
+web_battery=webcalc.calculate_drive_battery({
+    "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,
+    "one_way_m":30.0,"slope_length_m":30.0,"slope_deg":19.0,"runtime_h":3.0,
+    "lift_time_per_event_s":57.622338175151604,"lift_events_per_round":2,
+    "other_stop_time_per_round_s":0.0,
+    "candidate_ah":40.0,"candidate_bms_cont_a":100.0,"candidate_bms_peak_a":150.0,
+    "target_cont_c":3.0,"target_peak_c":5.0,
+    "drive_reference_current_a":12.5
+})
+assert web_battery["design_ah"]>0 and web_battery["design_energy_wh"]>0
+assert web_battery["completed_round_trips"]==32
+assert 331.2 < web_battery["round_time_s"] < 331.3
+assert web_battery["winch_energy_included"] is False
+assert abs(web_battery["drive_reference_current_a"]-12.5)<1e-9
+assert abs(web_battery["aux_energy_wh"]-150.0)<1e-9
+assert abs(web_battery["aux_current_a"]-(50.0/72.0))<1e-9
+assert web_battery["continuous_current_required_a"]>=web_battery["uphill_current_calc_a"]+web_battery["aux_current_a"]-1e-9
+assert web_battery["peak_current_required_a"]>=12.5
+assert web_battery["peak_current_required_a"]>=web_battery["continuous_current_required_a"]
+assert web_battery["continuous_current_required_a"]<web_battery["peak_current_required_a"]
+assert web_battery["suggested_ah"]>=web_battery["design_ah_with_current"]
+assert len(web_battery["comparison"])>=10
+assert web_battery["candidate"]["runtime_h"]>0
+assert web_battery["candidate"]["full_rounds"]>=0
+assert web_battery["candidate"]["bms_cont_ok"] is True
+assert web_battery["candidate"]["bms_peak_ok"] is True
+
+web_stability=webcalc.calculate_stability({
+    "total_mass_kg":300.0,"payload_mass_kg":100.0,"boom_mass_kg":20.0,
+    "track_width_m":1.1,"wheelbase_m":1.1,"boom_length_m":1.2,
+    "crane_angle_deg":-66.0,"dynamic_factor":1.2,"required_sf":1.5,
+    "crane_from_rear_m":0.15,"vehicle_cg_x_from_center_m":0.0,
+    "vehicle_cg_y_m":0.0,"slope_deg":19.0,
+    "slope_accel_mps2":0.278,"combined_cg_from_rear_m":0.55,
+    "combined_cg_height_m":0.55
+})
+assert 1.50 < web_stability["side_left"]["sf"] < 1.52
+assert web_stability["side"]["critical_direction"]=="left"
+assert web_stability["current_governing"]["key"] in {"side_left","side_right","front","rear"}
+assert web_stability["critical_governing"]["key"] in {"side_left","side_right","front","rear"}
+assert web_stability["current_governing"]["key"]!="slope"
+assert web_stability["critical_governing"]["key"]!="slope"
+assert "front" in web_stability and "rear" in web_stability
+assert set(web_stability["current_cases"])=={"side_left","side_right","front","rear","slope"}
+assert set(web_stability["critical_cases"])=={"side_left","side_right","front","rear","slope"}
+assert web_stability["critical_cases"]["side_left"]["angle_deg"] is not None
+# Directional tipping sanity: a crane at -90° tips toward left, not right.
+# Critical scan must then find the opposite +90° case for Side Right.
+directional=webcalc.calculate_stability({
+    "total_mass_kg":300.0,"payload_mass_kg":100.0,"boom_mass_kg":20.0,
+    "track_width_m":1.1,"wheelbase_m":1.1,"boom_length_m":1.2,
+    "crane_angle_deg":-90.0,"dynamic_factor":1.2,"required_sf":1.5,
+    "crane_from_rear_m":0.15,"vehicle_cg_x_from_center_m":0.0,
+    "vehicle_cg_y_m":0.0,"slope_deg":19.0,"slope_accel_mps2":0.278,
+    "combined_cg_from_rear_m":0.55,"combined_cg_height_m":0.55
+})
+assert directional["current_cases"]["side_right"]["overturning_moment_nm"]==0.0
+assert directional["current_cases"]["side_left"]["overturning_moment_nm"]>0.0
+assert directional["critical_cases"]["side_left"]["overturning_moment_nm"]>0.0
+assert directional["critical_cases"]["side_right"]["overturning_moment_nm"]>0.0
+assert directional["critical_cases"]["front"]["overturning_moment_nm"]>0.0
+assert directional["critical_cases"]["side_left"]["angle_deg"]==-90.0
+assert directional["critical_cases"]["side_right"]["angle_deg"]==90.0
+assert abs(directional["critical_cases"]["side_right"]["overturning_moment_nm"]-774.99)<0.02
+assert abs(directional["critical_cases"]["side_right"]["resisting_moment_nm"]-971.19)<0.02
+assert 1.25 < directional["critical_cases"]["side_right"]["sf"] < 1.26
+assert directional["critical_cases"]["rear"]["overturning_found"] is False
+assert directional["critical_cases"]["rear"]["no_overturning_in_range"] is True
+assert directional["critical_cases"]["rear"]["angle_deg"] is None
+assert web_stability["slope"]["sf"]>=0
+assert web_stability["front"]["components"] and web_stability["rear"]["components"]
+
+# Web Component Mass mode must mirror the Desktop grouping rules.
+component_rows=[
+    {"name":"Frame / โครงรถ","mass_kg":55,"x_m":0.00,"y_m":0.00,"z_m":0.35},
+    {"name":"Battery / แบตเตอรี่","mass_kg":35,"x_m":0.00,"y_m":0.00,"z_m":0.25},
+    {"name":"Drive motors / มอเตอร์ขับ","mass_kg":20,"x_m":0.00,"y_m":0.00,"z_m":0.18},
+    {"name":"Support wheels / ล้อพยุง","mass_kg":15,"x_m":0.00,"y_m":0.00,"z_m":0.18},
+    {"name":"Crane column / เสาเครน","mass_kg":30,"x_m":-0.40,"y_m":0.00,"z_m":0.78},
+    {"name":"Slewing drive+bearing / ชุดหมุนเครน","mass_kg":10,"x_m":-0.40,"y_m":0.00,"z_m":0.82},
+    {"name":"Winch / วินช์","mass_kg":15,"x_m":-0.40,"y_m":0.00,"z_m":0.90},
+    {"name":"Boom / แขนเครน","mass_kg":20,"x_m":-0.10,"y_m":0.00,"z_m":1.28},
+    {"name":"Basket / ตะกร้า","mass_kg":20,"x_m":0.00,"y_m":0.00,"z_m":0.60},
+    {"name":"Payload / ซากสัตว์","mass_kg":80,"x_m":0.00,"y_m":0.00,"z_m":0.60},
+    {"name":"Counterweight / ตุ้มน้ำหนัก","mass_kg":0,"x_m":-0.45,"y_m":0.00,"z_m":0.25},
+    {"name":"Other / อื่นๆ","mass_kg":0,"x_m":0.00,"y_m":0.00,"z_m":0.30},
+]
+web_component=webcalc.calculate_stability({
+    "mass_mode":"components","components":component_rows,
+    "track_width_m":1.1,"wheelbase_m":1.1,"boom_length_m":1.2,
+    "crane_angle_deg":-66.0,"dynamic_factor":1.2,"required_sf":1.5,
+    "crane_from_rear_m":0.15,"slope_deg":11.11,"slope_accel_mps2":0.28
+})
+assert web_component["mass_mode"]=="components"
+assert abs(web_component["total_mass_kg"]-300.0)<1e-9
+assert abs(web_component["base_vehicle_mass_kg"]-180.0)<1e-9
+assert abs(web_component["boom_mass_kg"]-20.0)<1e-9
+assert abs(web_component["payload_mass_kg"]-100.0)<1e-9
+assert abs(web_component["component_summary"]["total_mass_kg"]-300.0)<1e-9
+web_component_equiv=webcalc.calculate_stability({
+    "mass_mode":"total",
+    "total_mass_kg":web_component["total_mass_kg"],
+    "payload_mass_kg":web_component["payload_mass_kg"],
+    "boom_mass_kg":web_component["boom_mass_kg"],
+    "vehicle_cg_x_from_center_m":web_component["vehicle_cg_x_m"],
+    "vehicle_cg_y_m":web_component["vehicle_cg_y_m"],
+    "track_width_m":1.1,"wheelbase_m":1.1,"boom_length_m":1.2,
+    "crane_angle_deg":-66.0,"dynamic_factor":1.2,"required_sf":1.5,
+    "crane_from_rear_m":0.15,"slope_deg":11.11,"slope_accel_mps2":0.28,
+    "combined_cg_from_rear_m":web_component["slope"]["combined_cg_from_rear_m"],
+    "combined_cg_height_m":web_component["slope"]["combined_cg_height_m"],
+})
+for key in ("side_left","side_right","front","rear","slope"):
+    assert abs(web_component["current_cases"][key]["sf"]-web_component_equiv["current_cases"][key]["sf"])<1e-9
+
+# Desktop PDF/FBD source must expose all 5 engineering cases.
+assert "def stability_fbd_cases" in source
+assert "def stability_fbd_report_html" in source
+assert "def longitudinal_moment_balance" in source
+assert "M_O" in source and "M_R" in source
+assert "LEFT SIDE TIPPING" in source
+assert "RIGHT SIDE TIPPING" in source
+assert "FRONT TIPPING" in source
+assert "REAR TIPPING" in source
+assert "SLOPE STABILITY" in source
+assert "def setSimpleMode" in source
+assert "โหมดง่ายมาก (แนะนำสำหรับนำเสนอ)" in source
+assert "ดูรูปนี้แค่ 4 อย่าง" in source
+assert "ทำให้คว่ำ (M_O)" in source
+assert "ต้านการคว่ำ (M_R)" in source
+assert "Design guidance:" in source
+assert "def stability_easy_report_html" in source
+assert "วิธีอ่านรายงาน Stability แบบง่าย" in source
+assert "d⊥ คือระยะจากแรงถึงแนวล้อที่เป็นแกนคว่ำ" in source
+assert "def stability_fbd_variable_legend_html" in source
+assert "def stability_fbd_figure_with_legend_html" in source
+assert "ตัวแปรในรูป / Figure Variable Legend" in source
+assert "ตารางนี้อธิบายเฉพาะสัญลักษณ์ที่ใช้ในรูปด้านบน" in source
+assert "width='600'" in source
+assert "width:62%" not in source and "width:38%" not in source
+assert '_make_module_save_bar("torque"' in source
+assert '_make_module_save_bar("battery"' in source
+assert '_make_module_save_bar("winch"' in source
+assert '_make_module_save_bar("stabilityHub"' in source
+assert "kind\":\"slider" in source and "kind\":\"toggle_button" in source
+assert "APPENDIX A — DETAILED ENGINEERING CALCULATION" in source
+assert "def backup_values_path" in source
+assert "def save_values_now" in source
+assert "saved_values_backup.json" in source
+assert "💾 Save Values" in source
+assert "สูตร + แทนค่าแบบทีละขั้น" in source
+assert "def battery_report_html" in source
+assert "Executive Summary / สรุปคำตอบก่อน" in source
+assert "STEP 1 — แบ่งเส้นทางของ 1 Cycle" in source
+assert "STEP 6 — ตรวจ Continuous / Peak Current และ BMS" in source
+assert "อ่านสูตรแบบภาษาไทย" in source
+assert "thai-formula" in source and "stepbox" in source
+assert "Appendix A — Detailed Formula & Substitution" in source
+assert "อ่านสูตรแบบภาษาคน" in source
+assert "ตัวแปรในสูตรนี้" in source
+assert "ตัวเลขแต่ละพจน์" in source
+assert "ความจุแบตขั้นต่ำ (Ah) = พลังงานที่ออกแบบเผื่อแล้ว" in source
+assert "กำลังหาอะไร:" in source
+assert "คำตอบสำหรับเลือกซื้อเบื้องต้น" in source
+assert "CURRENT-ANGLE SNAPSHOT — ตัวแปร สูตร และการแทนค่า" in source
+assert "สูตรและการแทนค่า / Equation and Substitution" in source
+assert "FBD แบบเข้าใจง่าย / BEGINNER FBD" in source
+web_html = Path("web/index.html").read_text(encoding="utf-8-sig")
+web_js = Path("web/app.js").read_text(encoding="utf-8-sig")
+assert "Engineering FBD / แผนภาพแรงบนเว็บ" in web_html
+assert 'id="webFbdCase"' in web_html and 'id="webFbdView"' in web_html
+assert "Vehicle width = 1.00 m" in web_html
+assert "Crane base = 0.25 × 0.25 m" in web_html
+assert "375 mm/ข้าง" in web_html
+assert "Wheel track W (m) — center-to-center" in web_html
+assert 'id="paramCraneBase"' in web_html
+assert 'setParam("paramCraneBase","250 × 250 mm")' in web_js
+assert "function renderWebFbd" in web_js
+assert "function stabilityPayload" in web_js
+assert "function stabilityComponentRows" in web_js
+assert 'Array.from(body.querySelectorAll("tr")).map' in web_js
+assert 'querySelectorAll(".mass-mode-card")' in web_js
+assert "querySelectorAll('input[name=\"mass_mode\"]')" in web_js
+assert 'querySelectorAll("#stabilityComponentBody input")' in web_js
+assert 'return $("tr",body).map' not in web_js
+assert '  $(".mass-mode-card",$("#stabilityForm")).forEach' not in web_js
+assert '    $(\'input[name="mass_mode"]\',stabilityForm).forEach' not in web_js
+assert '    $("#stabilityComponentBody input").forEach' not in web_js
+assert "function stabilityVariableTableHtml" in web_js
+assert "Unit Convention / มาตรฐานหน่วย" in web_js
+assert "N·m" in web_js and "m/s²" in web_js
+assert "calc-flow-strip" in web_js and "calc-step-card" in web_js
+assert 'name="mass_mode"' in web_html
+assert 'id="stabilityComponentBody"' in web_html
+assert "Component Mass & CG Table" in web_html
+assert "Mass (kg)" in web_html and "x (m)" in web_html
+assert "function buttonBusy" in web_js
+assert "function buttonSuccess" in web_js
+assert "function actionToast" in web_js
+
+# V53.8.28 — Main 72 V and Winch 12 V must be visibly and logically separate.
+assert 'data-tab="battery">Main Battery 72V' in web_html
+assert 'data-tab="winch-battery">Winch Battery 12V' in web_html
+assert 'id="winchForm"' in web_html
+assert 'id="winchBatteryForm"' in web_html
+assert 'id="calcWinchBattery"' in web_html
+assert 'id="winchBatteryResult"' in web_html
+assert "12 V SEPARATE BATTERY" in web_html
+assert "พลังงานวินช์ไม่ถูกรวมใน Main Battery 72 V" in web_html
+assert "function winchBatteryPayload" in web_js
+assert "Linear Interpolation — จากตาราง First Layer" in web_js
+assert "STEP 1 — r = (x − x₁) ÷ (x₂ − x₁)" in web_js
+assert "STEP 2 — v = v₁ + r(v₂ − v₁)" in web_js
+assert "STEP 3 — I = I₁ + r(I₂ − I₁)" in web_js
+assert 'formObject($("#winchForm")),formObject($("#winchBatteryForm"))' in web_js
+assert "72 V Main Battery: คำนวณอีกหน้า และไม่บวก Wh/Ah ชุดนี้เข้าไป" in web_js
+assert '["driveForm","rampForm","batteryForm","winchForm","winchBatteryForm","stabilityForm"]' in web_js
+assert 'formValue("winchBatteryForm","winch_voltage_v",12)' in web_js
+
+# Main battery engine explicitly excludes winch energy; only lift time can
+# affect the number of completed operating cycles.
+assert web_battery["winch_energy_included"] is False
+assert web_winch["battery"]["voltage_v"]==12.0
+assert web_battery["voltage_v"]==72.0
+
+web_css = Path("web/style.css").read_text(encoding="utf-8-sig")
+assert "button.btn-busy" in web_css
+assert "button.btn-success" in web_css
+assert "@keyframes cvetButtonAck" in web_css
+assert "V53.8.51 — CLEAN / MODERN UI SYSTEM" in web_css
+assert "--bg:#f7f8fa" in web_css
+assert "GITHUB CLOUD" in web_html and "Shared Project Data" in web_html
+assert ".winch-battery-card" in web_css
+assert ".power-separation-banner" in web_css
+assert ".battery-separation-note" in web_css
+assert "function renderSlopeFbd" in web_js
+assert "M_O = Σ(F_i d_i)" in web_js
+assert "critical_cases" in web_js and "current_cases" in web_js
+assert "CURRENT-ANGLE SNAPSHOT" in source
+assert "CRITICAL-CASE SECTION" in source
+assert "d_V" in source and "d_B" in source and "d_L" in source
+assert "N_R points outward normal to the road" in source
+assert "W_parallel and W_normal are components of the same weight W=mg" in source
+assert "graphic offset only — acts through CG" in source
+assert "NO OVERTURNING GRAVITY MOMENT" in source
+assert "Current Angle Snapshot / มุมปัจจุบัน" in source
+assert "Critical Case / มุมวิกฤตของด้านที่เลือก" in source
+assert "Auto Current Worst / ด้านแย่สุด ณ มุมปัจจุบัน" in source
+assert "Slope case uses the combined driving mass/CG" in source
+assert "LEFT LIMIT" in source and "RIGHT LIMIT" in source
+assert "DISPLAY NOTE: SF >" in source
+assert "compact=self.height()<680" in source
+assert "def capture_current_page(self):" in source
+assert "def capture_all_fbd(self):" in source
+assert "CVET_Screenshots" in source
+assert "📸 Capture All FBD" in source
+assert "Current-angle governing case" in source
+assert "Design guidance:" in source
+assert "stability_design_guidance" in source
+assert "physical +y is drawn upward" in source
+assert "x_crane(global)" in source
+assert "reportMode=True" in source
+assert "724 directional moment-balance evaluations" in source
+assert "724 directional moment-balance evaluations" in source
+assert "Current θ=" in source
+assert "Inertia F_I" in source
+
+for required_web_file in ("web/index.html","web/style.css","web/app.js","README_WEB.md"):
+    assert Path(required_web_file).exists(), f"Missing web file: {required_web_file}"
+web_js=Path("web/app.js").read_text(encoding="utf-8")
+assert '$$(".tab").forEach' in web_js, "Dashboard tabs must bind with querySelectorAll"
+assert '$$(".page").forEach' in web_js, "Dashboard page switching must use querySelectorAll"
+assert '$$("[data-open-tab]").forEach' in web_js, "Dashboard cards must bind with querySelectorAll"
+assert '\n$(".tab").forEach(btn=>' not in web_js, "Single-element selector cannot be used with forEach for tab binding"
+assert 'if(downMode) $(".customDown").forEach' not in web_js, "customDown collection must use querySelectorAll"
+assert 'data-tab="ramp"' in Path("web/index.html").read_text(encoding="utf-8")
+assert "syncVehicleParameters()" in web_js
+assert "restoreWebInputs()" in web_js
+assert "saveWebInputs()" in web_js
+assert 'id="rampForm"' in Path("web/index.html").read_text(encoding="utf-8")
+assert "/api/calc/ramp-geometry" in Path("web_server.py").read_text(encoding="utf-8")
+assert "calculateRampGeometry" in web_js
+web_index = Path("web/index.html").read_text(encoding="utf-8")
+assert 'id="syncDesktopValues"' in web_index
+assert '<option value="critical" selected>' in web_index
+assert "Critical Case / มุมวิกฤตของด้านที่เลือก (แนะนำ)" in web_index
+assert "self.fbdViewMode.setCurrentIndex(1)" in source
+assert "/api/project-values" in Path("web_server.py").read_text(encoding="utf-8")
+assert "def _desktop_web_values" in Path("web_server.py").read_text(encoding="utf-8")
+assert "syncDesktopProjectValues" in web_js
+assert "applyDesktopFormValues" in web_js
+assert "Rated Motor Power" in web_js
+assert "E_aux,total = P_aux×t_runtime" in web_js
+assert "Auxiliary current = P_aux/V" in web_js
+assert "N/A (M_O=0)" in web_js
+assert "Effective wheel OD" in web_index
+# V53.8.43 Engineering Decision Tools
+for web_id in ("refreshEngineeringSummary","webScenarioPreset","webPresetAutoCompare","webPresetPreview","applyWebScenarioPreset","loadWebWhatIfBaseline","runWebSensitivity","refreshWebTrace","webDesignLock","captureWebRevisionA","captureWebRevisionB","compareWebRevisions"):
+    assert f'id="{web_id}"' in web_index, f"Missing Web engineering tool: {web_id}"
+for fn in ("refreshEngineeringDecisionSummary","updateWebInputSourceBadges","webScenarioPresetPreviewHtml","applyWebScenarioPreset","loadWebWhatIfBaseline","calculateWebCoupledScenario","runWebSensitivity","refreshWebCalculationTrace","applyWebDesignLock","compareWebRevisionData"):
+    assert ("function "+fn) in web_js, f"Missing Web engineering function: {fn}"
+assert "Engineering Decision Tools" in web_index
+assert "Engineering Scenario Presets" in web_index
+for web_id in ("refreshWebDebugReport","copyWebDebugReport","exportWebDebugJson","exportWebDebugTxt","webDebugReportStatus","webDebugReport"):
+    assert f'id="{web_id}"' in web_index, f"Missing Web Debug Report control: {web_id}"
+for fn in ("recordWebDebug","webDebugSelfChecks","buildWebDebugReport","webDebugReportText","refreshWebDebugReport","exportWebDebug","copyWebDebugReport"):
+    assert ("function "+fn) in web_js, f"Missing Web Debug function: {fn}"
+assert "Web PIN value is never included" in web_js
+assert "WEB_DEBUG_EVENTS" in web_js
+assert "recordWebDebug(\"ERROR\",\"UI/API error\"" in web_js
+assert "Payload 100 kg — เป้าหมาย" in web_index
+assert "Project Target — Payload 100 kg + L 1.20 m + Slope 19°" in web_index
+assert "WEB_ENGINEERING_PRESETS" in web_js
+assert "input-source-badge" in web_js
+for source_text in ("LINKED","FROM COMPONENT","FROM WINCH"):
+    assert source_text in web_js
+assert "What-if แบบง่าย" in web_index
+assert 'id="wiQuickParam"' in web_index and 'id="wiQuickValue"' in web_index
+assert "WEB_WHATIF_QUICK" in web_js and "refreshWebSimpleWhatIf" in web_js
+assert "ดูที่มาของคำตอบ / สูตรทีละขั้น" in web_index and "Calculation Trace" in web_index
+assert '<option value="Ramp Geometry">ทางลาด / Ramp</option>' in web_index
+assert "Overall governing stability" in web_js
+assert "Input Revision Diff" in web_js and "Engineering Output Diff" in web_js
+assert "flattenRevisionInputs" in web_js
+assert '["winchForm",["load_kg","lift_m"]]' in web_js
+assert '["driveForm",["mass_kg","wheel_diameter_in","slope_deg"]]' in web_js
+for step_fn in ("driveStepsHtml","rampStepsHtml","batteryStepsHtml","winchStepsHtml","winchBatteryStepsHtml"):
+    assert ("function "+step_fn) in web_js, f"Missing web step renderer: {step_fn}"
+assert "STEP-BY-STEP ทุก Stability Mode" in web_js
+assert web_js.count("calcStepCard(") >= 25
+assert "applyRampAngle" in Path("web/index.html").read_text(encoding="utf-8")
+assert "SHARED_PARAMETER_GROUPS" in web_js
+assert "syncSharedProjectParameter" in web_js
+assert "setupSharedProjectParameterSync()" in web_js
+assert 'slope_deg:[["driveForm","slope_deg"],["batteryForm","slope_deg"],["stabilityForm","slope_deg"]]' in web_js
+assert 'MANUAL_SHARED_GROUPS=new Set(["slope_deg"])' in web_js
+assert '["stabilityForm","total_mass_kg"]' in web_js
+assert 'track_width_m:[["stabilityForm","track_width_m"],["batteryForm","track_width_m"]]' in web_js
+assert "drive_reference_current_a" in web_js
+assert 'paramVehicleSize' in Path("web/index.html").read_text(encoding="utf-8")
+assert 'paramMainBattery' in Path("web/index.html").read_text(encoding="utf-8")
+assert 'paramDriveMotors' in Path("web/index.html").read_text(encoding="utf-8")
+assert 'paramTrack' in Path("web/index.html").read_text(encoding="utf-8")
+assert webapp.app.title.startswith("Crane Vehicle Engineering Tool")
+assert webapp.health()["ok"] is True
+
+# ---------- Desktop Save Values -> Web sync regression ----------
+with tempfile.TemporaryDirectory() as sync_td:
+    sync_path=Path(sync_td)/"desktop_values.json"
+    def sv(kind,value):
+        return {"kind":kind,"value":value}
+    sync_state={
+        "format":"CraneVehicleEngineeringToolProject",
+        "version":"53.8.37",
+        "saved_at":"2099-01-01T12:34:56",
+        "widgets":{
+            "mt":sv("double",321.0),"ml":sv("double",87.0),"mb":sv("double",22.0),
+            "W":sv("double",0.82),"WB":sv("double",1.18),"L":sv("double",1.25),
+            "th":sv("double",35.0),"kd":sv("double",1.10),"req":sv("double",1.50),
+            "xC":sv("double",0.27),"xCG":sv("double",0.04),"yCG":sv("double",-0.02),
+            "driveXCG":sv("double",0.06),"hcg":sv("double",0.62),
+            "slope":sv("double",17.5),"acc":sv("double",0.31),
+            "massCalcMode":sv("combo",0),
+            "tUseMain":sv("check",True),"tm":sv("double",299.0),
+            "twheelInch":sv("double",10.0),"tgrade":sv("double",18.0),
+            "tspeed":sv("double",4.5),"taccel":sv("double",5.0),
+            "tmu":sv("double",0.02),"tmotors":sv("int",2),"tsf":sv("double",1.3),
+            "teff":sv("double",85.0),"tvoltage":sv("double",72.0),
+            "tDriveLoadFrac":sv("double",50.0),"ttraction":sv("double",0.7),
+            "motorRatedPower":sv("double",1500.0),
+            "euseTorqueMass":sv("check",True),"emass":sv("double",290.0),
+            "evolt":sv("double",72.0),"espeed":sv("double",1.0),
+            "eoneway":sv("double",30.0),"eslopeLen":sv("double",2.9),
+            "eslopeDeg":sv("double",12.0),"eruntime":sv("double",3.0),
+            "err":sv("double",0.02),"edriveEff":sv("double",60.0),
+            "eaux":sv("double",50.0),"edod":sv("double",80.0),
+            "ereserve":sv("double",20.0),"ebatteryFactor":sv("double",3.0),
+            "eTurnEnable":sv("check",True),"eTurnEvents":sv("int",2),
+            "eTurnAngle":sv("double",180.0),"eTurnTime":sv("double",5.0),
+            "eTurnCoeff":sv("double",0.2),
+            "bselTargetContC":sv("double",3.0),"bselTargetPeakC":sv("double",5.0),
+            "eCandidateAh":sv("double",40.0),"eCandidateContA":sv("double",100.0),
+            "eCandidatePeakA":sv("double",150.0),
+            "rampUseMainMass":sv("check",True),"rampRiseCm":sv("double",55.0),
+            "rampRunCm":sv("double",280.0),"rampMeasuredCm":sv("double",290.0),
+            "wmass":sv("double",100.0),"wheight":sv("double",1.5),
+            "wopSpeed":sv("double",1.0),"wopDistance":sv("double",30.0),
+            "wopHours":sv("double",3.0),"wopEvents":sv("int",2),"wopOther":sv("double",0.0),
+            "wbDownMode":sv("combo",0),"wbDownBasis":sv("combo",0),
+            "wbDownCurrent":sv("double",10.0),"wbDownSpeed":sv("double",3.0),
+            "wbDownTime":sv("double",30.0),"wbEventMode":sv("combo",0),
+            "wbEvents":sv("int",64),"wbVoltage":sv("double",12.0),
+            "wbDoD":sv("double",80.0),"wbReserve":sv("double",20.0),
+            "wbCandidateAh":sv("double",40.0),"wbBmsCont":sv("double",120.0),
+            "wbBmsPeak":sv("double",200.0),
+        },
+        "components":[
+            ["Frame / โครงรถ","55","0","0","0.35"],
+            ["Payload / ซากสัตว์","87","0","0","0.60"],
+        ],
+        "hardware":[],"integration":{}
+    }
+    sync_path.write_text(json.dumps(sync_state,ensure_ascii=False),encoding="utf-8")
+    with patch.dict(webapp.os.environ,{"CVET_DESKTOP_STATE":str(sync_path)},clear=False):
+        synced=webapp.api_project_values()
+    assert synced["ok"] is True
+    assert synced["desktop_version"]=="53.8.37"
+    assert synced["saved_at"]=="2099-01-01T12:34:56"
+    assert synced["forms"]["driveForm"]["mass_kg"]==321.0
+    assert synced["forms"]["batteryForm"]["mass_kg"]==321.0
+    assert synced["forms"]["stabilityForm"]["track_width_m"]==0.82
+    assert synced["forms"]["stabilityForm"]["wheelbase_m"]==1.18
+    assert synced["forms"]["stabilityForm"]["crane_from_rear_m"]==0.27
+    assert synced["forms"]["stabilityForm"]["boom_length_m"]==1.25
+    assert abs(synced["forms"]["stabilityForm"]["combined_cg_from_rear_m"]-0.65)<1e-12
+    assert synced["forms"]["stabilityForm"]["combined_cg_height_m"]==0.62
+    assert synced["forms"]["stabilityForm"]["slope_deg"]==17.5
+    assert synced["forms"]["winchForm"]["lift_m"]==1.5
+    assert synced["forms"]["winchBatteryForm"]["bms_cont_a"]==120.0
+    assert synced["components"][1]["mass_kg"]==87.0
+
+app = QApplication.instance() or QApplication([])
+app.setApplicationName(cvet.APP_NAME)
+w = cvet.App()
+w.show()
+QApplication.processEvents()
+
+# ---------- Desktop press-animation regression ----------
+press_buttons=w.findChildren(QPushButton)
+assert press_buttons, "No desktop buttons found"
+press_button=next((b for b in press_buttons if b.isEnabled()),press_buttons[0])
+w._button_press_feedback(press_button)
+QApplication.processEvents()
+assert getattr(press_button,"_cvetOpacityEffect",None) is not None
+assert getattr(press_button,"_cvetPressAnimation",None) is not None
+assert str(press_button.property("feedbackState") or "")=="pressed"
+w._button_release_feedback(press_button)
+QApplication.processEvents()
+
+# Web-like Stability mass-mode cards must stay synchronized.
+assert hasattr(w,"craneMassModeTotal") and hasattr(w,"craneMassModeComponents")
+assert hasattr(w,"massModeFixed") and hasattr(w,"massModeSum")
+w.set_mass_mode_from_radio("components")
+QApplication.processEvents()
+assert w.massCalcMode.currentIndex()==1
+assert w.craneMassModeComponents.isChecked() and w.massModeSum.isChecked()
+assert not w.craneMassModeTotal.isChecked() and not w.massModeFixed.isChecked()
+# Mode B hides unused manual mass/CG rows and exposes Component table.
+assert not w.craneInputForm.isRowVisible(w.mt)
+assert not w.craneInputForm.isRowVisible(w.ml)
+assert not w.craneInputForm.isRowVisible(w.mb)
+assert not w.craneInputForm.isRowVisible(w.xCG)
+assert not w.comp.isHidden()
+w.set_mass_mode_from_radio("total")
+QApplication.processEvents()
+assert w.massCalcMode.currentIndex()==0
+assert w.craneMassModeTotal.isChecked() and w.massModeFixed.isChecked()
+# Mode A shows only the three manual mass fields; CG stays automatic/hidden.
+assert w.craneInputForm.isRowVisible(w.mt)
+assert w.craneInputForm.isRowVisible(w.ml)
+assert w.craneInputForm.isRowVisible(w.mb)
+assert not w.craneInputForm.isRowVisible(w.xCG)
+assert not w.craneInputForm.isRowVisible(w.yCG)
+assert not w.craneInputForm.isRowVisible(w.driveXCG)
+assert abs(w.xCG.value())<1e-12 and abs(w.yCG.value())<1e-12 and abs(w.driveXCG.value())<1e-12
+assert w.comp.isHidden()
+assert "กึ่งกลาง" in w.massModeInfo.text()
+
+# Confirmed project geometry stays separate from wheel track.
+gd=w.inputs()
+assert abs(gd["vehicleWidth"]-1.00)<1e-12
+assert abs(gd["craneBaseW"]-0.25)<1e-12
+assert abs(gd["craneBaseL"]-0.25)<1e-12
+assert abs(gd["craneY"])<1e-12
+assert abs(gd["craneSideClearance"]-0.375)<1e-12
+assert "375 mm/ข้าง" in w.craneGeometryInfo.text()
+assert "ไม่ใช่ความกว้างตัวรถ" in w.W.toolTip()
+assert "+ = ไปด้านหน้ารถ" in w.xC.toolTip()
+
+# Generic desktop action feedback must visibly become green/success.
+feedback_test=QPushButton("คำนวณทดสอบ",w)
+w._button_clicked_feedback(feedback_test)
+QApplication.processEvents()
+assert str(feedback_test.property("feedbackState") or "")=="success"
+assert "✓" in feedback_test.text()
+
+# ---------- Web launcher visibility regression ----------
+assert hasattr(w,"openWebServerButton")
+assert w.openWebServerButton.text()=="Open server"
+assert hasattr(w,"webServerStatusLabel")
+web_cmd=w._web_server_command()
+assert web_cmd and any("web_launcher.py" in str(x) for x in web_cmd), web_cmd
+
+def finite(*vals):
+    for value in vals:
+        assert math.isfinite(float(value)), f"Non-finite calculation: {value}"
+
+# ---------- Desktop ↔ Web calculation parity ----------
+parity_d={
+    "mt":300.0,"ml":100.0,"mb":20.0,"W":1.1,"WB":1.1,"L":1.2,
+    "th":-66.0,"kd":1.2,"req":1.5,"xC":0.15,"xCG":0.0,"yCG":0.0,
+    "driveXCG":0.0
+}
+pweb=webcalc.calculate_stability({
+    "total_mass_kg":parity_d["mt"],"payload_mass_kg":parity_d["ml"],
+    "boom_mass_kg":parity_d["mb"],"track_width_m":parity_d["W"],
+    "wheelbase_m":parity_d["WB"],"boom_length_m":parity_d["L"],
+    "crane_angle_deg":parity_d["th"],"dynamic_factor":parity_d["kd"],
+    "required_sf":parity_d["req"],"crane_from_rear_m":parity_d["xC"],
+    "vehicle_cg_x_from_center_m":parity_d["xCG"],"vehicle_cg_y_m":parity_d["yCG"],
+    "slope_deg":19.0,"slope_accel_mps2":0.278,
+    "combined_cg_from_rear_m":0.55,"combined_cg_height_m":0.55
+})
+for side_name,key in (("left","side_left"),("right","side_right")):
+    pd=w.side_moment_balance(parity_d,parity_d["th"],side_name)
+    pw=pweb[key]
+    assert abs(pd["mo"]-pw["overturning_moment_nm"])<1e-8
+    assert abs(pd["mr"]-pw["resisting_moment_nm"])<1e-8
+    assert abs(pd["sf"]-pw["sf"])<1e-8
+for case in ("front","rear"):
+    pd=w.longitudinal_moment_balance(parity_d,parity_d["th"],case)
+    pw=pweb[case]
+    assert abs(pd["mo"]-pw["overturning_moment_nm"])<1e-8
+    assert abs(pd["mr"]-pw["resisting_moment_nm"])<1e-8
+    assert abs(pd["sf"]-pw["sf"])<1e-8
+
+# Drive Torque parity — same inputs must produce the same engineering result.
+w.tUseMain.setChecked(False)
+w.tm.setValue(300.0);w.tgrade.setValue(19.0);w.tspeed.setValue(1.0)
+w.tmu.setValue(0.02);w.tmotors.setValue(2);w.tsf.setValue(1.5)
+w.taccel.setValue(5.0);w.teff.setValue(85.0);w.tDriveLoadFrac.setValue(50.0)
+w.ttraction.setValue(0.7);w.tvoltage.setValue(72.0)
+parity_radius=10.0*0.0254/2.0
+dt=w.torque_results(radius=parity_radius)
+wt=webcalc.calculate_drive_torque({
+    "mass_kg":300.0,"wheel_diameter_in":10.0,"slope_deg":19.0,"speed_kmh":1.0,
+    "accel_time_s":5.0,"rolling_coeff":0.02,"motors":2,"safety_factor":1.5,
+    "drive_eff_pct":85.0,"voltage_v":72.0,"driven_load_pct":50.0,"traction_coeff":0.7
+})
+assert abs(dt["T"]-wt["torque_per_motor_nm"])<1e-9
+assert abs(dt["Ibatt"]-wt["battery_current_a"])<1e-9
+assert abs(dt["Fdesign"]-wt["design_force_n"])<1e-9
+assert abs(dt["Ftraction"]-wt["traction_limit_n"])<1e-9
+
+# Ramp Geometry parity.
+w.rampUseMainMass.setChecked(False)
+w.rampRiseCm.setValue(55.0);w.rampRunCm.setValue(280.0);w.rampMeasuredCm.setValue(290.0);w.rampMass.setValue(300.0)
+dr=w.ramp_geometry_results()
+wrp=webcalc.calculate_ramp_geometry({"rise_cm":55.0,"run_cm":280.0,"measured_slant_cm":290.0,"mass_kg":300.0})
+assert abs(dr["L"]-wrp["theoretical_slant_cm"])<1e-9
+assert abs(dr["angle"]-wrp["angle_deg"])<1e-9
+assert abs(dr["slope_pct"]-wrp["slope_percent"])<1e-9
+assert abs(dr["f_slope"]-wrp["f_slope_n"])<1e-9
+
+# Winch mechanics / operating-cycle / battery parity.
+w.wmass.setValue(100.0);w.wheight.setValue(1.5)
+w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
+w.wopEvents.setValue(2);w.wopOther.setValue(0.0)
+w.wbDownMode.setCurrentIndex(0);w.wbEventMode.setCurrentIndex(0)
+w.wbVoltage.setValue(12.0);w.wbDoD.setValue(80.0);w.wbReserve.setValue(20.0);w.wbCandidateAh.setValue(40.0)
+dwc=w.winch_core_results();dwo=w.winch_operation_results();dwb=w.winch_battery_results()
+ww=webcalc.calculate_winch({
+    "load_kg":100.0,"lift_m":1.5,"vehicle_speed_kmh":1.0,"one_way_m":30.0,
+    "operating_hours":3.0,"events_per_round":2,"other_stop_s":0.0,
+    "event_mode":"auto","down_mode":"conservative","winch_voltage_v":12.0,
+    "dod_pct":80.0,"reserve_pct":20.0,"candidate_ah":40.0
+})
+assert abs(dwc["up_speed"]-ww["core"]["up_speed_m_min"])<1e-9
+assert abs(dwc["iup"]-ww["core"]["up_current_a"])<1e-9
+assert abs(dwc["tu"]-ww["core"]["up_time_s"])<1e-9
+assert dwo["rounds"]==ww["operation"]["completed_round_trips"]
+assert dwo["lift_events"]==ww["operation"]["lift_events"]
+assert abs(dwo["t_round"]-ww["operation"]["round_time_s"])<1e-9
+assert abs(dwb["total"]-ww["battery"]["e_total_wh"])<1e-9
+assert abs(dwb["ah_design"]-ww["battery"]["ah_design"])<1e-9
+
+# Main Battery 72 V parity, including Battery Selection current logic.
+w.euseTorqueMass.setChecked(False);w.emass.setValue(300.0);w.evolt.setValue(72.0)
+w.espeed.setValue(1.0);w.eoneway.setValue(30.0);w.eslopeLen.setValue(2.9);w.eslopeDeg.setValue(11.11)
+w.eruntime.setValue(3.0);w.err.setValue(0.02);w.edriveEff.setValue(60.0);w.eaux.setValue(50.0)
+w.edod.setValue(80.0);w.ereserve.setValue(20.0);w.ebatteryFactor.setValue(3.0)
+w.estopTime.setValue(0.0);w.euseOperationCycle.setChecked(True);w.eTurnEnable.setChecked(False)
+w.bselTargetContC.setValue(3.0);w.bselTargetPeakC.setValue(5.0)
+de=w.electrical_results();dbs=w.battery_selection_results()
+wb=webcalc.calculate_drive_battery({
+    "mass_kg":300.0,"voltage_v":72.0,"speed_kmh":1.0,"one_way_m":30.0,
+    "slope_length_m":2.9,"slope_deg":11.11,"runtime_h":3.0,
+    "lift_time_per_event_s":dwo["t_event"],"lift_events_per_round":dwo["events_per_round"],
+    "other_stop_time_per_round_s":0.0,"rolling_coeff":0.02,"drive_eff_pct":60.0,
+    "aux_power_w":50.0,"dod_pct":80.0,"reserve_pct":20.0,"battery_design_factor":3.0,
+    "turn_enabled":False,"track_width_m":w.W.value(),"target_cont_c":3.0,"target_peak_c":5.0,
+    "drive_reference_current_a":dt["Ibatt"],"candidate_ah":40.0
+})
+assert de["cycles"]==wb["completed_round_trips"]
+assert abs(de["cycle_total_s"]-wb["round_time_s"])<1e-9
+assert abs(de["Ecycle"]-wb["total_energy_per_cycle_wh"])<1e-9
+assert abs(de["Eload"]-wb["load_energy_wh"])<1e-9
+assert abs(de["Ah"]-wb["design_ah"])<1e-9
+assert abs(de["Ah_recommended"]-wb["recommended_ah"])<1e-9
+assert abs(dbs["cont_req"]-wb["continuous_current_required_a"])<1e-9
+assert abs(dbs["peak_calc"]-wb["peak_current_required_a"])<1e-9
+assert abs(dbs["suggested"]-wb["suggested_ah"])<1e-9
+
+# ---------- Visible T / B / W / S Save Values controls ----------
+for name in ("torqueSaveValuesButton","batterySaveValuesButton","winchSaveValuesButton","stabilityHubSaveValuesButton"):
+    assert hasattr(w,name), f"Missing visible module Save Values button: {name}"
+    btn=getattr(w,name)
+    assert "Save Values" in btn.text()
+    assert btn.minimumHeight()>=36
+# Winch Save must stay outside the sub-tab pages so it remains visible on every W tab.
+for index in range(w.wTabs.count()):
+    w.wTabs.setCurrentIndex(index);QApplication.processEvents()
+    assert not w.winchSaveValuesButton.isHidden()
+
+# ---------- Responsive UI smoke test ----------
+# Do not exhaustively traverse every nested tab here. Some pages perform
+# heavy recalculation on currentChanged; multiplying that by every size
+# and font scale made release validation run for hours.
+modes = (
+    w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
+    w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
+    w.show_telemetry_mode,w.show_integration_suite_mode,
+    w.show_variable_dictionary_mode,w.show_project_tools_mode
+)
+
+# One complete pass through all visible top-level modes at the common
+# laptop resolution.
+w.resize(1366,768)
+w.apply_ui_scale(1.00,save=False)
+for method in modes:
+    method()
+    QApplication.processEvents()
+    shot=w.grab()
+    assert not shot.isNull(), f"Window grab failed for {method.__name__}"
+
+# Targeted boundary-size checks for the two layouts changed in this
+# release: Home and Stability/FBD. This keeps useful UI coverage
+# without the previous combinatorial tab traversal.
+for width,height,scale in ((1024,650,0.90),(1600,900,1.20)):
+    w.resize(width,height)
+    w.apply_ui_scale(scale,save=False)
+    w.show_home_mode();QApplication.processEvents()
+    assert not w.grab().isNull()
+    w.show_stability_mode();QApplication.processEvents()
+    # Visit only the visible Stability tabs that were redesigned.
+    for label in ("Slope","Engineering FBD"):
+        for index in range(w.stabilityTabs.count()):
+            if w.stabilityTabs.tabText(index)==label:
+                w.stabilityTabs.setCurrentIndex(index)
+                QApplication.processEvents()
+                assert not w.grab().isNull()
+                break
+
+# Font controls must never collapse to the old unreadable symbol.
+texts=[b.text() for b in w.statusBar().findChildren(QPushButton)]
+for expected in ("A-","A+","100%"):
+    assert expected in texts, f"Missing status font control: {expected}"
+for b in w.statusBar().findChildren(QPushButton):
+    if b.text() in ("A-","A+","100%"):
+        assert b.width() >= 40, f"Font button squeezed: {b.text()} width={b.width()}"
+
+# ---------- Ramp geometry regression ----------
+assert hasattr(w,"rampRiseCm") and hasattr(w,"rampRunCm") and hasattr(w,"rampGeomOut")
+w.rampUseMainMass.setChecked(False)
+w.rampRiseCm.setValue(55.0);w.rampRunCm.setValue(280.0);w.rampMeasuredCm.setValue(290.0);w.rampMass.setValue(300.0)
+rg=w.ramp_geometry_results()
+assert 285.34 < rg["L"] < 285.36
+assert 11.10 < rg["angle"] < 11.12
+assert 19.64 < rg["slope_pct"] < 19.65
+assert 4.64 < rg["diff_abs"] < 4.66
+assert abs(rg["f_slope"]-rg["f_ratio"]) < 1e-8
+w.apply_ramp_angle_to_project()
+assert abs(w.tgrade.value()-rg["angle"]) < 0.011
+assert abs(w.eslopeDeg.value()-rg["angle"]) < 0.011
+assert abs(w.slope.value()-rg["angle"]) < 0.011
+w.apply_ramp_length_to_battery()
+assert abs(w.eslopeLen.value()-rg["L"]/100.0) < 0.0011
+
+# ---------- Torque regression ----------
+w.tUseMain.setChecked(False)
+w.tm.setValue(300)
+w.tDriveLoadFrac.setValue(50)
+for slope in (0,12,19,30):
+    w.tgrade.setValue(slope)
+    q=w.torque_results()
+    finite(q["T"],q["rpm"],q["Pwheel"],q["Ibatt"],q["Ftraction"],q["Ndrive"])
+    assert abs(q["Ndrive"]-0.5*q["Ntotal"]) < 1e-6
+    assert q["Fdesign"] >= 0 and q["T"] >= 0
+w.tUseMain.setChecked(True)
+
+# ---------- Trip Energy Summary regression ----------
+w.show_electrical_mode()
+QApplication.processEvents()
+assert hasattr(w,"tripEnergyLabel") and hasattr(w,"tripBatteryLabel")
+q=w.electrical_results()
+cycles=max(q["cycles"],1e-12)
+expected_trip=q["Edrive"]/cycles
+assert f"{expected_trip:.2f}" in w.tripEnergyLabel.text()
+assert f"{q['Ah']:.2f}" in w.tripBatteryLabel.text()
+assert "Wh / รอบ" in w.tripEnergyLabel.text()
+assert "Ah @" in w.tripBatteryLabel.text()
+assert "พลังงานขับ / 1 รอบ" in w.findChild(QTabWidget).parent().window().windowTitle() or hasattr(w,"tripEnergyExplain")
+assert "พลังงานขับต่อรอบ" in w.tripEnergyExplain.toPlainText()
+
+# Main 72 V battery must use the real operating cycle:
+# drive time + lift time + other stops. Winch energy stays separate.
+w.wmass.setValue(100.0);w.wheight.setValue(1.5)
+w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
+w.wopEvents.setValue(2);w.wopOther.setValue(0.0)
+w.wbDownMode.setCurrentIndex(0)
+w.espeed.setValue(1.0);w.eoneway.setValue(30.0);w.eruntime.setValue(3.0)
+w.estopTime.setValue(0.0);w.euseOperationCycle.setChecked(True)
+op_for_main=w.winch_operation_results()
+main_cycle=w.electrical_results()
+assert abs(main_cycle["lift_round_s"]-op_for_main["t_lift_round"])<1e-9
+assert main_cycle["cycles"]==32
+assert abs(main_cycle["cycle_total_s"]-op_for_main["t_round"])<1e-6
+assert main_cycle["Edrive"]>0 and main_cycle["Eaux"]>=0
+assert "32 รอบเต็ม" in w.tripCountLabel.text()
+
+# ---------- Electrical regression ----------
+for slope in (0,1,12,19):
+    w.eslopeDeg.setValue(slope)
+    e=w.electrical_results()
+    finite(e["Ah"],e["Edesign"],e["Icalc_peak"],e["Iworst"],e["Pdown_mech"])
+    assert e["Edesign"] >= 0 and e["Pdown_mech"] >= 0
+    assert e["Icalc_peak"] >= e["Icalc_up"]-1e-9
+# Acceleration time must affect calculated peak current.
+w.eaccel.setValue(2.0); fast=w.electrical_results()["Icalc_peak"]
+w.eaccel.setValue(10.0); slow=w.electrical_results()["Icalc_peak"]
+assert fast >= slow, "Shorter acceleration time should not reduce peak current"
+
+# ---------- V52.2 Battery Selection regression ----------
+br=w.battery_selection_results()
+finite(br["energy_min"],br["cont_req"],br["peak_calc"],br["design_ah"],br["suggested"],br["design_runtime"])
+assert br["suggested"]+1e-9 >= br["design_ah"]
+assert br["design_ah"]+1e-9 >= br["energy_min"]
+assert br["suggested_runtime"]["runtime_h"]>0
+assert br["suggested_runtime"]["full_rounds"]>=0
+assert br["bms_cont"]+1e-9>=br["cont_req"]
+assert br["bms_peak"]+1e-9>=br["peak_calc"]
+assert br["peak_calc"]+1e-9>=br["cont_req"]
+assert abs(br["cont_req"]-(max(e["Icalc_up"],e.get("Iturn_avg",0.0))+e.get("Iaux",0.0)))<1e-9
+assert br["peak_calc"]+1e-9>=br["t"]["Ibatt"]
+battery_report=w.battery_report_html(e)
+assert "Executive Summary / สรุปคำตอบก่อน" in battery_report
+for step_no in range(1,7):
+    assert f"STEP {step_no}" in battery_report
+assert "อ่านสูตรแบบภาษาไทย" in battery_report
+assert "แรงต้านทางราบ = ค่าสัมประสิทธิ์แรงต้านการกลิ้ง × มวลรถ × แรงโน้มถ่วง" in battery_report
+assert "พลังงานรวมต่อ 1 Cycle = พลังงานขับรถ + พลังงานอุปกรณ์เสริม" in battery_report
+assert "ความจุแบตขั้นต่ำ = พลังงานที่ออกแบบไว้ ÷ แรงดันแบตเตอรี่" in battery_report
+assert "กระแส Peak ที่ต้องรองรับ" in battery_report
+assert "What Is / Is Not Included" in battery_report
+assert "Appendix A — Detailed Formula & Substitution" in battery_report
+assert "คำอธิบายภาษาไทยเพิ่มเติม" not in battery_report
+assert "BMS Continuous" in battery_report and "BMS Peak" in battery_report
+assert "Kb =" in battery_report and "Preliminary Design Allowance" in battery_report
+assert w.bselCompareTable.rowCount() >= 10
+assert w.bselCompareTable.columnCount()==8
+
+w.apply_suggested_battery_capacity()
+assert abs(w.eCandidateAh.value()-br["suggested"]) < 1e-9
+assert abs(w.mainSelectedAh.value()-w.eCandidateAh.value()) < 1e-9
+reverse=w.battery_runtime_from_capacity(w.eCandidateAh.value())
+finite(reverse["runtime_h"],reverse["load_budget_wh"],reverse["load_per_cycle_wh"])
+assert reverse["runtime_h"]>0 and reverse["full_rounds"]>=0
+# Larger capacity must never reduce estimated runtime.
+reverse_big=w.battery_runtime_from_capacity(w.eCandidateAh.value()+20.0)
+assert reverse_big["runtime_h"]+1e-9>=reverse["runtime_h"]
+
+# Candidate capacity/current ratings above the CURRENT calculated requirements must pass.
+# Re-read requirements after prior UI actions so this regression does not compare
+# against a stale snapshot from before linked inputs were synchronized.
+br_ready=w.battery_selection_results()
+w.eCandidateAh.setValue(min(500.0,math.ceil(max(br_ready["energy_min"],br_ready["design_ah"],br_ready["suggested"])+5.0)))
+w.eCandidateContA.setValue(math.ceil(br_ready["cont_req"]+5.0))
+w.eCandidatePeakA.setValue(math.ceil(br_ready["peak_calc"]+5.0))
+w.update_battery_selection()
+QApplication.processEvents()
+br_ready2=w.battery_selection_results()
+assert w.eCandidateAh.value()+1e-9>=br_ready2["energy_min"]
+assert w.eCandidateContA.value()+1e-9>=br_ready2["cont_req"]
+assert w.eCandidatePeakA.value()+1e-9>=br_ready2["peak_calc"]
+assert "READY TO VERIFY DATASHEET" in w.batterySelectionView.toPlainText()
+
+# ---------- V53.8.43 Engineering Decision Tools ----------
+tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
+for expected in ("Engineering Summary","What-if แบบง่าย","ที่มาคำตอบ / สูตรทีละขั้น","Compare Design"):
+    assert expected in tab_names, f"Missing Project Tools tab: {expected}"
+summary_html=w.engineering_summary_html()
+assert "ENGINEERING WORST-CASE SUMMARY" in summary_html
+assert "Overall governing stability" in summary_html
+assert "Governing lifting case" in summary_html
+assert "Motor rated power" in summary_html
+
+# ---------- V53.8.49 Input Source indicators ----------
+for attr in ("torqueSourceInfo","batterySourceInfo","stabilitySourceInfo","rampSourceInfo","slopeSourceInfo","winchSourceInfo","winchBatterySourceInfo"):
+    assert hasattr(w,attr), f"Missing Desktop source indicator: {attr}"
+w.update_input_source_indicators()
+assert "LINKED" in w.torqueSourceInfo.text() and "Stability" in w.torqueSourceInfo.text()
+assert "AUTO" in w.torqueSourceInfo.text() and "Effective wheel OD" in w.torqueSourceInfo.text()
+assert "FROM DATASHEET" in w.winchSourceInfo.text()
+assert "FROM WINCH" in w.winchBatterySourceInfo.text()
+torque_link_state=w.tUseMain.isChecked()
+w.tUseMain.setChecked(False);QApplication.processEvents()
+w.update_input_source_indicators()
+assert "MANUAL" in w.torqueSourceInfo.text()
+w.tUseMain.setChecked(torque_link_state);QApplication.processEvents()
+old_mass_mode=w.massCalcMode.currentIndex()
+w.massCalcMode.blockSignals(True);w.massCalcMode.setCurrentIndex(1);w.massCalcMode.blockSignals(False)
+assert "FROM COMPONENT" in w.input_source_html("stability")
+w.massCalcMode.blockSignals(True);w.massCalcMode.setCurrentIndex(old_mass_mode);w.massCalcMode.blockSignals(False)
+w.update_input_source_indicators()
+
+# ---------- V53.8.50 Debug Report ----------
+tab_names=[w.projectTabs.tabText(i) for i in range(w.projectTabs.count())]
+assert "Debug Report" in tab_names
+for method in ("record_debug_event","debug_self_checks","debug_report_data","debug_report_text","refresh_debug_report","export_debug_report","copy_debug_report","_debug_exception_path","_persist_debug_exception"):
+    assert hasattr(w,method), f"Missing Debug Report method: {method}"
+assert hasattr(w,"debugReportView") and hasattr(w,"debugReportStatus")
+debug_data=w.debug_report_data()
+assert debug_data["format"]=="CVET_Debug_Report"
+assert debug_data["application"]["version"]==cvet.APP_VERSION
+assert isinstance(debug_data["self_checks"],list) and len(debug_data["self_checks"])>=8
+assert "project" in debug_data and "results" in debug_data and "input_sources" in debug_data
+assert "updater" in debug_data and "web_server" in debug_data and "storage" in debug_data
+debug_text=w.debug_report_text(debug_data)
+assert "DEBUG REPORT" in debug_text and "[SELF CHECK]" in debug_text and "[RECENT EVENTS]" in debug_text
+assert "Web PIN is never included" in debug_text
+redacted=w._debug_redact(str(Path.home()/"private-test"))
+assert "<USER_HOME>" in redacted and str(Path.home()) not in redacted
+before_events=len(w.debugEvents)
+w.record_debug_event("INFO","Regression debug event",{"path":str(Path.home())})
+assert len(w.debugEvents)==before_events+1
+debug_data2=w.debug_report_data()
+assert any(x.get("message")=="Regression debug event" for x in debug_data2["recent_events"])
+assert "<USER_HOME>" in json.dumps(debug_data2["recent_events"],ensure_ascii=False)
+assert "platform" in source and "traceback" in source
+assert "Updater check failed" in source and "Web Server launch failed" in source
+
+# ---------- V53.8.51 Clean UI + GitHub Cloud Sync ----------
+assert hasattr(w,"cloudSyncStatusLabel") and hasattr(w,"cloudSyncChip")
+for method in (
+    "cloud_config_path","load_cloud_config","save_cloud_config","setup_cloud_sync",
+    "schedule_cloud_push","show_cloud_sync_settings","start_cloud_sync",
+    "_handle_cloud_task_result","_apply_cloud_remote","_save_cloud_conflict_backup"
+):
+    assert hasattr(w,method), f"Missing cloud sync method: {method}"
+assert "QFrame#heroSummary" in source
+assert "GITHUB CLOUD SYNC" in source
+assert "Pull/ตรวจ Remote ตอนเปิดโปรแกรม" in source
+assert "Push อัตโนมัติหลัง Local Auto Save" in source
+assert "Fine-grained Personal Access Token" in source
+assert "protect_secret" in source and "unprotect_secret" in source
+assert "GITHUB CLOUD SYNC" in w.debug_report_text(w.debug_report_data())
+assert "cloud_sync" in w.debug_report_data()
+
+# Cloud controls and secrets must never enter the engineering Project JSON.
+from PySide6.QtWidgets import QLineEdit
+w.cloudRegressionSecret=QLineEdit("DO_NOT_SYNC_SECRET")
+project_snapshot=w.capture_project_state()
+assert "cloudRegressionSecret" not in project_snapshot.get("widgets",{})
+del w.cloudRegressionSecret
+
+# Debug report may expose only token presence, never the token itself.
+old_cfg=dict(w.cloudConfig);old_session=w._cloud_session_token
+with tempfile.TemporaryDirectory() as cloud_cfg_td:
+    old_cloud_path=w.cloud_config_path
+    w.cloud_config_path=lambda:Path(cloud_cfg_td)/"github_cloud_sync.json"
+    try:
+        w.cloudConfig={
+            **cloud.cloud_config_defaults(),
+            "enabled":True,
+            "repo":cloud.DEFAULT_REPO,
+            "branch":"main",
+            "path":cloud.DEFAULT_PATH,
+        }
+        w._cloud_session_token="TOP_SECRET_TOKEN_123"
+        dbg=json.dumps(w.debug_report_data(),ensure_ascii=False)
+        assert "TOP_SECRET_TOKEN_123" not in dbg
+        assert '"token_present": true' in dbg.lower()
+
+        # Mock GitHub network: force push should create remote and update sync hash/SHA.
+        with patch.object(cvet,"github_get_file",return_value=None),                        patch.object(cvet,"github_put_file",return_value={"commit_sha":"commit123","content_sha":"blob123","html_url":""}):
+            assert w.start_cloud_sync("push",silent=True,force=True)
+            deadline=time.time()+4.0
+            while w._cloud_busy and time.time()<deadline:
+                app.processEvents();time.sleep(.01)
+            app.processEvents()
+            assert not w._cloud_busy
+            assert w.cloudConfig.get("last_remote_sha")=="blob123"
+            assert w.cloudConfig.get("last_synced_hash")==cloud.canonical_state_hash(w.capture_project_state())
+
+        # Poll decision safety: newer Local + unchanged Remote must Push, never Pull old data.
+        decision_state=w.capture_project_state()
+        baseline_hash=cloud.canonical_state_hash(decision_state)
+        remote_payload=cloud.make_cloud_payload(decision_state,"remote-pc","53.8.51")
+        w.cloudConfig["last_synced_hash"]=baseline_hash
+        w.cloudConfig["last_remote_sha"]="remote-old-sha"
+        w.cloudConfig["auto_push"]=True
+        original_mt=w.mt.value()
+        w.mt.setValue(original_mt+1.0)
+        with patch.object(w,"start_cloud_sync",return_value=True) as sync_mock:
+            w._handle_cloud_task_result({
+                "ok":True,"type":"remote","mode":"poll","remote":{"sha":"remote-old-sha"},
+                "payload":remote_payload,"silent":True,"force":False
+            })
+            deadline=time.time()+1.0
+            while not sync_mock.called and time.time()<deadline:
+                app.processEvents();time.sleep(.01)
+            assert sync_mock.called, "Local-newer poll must schedule Push"
+            args,kwargs=sync_mock.call_args
+            assert args and args[0]=="push"
+        w.apply_project_state(decision_state,False);w._core_recalculate()
+    finally:
+        w.cloud_config_path=old_cloud_path
+        w.cloudConfig=old_cfg;w._cloud_session_token=old_session
+        w._set_cloud_status("Regression restore","idle")
+
+# ---------- V53.8.49 Engineering Scenario Presets ----------
+assert hasattr(w,"engineeringPresetCombo") and w.engineeringPresetCombo.count()==9
+for key in ("payload_0","payload_50","payload_100","track_070","track_100","boom_120","boom_150","slope_19","project_target"):
+    assert key in w._engineering_preset_specs()
+preset_original=w.capture_project_state()
+preset_compare_state=w.presetAutoCompare.isChecked()
+try:
+    w.presetAutoCompare.setChecked(False)
+    w.set_mass_mode_from_radio("total")
+    w.mt.setValue(300.0);w.ml.setValue(100.0);w.mb.setValue(20.0)
+    w.tm.setValue(300.0);w.emass.setValue(300.0);w.rampMass.setValue(300.0);w.wmass.setValue(100.0)
+    w.apply_scenario_preset("payload_50")
+    assert abs(w.ml.value()-50.0)<1e-9
+    assert abs(w.mt.value()-250.0)<1e-9
+    assert abs(w.tm.value()-250.0)<1e-9 and abs(w.emass.value()-250.0)<1e-9 and abs(w.rampMass.value()-250.0)<1e-9
+    assert abs(w.wmass.value()-50.0)<1e-9
+    boom_mass_before=w.mb.value()
+    w.apply_scenario_preset("boom_150")
+    assert abs(w.L.value()-1.50)<1e-9
+    assert abs(w.mb.value()-boom_mass_before)<1e-9, "Boom preset must not invent Boom mass"
+    w.apply_scenario_preset("track_070")
+    assert abs(w.W.value()-0.70)<1e-9
+    w.apply_scenario_preset("slope_19")
+    assert abs(w.tgrade.value()-19.0)<1e-9 and abs(w.eslopeDeg.value()-19.0)<1e-9 and abs(w.slope.value()-19.0)<1e-9
+    preview=w.scenario_preset_preview_html("project_target")
+    assert "Payload" in preview and "Boom L" in preview and "Slope" in preview
+finally:
+    w.apply_project_state(preset_original,False);w._core_recalculate()
+    w.presetAutoCompare.setChecked(preset_compare_state)
+
+# Coupled What-if regression: changing Payload must change derived Total mass.
+assert hasattr(w,"whatIfPayload") and hasattr(w,"whatIfBaseMass") and hasattr(w,"whatIfBoomMass")
+w.load_what_if_baseline(silent=True)
+wi0=dict(w.whatIfBaseline)
+base_total=wi0["base_mass"]+wi0["boom_mass"]+wi0["payload"]
+w.whatIfPayload.setValue(max(0.0,wi0["payload"]-20.0))
+wi1=w._what_if_values_from_fields()
+scenario_total=wi1["base_mass"]+wi1["boom_mass"]+wi1["payload"]
+assert abs((base_total-scenario_total)-20.0)<1e-6
+assert hasattr(w,"whatIfQuickParam") and hasattr(w,"whatIfQuickValue")
+assert w.whatIfQuickParam.count()>=7
+w.whatIfQuickParam.setCurrentIndex(0)
+w._refresh_simple_what_if_editor()
+w.whatIfQuickValue.setValue(max(0.0,wi0["payload"]-20.0))
+assert abs(w.whatIfPayload.value()-max(0.0,wi0["payload"]-20.0))<1e-6
+sensitivity_html=w.sensitivity_analysis_html()
+assert "WHAT-IF แบบง่าย" in sensitivity_html
+assert "สรุปผลที่ควรดู" in sensitivity_html
+for expected in ("Torque / motor","Main Battery","Winch Battery","Worst Stability SF","จุดวิกฤต"):
+    assert expected in sensitivity_html
+w.load_what_if_baseline(silent=True)
+trace_html=w.calculation_trace_html("ALL")
+assert "CALCULATION TRACE" in trace_html
+for expected in ("DRIVE TORQUE TRACE","RAMP GEOMETRY TRACE","MAIN BATTERY TRACE","WINCH TRACE","STABILITY TRACE"):
+    assert expected in trace_html
+assert "RAMP GEOMETRY TRACE" in w.calculation_trace_html("Ramp Geometry")
+assert hasattr(w,"designLockButton")
+w.designLockButton.setChecked(True);QApplication.processEvents()
+assert not w.W.isEnabled() and not w.WB.isEnabled() and not w.L.isEnabled() and not w.mt.isEnabled()
+assert not w.twheelInch.isEnabled() and not w.wmass.isEnabled() and not w.emass.isEnabled()
+assert "Locked" in w.designLockButton.text()
+with patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok):
+    assert w._require_design_unlocked("Regression mutation") is False
+assert "def _require_design_unlocked" in source
+assert 'if not self._require_design_unlocked("Apply Design Revision"):return' in source
+assert 'if not self._require_design_unlocked("Apply Scenario Preset"):return' in source
+assert 'if not self._require_design_unlocked("Open Project File"):return' in source
+w.designLockButton.setChecked(False);QApplication.processEvents()
+assert w._require_design_unlocked("Regression mutation") is True
+assert w.W.isEnabled() and w.WB.isEnabled() and w.L.isEnabled() and w.mt.isEnabled()
+assert w.twheelInch.isEnabled() and w.wmass.isEnabled() and w.emass.isEnabled()
+assert "Engineering Output Diff" in source
+metrics=w.engineering_metrics()
+for metric_key in ("Side Left critical SF","Side Right critical SF","Front critical SF","Rear critical SF","Slope SF","Overall governing SF","Overall governing case"):
+    assert metric_key in metrics
+assert "def compare_design_revisions" in source
+
+# Project Tools and Electrical candidate fields must stay synchronized both ways.
+candidate_test=min(200.0,max(br["suggested"],20.0))
+w.mainSelectedAh.setValue(candidate_test)
+QApplication.processEvents()
+assert abs(w.eCandidateAh.value()-candidate_test) < 1e-9
+w.eCandidateAh.setValue(candidate_test+1.0)
+QApplication.processEvents()
+assert abs(w.mainSelectedAh.value()-w.eCandidateAh.value()) < 1e-9
+
+# Too-small battery must not be presented as ready.
+w.eCandidateAh.setValue(max(0.1,min(1.0,br["energy_min"]*0.25)))
+w.update_battery_selection()
+assert "NOT READY" in w.batterySelectionView.toPlainText()
+w.apply_suggested_battery_capacity()
+w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
+w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
+
+# ---------- V53.3.9 Winch Auto/Manual lift-event regression ----------
+assert hasattr(w,"wTabs") and w.wTabs.count()==4
+assert w.wTabs.tabText(0)=="Spec / Datasheet"
+assert "รอบการทำงาน" in w.wTabs.tabText(1)
+assert "Battery" in w.wTabs.tabText(2)
+assert "สรุป" in w.wTabs.tabText(3)
+assert hasattr(w,"wCalcSummary") and hasattr(w,"wSpecResult")
+assert hasattr(w,"wopSummary") and hasattr(w,"wopDetails")
+assert hasattr(w,"wbSummary") and hasattr(w,"wbDetails")
+assert hasattr(w,"wbEventMode") and w.wbEventMode.count()==2
+assert w.wbEventMode.currentIndex()==0
+assert "Auto" in w.wbEventMode.itemText(0)
+assert "Manual" in w.wbEventMode.itemText(1)
+assert hasattr(w,"wbEventNote") and "1 งานยก" in w.wbEventNote.text()
+assert w.wbEvents.isEnabled() is False
+assert hasattr(w,"wSpecTable") and w.wSpecTable.rowCount()==13
+assert hasattr(w,"wPerfTable") and w.wPerfTable.rowCount()==4
+assert hasattr(w,"wLayerTable") and w.wLayerTable.rowCount()==5
+
+# Datasheet page exposes only Load and Lift Distance.
+assert w.wmass.isEnabled() and not w.wmass.isHidden()
+assert w.wheight.isEnabled() and not w.wheight.isHidden()
+assert hasattr(w,"wcycles") and (not w.wcycles.isEnabled()) and w.wcycles.isHidden()
+assert hasattr(w,"wVars") and w.wVars.isHidden()
+assert hasattr(w,"wSteps") and w.wSteps.isHidden()
+for locked_name in ("wvolt","wrated","wratio","wiup","widown","wdod","wreserve","wdiameter"):
+    locked=getattr(w,locked_name)
+    assert not locked.isEnabled(), f"{locked_name} must remain locked"
+
+# Datasheet interpolation: 100 kg between 0 and 454 kg.
+w.wmass.setValue(100.0);w.wheight.setValue(1.5)
+expected_speed=3.3+(2.5-3.3)*(100.0/454.0)
+expected_current=12.0+(60.0-12.0)*(100.0/454.0)
+core=w.winch_core_results()
+assert abs(core["up_speed"]-expected_speed)<1e-9
+assert abs(core["iup"]-expected_current)<1e-9
+assert abs(core["tu"]-28.811169087575802)<1e-6
+assert core["rope_layer"]==1 and core["layer_pull_kg"]==2041.0
+assert core["interp_x0"]==0.0 and core["interp_x1"]==454.0
+assert core["interp_v0"]==3.3 and core["interp_v1"]==2.5
+assert core["interp_i0"]==12.0 and core["interp_i1"]==60.0
+assert abs(core["interp_fraction"]-(100.0/454.0))<1e-12
+w.calc_winch()
+assert "First Layer" in w.wSpecResult.text()
+assert "Ah" not in w.wSpecResult.text()
+assert hasattr(w,"wInterpDetails") and not w.wInterpDetails.isHidden()
+interp_text=w.wInterpDetails.toPlainText()
+assert "LINEAR INTERPOLATION" in interp_text
+assert "0 kg" in interp_text and "454 kg" in interp_text
+assert "3.124 m/min" in interp_text and "22.57 A" in interp_text
+interp_html=w.winch_interpolation_html(core)
+assert "r = (x − x₁)" in interp_html
+assert "v = v₁ + r(v₂ − v₁)" in interp_html
+assert "I = I₁ + r(I₂ − I₁)" in interp_html
+assert "LINEAR INTERPOLATION" in w.winch_html()
+
+# Operating cycle is the only source for automatic event count.
+w.wopSpeed.setValue(1.0);w.wopDistance.setValue(30.0);w.wopHours.setValue(3.0)
+w.wopEvents.setValue(2);w.wopOther.setValue(0.0)
+w.wbEventMode.setCurrentIndex(0)
+w.wbDownMode.setCurrentIndex(0)
+op=w.winch_operation_results()
+finite(op["t_up"],op["t_down"],op["t_event"],op["t_round"],op["remaining"])
+assert abs(op["t_one"]-108.0)<1e-9
+assert abs(op["t_event"]-57.622338175151604)<1e-6
+assert abs(op["t_round"]-331.2446763503032)<1e-6
+assert op["rounds"]==32 and op["trips"]==64 and op["lift_events"]==64
+assert op["up_count"]==64 and op["down_count"]==64 and op["winch_moves"]==128
+assert abs(op["distance_total"]-1920.0)<1e-9
+assert abs(op["remaining"]-200.17035679029686)<1e-6
+
+# Battery is the only source for Wh/Ah totals.
+b=w.winch_battery_results()
+assert b["events"]==op["lift_events"]==64
+assert b["down_mode"]=="Conservative"
+assert abs(b["up_current"]-expected_current)<1e-9
+assert abs(b["down_current"]-expected_current)<1e-9
+assert abs(b["down_time"]-b["up_time"])<1e-9
+assert abs(b["e_down"]-b["e_up"])<1e-9
+assert 34.0 < b["ah_design"] < 35.5
+wr=w.winch_results()
+assert wr["n"]==b["events"]
+assert abs(wr["total"]-b["total"])<1e-9
+assert abs(wr["ah"]-b["ah_design"])<1e-9
+assert abs(wr["ed"]-b["e_down"])<1e-9
+
+# Formulas are shown only where they are used: Operating Cycles and Battery.
+op_html=w.winch_operation_html(op)
+assert "สูตรภาษาไทย" in op_html
+assert "เวลารวมต่อรอบ = เวลาวิ่งรถไป-กลับ + เวลางานยกรวม + เวลาหยุดอื่น" in op_html
+bat_html=w.winch_battery_html(b)
+assert "สูตรภาษาไทย" in bat_html
+assert "ความจุแบตที่ใช้จริง = พลังงานรวม ÷ แรงดันแบตเตอรี่" in bat_html
+
+# Final Summary must stay compact: results only, no repeated formula derivation.
+summary=w.winch_summary_html()
+assert "FINAL SUMMARY" in summary
+assert "ไม่แสดงสูตรและไม่คำนวณซ้ำ" in summary
+assert f"{b['ah_design']:.2f} Ah" in summary
+assert "E_up =" not in summary and "Ah_design =" not in summary
+w.calc_winch()
+assert "32" in w.wCalcSummary.toPlainText()
+assert "64" in w.wCalcSummary.toPlainText()
+assert "N_event" in w.wVars.toPlainText()
+
+# Custom DOWN mode changes both operating time and battery energy from one shared setting.
+w.wbDownMode.setCurrentIndex(1)
+w.wbDownBasis.setCurrentIndex(0)
+w.wbDownCurrent.setValue(10.0)
+w.wbDownSpeed.setValue(3.0)
+custom=w.winch_battery_results()
+op_custom=w.winch_operation_results()
+assert abs(custom["down_current"]-10.0)<1e-9
+assert abs(custom["down_time"]-30.0)<1e-9
+assert custom["e_down"] < b["e_down"]
+assert custom["ah_design"] < b["ah_design"]
+assert abs(op_custom["t_down"]-30.0)<1e-9
+
+# Manual mode lets the user enter the lift-event count directly.
+w.wbEventMode.setCurrentIndex(1)
+assert w.wbUseOp.isChecked() is False
+assert w.wbEvents.isEnabled()
+assert "MANUAL" in w.wbEventNote.text()
+w.wbEvents.setValue(100)
+manual=w.winch_battery_results()
+assert manual["use_operation"] is False and manual["events"]==100
+assert "MANUAL" in w.wbSummary.text()
+assert "UP 100 ครั้ง + DOWN 100 ครั้ง" in w.wbSummary.text()
+w.wbEvents.setValue(200)
+manual2=w.winch_battery_results()
+assert abs(manual2["total"]-2.0*manual["total"])<1e-9
+
+# Auto mode restores Operating Cycles as the event source and locks manual entry.
+w.wbEventMode.setCurrentIndex(0)
+assert w.wbUseOp.isChecked() is True
+assert not w.wbEvents.isEnabled()
+auto_again=w.winch_battery_results()
+assert auto_again["use_operation"] is True and auto_again["events"]==64
+assert "AUTO" in w.wbSummary.text()
+assert "UP 64 ครั้ง + DOWN 64 ครั้ง" in w.wbSummary.text()
+
+# Candidate battery/BMS checks stay in the Battery tab.
+# Reset to the normal automatic 3h / 64-event case before checking a 40 Ah candidate.
+w.wbEventMode.setCurrentIndex(0)
+w.wbDownMode.setCurrentIndex(0)
+w.wbDownBasis.setCurrentIndex(0)
+w.wbCandidateAh.setValue(40.0)
+w.wbBmsCont.setValue(30.0)
+w.wbBmsPeak.setValue(150.0)
+bcheck=w.winch_battery_results()
+assert bcheck["events"]==64
+assert bcheck["energy_ok"]
+assert bcheck["cont_ok"]
+assert not bcheck["table140_ok"]
+assert "Starting/Stall surge" in w.winch_battery_html(bcheck)
+
+# Reset normal project defaults for remaining regressions.
+w.wbDownBasis.setCurrentIndex(0)
+w.wbBmsCont.setValue(0.0);w.wbBmsPeak.setValue(0.0)
+w.wmass.setValue(100.0);w.wheight.setValue(1.0)
+
+# Lift distance changes core time and rope layer without a second battery calculator.
+core1=w.winch_core_results()
+w.wheight.setValue(2.0)
+core2=w.winch_core_results()
+assert abs(core2["tu"]-2.0*core1["tu"])<1e-9
+assert core2["rope_layer"]==2 and core2["layer_pull_kg"]==1597.0
+assert "Layer 2" in w.winch_summary_html() or core2["rope_layer"]==2
+
+# Load changes interpolation automatically.
+w.wheight.setValue(1.0);w.wmass.setValue(454.0)
+core454=w.winch_core_results()
+assert abs(core454["up_speed"]-2.5)<1e-9
+assert abs(core454["iup"]-60.0)<1e-9
+
+# ---------- Stability regression ----------
+d=w.inputs()
+assert d["mt"] >= 0
+side0,mo0,mr0=w.calc_side(d,theta=0)
+assert abs(mo0) < 1e-9, f"Side MO at theta=0 should be zero, got {mo0}"
+assert mr0 > 0
+side90,mo90,mr90=w.calc_side(d,theta=90)
+assert mo90 > 0 and mr90 >= 0
+finite(side90,mo90,mr90)
+ff,rr=w.longitudinal_sf_at(d,0)
+finite(ff,rr)
+scan=w.stability_worst_scan()
+assert len(scan)==543, f"Worst-case scan should contain 543 records, got {len(scan)}"
+assert scan[0][0] <= scan[-1][0]
+sr=w.slope_stability_results(d)
+finite(sr["sf"],sr["shift_total"],sr["rear_arm"])
+assert "Driving combined CG x" in w.craneout.toPlainText() or hasattr(w,"driveXCG")
+
+# ---------- Safety logic regression ----------
+base={
+    "estop":False,"rc_ok":True,"drive_enable":True,"throttle":0,"steer":0,
+    "crane":"STOP","winch":"STOP","tilt":0.0,"tilt_limit":12.0,
+    "left_limit":False,"right_limit":False,"battery_low":False,
+    "battery_inhibit":False,"winch_stationary_only":True
+}
+def ev(**changes):
+    v=dict(base);v.update(changes);return w.evaluate_safety_logic(v)
+assert ev()["state"]=="READY" and ev()["drive_permit"]
+assert ev(throttle=50)["state"]=="DRIVE"
+pivot=ev(steer=40)
+assert pivot["state"]=="DRIVE" and pivot["left_motor"]==40 and pivot["right_motor"]==-40
+assert ev(estop=True,throttle=50)["state"]=="E-STOP"
+assert ev(rc_ok=False,throttle=50)["state"]=="RC FAILSAFE"
+assert ev(tilt=15,throttle=50)["state"]=="TILT INHIBIT"
+assert ev(crane="RIGHT (+)",right_limit=True)["state"]=="RIGHT LIMIT STOP"
+assert ev(crane="LEFT (-)",right_limit=True)["state"]=="CRANE"
+assert ev(battery_low=True,battery_inhibit=True,throttle=40)["state"]=="LOW BATTERY INHIBIT"
+assert ev(battery_low=True,battery_inhibit=True,crane="LEFT (-)")["state"]=="CRANE"
+assert ev(winch="UP")["state"]=="WINCH"
+assert ev(throttle=50,winch="UP")["winch"]=="STOP"
+w.run_safety_self_tests()
+assert "15/15" in w.safetyTestResults.toPlainText()
+
+# ---------- V52.6 ESP32 / VESC Hardware I/O regression ----------
+assert hasattr(w,"hwRows") and len(w.hwRows)>=9
+assert hasattr(w,"hwBoardView") and w.hwBoardView.timer.isActive()
+# Project target changed to classic ESP32 DevKit / ESP-WROOM-32.
+assert w.hwBoardProfile.currentIndex()==3
+assert w.gpio_profile_data()["profile"]=="classic"
+assert len(w.gpio_profile_data()["pins"])==34
+
+# Generic ESP32-S3 must expose exactly the chip's 45 physical GPIOs:
+# GPIO0-21 and GPIO26-48; GPIO22-25 do not exist on ESP32-S3.
+w.hwBoardProfile.setCurrentIndex(0)
+QApplication.processEvents()
+pdata=w.gpio_profile_data()
+assert len(pdata["pins"])==45
+for invalid_pin in (22,23,24,25):
+    assert invalid_pin not in pdata["pins"]
+for valid_pin in (0,21,26,48):
+    assert valid_pin in pdata["pins"]
+
+initial=w.hardware_check_results()
+assert len(initial["missing"])>=1 and initial["ready"] is False
+w.apply_suggested_hardware_map()
+w.hwBoardVerified.setChecked(True)
+w.hwReservedPins.setText("")
+hw=w.hardware_check_results()
+assert not hw["conflicts"], hw["conflicts"]
+assert not hw["voltage"], hw["voltage"]
+assert not hw["missing"], hw["missing"]
+assert not hw["protection_missing"], hw["protection_missing"]
+assert hw["ready"] is True
+header=w.generate_hardware_header_text()
+for macro in ("PIN_IBUS_RX","PIN_CAN_TX","PIN_CAN_RX","PIN_I2C_SDA","PIN_I2C_SCL","PIN_LIMIT_LEFT","PIN_LIMIT_RIGHT","PIN_BUZZER","PIN_LED"):
+    assert macro in header, f"Missing generated macro {macro}"
+
+# Duplicate pin must be caught and shown as conflict in the visual snapshot.
+w.hwRows[1]["gpio"].setCurrentText(w.hwRows[0]["gpio"].currentText())
+conflict=w.hardware_check_results()
+assert conflict["conflicts"] and conflict["ready"] is False
+snap=w.hardware_pin_snapshot()
+dup_pin=int(w.hwRows[0]["gpio"].currentText().split()[-1])
+assert snap[dup_pin]["status"]=="CONFLICT"
+w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
+
+# Manual reserved pin must be caught.
+first_pin=int(w.hwRows[0]["gpio"].currentText().split()[-1])
+w.hwReservedPins.setText(str(first_pin))
+reserved=w.hardware_check_results()
+assert reserved["conflicts"] and reserved["ready"] is False
+w.hwReservedPins.setText("")
+
+# Unsafe direct 5 V iBUS logic must be caught.
+w.hwRows[0]["protection"].setCurrentText("Direct")
+unsafe=w.hardware_check_results()
+assert unsafe["voltage"] and unsafe["ready"] is False
+w.hwRows[0]["protection"].setCurrentText("Level Shifter / Divider")
+assert w.hardware_check_results()["ready"] is True
+
+# Waveshare 7B official board map: 45 S3 physical GPIO, but most are
+# consumed by LCD/touch/TF/RS485/CAN/USB. Suggested project map must
+# therefore leave some signals unassigned instead of inventing free pins.
+w.hwBoardProfile.setCurrentIndex(1)
+QApplication.processEvents()
+wave=w.gpio_profile_data()
+assert wave["profile"]=="waveshare7b" and len(wave["pins"])==45
+for pin in (0,1,2,3,5,7,10,14,17,18,21,38,39,40,41,42,45,46,47,48):
+    assert wave["pin_info"][pin]["status"]=="BOARD"
+assert wave["pin_info"][6]["status"]=="FREE"
+assert wave["pin_info"][8]["status"]=="SHARED" and wave["pin_info"][9]["status"]=="SHARED"
+assert wave["pin_info"][19]["status"]=="SHARED" and wave["pin_info"][20]["status"]=="SHARED"
+assert wave["pin_info"][43]["status"]=="SHARED" and wave["pin_info"][44]["status"]=="SHARED"
+w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
+wavecheck=w.hardware_check_results()
+assert wavecheck["missing"], "Waveshare 7B should expose too few direct GPIO for every project signal"
+assert wavecheck["ready"] is False
+assert w.hwRows[1]["gpio"].currentText()=="GPIO 20"  # CAN TX onboard
+assert w.hwRows[2]["gpio"].currentText()=="GPIO 19"  # CAN RX onboard
+assert w.hwRows[3]["gpio"].currentText()=="GPIO 8"
+assert w.hwRows[4]["gpio"].currentText()=="GPIO 9"
+
+# Clicking a board pin must populate the detail panel; animation paint
+# must render successfully offscreen.
+w.on_board_pin_clicked(6)
+assert "GPIO6" in w.hwBoardPinInfo.toPlainText()
+boardshot=w.hwBoardView.grab()
+assert not boardshot.isNull() and boardshot.width()>100 and boardshot.height()>100
+
+# Classic ESP32 DevKit profile contains 34 physical GPIOs and identifies
+# input-only pins.
+w.hwBoardProfile.setCurrentIndex(3)
+classic=w.gpio_profile_data()
+assert len(classic["pins"])==34
+assert classic["pin_info"][34]["function"]=="Input only"
+assert classic["pin_info"][39]["function"]=="Input only"
+
+# Return to the project target: classic ESP32.
+w.hwBoardProfile.setCurrentIndex(3)
+w.apply_suggested_hardware_map();w.hwBoardVerified.setChecked(True)
+assert w.gpio_profile_data()["profile"]=="classic"
+assert w.hardware_check_results()["ready"] is True
+
+# ---------- V52.4 Custom Device / I/O Builder regression ----------
+base_count=len(w.hwRows)
+custom_def=dict(
+    key="PROX_SENSOR_IN",device="Proximity Sensor",signal="PROX_SENSOR_IN",
+    interface="Digital IN",supply="12V",logic="3.3V",gpio="GPIO 14",
+    protection="Optocoupler / Isolator",note="12V sensor through isolator",
+    allowed_supply=tuple(w._hardware_supply_items()),custom=True,enabled=True
+)
+w._append_hardware_row(custom_def,select=True)
+QApplication.processEvents()
+assert len(w.hwRows)==base_count+1
+custom=w.hwRows[-1]
+assert custom["custom"] is True and custom["device"]=="Proximity Sensor"
+assert custom["gpio"].currentText()=="GPIO 14"
+w.update_hardware_manager()
+assert "PROX_SENSOR_IN" in w.generate_hardware_header_text()
+snap=w.hardware_pin_snapshot()
+assert snap[14]["status"]=="USED" and "PROX_SENSOR_IN" in snap[14]["users"]
+
+# Custom input with unsafe direct 12 V logic must fail voltage check.
+custom["logic"].setCurrentText("12V")
+custom["protection"].setCurrentText("Direct")
+bad_custom=w.hardware_check_results()
+assert bad_custom["voltage"] and bad_custom["ready"] is False
+custom["logic"].setCurrentText("3.3V")
+custom["protection"].setCurrentText("Optocoupler / Isolator")
+
+# Duplicate custom row must create a unique key and remain unassigned.
+w.hwTable.selectRow(len(w.hwRows)-1)
+w.duplicate_selected_hardware_io()
+assert len(w.hwRows)==base_count+2
+assert w.hwRows[-1]["key"] != w.hwRows[-2]["key"]
+assert w.hwRows[-1]["gpio"].currentText()=="Not assigned"
+
+# Project state must preserve and recreate custom definitions.
+custom_state=w.capture_project_state()
+saved_custom=[x for x in custom_state["hardware"] if x.get("custom")]
+assert len(saved_custom)>=2
+assert any(x["device"]=="Proximity Sensor" and x["interface"]=="Digital IN" for x in saved_custom)
+
+# Remove all custom rows manually, then load state and verify recreation.
+for idx in range(len(w.hwRows)-1,-1,-1):
+    if w.hwRows[idx].get("custom",False):
+        w.hwRows.pop(idx);w.hwTable.removeRow(idx)
+assert len(w.hwRows)==base_count
+w.apply_project_state(custom_state,recalculate=False)
+restored=[x for x in w.hwRows if x.get("custom",False)]
+assert len(restored)>=2
+assert any(x["key"]=="PROX_SENSOR_IN" and x["gpio"].currentText()=="GPIO 14" for x in restored)
+
+# Clean custom rows before legacy round-trip tests so defaults stay deterministic.
+for idx in range(len(w.hwRows)-1,-1,-1):
+    if w.hwRows[idx].get("custom",False):
+        w.hwRows.pop(idx);w.hwTable.removeRow(idx)
+w.update_hardware_manager()
+
+# ---------- V53.5.9 ESP32 verified-connection regression ----------
+assert cvet.SERIAL_AVAILABLE is True
+assert hasattr(w,"telemetryPage") and hasattr(w,"telemetryChart")
+assert w.telemetrySource.currentText()=="ESP32 WiFi UDP JSON"
+
+# Demo remains available, but must be visibly marked as not real hardware.
+w.telemetrySource.setCurrentIndex(0)
+w.telemetryConnected=True
+w.update_telemetry_ui()
+assert "NO ESP32" in w.telemetryConnLabel.text()
+demo=w.simulated_telemetry_sample()
+assert isinstance(demo,dict) and "battery_v" in demo and "speed_kmh" in demo
+
+# WiFi "Connect" semantics: listener-ready is WAITING, not CONNECTED.
+w.telemetrySource.setCurrentIndex(2)
+w.telemetryListening=True
+w.telemetryConnected=False
+w.telemetryLastRx=0.0
+w.update_telemetry_ui()
+assert "WAITING" in w.telemetryConnLabel.text()
+assert "CONNECTED" not in w.telemetryConnLabel.text()
+
+# Valid CVET1 packet with matching Device ID is accepted.
+w.telemetryDeviceId.setText("CVET-CI")
+valid_payload={
+    "protocol":"CVET1","device":"CVET-CI","seq":77,"uptime_ms":123456,
+    "wifi_rssi_dbm":-54,"battery_v":72.3,"battery_pct":83.0,"battery_a":9.4,
+    "speed_kmh":1.02,"tilt_deg":3.2,"left_rpm":13.0,"right_rpm":12.9,
+    "vesc_current_a":10.1,"rc_throttle":28.0,"rc_steer":1.0,
+    "limit_left":False,"limit_right":False,"estop":False,"rc_ok":True,"state":"DRIVE"
+}
+ok,reason=w.validate_telemetry_payload(valid_payload,"wifi")
+assert ok, reason
+sample=w.normalize_telemetry_sample(valid_payload)
+sample["source_ip"]="192.168.1.50"
+sample["source_port"]=4210
+sample["transport"]="WiFi UDP"
+w._mark_real_esp32_sample(sample,"WiFi UDP")
+w.ingest_telemetry_sample(sample)
+assert w.telemetryConnected is True
+assert "CONNECTED" in w.telemetryConnLabel.text()
+assert "ESP32 WIFI" in w.telemetryConnLabel.text()
+
+# Wrong Device ID and local loopback tests must never verify hardware.
+bad=dict(valid_payload);bad["device"]="OTHER-ESP32"
+ok,_=w.validate_telemetry_payload(bad,"wifi")
+assert ok is False
+loop=dict(valid_payload);loop["cvet_loopback_test"]=True
+ok,_=w.validate_telemetry_payload(loop,"wifi")
+assert ok is False
+
+# Stale hardware data must lose CONNECTED state.
+w.telemetryLastRx=time.monotonic()-3.0
+w.telemetryConnected=False
+w.update_telemetry_ui()
+assert "WAITING" in w.telemetryConnLabel.text()
+
+# New ESP32 templates identify CVET protocol/device.
+serial_template=w.telemetry_esp32_template()
+wifi_template=w.telemetry_wifi_esp32_template()
+assert "CVET1" in serial_template and "CVET-ESP32" in serial_template
+assert "CVET1" in wifi_template and "CVET-CI" in wifi_template
+assert "#include <WiFi.h>" in wifi_template and "beginPacket" in wifi_template
+
+w.telemetryListening=False
+w.telemetryConnected=False
+w.update_telemetry_ui()
+
+# ---------- System Flowchart removed in V53.2.5 ----------
+assert not hasattr(w,"flowchartPage"), "Flowchart page must not be created in V53.2.5"
+assert "System Flowchart" not in [b.text() for b in w.navButtons.values()]
+
+# Safety logic still includes VESC fault and 0.5 s stationary gate before crane.
+base={
+    "estop":False,"rc_ok":True,"vesc_fault":False,"drive_enable":True,"stationary_05":True,
+    "throttle":0,"steer":0,"crane":"STOP","winch":"STOP","tilt":0.0,"tilt_limit":12.0,
+    "left_limit":False,"right_limit":False,"battery_low":False,
+    "battery_inhibit":False,"winch_stationary_only":True
+}
+vv=dict(base);vv.update(vesc_fault=True,throttle=50)
+rr=w.evaluate_safety_logic(vv)
+assert rr["state"]=="VESC FAULT" and not rr["drive_permit"] and rr["crane"]=="STOP"
+vv=dict(base);vv.update(crane="LEFT (-)",stationary_05=False)
+rr=w.evaluate_safety_logic(vv)
+assert rr["state"]=="WAIT VEHICLE STOP" and rr["crane"]=="STOP"
+vv=dict(base);vv.update(crane="LEFT (-)",stationary_05=True)
+rr=w.evaluate_safety_logic(vv)
+assert rr["state"]=="CRANE" and rr["crane"].startswith("LEFT")
+
+# ---------- V53 Engineering Integration Suite ----------
+w.show_integration_suite_mode()
+QApplication.processEvents()
+assert hasattr(w,"deviceLibraryTable") and hasattr(w,"validationTable") and hasattr(w,"bomTable")
+assert hasattr(w,"diagnosticTable") and hasattr(w,"revisionTable") and hasattr(w,"finalVerificationView")
+
+# Device Library: custom device can be added and pushed into Hardware I/O.
+device={
+    "device":"Regression Sensor","category":"Sensor","signal":"TEST_SIGNAL",
+    "interface":"Digital IN","supply":"3.3V","logic":"3.3V","protection":"Direct","note":"regression"
+}
+dr=w._append_device_library_row(device)
+w.deviceLibraryTable.selectRow(dr)
+hw_before=len(w.hwRows)
+w.add_library_device_to_hardware()
+assert len(w.hwRows)==hw_before+1
+assert w.hwRows[-1]["custom"] is True and w.hwRows[-1]["device"]=="Regression Sensor"
+
+# Validation: current calculated targets can be loaded and exact measured values pass.
+w.load_validation_targets()
+assert w.validationTable.rowCount()>=6
+w.validationTable.blockSignals(True)
+for r in range(w.validationTable.rowCount()):
+    calc=w.validationTable.item(r,2).text()
+    w.validationTable.setItem(r,3,QTableWidgetItem(calc))
+w.validationTable.blockSignals(False)
+w.update_validation_results()
+vc=w.validation_status_counts()
+assert vc["FAIL"]==0 and vc["PENDING"]==0 and vc["PASS"]==w.validationTable.rowCount()
+
+# Latest telemetry can populate measured speed/current/tilt.
+w.telemetryHistory.append(w.normalize_telemetry_sample({
+    "speed_kmh":1.0,"battery_a":12.3,"tilt_deg":0.5,"rc_ok":True,"estop":False
+}))
+w.clear_validation_measured();w.fill_validation_from_telemetry()
+measured_by_name={}
+for r in range(w.validationTable.rowCount()):
+    measured_by_name[w.validationTable.item(r,0).text()]=w.validationTable.item(r,3).text()
+assert measured_by_name["Vehicle speed"]!=""
+assert measured_by_name["Uphill battery current"]!=""
+assert measured_by_name["IMU zero tilt"]!=""
+
+# BOM: baseline can be created and totals are computed; missing mass is explicit.
+w.load_baseline_bom()
+bt=w.bom_totals()
+assert bt["items"]>=10 and bt["mass"]>=10
+assert bt["mass_missing"]>0
+
+# Revisions: snapshot must not recursively contain revision history.
+rev_state=w.capture_project_state()
+if isinstance(rev_state.get("integration"),dict):
+    rev_state["integration"].pop("revisions",None)
+w.designRevisions=[{
+    "name":"Regression R1","created":"2026-09-30T00:00:00","version":cvet.APP_VERSION,
+    "note":"test","state":rev_state
+}]
+w.refresh_revision_table()
+assert w.revisionTable.rowCount()==1
+assert "revisions" not in w.designRevisions[0]["state"].get("integration",{})
+
+# Diagnostics and final verification must render.
+w.run_diagnostics()
+assert w.diagnosticTable.rowCount()>=1
+html=w.final_verification_html()
+assert "FINAL PROJECT VERIFICATION" in html
+assert "BOM" in html and "Validation" in html
+
+# ---------- Project state round-trip ----------
+original=w.tgrade.value()
+original_hw=w.hwRows[0]["gpio"].currentText()
+device_rows=w.deviceLibraryTable.rowCount()
+bom_rows=w.bomTable.rowCount()
+revision_rows=len(w.designRevisions)
+state=w.capture_project_state()
+w.tgrade.setValue(7.0 if original != 7.0 else 8.0)
+w.hwRows[0]["gpio"].setCurrentText("GPIO 1" if original_hw!="GPIO 1" else "GPIO 2")
+w.deviceLibraryTable.setRowCount(0);w.bomTable.setRowCount(0);w.designRevisions=[]
+w.apply_project_state(state,recalculate=True)
+assert abs(w.tgrade.value()-original)<1e-9
+assert w.hwRows[0]["gpio"].currentText()==original_hw
+assert w.deviceLibraryTable.rowCount()==device_rows
+assert w.bomTable.rowCount()==bom_rows
+assert len(w.designRevisions)==revision_rows
+
+# ---------- Local updater / SHA regression ----------
+assert "OFFICIAL_UPDATE_MANIFEST_API_URL" in source
+assert "def setup_button_feedback" in source
+assert "feedbackState" in source
+assert "def _animate_button_press" in source
+assert "def _ensure_button_opacity_effect" in source
+assert "QPropertyAnimation" in source and "QEasingCurve" in source
+assert "QGraphicsOpacityEffect" in source
+assert 'QPushButton#modeCardButton:checked' in source
+assert "craneMassModeTotal" in source and "craneMassModeComponents" in source
+assert 'feedbackState="ack"' in source
+assert "Web-style completion feedback" in source
+assert "VEHICLE_WIDTH_M = 1.00" in source
+assert "CRANE_BASE_WIDTH_M = 0.25" in source
+assert "CRANE_BASE_LENGTH_M = 0.25" in source
+assert "CRANE_LATERAL_Y_M = 0.0" in source
+assert "body_w=vehicle_w" in source
+assert "crane_base_l,crane_base_w" in source
+assert "MODE A — Total Mass: กรอกเฉพาะมวลรวม" in source
+assert "โปรแกรมสมมติฐานรถฐานอยู่กึ่งกลาง" in source
+assert "def _run_button_action" in source
+assert "rampApplyAngleButton" in source
+assert "def _read_official_manifest_api" in source
+assert "ดาวน์โหลด installer ไม่สำเร็จหลังลอง 3 ครั้ง" in source
+assert "GitHub Contents API fallback" in source
+with tempfile.TemporaryDirectory() as td:
+    td=Path(td)
+    dummy=td/"Dummy_Setup.exe"
+    dummy.write_bytes(b"MZ-CVET-REGRESSION-DUMMY")
+    sha=hashlib.sha256(dummy.read_bytes()).hexdigest()
+    manifest=td/"latest.json"
+    manifest.write_text(
+        '{"latest_version":"999.0.0","download_url":'+
+        repr(str(dummy)).replace("'",'"')+
+        ',"sha256":"'+sha+'","notes":"test"}',
+        encoding="utf-8"
+    )
+    data=w._read_update_manifest(str(manifest))
+    out=w._download_update_installer(data)
+    assert hashlib.sha256(out.read_bytes()).hexdigest()==sha
+    out.unlink(missing_ok=True)
+
+# ---------- Stability FBD regression ----------
+cases=w.stability_fbd_cases()
+assert len(cases)==5
+assert [c["key"] for c in cases]==["side_left","side_right","front","rear","slope"]
+assert w.fbdModeCombo.count()==5
+assert hasattr(w,"fbdSimple") and w.fbdSimple.isChecked()
+assert w.forceDiagram.simpleMode is True
+assert hasattr(w,"fbdExplain") and len(w.fbdExplain.toPlainText())>20
+w.fbdSimple.setChecked(False); QApplication.processEvents()
+assert w.forceDiagram.simpleMode is False
+w.fbdSimple.setChecked(True); QApplication.processEvents()
+assert w.forceDiagram.simpleMode is True
+
+# Front/rear report math must expose the actual moment balance.
+d_fbd=w.inputs()
+for direction in ("front","rear"):
+    bal=w.longitudinal_moment_balance(d_fbd,0.0,direction)
+    finite(bal["sf"],bal["mo"],bal["mr"])
+    assert bal["mo"]>=0 and bal["mr"]>=0
+    expected=bal["mr"]/bal["mo"] if bal["mo"]>1e-12 else 999
+    assert abs(bal["sf"]-expected)<1e-9
+
+with tempfile.TemporaryDirectory() as fbd_td:
+    fbd_td=Path(fbd_td)
+    html=w.stability_fbd_report_html(fbd_td,w.inputs())
+    assert "EASY READING GUIDE" in html
+    assert "อ่านแต่ละ Case ตาม 5 ขั้นนี้" in html
+    assert "d⊥ / Moment arm" in html
+    assert "ไม่ใช่ความยาวแขนเครน" in html
+    assert "STEP 2 — หาแขนโมเมนต์ d⊥ ว่าเลขแต่ละตัวมาจากไหน" in html
+    assert "CASE 1" in html and "CASE 5" in html
+    assert "Design guidance" in html
+    assert "ช่วงมุมที่แนะนำโดยประมาณ" in html
+    assert "Critical Case" in html
+    assert "ตัวแปรในรูป / Figure Variable Legend" in html
+    assert "ตารางนี้อธิบายเฉพาะสัญลักษณ์ที่ใช้ในรูปด้านบน" in html
+    assert "W_V/B/L" in html
+    assert "d_V/B/L" in html
+    assert "N_F" in html
+    assert "width='600'" in html
+    assert "width:62%" not in html and "width:38%" not in html
+    for key in ("side_left","side_right","front","rear","slope"):
+        img=fbd_td/f"fbd_{key}.png"
+        assert img.exists() and img.stat().st_size>1000, f"Missing FBD image {key}"
+
+# ---------- Durable Save Values regression ----------
+with tempfile.TemporaryDirectory() as save_td:
+    save_td=Path(save_td)
+    original_last_path=w.last_values_path
+    original_backup_path=w.backup_values_path
+    w.last_values_path=lambda: save_td/"last_values.json"
+    w.backup_values_path=lambda: save_td/"saved_values_backup.json"
+
+    w.set_mass_mode_from_radio("total")
+    w.mt.setValue(333.0);w.ml.setValue(88.0);w.W.setValue(1.23);w.xC.setValue(-0.22)
+    w.safetyThrottle.setValue(37)
+    w.comp.setItem(0,1,QTableWidgetItem("57.5"))
+    QApplication.processEvents()
+    assert w.save_values_now() is True
+    assert w.last_values_path().exists() and w.backup_values_path().exists()
+    for status_name in ("torqueSaveStatus","batterySaveStatus","winchSaveStatus","stabilityHubSaveStatus"):
+        assert hasattr(w,status_name)
+        assert "บันทึกแล้ว" in getattr(w,status_name).text()
+
+    primary=json.loads(w.last_values_path().read_text(encoding="utf-8"))
+    backup=json.loads(w.backup_values_path().read_text(encoding="utf-8"))
+    assert primary["widgets"]["mt"]["value"]==333.0
+    assert primary["widgets"]["ml"]["value"]==88.0
+    assert primary["widgets"]["W"]["value"]==1.23
+    assert primary["widgets"]["xC"]["value"]==-0.22
+    assert primary["widgets"]["safetyThrottle"]=={"kind":"slider","value":37}
+    assert primary["widgets"]["craneMassModeTotal"]["kind"]=="toggle_button"
+    assert primary["widgets"]["craneMassModeTotal"]["value"] is True
+    assert primary["components"][0][1]=="57.5"
+    assert primary["widgets"]==backup["widgets"]
+    assert primary["components"]==backup["components"]
+    assert primary["hardware"]==backup["hardware"]
+    assert primary["integration"]==backup["integration"]
+
+    # Change values, then prove restore brings the saved values back.
+    w.mt.setValue(250.0);w.ml.setValue(50.0);w.W.setValue(.90);w.xC.setValue(.10)
+    w.safetyThrottle.setValue(0)
+    assert w.restore_last_values(silent=True) is True
+    assert abs(w.mt.value()-333.0)<1e-9
+    assert abs(w.ml.value()-88.0)<1e-9
+    assert abs(w.W.value()-1.23)<1e-9
+    assert abs(w.xC.value()+0.22)<1e-9
+    assert w.safetyThrottle.value()==37
+    assert w.comp.item(0,1).text()=="57.5"
+
+    # Mass-mode button changes must schedule autosave even though the hidden combo signal is blocked.
+    w.set_mass_mode_from_radio("components")
+    assert w.easyAutoSaveDebounce.isActive()
+    w.easyAutoSaveDebounce.stop()
+    w.set_mass_mode_from_radio("total")
+    assert w.easyAutoSaveDebounce.isActive()
+    w.easyAutoSaveDebounce.stop()
+
+    w.last_values_path=original_last_path
+    w.backup_values_path=original_backup_path
+
+# ---------- Screenshot regression ----------
+with tempfile.TemporaryDirectory() as shot_td:
+    shot_td=Path(shot_td)
+    original_shot_folder=w._screenshot_folder
+    w._screenshot_folder=lambda: shot_td
+    with patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok), \
+         patch.object(cvet.QMessageBox,"critical",return_value=cvet.QMessageBox.Ok):
+        current=w.capture_current_page()
+        assert current and Path(current).exists() and Path(current).stat().st_size>1000
+        batch=w.capture_all_fbd()
+        assert len(batch)==6
+        for fp in batch:
+            assert Path(fp).exists() and Path(fp).stat().st_size>1000
+    w._screenshot_folder=original_shot_folder
+
+# ---------- PDF regression ----------
+with tempfile.TemporaryDirectory() as td:
+    td=Path(td)
+    targets={
+        "torque":td/"torque.pdf",
+        "battery":td/"battery.pdf",
+        "winch":td/"winch.pdf",
+        "stability":td/"stability.pdf",
+        "final":td/"final.pdf",
+    }
+    with patch.object(cvet.QMessageBox,"information",return_value=cvet.QMessageBox.Ok),                    patch.object(cvet.QMessageBox,"warning",return_value=cvet.QMessageBox.Ok),                    patch.object(cvet.QMessageBox,"critical",return_value=cvet.QMessageBox.Ok):
+        exporters=(
+            (w.export_torque_pdf,targets["torque"]),
+            (w.export_electrical_pdf,targets["battery"]),
+            (w.export_winch_pdf,targets["winch"]),
+            (w.export_pdf_report,targets["stability"]),
+            (w.export_final_engineering_report,targets["final"]),
+        )
+        for exporter,target in exporters:
+            with patch.object(cvet.QFileDialog,"getSaveFileName",return_value=(str(target),"PDF (*.pdf)")):
+                exporter()
+            assert target.exists(), f"PDF not created by {exporter.__name__}"
+            assert target.stat().st_size>1000, f"PDF too small from {exporter.__name__}: {target.stat().st_size}"
+
+# ---------- Final broad calculation refresh ----------
+w.calc_torque();w.calc_electrical();w.calc_winch();w.calc_all();w.calc_worst()
+w.update_all_variable_tables();w.update_project_tools();w.update_safety_logic(log_event=False);w.update_hardware_manager();w.update_telemetry_ui()
+QApplication.processEvents()
+
+print("CVET_FULL_REGRESSION_OK")
+w.close()
+app.processEvents()
