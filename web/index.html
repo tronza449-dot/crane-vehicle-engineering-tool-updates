@@ -243,7 +243,12 @@
           <div class="full notice compact-note"><b>Turning model:</b> s_turn=(W/2)φ และ E_turn=Cturn·m·g·s_turn/(η×3600). Cturn เป็นค่าประมาณของการไถลยาง/ล้อพยุงบนพื้นจริง ควรปรับจากการวัดกระแสจริงภายหลัง</div>
           <div class="full notice compact-note"><b>Simple Cycle:</b> เที่ยวเดียว = ทางราบ + ทางลาด • เที่ยวไปคิดทางราบ + ขึ้นลาด • เที่ยวกลับคิดลงลาด + ทางราบ • ไม่คิดพลังงานช่วงออกตัว และไม่นำพลังงานจากทางลงมาหักคืนแบตเตอรี่</div>
 
-          <h3 class="full section-label">Battery Purchase / Reverse Calculation</h3>
+          <h3 class="full section-label">Battery Purchase — กระแสสูงสุดที่ต้องรองรับ</h3>
+          <label>แรงดันแบตต่ำสุดขณะจ่ายโหลด (V)<input name="min_pack_voltage_v" type="number" value="60" min="1" step="1"></label>
+          <label>ประสิทธิภาพอ้างอิงที่กำลังพิกัด (%)<input name="rated_power_eff_pct" type="number" value="85" min="10" max="100" step="1"></label>
+          <label>เผื่อกระแส Continuous (%)<input name="continuous_margin_pct" type="number" value="25" min="0" step="5"></label>
+          <label>VESC Battery Current Max รวมสองช่อง (A); 0 = ยังไม่ตั้ง<input name="vesc_pack_battery_limit_a" type="number" value="0" min="0" step="5"></label>
+          <div class="full notice compact-note">โปรแกรมใช้กำลังมอเตอร์จาก Drive Torque × จำนวนมอเตอร์ หารแรงดันต่ำสุดและประสิทธิภาพ เพื่อหากระแสอ้างอิงสูงสุดสำหรับเลือกแบต • ค่า VESC Battery Current Max = 0 หมายถึง Peak ยังยืนยันไม่ได้ • ไม่เปลี่ยนการคำนวณ Wh/Ah และจำนวนรอบ</div>
           <label>Target max continuous C<input name="target_cont_c" type="number" value="3" step="0.1"></label>
           <label>Target max peak C<input name="target_peak_c" type="number" value="5" step="0.1"></label>
           <label>Candidate battery (Ah)<input name="candidate_ah" type="number" value="40" step="1"></label>
