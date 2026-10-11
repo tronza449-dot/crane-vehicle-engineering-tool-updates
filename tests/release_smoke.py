@@ -3,7 +3,7 @@
 import os
 os.environ.setdefault("QT_QPA_PLATFORM","offscreen")
 import math
-from PySide6.QtWidgets import QApplication, QPushButton, QScrollArea, QGroupBox
+from PySide6.QtWidgets import QApplication, QPushButton, QScrollArea, QGroupBox, QAbstractSpinBox
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 import CraneVehicleEngineeringTool as cvet
@@ -46,6 +46,8 @@ try:
     assert isinstance(w.slopePage.findChild(QScrollArea,"slopeScrollArea"),QScrollArea)
     assert w.slopeScroll.widget().layout() is not None
     assert w.rampRiseCm.maximumWidth()<=230
+    assert w.rampRiseCm.buttonSymbols()==QAbstractSpinBox.UpDownArrows
+    assert "color:#182230" in w.rampRiseCm.styleSheet()
     assert w.rampGeomOut.minimumHeight()>=270
     assert w.slopeout.minimumHeight()>=185
     result=w.ramp_geometry_results()
@@ -116,11 +118,23 @@ try:
         if width==1024:
             assert w.slopeScroll.verticalScrollBar().maximum()>0
 
-    w.resize(1366,768)
-    idx=next(i for i in range(w.stabilityTabs.count()) if w.stabilityTabs.tabText(i)=="Engineering FBD")
-    w.stabilityTabs.setCurrentIndex(idx)
-    QApplication.processEvents()
-    assert w.grab().save("fbd-ui-1366.png","PNG")
+    fbdIdx=next(i for i in range(w.stabilityTabs.count()) if w.stabilityTabs.tabText(i)=="Engineering FBD")
+    w.stabilityTabs.setCurrentIndex(fbdIdx)
+    assert isinstance(w.fbdPage.findChild(QScrollArea,"fbdScrollArea"),QScrollArea)
+    assert w.fbdScroll.widget().layout() is not None
+    for width,height in ((1366,768),(1024,650)):
+        w.resize(width,height)
+        QApplication.processEvents()
+        assert w.forceDiagram.height()>=525, "Diagram may not be crushed by lower explanation panes"
+        assert w.fbdScroll.verticalScrollBar().maximum()>0, "Explanations must scroll"
+        assert w.fbdScroll.widget().width()<=w.fbdScroll.viewport().width()+3, (
+            "FBD overflow",width,w.fbdScroll.widget().width(),w.fbdScroll.viewport().width()
+        )
+        assert w.grab().save(f"fbd-ui-{width}.png","PNG")
+        w.fbdScroll.verticalScrollBar().setValue(w.fbdScroll.verticalScrollBar().maximum())
+        QApplication.processEvents()
+        assert w.grab().save(f"fbd-ui-bottom-{width}.png","PNG")
+        w.fbdScroll.verticalScrollBar().setValue(0)
     print("SMOKE 6/6: close safely", flush=True)
 finally:
     w.close()
