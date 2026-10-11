@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.74"
+APP_VERSION = "53.8.75"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -7850,8 +7850,13 @@ void loop() {{
             link_winch_payload=link
         )
 
-    def load_what_if_baseline(self,*_,silent=False):
-        if not hasattr(self,"whatIfBaseMass"):return
+    def _live_what_if_baseline(self):
+        """Authoritative current design, not cached widget values from app startup.
+
+        Project tools are built BEFORE restore_last_values(), so their initial
+        whatIfBaseline can carry defaults such as 19° after a saved project has
+        restored 11.11°. Never use that stale snapshot for a one-variable test.
+        """
         d=self.inputs()
         values=dict(
             base_mass=max(0.0,d["mt"]-d["ml"]-d["mb"]),payload=float(d["ml"]),boom_mass=float(d["mb"]),
@@ -7863,9 +7868,26 @@ void loop() {{
             operation_speed=float(self.espeed.value() if hasattr(self,"espeed") else 1.0),
             lift=float(self.wheight.value() if hasattr(self,"wheight") else 1.0),
             winch_load=float(self.wmass.value() if hasattr(self,"wmass") else d["ml"]),
-            link_winch_payload=False
         )
         values["link_winch_payload"]=abs(values["winch_load"]-values["payload"])<1e-6
+        return values
+
+    def _what_if_comparison_values(self):
+        """Simple mode changes exactly ONE selected input; advanced retains full editor."""
+        base=self._live_what_if_baseline()
+        if hasattr(self,"whatIfShowAdvanced") and self.whatIfShowAdvanced.isChecked():
+            return base,self._what_if_values_from_fields()
+        scenario=dict(base)
+        key=self.whatIfQuickParam.currentData() if hasattr(self,"whatIfQuickParam") else None
+        if key in self._simple_what_if_spec():
+            scenario[key]=float(self.whatIfQuickValue.value())
+        if key=="payload" and scenario["link_winch_payload"]:
+            scenario["winch_load"]=scenario["payload"]
+        return base,scenario
+
+    def load_what_if_baseline(self,*_,silent=False):
+        if not hasattr(self,"whatIfBaseMass"):return
+        values=self._live_what_if_baseline()
         mapping=(
             ("whatIfBaseMass","base_mass"),("whatIfPayload","payload"),("whatIfBoomMass","boom_mass"),
             ("whatIfTrack","track"),("whatIfWheelbase","wheelbase"),("whatIfBoomLength","boom_length"),
@@ -7921,6 +7943,8 @@ void loop() {{
             setcheck("tUseMain",True);setcheck("euseTorqueMass",True)
 
             t=self.torque_results();e=self.electrical_results();w=self.winch_results();d=self.inputs()
+            if abs(t["m"]-total)>1e-5 or abs(e["m"]-total)>1e-5 or abs(d["mt"]-total)>1e-5:
+                raise ValueError(f"Scenario mass link failed: total={total}, torque={t['m']}, battery={e['m']}, stability={d['mt']}")
             crit=self._stability_worst_for_data(d);slope=self.slope_stability_results(d)
             lift_valid=[x for x in crit if x[0]<999]
             lift=lift_valid[0] if lift_valid else (999,None,"No overturning",0,0)
@@ -7928,7 +7952,9 @@ void loop() {{
             if float(slope["sf"])<overall_sf:
                 overall_sf=float(slope["sf"]);overall_case="Slope"
             return dict(
-                total_mass=total,torque=t["T"],motor_margin=t.get("motor_power_margin",0.0),
+                total_mass=total,torque_mass=t["m"],battery_mass=e["m"],
+                drive_cycle_wh=e["Edrive_cycle"],cycle_time_s=e["cycle_total_s"],
+                torque=t["T"],motor_margin=t.get("motor_power_margin",0.0),
                 motor_ok=bool(t.get("motor_power_ok",False)),main_ah=e["Ah"],
                 main_ah_practical=e.get("Ah_recommended",e["Ah"]),main_energy=e["Eload"],
                 cycles=e["cycles"],winch_load=v["winch_load"],winch_time=w["tu"],winch_ah=w["ah"],
@@ -7946,11 +7972,21 @@ void loop() {{
         return f"{da:+.{digits}f} {unit}".strip()
 
     def sensitivity_analysis_html(self):
-        if not hasattr(self,"whatIfBaseline"):
-            self.load_what_if_baseline(silent=True)
-        base=dict(self.whatIfBaseline)
-        scenario=self._what_if_values_from_fields()
+        # Re-read the current loaded design on every calculation.
+        # Quick What-if does not inherit stale/hidden advanced fields.
+        base,scenario=self._what_if_comparison_values()
+        key=self.whatIfQuickParam.currentData() if hasattr(self,"whatIfQuickParam") else ""
+        if key in base and hasattr(self,"whatIfQuickCurrent"):
+            unit=self._simple_what_if_spec().get(key,("", "",0,0,0,""))[1]
+            self.whatIfQuickCurrent.setText(f"{base[key]:.3f} {unit}")
         b=self._evaluate_coupled_scenario(base);q=self._evaluate_coupled_scenario(scenario)
+        if (scenario["payload"]>base["payload"] and
+            all(abs(float(base[k])-float(scenario[k]))<1e-8
+                for k in ("base_mass","boom_mass","track","wheelbase","boom_length",
+                          "crane_x","base_cg_x","drive_cg_x","hcg","slope","drive_speed",
+                          "operation_speed","lift")) and
+            q["torque"]+1e-7<b["torque"]):
+            raise AssertionError("What-if model inconsistent: higher payload reduced torque under identical driving conditions")
 
         input_specs=[
             ("Base vehicle mass","base_mass","kg"),("Payload system","payload","kg"),("Boom mass","boom_mass","kg"),
@@ -7995,9 +8031,22 @@ void loop() {{
         if current_quick is not None and scenario_quick is not None:
             quick_change=f"<p><b>{quick_label}</b>: {current_quick:.3f} {quick_unit} → <b>{scenario_quick:.3f} {quick_unit}</b></p>"
         overall_status=status(q["overall_sf"],q["required_sf"])
+        mass_warning=(
+            "<p style='color:#b42318'><b>⚠️ Scenario mass exceeds the 300 kg project target.</b> "
+            "Model result is exploratory; redesign/weight budget is required.</p>"
+            if sc_total>300.0+1e-8 else ""
+        )
+        cycle_note=(
+            "<p><b>พลังงานแบตหลัก:</b> เป็นพลังงานรวมในเวลาทำงานจากจำนวนรอบที่ทำได้ "
+            f"({b['cycles']} → {q['cycles']} รอบ); พลังงานขับต่อรอบ "
+            f"{b['drive_cycle_wh']:.2f} → {q['drive_cycle_wh']:.2f} Wh. "
+            "Ah รวมอาจลดได้ถ้าจำนวนรอบลดลงจากการยกช้าลง; ไม่ได้แปลว่ารถหนักขึ้นแล้วใช้แรงขับน้อยลง.</p>"
+        )
         compact=(
             "<table border='1' cellspacing='0' cellpadding='7'>"
             "<tr><th>ผลสำคัญ</th><th>ก่อน</th><th>หลัง</th><th>เปลี่ยน</th></tr>"
+            f"<tr><td>Total vehicle mass</td><td>{b['total_mass']:.1f} kg</td><td><b>{q['total_mass']:.1f} kg</b></td><td>{self._what_if_delta(b['total_mass'],q['total_mass'],'kg',1)}</td></tr>"
+            f"<tr><td>Driving slope</td><td>{base['slope']:.2f}°</td><td>{scenario['slope']:.2f}°</td><td>{self._what_if_delta(base['slope'],scenario['slope'],'°',2)}</td></tr>"
             f"<tr><td>Torque / motor</td><td>{b['torque']:.2f} N·m</td><td><b>{q['torque']:.2f} N·m</b></td><td>{self._what_if_delta(b['torque'],q['torque'],'N·m',2)}</td></tr>"
             f"<tr><td>Main Battery</td><td>{b['main_ah_practical']:.2f} Ah</td><td><b>{q['main_ah_practical']:.2f} Ah</b></td><td>{self._what_if_delta(b['main_ah_practical'],q['main_ah_practical'],'Ah',2)}</td></tr>"
             f"<tr><td>Winch Battery</td><td>{b['winch_ah']:.2f} Ah</td><td><b>{q['winch_ah']:.2f} Ah</b></td><td>{self._what_if_delta(b['winch_ah'],q['winch_ah'],'Ah',2)}</td></tr>"
@@ -8008,8 +8057,8 @@ void loop() {{
         return (
             "<h1>WHAT-IF แบบง่าย — เปลี่ยนแล้วรถเป็นอย่างไร?</h1>"
             +quick_change+
-            "<h2>สรุปผลที่ควรดู</h2>"+compact+
-            "<p><b>อ่านง่าย ๆ:</b> โปรแกรมยังคำนวณแบบสัมพันธ์ทั้งระบบเหมือนเดิม แต่ซ่อนค่าที่ไม่จำเป็นออกจากหน้าหลัก</p>"
+            "<h2>สรุปผลที่ควรดู</h2>"+compact+mass_warning+cycle_note+
+            "<p><b>อ่านง่าย ๆ:</b> โหมดง่ายเปลี่ยนเพียงค่าที่เลือก โดยอิงค่าจริงจากแบบปัจจุบัน; โหมดขั้นสูงปรับหลายค่าพร้อมกันได้</p>"
             "<h3>ค่าที่เปลี่ยนตามอัตโนมัติ</h3>"
             "<p>Total mass, Torque, Main Battery, Winch cycle และ Stability จะคำนวณต่อจาก Scenario ที่เลือกตามความสัมพันธ์จริงของโมเดล</p>"
             "<h3>รายละเอียดเพิ่มเติม</h3>"
