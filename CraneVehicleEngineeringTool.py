@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.72"
+APP_VERSION = "53.8.73"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -13456,10 +13456,21 @@ class ForceDiagram(QWidget):
         if abs(xl-xc)>=8:
             p.drawLine(QPointF(xc,boom_y),QPointF(xl,boom_y))
         else:
-            # At ±90 degrees the physical arm projects to a point in side elevation.
-            p.setPen(QPen(QColor("#b45309"),2,Qt.DashLine))
+            # At ±90 degrees the physical boom points sideways, out of the
+            # longitudinal elevation plane. A dashed perspective stub makes
+            # its physical presence visible WITHOUT creating a fake x lever arm.
+            # Every moment arm and weight arrow still acts at projected xb/xl.
+            p.setPen(QPen(QColor("#f59e0b"),5,Qt.DashLine,Qt.RoundCap))
+            stub_end=QPointF(xc+56,boom_y-23)
+            p.drawLine(QPointF(xc,boom_y),stub_end)
+            p.setPen(QPen(QColor("#b45309"),1.8))
+            p.setBrush(QColor("#fff7ed"))
+            p.drawEllipse(stub_end,5,5)
+            # A projection symbol at the mast marks both CGs on one x line.
             p.setBrush(Qt.NoBrush)
             p.drawEllipse(QPointF(xc,boom_y),9,9)
+            self.txt(p,xc+26,boom_y+40,
+                     "BOOM OUT OF PLANE - SKETCH ONLY",7,True,"#92400e")
         # Mass of boom acts at xb (its midpoint projection).
         # Mass of payload acts at xl (the hook projection). Caller draws weights.
 
