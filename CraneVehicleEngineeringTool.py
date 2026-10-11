@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.64"
+APP_VERSION = "53.8.65"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -11340,7 +11340,7 @@ void loop() {{
             sm.setColumnStretch(column,1)
         l.addWidget(summary)
 
-        geom=QGroupBox("01  RAMP GEOMETRY  /  ขนาดและมุมทางลาด")
+        geom=QGroupBox("01  RAMP GEOMETRY / ทางลาด")
         # Stack inputs above results: avoids hidden right-hand content at
         # 1024px when the navigation sidebar and Windows scaling consume width.
         gl=QVBoxLayout(geom)
@@ -11400,7 +11400,7 @@ void loop() {{
         gl.addWidget(self.rampGeomOut)
         l.addWidget(geom)
 
-        actions=QGroupBox("02  ACTIONS  /  นำผลคำนวณไปใช้")
+        actions=QGroupBox("02  ACTIONS / คำสั่ง")
         actionsLayout=QGridLayout(actions)
         actionsLayout.setContentsMargins(16,23,16,12)
         actionsLayout.setHorizontalSpacing(10);actionsLayout.setVerticalSpacing(8)
@@ -11440,7 +11440,7 @@ void loop() {{
         actionsLayout.setColumnStretch(0,1)
         l.addWidget(actions)
 
-        drive=QGroupBox("03  UPHILL STABILITY  /  ค่าที่ใช้วิเคราะห์การคว่ำ")
+        drive=QGroupBox("03  UPHILL STABILITY / เสถียรภาพ")
         df=QGridLayout(drive);df.setContentsMargins(16,24,16,14)
         df.setHorizontalSpacing(16);df.setVerticalSpacing(8)
         self.slope=spin(19,0,45,.01,2)
@@ -11472,7 +11472,7 @@ void loop() {{
         df.addWidget(self.slopeSourceInfo,4,0,1,2)
         l.addWidget(drive)
 
-        result=QGroupBox("04  RESULT  /  สรุปการคำนวณ Uphill Driving Stability")
+        result=QGroupBox("04  RESULT / ผลการคำนวณ")
         resultLayout=QVBoxLayout(result)
         resultLayout.setContentsMargins(16,24,16,14)
         self.slopeout=QPlainTextEdit()
