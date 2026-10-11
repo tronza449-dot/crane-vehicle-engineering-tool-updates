@@ -80,6 +80,22 @@ try:
     document.print_(printer)
     pdf_content=output_path.read_bytes()
     assert pdf_content[:5]==b"%PDF-" and len(pdf_content)>15000, "PDF report invalid or empty"
+    try:
+        from PySide6.QtPdf import QPdfDocument
+        from PySide6.QtCore import QSize
+        reader=QPdfDocument()
+        reader.load(str(output_path))
+        page_count=reader.pageCount()
+        assert 5<=page_count<=20, ("Unusual report page count",page_count)
+        for index in (3,4,5):
+            if index<page_count:
+                page=reader.render(index,QSize(750,1058))
+                assert not page.isNull()
+                assert page.save(f"battery-step56-page-{index+1}.png","PNG")
+        reader.close()
+    except ImportError:
+        print("QtPdf unavailable: validated physical PDF header and size",flush=True)
+
     print("SMOKE: simple What-if payload comparison after saved-state restore",flush=True)
     preserved=w.capture_project_state()
     try:
