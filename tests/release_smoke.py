@@ -193,7 +193,42 @@ try:
                 assert any("R_opp → 0 at tipping" in x for x in recorded), "Missing limit-state reaction note"
                 assert any("CRANE PLAN VIEW" in x for x in recorded), "Missing crane plan-view inset"
             assert picture.save(f"fbd-engineering-{name}-{width}.png","PNG"), name
+    # Front uses separate boom and load gravity lines at their real x projections;
+    # rear +/-90 must collapse those lines only on the MAIN orthographic FBD.
+    fd.resize(1180,760)
+    fd.setCaseAngle(0.0)
+    tracked=[]
+    original_arrow=fd.arrow
+    def capture_arrow(p,a,b,label="",*args,**kwargs):
+        tracked.append((str(label),float(a.x())))
+        return original_arrow(p,a,b,label,*args,**kwargs)
+    fd.arrow=capture_arrow
+    pic=QImage(1180,760,QImage.Format_ARGB32_Premultiplied)
+    pic.fill(Qt.white)
+    painter=QPainter(pic)
+    try:
+        fd.longitudinal(painter,reference,"front")
+    finally:
+        painter.end()
+    boom=next(x for label,x in tracked if label.startswith("W_B = "))
+    load=next(x for label,x in tracked if label=="Kdyn·W_L")
+    assert load > boom+15,(boom,load)
+    assert any("BOOM PROFILE (SCHEMATIC)" in x for x in recorded)
+    assert pic.save("fbd-boom-front-reference.png","PNG")
+    tracked.clear()
+    fd.setCaseAngle(-90.0)
+    pic.fill(Qt.white)
+    painter=QPainter(pic)
+    try:
+        fd.longitudinal(painter,reference,"rear")
+    finally:
+        painter.end()
+    assert sum(1 for label,x in tracked if label.startswith("W_B + W_L (same x)"))==1
+    assert not any(label.startswith("W_B = ") for label,x in tracked)
+    assert pic.save("fbd-boom-rear-reference.png","PNG")
+    fd.arrow=original_arrow
     fd.deleteLater()
+    print("SMOKE: boom 20kg + payload separate projection regression OK", flush=True)
     print("SMOKE 6/6: close safely", flush=True)
 finally:
     w.close()
