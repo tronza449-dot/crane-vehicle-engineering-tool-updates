@@ -1,3 +1,12 @@
+## V53.8.77 — Fix inconsistent BMS current checks found during formula audit
+
+- Main 72 V BMS Continuous and modeled Peak checks now use the **same reference** as Battery Selection, including simultaneously active auxiliary current.
+- Remove the incorrect equation that treated the VESC controller phase/motor current-limit indicator as measured DC battery peak current.
+- The winch 12 V BMS startup/stall Peak status now stays **CHECK**, never PASS based only on the manufacturer's 140 A loaded first-layer table entry.
+- The Integrated Design Check shows the unresolved winch starting/stall peak requirement and uses exactly the same battery current references as Battery Selection.
+- Add a release-blocking desktop test to compare BMS required amps across panels and check the unverified stall Peak status.
+- The independent overall formula audit remains at `docs/ENGINEERING_FORMULA_AUDIT_2026-10-11.md`.
+
 ## V53.8.76 — Independent formula audit and release-blocking engineering invariants
 
 - Independently review formulas across ramp, traction torque/power, 72 V battery, winch and 12 V battery, front/rear/side/slope stability, and What-if input propagation.
