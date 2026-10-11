@@ -1,3 +1,12 @@
+## V53.8.81 — Finalize purchase-current model and Desktop/Web parity
+
+- Align 72 V Battery Selection between Windows desktop and web, including the same standard pack capacities (5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200 Ah).
+- Include manufacturer-rated motor power from web Drive Torque in the battery purchase calculator instead of silently using fixed input.
+- Require independent formula test: with 3000 W, low battery voltage 60 V, assumed efficiency 85%, 50 W auxiliary, 25% continuous design allowance, the calculated continuous reference is about 74.6 A (rounded baseline 80 A).
+- Regression checks confirm lowering the minimum voltage increases current while energy Wh, battery minimum Ah and 3 h completed cycles remain unchanged.
+- Continuous current from rated-power analysis is a **conservative purchase reference**; BMS Peak stays CHECK until VESC battery-current limits, real startup/transient behavior and pack/cell ratings are confirmed.
+- This release supersedes V53.8.80 source tested before parity/capacity-standard corrections.
+
 ## V53.8.80 — 72V battery purchasing current envelope (keep the original 3h Wh/Ah calculations)
 
 - Preserve the original 30 m out-and-back, two lifting jobs per round, completed-round energy Wh/Ah, DoD, reserve and Kb unchanged.
