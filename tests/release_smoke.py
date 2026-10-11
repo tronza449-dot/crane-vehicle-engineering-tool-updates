@@ -57,6 +57,14 @@ try:
     assert f"max({report_sel['cont_req']:.2f}, {report_sel['t']['Ibatt']:.2f} + {report_aux:.2f}) = <b>{report_sel['peak_calc']:.2f} A</b>" in battery_html
     assert abs(max(report_e["Icalc_up"],report_e.get("Iturn_avg",0.0),0)+report_aux-report_sel["cont_req"])<1e-8
     assert abs(max(report_sel["cont_req"],report_sel["t"]["Ibatt"]+report_aux)-report_sel["peak_calc"])<1e-8
+    print("SMOKE: Thai battery STEP 6 sections",flush=True)
+    for label in ("6.1 แยกให้ออกก่อน","6.2 กระแสแต่ละตัวมาจากไหน","6.3 Continuous Current","6.4 Peak Current","6.5 ทำไมสรุปเป็น BMS"):
+        assert label in battery_html,("Missing battery explanation",label)
+    assert "Ah กับ A ไม่ใช่ค่าเดียวกัน" in battery_html
+    assert "ปัดขึ้นทีละ 5 A" in battery_html
+    assert "ไม่ใช่กระแสสูงสุดจริงของมอเตอร์" in battery_html
+    assert f"ceil({report_sel['cont_req']:.2f} ÷ 5) × 5 = <b>{report_sel['bms_cont']:.0f} A</b>" in battery_html
+    assert f"ceil({report_sel['peak_calc']:.2f} ÷ 5) × 5 = <b>{report_sel['bms_peak']:.0f} A</b>" in battery_html
     print("SMOKE: simple What-if payload comparison after saved-state restore",flush=True)
     preserved=w.capture_project_state()
     try:
