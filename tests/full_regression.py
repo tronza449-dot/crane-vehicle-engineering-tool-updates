@@ -285,7 +285,7 @@ assert "สูตร + แทนค่าแบบทีละขั้น" in s
 assert "def battery_report_html" in source
 assert "Executive Summary / สรุปคำตอบก่อน" in source
 assert "STEP 1 — แบ่งเส้นทางของ 1 Cycle" in source
-assert "STEP 6 — ตรวจ Continuous / Peak Current และ BMS" in source
+assert "STEP 6 — เลือกกระแส BMS ให้เหมาะกับการขับรถ" in source
 assert "อ่านสูตรแบบภาษาไทย" in source
 assert "thai-formula" in source and "stepbox" in source
 assert "Appendix A — Detailed Formula & Substitution" in source
