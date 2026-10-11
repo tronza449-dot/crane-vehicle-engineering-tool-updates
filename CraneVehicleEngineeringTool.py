@@ -8258,7 +8258,7 @@ void loop() {{
         <tr><td>Calculated minimum</td><td>{e['Ah']:.2f} Ah @ {e['V']:.1f} V</td><td>Practical target {e.get('Ah_recommended',e['Ah']):.2f} Ah (Kb={e.get('Kb',1):.2f})</td></tr>
         <tr><td>Selected capacity check</td><td>≥ {e.get('Ah_recommended',e['Ah']):.2f} Ah</td><td>Selected {self.mainSelectedAh.value():.1f} Ah → {st(self.mainSelectedAh.value(),e.get('Ah_recommended',e['Ah']))}</td></tr>
         <tr><td>Continuous current, including auxiliary</td><td>max(Uphill {e['Icalc_up']:.1f}, Turn {e.get('Iturn_avg',0):.1f}) + Aux {aux_current:.1f} = {main_cont_req:.1f} A</td><td>BMS {self.mainBMSCont.value():.1f} A → {st(self.mainBMSCont.value(),main_cont_req)}</td></tr>
-        <tr><td>Modeled peak current, including auxiliary</td><td>max(Continuous, Torque design {t['Ibatt']:.1f} + Aux {aux_current:.1f}) = {main_peak_ind:.1f} A</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → {st(self.mainBMSPeak.value(),main_peak_ind)}</td></tr>
+        <tr><td>Peak modeled lower bound</td><td>{main_peak_ind:.1f} A at {br['low_v']:.1f} V (includes rated reference)</td><td>BMS peak {self.mainBMSPeak.value():.1f} A → CHECK / verify pack and controller surge</td></tr>
         <tr><td>Controller current indicator — not battery current</td><td>{controller_limit_indicator:.1f} A (potential phase/motor current)</td><td>CHECK actual battery-current settings and transient surge</td></tr></table>
         <h3>Winch 12 V Separate Battery</h3>
         <table border='1' cellspacing='0' cellpadding='6'>
@@ -8301,8 +8301,9 @@ void loop() {{
         if self.mainBMSCont.value()>0:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A",f"{self.mainBMSCont.value():.1f} A",self.mainBMSCont.value()>=main_cont)
         else:add("Main BMS","Continuous current",f"≥ {main_cont:.1f} A","Not set",False,"กรอกพิกัด BMS",True)
         peak_calc=br_current["peak_calc"] if br_current else max(main_cont,t["Ibatt"]+iaux)
-        if self.mainBMSPeak.value()>0:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A",f"{self.mainBMSPeak.value():.1f} A",self.mainBMSPeak.value()>=peak_calc,"VESC battery-current limit ต้องตรวจแยกจาก phase/motor current")
-        else:add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A","Not set",False,"กรอกพิกัด Peak ของ Pack/BMS",True)
+        add("Main BMS","Peak current (calculated)",f"≥ {peak_calc:.1f} A modeled floor",
+            f"{self.mainBMSPeak.value():.1f} A" if self.mainBMSPeak.value()>0 else "Not set",
+            False,"CHECK: VESC pack Battery Current Max and actual transient peak are not certified",True)
         if self.winchSelectedAh.value()>0:add("Winch Battery","Energy capacity",f"≥ {w['ah']:.2f} Ah",f"{self.winchSelectedAh.value():.1f} Ah",self.winchSelectedAh.value()>=w['ah'])
         else:add("Winch Battery","Energy capacity",f"{w['ah']:.2f} Ah required","Selected not set",False,"กรอกใน Battery+BMS",True)
         add("Winch BMS","Starting/stall peak current","Manufacturer current transient not supplied",
@@ -10543,8 +10544,8 @@ void loop() {{
         if not hasattr(self,"batterySelectionView"):return
         r=self.battery_selection_results();e=r["e"]
         self.bselMinAhLabel.setText(f"Min {e['Ah']:.2f} Ah\nPractical {e.get('Ah_recommended',e['Ah']):.2f} Ah")
-        self.bselContLabel.setText(f"{r['cont_req']:.1f} A\nBMS ≥ {r['bms_cont']:.0f} A")
-        self.bselPeakLabel.setText(f"{r['peak_calc']:.1f} A\nBMS peak ≥ {r['bms_peak']:.0f} A")
+        self.bselContLabel.setText(f"Operating {r['operating_cont']:.1f} A\nDesign BMS ≥ {r['bms_cont']:.0f} A")
+        self.bselPeakLabel.setText(f"Model floor {r['peak_calc']:.1f} A\nPeak: CHECK VESC")
         self.bselSuggestedLabel.setText(f"{r['suggested']:.0f} Ah\n≈ {r['design_runtime']:.2f} h")
 
         rows=r["standards"]
@@ -10556,7 +10557,7 @@ void loop() {{
             peak_c=r["peak_calc"]/ah if ah>0 else 999
             energy_ok=ah+1e-9>=r["energy_min"]
             c_ok=cont_c<=r["target_cont"]+1e-9 and peak_c<=r["target_peak"]+1e-9
-            status="PASS*" if energy_ok and c_ok else ("ENERGY LOW" if not energy_ok else "C-RATE CHECK")
+            status="CHECK PEAK" if energy_ok and c_ok else ("ENERGY LOW" if not energy_ok else "C-RATE CHECK")
             margin=rev["target_margin_pct"]
             vals=[
                 f"{ah:.0f} Ah",f"{rated_wh:.0f} Wh",f"{rev['runtime_h']:.2f} h",
@@ -10576,7 +10577,7 @@ void loop() {{
         energy_ok=cand_ah>0 and cand_ah+1e-9>=r["energy_min"]
         cont_ok=cand_cont>0 and cand_cont+1e-9>=r["cont_req"]
         peak_ok=cand_peak>0 and cand_peak+1e-9>=r["peak_calc"]
-        all_ok=energy_ok and cont_ok and peak_ok
+        all_ok=energy_ok and cont_ok and peak_ok and r["vesc_known"] and not r["limit_conflict"] and r["peak_verified"]
         cand_rev=self.battery_runtime_from_capacity(cand_ah,e)
         cand_wh=cand_rev["rated_wh"]
         cand_runtime=cand_rev["runtime_h"]
@@ -10586,14 +10587,22 @@ void loop() {{
             if not set_value:return "<span style='color:#b54708'><b>NOT SET</b></span>"
             return "<span style='color:#176337'><b>PASS</b></span>" if ok else "<span style='color:#b42318'><b>CHECK</b></span>"
 
-        overall=("READY TO VERIFY DATASHEET" if all_ok else "NOT READY")
+        overall=("READY TO VERIFY DATASHEET" if all_ok else "NOT READY — ต้องยืนยัน VESC Battery Current Max และกระแส Peak จริง")
         overall_color="#176337" if all_ok else "#b42318"
         self.batterySelectionView.setHtml(f"""
         <h2>Battery Purchase Check / ตรวจแบตก่อนซื้อ</h2>
         <p><b>Minimum by energy:</b> {r['energy_min']:.2f} Ah ({e['Edesign']:.0f} Wh) — รวม DoD และ Reserve แล้ว</p>
-        <p><b>Current requirement:</b> Continuous ≈ {r['cont_req']:.1f} A, calculated Peak ≈ {r['peak_calc']:.1f} A</p>
-        <p><b>Recommended BMS floor:</b> Continuous ≥ <b>{r['bms_cont']:.0f} A</b> • Peak ≥ <b>{r['bms_peak']:.0f} A</b>
-        (ปัดขึ้นทีละ 5 A จากค่าคำนวณ)</p>
+        <p><b>Operating Current:</b> {r['operating_cont']:.2f} A (สภาพวิ่งปัจจุบัน)</p>
+        <p><b>Rated Power Reference:</b> ({r['rated_motor_w']:.0f} W ÷ {r['rated_eff']:.2f} + {self.eaux.value():.0f} W)
+         ÷ {r['low_v']:.1f} V = <b>{r['rated_ref']:.2f} A</b></p>
+        <p><b>Design Continuous:</b> max(Operating@{r['low_v']:.0f}V {r['operating_low']:.2f}, Rated {r['rated_ref']:.2f})
+         × (1 + {r['cont_margin']:.2f}) = <b>{r['cont_req']:.2f} A</b></p>
+        <p><b>Pack/BMS Continuous baseline:</b> ≥ <b>{r['bms_cont']:.0f} A</b>
+        (ปัดขึ้นทีละ 10 A สำหรับเปรียบเทียบสินค้า)</p>
+        <p><b>Peak CURRENT:</b> model floor ≥ {r['peak_calc']:.2f} A • rounded floor {r['bms_peak']:.0f} A;
+         VESC combined Battery Current Max: {f"{r['vesc_pack_limit']:.1f} A" if r['vesc_known'] else "NOT SET"}.
+         <b>CHECK / NOT VERIFIED</b> — ไม่ใช่พิกัด Peak ที่รับรองได้</p>
+        {("<p style='color:#b42318'><b>WARNING:</b> VESC Battery Current Limit ต่ำกว่ากรณีกำลังพิกัดที่ต้องการรองรับ</p>" if r['limit_conflict'] else "")}
         <p><b>Design target C-rate:</b> ≤ {r['target_cont']:.1f}C continuous, ≤ {r['target_peak']:.1f}C peak
         → ต้องการอย่างน้อย max({r['energy_min']:.2f}, {r['ah_by_cont']:.2f}, {r['ah_by_peak']:.2f}) = <b>{r['design_ah']:.2f} Ah</b></p>
         <p style='background:#eefaf4;padding:10px;border:1px solid #a9d7ba'>
@@ -10619,7 +10628,7 @@ void loop() {{
         <p style='color:{overall_color};font-size:13pt'><b>{overall}</b></p>
         <p style='background:#fff8e9;padding:10px;border:1px solid #ead39a'>
         <b>สำคัญ:</b> Runtime เป็นค่าประมาณจาก Operating Cycle ปัจจุบัน (Drive + Lift time + Other stop + Auxiliary).
-        พลังงานวินช์ 12 V ไม่ถูกรวมในแบตรถ 72 V.
+        พลังงานวินช์ 12 V ไม่ถูกรวมในแบตรถ 72 V. ค่า Peak เป็นเพียงระดับขั้นต่ำจากโมเดล — ยังไม่ทราบกระแสกระชากจริง; ห้ามใช้ผลนี้อนุมัติการซื้อแบตหรือ BMS.
         ก่อนซื้อจริงต้องยืนยัน Pack voltage, chemistry, Continuous/Peak current ของเซลล์และ BMS, connector, fuse, charger และ Battery Current limit ของ VESC.
         ค่า Controller indicator ≈ {r['controller_indicator']:.1f} A เป็น conservative indicator และอาจเป็น motor/phase-current setting ไม่ใช่ battery current โดยตรง.
         </p>
