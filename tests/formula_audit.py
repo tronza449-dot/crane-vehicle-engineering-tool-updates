@@ -51,6 +51,21 @@ bdata=dict(mass_kg=300,voltage_v=72,speed_kmh=1,one_way_m=30,
     dod_pct=80,reserve_pct=20,battery_design_factor=3,
     lift_time_per_event_s=0,lift_events_per_round=0)
 b=calc.calculate_drive_battery(bdata)
+# Purchase current envelope must never replace the simple 3h energy calculation.
+rated_expected=(2*1500/.85+50)/60
+near(b["rated_current_reference_a"],rated_expected,"rated power / low-voltage current")
+near(b["continuous_current_required_a"],rated_expected*1.25,"design BMS continuous reference")
+assert b["continuous_current_required_a"]>b["operating_current_a"]
+assert b["peak_verified"] is False and b["vesc_limit_known"] is False
+reduced_v=calc.calculate_drive_battery({**bdata,"min_pack_voltage_v":50})
+assert reduced_v["rated_current_reference_a"]>b["rated_current_reference_a"]
+assert reduced_v["continuous_current_required_a"]>b["continuous_current_required_a"]
+near(reduced_v["design_ah"],b["design_ah"],"Ah invariant against Vmin")
+near(reduced_v["load_energy_wh"],b["load_energy_wh"],"Wh invariant against Vmin")
+assert reduced_v["completed_round_trips"]==b["completed_round_trips"]
+with_vesc=calc.calculate_drive_battery({**bdata,"vesc_pack_battery_limit_a":110})
+assert with_vesc["peak_current_required_a"]>=110+50/60
+assert with_vesc["peak_verified"] is False
 Ls=2.9;flat=30-Ls;angle=math.radians(ramp["angle_deg"])
 expected_up=(300*G*(math.sin(angle)+.02*math.cos(angle))*Ls)/3600/.60
 expected_flat=(300*G*.02*(2*flat))/3600/.60
