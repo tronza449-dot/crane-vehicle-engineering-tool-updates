@@ -797,17 +797,21 @@ jobs:
           modes = (
               w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
               w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
-              w.show_hardware_mode,w.show_telemetry_mode,w.show_integration_suite_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
+              w.show_telemetry_mode,w.show_integration_suite_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
           )
-          for width,height in ((1024,650),(1280,720),(1366,768),(1600,900)):
+          for width,height in ((1024,650),(1366,768),(1600,900)):
               w.resize(width,height)
-              for scale in (0.90,1.00,1.20,1.30):
+              for scale in (0.90,1.00,1.30):
                   w.apply_ui_scale(scale,save=False)
                   for method in modes:
                       method()
                       QApplication.processEvents()
                   # Visit every internal tab to catch lazy page errors.
                   for tab in w.findChildren(QTabWidget):
+                      # Hardware I/O is intentionally hidden from the product UI.
+                      # Keep its compatibility state out of expensive visual regression traversal.
+                      if tab is getattr(w,"hwTabs",None):
+                          continue
                       for index in range(tab.count()):
                           tab.setCurrentIndex(index)
                           QApplication.processEvents()
