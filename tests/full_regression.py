@@ -741,7 +741,7 @@ assert abs(de["Ah"]-wb["design_ah"])<1e-9
 assert abs(de["Ah_recommended"]-wb["recommended_ah"])<1e-9
 assert abs(dbs["cont_req"]-wb["continuous_current_required_a"])<1e-9
 assert abs(dbs["peak_calc"]-wb["peak_current_required_a"])<1e-9
-assert abs(dbs["suggested"]-wb["suggested_ah"])<1e-9
+assert abs(dbs["suggested"]-wb["suggested_ah"])<1e-9, ("suggested capacity parity",dbs["suggested"],wb["suggested_ah"],dbs["design_ah"],wb["design_ah_with_current"],dbs["cont_req"],wb["continuous_current_required_a"],dbs["peak_calc"],wb["peak_current_required_a"])
 
 # ---------- Visible T / B / W / S Save Values controls ----------
 for name in ("torqueSaveValuesButton","batterySaveValuesButton","winchSaveValuesButton","stabilityHubSaveValuesButton"):
