@@ -1,3 +1,14 @@
+## V53.8.80 — 72V battery purchasing current envelope (keep the original 3h Wh/Ah calculations)
+
+- Preserve the original 30 m out-and-back, two lifting jobs per round, completed-round energy Wh/Ah, DoD, reserve and Kb unchanged.
+- New **Battery Selection / Current Design Envelope** controls: battery minimum loaded voltage (default 60 V), rated-power efficiency (default 85%), continuous-current design margin (default 25%) and optional combined VESC Battery Current Max (0 = not configured).
+- Show current separately: existing Operating Current, rated-power reference from `motor rated W × motor count / (efficiency × min voltage)`, and higher **Design Continuous** with user-defined margin. Include simultaneous 72 V auxiliary load in rated reference.
+- Use Design Continuous for BMS continuous sizing and capacity/C-rate checks; rounded to the next 10 A for a comparison reference. Do not recommend 5 A / 10 A from low-speed operating alone.
+- **Never mark Peak validated** from the simple drive model or unconfigured VESC alone. Peak current is a modeled floor only; mark CHECK until VESC Battery Current Max and pack/cell starting/transient ratings are confirmed.
+- Align Windows Battery Selection, integrated BMS checks, exported Thai Battery PDF STEP 6 and web calculator purchase inputs/results; do not alter motor controller's actual settings.
+- Add release smoke regression for design current increasing as minimum battery voltage decreases while Wh/Ah remain unchanged, plus desktop ↔ web parity regression.
+- Rated motor wattage might be an electrical-input nameplate rating rather than delivered mechanical output; the configurable efficiency adjustment should be treated as a conservative assumption until supplier documents are verified.
+
 ## V53.8.79 — Rewrite Battery Report STEP 6 for clear Thai engineering explanations
 
 - Redesign **STEP 6** with five short sections: (6.1) A versus Ah, (6.2) meanings and source values of I_up/I_turn/I_drive,design/I_aux, (6.3) Continuous current, (6.4) modeled Peak current, and (6.5) why the reported BMS current is rounded to 5 A / 10 A in the example.
