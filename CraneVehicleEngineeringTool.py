@@ -11286,7 +11286,6 @@ void loop() {{
 
         content=QWidget()
         content.setObjectName("slopeWorkspace")
-        self.slopeScroll.setWidget(content)
         l=QVBoxLayout(content);l.setContentsMargins(14,12,14,20);l.setSpacing(12)
 
         intro=QLabel("ข้อมูลทางลาดและเสถียรภาพขณะขึ้นทางลาด")
@@ -11459,6 +11458,8 @@ void loop() {{
         l.addWidget(result)
         l.addStretch(1)
 
+        # A scroll area's content must already have a layout before setWidget.
+        self.slopeScroll.setWidget(content)
         for q in (self.rampRiseCm,self.rampRunCm,self.rampMeasuredCm,self.rampMass):
             q.valueChanged.connect(self.update_ramp_geometry)
         self.rampUseMainMass.toggled.connect(self.update_ramp_geometry)
