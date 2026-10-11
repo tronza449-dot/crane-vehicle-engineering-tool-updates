@@ -45,26 +45,34 @@ try:
     assert winch_peak[4]=="CHECK", "Missing winch starting/stall data cannot PASS"
     html=w.bms_check_html()
     assert "including auxiliary" in html and "stall/start surge unknown" in html
-    print("SMOKE: battery PDF report Step5 Thai formula and Step6 BMS arithmetic",flush=True)
+    print("SMOKE: current purchase envelope, preserved Wh/Ah and PDF explanation",flush=True)
     battery_html=w.battery_report_html()
     report_e=w.electrical_results()
     report_sel=w.battery_selection_results()
-    report_aux=max(0.0,report_sel["e"].get("Iaux",0.0))
     assert "พลังงานรวมทั้งหมด = (พลังงานขับเคลื่อนรถต่อ 1 รอบไป–กลับ" in battery_html
     assert "E<sub>total</sub>" in battery_html
     assert "กำลังไฟฟ้าเฉลี่ยของอุปกรณ์เสริม × ระยะเวลาทำงานทั้งหมดในหน่วยชั่วโมง" in battery_html
-    assert f"max({report_e['Icalc_up']:.2f}, {report_e.get('Iturn_avg',0.0):.2f}) + {report_aux:.2f} = <b>{report_sel['cont_req']:.2f} A</b>" in battery_html
-    assert f"max({report_sel['cont_req']:.2f}, {report_sel['t']['Ibatt']:.2f} + {report_aux:.2f}) = <b>{report_sel['peak_calc']:.2f} A</b>" in battery_html
-    assert abs(max(report_e["Icalc_up"],report_e.get("Iturn_avg",0.0),0)+report_aux-report_sel["cont_req"])<1e-8
-    assert abs(max(report_sel["cont_req"],report_sel["t"]["Ibatt"]+report_aux)-report_sel["peak_calc"])<1e-8
-    print("SMOKE: Thai battery STEP 6 sections",flush=True)
-    for label in ("6.1 แยกให้ออกก่อน","6.2 กระแสแต่ละตัวมาจากไหน","6.3 Continuous Current","6.4 Peak Current","6.5 ทำไมสรุปเป็น BMS"):
+    assert report_sel["cont_req"]>=report_sel["rated_ref"]
+    assert report_sel["cont_req"]>=report_sel["operating_low"]
+    assert report_sel["peak_calc"]>=report_sel["cont_req"]
+    assert not report_sel["peak_verified"]
+    assert report_sel["vesc_pack_limit"]==0.0
+    assert report_sel["rated_motor_w"]==w.motorRatedPower.value()*w.tmotors.value()
+    assert "Rated Power Reference" in battery_html
+    assert "Design Continuous" in battery_html
+    assert "CHECK / NOT VERIFIED" in battery_html
+    for label in ("6.1 แยกให้ออกก่อน","6.2 กระแสแต่ละตัวมาจากไหน",
+                  "6.3 Continuous Current","6.4 Peak Current","6.5 สรุปกระแส"):
         assert label in battery_html,("Missing battery explanation",label)
-    assert "Ah กับ A ไม่ใช่ค่าเดียวกัน" in battery_html
-    assert "ปัดขึ้นทีละ 5 A" in battery_html
-    assert "ไม่ใช่กระแสสูงสุดจริงของมอเตอร์" in battery_html
-    assert f"ceil({report_sel['cont_req']:.2f} ÷ 5) × 5 = <b>{report_sel['bms_cont']:.0f} A</b>" in battery_html
-    assert f"ceil({report_sel['peak_calc']:.2f} ÷ 5) × 5 = <b>{report_sel['bms_peak']:.0f} A</b>" in battery_html
+    assert "ปัดขึ้นทีละ 10 A" in battery_html
+    assert f"ceil({report_sel['cont_req']:.2f} ÷ 10) × 10 = <b>{report_sel['bms_cont']:.0f} A</b>" in battery_html
+    preserved_battery=(report_e["Ah"],report_e["Eload"],report_e["cycles"])
+    w.bselMinVoltage.setValue(50.0)
+    changed=w.battery_selection_results()
+    assert changed["rated_ref"]>report_sel["rated_ref"]
+    assert changed["cont_req"]>report_sel["cont_req"]
+    assert (w.electrical_results()["Ah"],w.electrical_results()["Eload"],w.electrical_results()["cycles"])==preserved_battery
+    w.bselMinVoltage.setValue(60.0)
     print("SMOKE: print STEP5/6 report to a real PDF",flush=True)
     from pathlib import Path
     from PySide6.QtGui import QTextDocument, QPageSize, QFont
