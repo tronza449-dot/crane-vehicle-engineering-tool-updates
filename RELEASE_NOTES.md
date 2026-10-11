@@ -1,3 +1,13 @@
+## V53.8.79 — Rewrite Battery Report STEP 6 for clear Thai engineering explanations
+
+- Redesign **STEP 6** with five short sections: (6.1) A versus Ah, (6.2) meanings and source values of I_up/I_turn/I_drive,design/I_aux, (6.3) Continuous current, (6.4) modeled Peak current, and (6.5) why the reported BMS current is rounded to 5 A / 10 A in the example.
+- Fully spell out formulas and their Thai readings, substituted numeric values, and the auxiliary load equation I_aux = P_aux/V. Clarify that max(Drive uphill, Turn) is not the sum of two exclusive scenarios, while auxiliary is simultaneous.
+- Emphasize that the modeled **5 A continuous / 10 A peak are not final purchase recommendations** for actual high-power motors, controllers and startup surges.
+- Explain STEP 5 DoD 80% and Reserve 20% in simple Thai, retaining its original energy formula and complete-cycle accounting.
+- Start STEP 6 on a fresh report page and avoid ambiguous compressed formulas.
+- Add release smoke assertions for the five Thai sections, numeric 5 A rounding, **physical PDF export**, and A4 page render artifacts under the GitHub Actions smoke log.
+- **No change** to energy, 3h cycle, peak/continuous arithmetic, battery capacity or design safety assumptions.
+
 ## V53.8.78 — Battery PDF report: Thai Step 5 reading and corrected Step 6 BMS substitutions
 
 - STEP 5: Replace a vague description with the literal Thai reading of `E_total = E_drive,cycle × N_cycle + P_aux × t_runtime` and explain the meaning of complete round trips versus auxiliary power for all runtime hours.
