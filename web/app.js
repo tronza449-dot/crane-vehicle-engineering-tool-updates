@@ -762,8 +762,8 @@ function batteryStepsHtml(r,c){
         '<b>Ah_practical = Ah_min×Kb</b> = <b>'+f(r.recommended_ah,2)+' Ah</b> → แนะนำมาตรฐาน <b>'+f(r.suggested_ah,0)+' Ah</b></p>'),
       calcStepCard(7,'ตรวจ Continuous / Peak Current และ Candidate Battery',
         '<p>Auxiliary current = P_aux/V = <b>'+f(r.aux_current_a,2)+' A</b><br>'+
-        'Continuous = max(Uphill '+f(r.uphill_current_calc_a,2)+' A, Pivot '+f(r.turn_average_current_a,2)+' A) + Aux = <b>'+f(r.continuous_current_required_a,2)+' A</b><br>'+
-        'Peak = max(Continuous, Drive Torque ref '+f(r.drive_reference_current_a,2)+' A + Aux) = <b>'+f(r.peak_current_required_a,2)+' A</b><br>'+
+        'Operating = max(Uphill '+f(r.uphill_current_calc_a,2)+' A, Pivot '+f(r.turn_average_current_a,2)+' A) + Aux = <b>'+f(r.operating_current_a,2)+' A</b><br>'+
+        'Design Continuous = <b>'+f(r.continuous_current_required_a,2)+' A</b> (rated + margin); Peak floor = <b>'+f(r.peak_current_required_a,2)+' A</b> (unverified)<br>'+
         'Candidate '+f(c.capacity_ah,1)+' Ah • Energy '+statusSpan(!!c.energy_ok)+' • BMS Continuous '+(c.bms_cont_a>0?statusSpan(c.bms_cont_ok):'<span class="check">NOT SET</span>')+'</p>',true)
     ]);
 }
@@ -977,11 +977,14 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
     lastDriveResult=driveRef;
     const batteryPayload=formObject($("#batteryForm"));
     batteryPayload.drive_reference_current_a=driveRef.battery_current_a;
+    const motorInputs=formObject($("#driveForm"));
+    batteryPayload.motor_rated_w=motorInputs.motor_rated_w;
+    batteryPayload.motors=motorInputs.motors;
     const r=await api("/api/calc/drive-battery",batteryPayload);
     lastBatteryResult=r;
     const c=r.candidate||{};
     const bmsCont=(c.bms_cont_a>0?statusSpan(c.bms_cont_ok):'<span class="check">NOT SET</span>');
-    const bmsPeak=(c.bms_peak_a>0?statusSpan(c.bms_peak_ok):'<span class="check">NOT SET</span>');
+    const bmsPeak='<span class="check">CHECK: Peak / VESC unverified</span>';
     const compare=(r.comparison||[]).map(x=>
       '<tr><td>'+f(x.capacity_ah,0)+' Ah</td>'+
       '<td>'+f(x.rated_wh,0)+' Wh</td>'+
@@ -996,7 +999,8 @@ $("#calcBattery").addEventListener("click",async(evt)=>{
     out.innerHTML=
       '<div class="system-result-head main-72v"><span class="system-chip green">72 V VEHICLE ONLY</span><b>Winch 12 V energy = NOT INCLUDED</b></div>'+
       '<h3>Main Battery 72 V — Simple Cycle</h3>'+
-      '<div class="notice"><b>Current check:</b> Aux = '+f(r.aux_current_a,2)+' A • Continuous = max(Uphill '+f(r.uphill_current_calc_a,2)+' A, Pivot '+f(r.turn_average_current_a,2)+' A) + Aux = <b>'+f(r.continuous_current_required_a,2)+' A</b> • Peak = max(Continuous, Drive Torque design reference '+f(r.drive_reference_current_a,2)+' A + Aux) = <b>'+f(r.peak_current_required_a,2)+' A</b></div>'+
+      '<div class="notice"><b>Operating:</b> '+f(r.operating_current_a,2)+' A • <b>Rated reference:</b> ('+f(r.rated_motor_total_w,0)+' W / '+f(r.rated_power_efficiency,2)+' + '+f(r.aux_power_w,0)+' W) / '+f(r.min_pack_voltage_v,1)+' V = <b>'+f(r.rated_current_reference_a,2)+' A</b><br>'+
+      '<b>Design Continuous:</b> max(Operating at low V '+f(r.operating_current_low_voltage_a,2)+', Rated '+f(r.rated_current_reference_a,2)+') × (1+'+f(r.continuous_margin,2)+') = <b>'+f(r.continuous_current_required_a,2)+' A</b> • <b>Peak modeled floor:</b> '+f(r.peak_current_required_a,2)+' A • VESC limit '+(r.vesc_limit_known?f(r.vesc_pack_battery_limit_a,1)+' A':'NOT SET')+' • CHECK actual peak</div>'+
       '<div class="notice"><b>1 Cycle</b> = ไป '+f(r.one_way_m,1)+' m + กลับ '+f(r.one_way_m,1)+' m • '+
       'แต่ละเที่ยว = ทางราบ '+f(r.flat_one_way_m,1)+' m + ทางลาด '+f(r.slope_length_m,1)+' m</div>'+
 
