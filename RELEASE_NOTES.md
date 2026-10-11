@@ -1,3 +1,10 @@
+## V53.8.65 — Prevent Slope panel width overflow
+
+- Fix the true remaining cause of the 1024px Slope failure: long QGroupBox headings generated an unbreakable 758px minimum width.
+- Shorten section headings while keeping the engineering meanings and explanatory content inside each section.
+- Retain one-column buttons, responsive form, scrolling result text and formula wrapping.
+- Keep the GitHub Actions responsive regression at 1024x650 and 1366x768.
+
 ## V53.8.63 — Fix horizontal overflow on small screens
 
 - Fixed the Stability > Slope actions grid that could force content wider than the available 1024px laptop viewport.
