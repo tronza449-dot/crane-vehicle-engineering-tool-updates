@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.66"
+APP_VERSION = "53.8.67"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -5094,6 +5094,40 @@ void loop() {{
         hub=QWidget();self.stabilityHubPage=hub;lay=QVBoxLayout(hub);lay.setContentsMargins(10,8,10,10);lay.setSpacing(7)
         lay.addWidget(make_page_header("STABILITY ANALYSIS","วิเคราะห์การคว่ำ • ทางลาด • FBD • Mass & CG • Worst Case",self.show_home_mode,"SF / FBD","#eee8ff","#6542a5"))
         lay.addWidget(self._make_module_save_bar("stabilityHub","S • STABILITY"))
+
+        # The Final Design lock affects Slope as well as the other modules.
+        # Show an explicit unblock control at the top of Stability; previously
+        # users only saw blank/grey fields with no explanation or nearby action.
+        lockBar=QFrame()
+        lockBar.setObjectName("stabilityLockBanner")
+        lockBar.setStyleSheet(
+            "QFrame#stabilityLockBanner{background:#fff6e5;"
+            "border:1px solid #e8b96c;border-radius:9px;}"
+        )
+        lockRow=QHBoxLayout(lockBar)
+        lockRow.setContentsMargins(12,8,12,8);lockRow.setSpacing(10)
+        self.stabilityLockLabel=QLabel(
+            "🔒 Final Design Lock เปิดอยู่: ช่องกรอกค่าถูกล็อกไว้ "
+            "กดปลดล็อกก่อนแก้ไขมุมทางลาด มวลรถ และค่า Stability"
+        )
+        self.stabilityLockLabel.setWordWrap(True)
+        self.stabilityLockLabel.setStyleSheet(
+            "color:#8a4b10;font-size:10pt;font-weight:750;background:transparent;"
+        )
+        self.stabilityUnlockButton=QPushButton("ปลดล็อกเพื่อแก้ค่า")
+        self.stabilityUnlockButton.setMinimumHeight(36)
+        self.stabilityUnlockButton.setToolTip(
+            "ปิด Final Design Input Lock ที่ Project / Report โดยไม่ลบข้อมูลใด ๆ"
+        )
+        self.stabilityUnlockButton.clicked.connect(
+            lambda:self.designLockButton.setChecked(False)
+        )
+        lockRow.addWidget(self.stabilityLockLabel,1)
+        lockRow.addWidget(self.stabilityUnlockButton)
+        self.stabilityLockBanner=lockBar
+        lay.addWidget(lockBar)
+        lockBar.setVisible(self._design_inputs_locked())
+
         self.stabilityTabs=QTabWidget();lay.addWidget(self.stabilityTabs)
         pages=[(getattr(self,"cranePage",None),"Stability"),(getattr(self,"slopePage",None),"Slope"),
                (getattr(self,"fbdPage",None),"Engineering FBD"),(getattr(self,"componentsPage",None),"Mass & CG"),
@@ -7678,6 +7712,11 @@ void loop() {{
         for obj in self._design_lock_widgets():
             try:obj.setEnabled(not locked)
             except Exception:pass
+        if hasattr(self,"stabilityLockBanner"):
+            self.stabilityLockBanner.setVisible(locked)
+        # Linked battery mass is read-only only while linked. Geometry fields
+        # stay editable whenever the Final Design lock is off.
+        self._refresh_slope_mass_editability()
         self.designLockButton.setText("🔒 Design Inputs Locked" if locked else "🔓 Design Inputs Unlocked")
         if hasattr(self,"designLockStatus"):
             self.designLockStatus.setText(
@@ -11356,6 +11395,9 @@ void loop() {{
         self.rampMass=spin(300,0,5000,1,1)
         self.rampUseMainMass=QCheckBox("ใช้มวลจาก Main Battery 72 V")
         self.rampUseMainMass.setChecked(True)
+        self.rampMassSourceText=QLabel()
+        self.rampMassSourceText.setWordWrap(True)
+        self.rampMassSourceText.setStyleSheet("color:#48647e;font-size:9.4pt;")
 
         for i,(label,field) in enumerate([
             ("ความสูง h (cm)",self.rampRiseCm),
@@ -11377,6 +11419,7 @@ void loop() {{
             gf.setColumnStretch(column,1)
         ll.addLayout(gf)
         ll.addWidget(self.rampUseMainMass)
+        ll.addWidget(self.rampMassSourceText)
 
         self.rampSourceInfo=QLabel()
         self.rampSourceInfo.setWordWrap(True)
@@ -11499,11 +11542,37 @@ void loop() {{
         for q in (self.rampRiseCm,self.rampRunCm,self.rampMeasuredCm,self.rampMass):
             q.valueChanged.connect(self.update_ramp_geometry)
         self.rampUseMainMass.toggled.connect(self.update_ramp_geometry)
+        self.rampUseMainMass.toggled.connect(self._refresh_slope_mass_editability)
         if hasattr(self,"emass"):
             self.emass.valueChanged.connect(self.update_ramp_geometry)
+            self.emass.valueChanged.connect(self._refresh_slope_mass_editability)
 
         self.tabs.addTab(w,"2. Driving / Slope / ทางลาด")
+        self._refresh_slope_mass_editability()
         self.update_ramp_geometry()
+
+    def _refresh_slope_mass_editability(self,*_):
+        """Make the linked/manual mass choice explicit and keep input states honest."""
+        if not hasattr(self,"rampMass") or not hasattr(self,"rampUseMainMass"):
+            return
+        is_linked=self.rampUseMainMass.isChecked()
+        locked=self._design_inputs_locked()
+        self.rampMass.setEnabled(not (is_linked or locked))
+        if is_linked:
+            actual=self.emass.value() if hasattr(self,"emass") else self.rampMass.value()
+            self.rampMass.setToolTip(
+                f"มวลใช้ค่าจาก Main Battery = {actual:.1f} kg "
+                "ยกเลิกเครื่องหมายถูกที่ 'ใช้มวลจาก Main Battery' เพื่อกรอกเอง"
+            )
+        else:
+            self.rampMass.setToolTip(
+                "กรอกมวลรถได้เมื่อไม่ได้เชื่อมโยง Main Battery และไม่ได้ล็อก Final Design"
+            )
+        if hasattr(self,"rampMassSourceText"):
+            self.rampMassSourceText.setText(
+                (f"เชื่อมโยงมวล Main Battery: {actual:.1f} kg • ยกเลิกเครื่องหมายถูกเพื่อกรอกเอง"
+                 if is_linked else "ใช้มวลที่กรอกในหน้านี้โดยตรง")
+            )
 
     def ramp_geometry_results(self):
         h=max(0.0,self.rampRiseCm.value())
@@ -13227,7 +13296,7 @@ class ForceDiagram(QWidget):
         if include_inertia:items.append(("#7c3aed","Inertia F_I"))
         step=104 if include_inertia else 120
         total=step*len(items)
-        x=max(500,self.width()-total-24);y=108 if self.height()>=680 else 102
+        x=max(500,self.width()-total-24);y=108 if self.height()>=680 else 78
         for color,label in items:
             p.setPen(QPen(QColor(color),3));p.drawLine(QPointF(x,y),QPointF(x+18,y))
             self.txt(p,x+23,y+4,label,6.5 if include_inertia else 7,True,color);x+=step
@@ -13288,7 +13357,7 @@ class ForceDiagram(QWidget):
         if compact:
             ground=hh-215;deck_top=ground-62;deck_h=36;boom_y=max(112,deck_top-118)
             lanes=[ground+34,ground+58,ground+82];track_y=ground+106
-            axis_y=98;side_y=80
+            axis_y=158;side_y=86
         else:
             ground=442;deck_top=350;deck_h=44;boom_y=185
             lanes=[505,537,569];track_y=602;axis_y=132;side_y=92
@@ -13356,7 +13425,7 @@ class ForceDiagram(QWidget):
         if compact:
             ground=hh-215;deck_top=ground-62;deck_h=36;boom_y=max(112,deck_top-118)
             lanes=[ground+34,ground+58,ground+82];track_y=ground+106
-            axis_y=98;side_y=80
+            axis_y=158;side_y=86
         else:
             ground=442;deck_top=350;deck_h=44;boom_y=185
             lanes=[505,537,569];track_y=602;axis_y=132;side_y=92
