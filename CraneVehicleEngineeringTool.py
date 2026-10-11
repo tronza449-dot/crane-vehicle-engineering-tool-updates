@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.61"
+APP_VERSION = "53.8.62"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -11424,18 +11424,20 @@ void loop() {{
         self.slope=spin(19,0,45,.01,2)
         self.hcg=spin(.55,.05,3,.05)
         self.acc=spin(.278,0,5,.05,3)
-        for column,(label,field) in enumerate((
+        for i,(label,field) in enumerate((
             ("มุมทางลาด α (deg)",self.slope),
             ("ความสูง CG รวม hCG (m)",self.hcg),
             ("ความเร่งรถ a (m/s²)",self.acc),
         )):
+            column=i%2
+            row=(i//2)*2
             tag=QLabel(label);tag.setWordWrap(True)
             tag.setStyleSheet("color:#344054;font-size:10pt;font-weight:700;")
             field.setMinimumWidth(135);field.setMaximumWidth(210)
-            field.setMinimumHeight(37);field.setAlignment(Qt.AlignRight)
+            field.setMinimumHeight(37);field.setAlignment(Qt.AlignLeft)
             field.setButtonSymbols(QAbstractSpinBox.NoButtons)
-            df.addWidget(tag,0,column)
-            df.addWidget(field,1,column,Qt.AlignLeft)
+            df.addWidget(tag,row,column)
+            df.addWidget(field,row+1,column,Qt.AlignLeft)
             df.setColumnStretch(column,1)
             field.valueChanged.connect(self.calc_all)
         self.slopeSourceInfo=QLabel()
@@ -11445,7 +11447,7 @@ void loop() {{
             "QLabel{background:#f4f8fc;border:1px solid #d9e4ec;"
             "border-radius:8px;padding:9px;color:#40566b;font-size:9.4pt;}"
         )
-        df.addWidget(self.slopeSourceInfo,2,0,1,3)
+        df.addWidget(self.slopeSourceInfo,4,0,1,2)
         l.addWidget(drive)
 
         result=QGroupBox("04  RESULT  /  สรุปการคำนวณ Uphill Driving Stability")
