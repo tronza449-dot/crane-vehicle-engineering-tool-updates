@@ -1,3 +1,11 @@
+## V53.8.74 — Show fixed 90° mast-to-boom geometry in FBD
+
+- Correct the out-of-plane boom cue in Front/Rear FBD at θ=±90°: the dashed illustrative boom is now perpendicular to the vertical column, instead of incorrectly slanting upward.
+- Add a small 90° corner mark in both the main diagram and boom-profile inset.
+- The θ angle is horizontal slew rotation, **not boom pitch**. The structural mast-to-boom angle remains fixed at 90°.
+- Dashed stub is explicitly marked SCHEMATIC ONLY: x_B, x_L and all force/moment arms remain true orthographic projections and no SF calculation changes.
+- Update regression checks for the corrected on-diagram 90° caption and projected boom at θ=0°.
+
 ## V53.8.73 — Visible out-of-plane boom on main longitudinal FBD
 
 - Front/Rear FBDs now show a short **dashed orange boom stub** attached to the crane mast when the arm is perpendicular to the side-elevation plane (at ±90°).
