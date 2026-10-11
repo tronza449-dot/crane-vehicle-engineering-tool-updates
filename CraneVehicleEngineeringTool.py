@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.79"
+APP_VERSION = "53.8.80"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -9689,6 +9689,26 @@ void loop() {{
         cf.addWidget(noteC,3,0,1,4)
         bselOuter.addWidget(controlBox)
 
+        # Purchase-side current envelope. It does NOT alter Wh/Ah cycle energy.
+        currentBox=QGroupBox("กระแสสำหรับเลือกซื้อแบต / Current Design Envelope")
+        ci=QGridLayout(currentBox);ci.setHorizontalSpacing(12);ci.setVerticalSpacing(8)
+        self.bselMinVoltage=bds(60.0,1.0,120.0,1.0,1)
+        self.bselRatedEfficiency=bds(85.0,10.0,100.0,1.0,1)
+        self.bselCurrentMargin=bds(25.0,0.0,100.0,5.0,1)
+        self.bselVescPackBatteryLimit=bds(0.0,0.0,2000.0,5.0,1)
+        ci.addWidget(QLabel("แรงดันต่ำสุดขณะจ่ายโหลด (V)"),0,0);ci.addWidget(self.bselMinVoltage,0,1)
+        ci.addWidget(QLabel("ประสิทธิภาพประมาณที่กำลังพิกัด (%)"),0,2);ci.addWidget(self.bselRatedEfficiency,0,3)
+        ci.addWidget(QLabel("เผื่อกระแส Continuous (%)"),1,0);ci.addWidget(self.bselCurrentMargin,1,1)
+        ci.addWidget(QLabel("รวม Battery Current Max จาก VESC (A); 0 = ยังไม่ได้ตั้ง"),1,2);ci.addWidget(self.bselVescPackBatteryLimit,1,3)
+        currentHint=QLabel("กระแสอ้างอิงจากมอเตอร์ = กำลังพิกัดต่อมอเตอร์ × จำนวนมอเตอร์ ÷ (แรงดันต่ำสุด × ประสิทธิภาพ) "
+                           "แล้วบวกกระแสอุปกรณ์เสริมและเผื่อกระแส • ใช้สำหรับสำรวจสเปก ไม่ใช่ค่ากระแส Stall/Peak จริง "
+                           "• ถ้า 1500 W เป็นพิกัดไฟฟ้าเข้าแทนกำลังกล สูตรหารประสิทธิภาพเป็นการเผื่อแบบอนุรักษนิยม "
+                           "• 0 ที่ VESC = ไม่ทราบค่า Peak")
+        currentHint.setWordWrap(True)
+        currentHint.setStyleSheet("color:#68420b;background:#fff8e9;padding:9px;border:1px solid #ead39a;border-radius:7px")
+        ci.addWidget(currentHint,2,0,1,4)
+        bselOuter.addWidget(currentBox)
+
         self.bselCompareTable=QTableWidget(0,8)
         self.bselCompareTable.setHorizontalHeaderLabels([
             "Capacity","Rated energy","Runtime*","Full rounds",
@@ -9705,7 +9725,8 @@ void loop() {{
         bselScroll=QScrollArea();bselScroll.setWidgetResizable(True);bselScroll.setFrameShape(QFrame.NoFrame);bselScroll.setWidget(bsel)
         self.eTabs.addTab(bselScroll,"เลือกแบต / Battery Selection")
 
-        for obj in (self.bselTargetContC,self.bselTargetPeakC,self.eCandidateAh,self.eCandidateContA,self.eCandidatePeakA):
+        for obj in (self.bselTargetContC,self.bselTargetPeakC,self.eCandidateAh,self.eCandidateContA,self.eCandidatePeakA,
+                    self.bselMinVoltage,self.bselRatedEfficiency,self.bselCurrentMargin,self.bselVescPackBatteryLimit):
             obj.valueChanged.connect(self.update_battery_selection)
 
         self.eVars=QTextEdit();self.eVars.setReadOnly(True);self.eTabs.addTab(self.eVars,"ตัวแปร / Variables")
@@ -10438,11 +10459,26 @@ void loop() {{
     def battery_selection_results(self):
         e=self.electrical_results();t=self.torque_results()
         energy_min=max(0.0,e.get("Ah_recommended",e["Ah"]))
-        # Continuous = steady traction/pivot + simultaneous Auxiliary current.
-        # Peak also covers the Drive Torque design-current reference + Auxiliary.
+        # Preserve original operating current for energy/cycle traceability.
+        # A purchase BMS needs a second, user-configurable rated-power envelope.
         iaux=max(0.0,e.get("Iaux",0.0))
-        cont_req=max(0.0,e["Icalc_up"],e.get("Iturn_avg",0.0))+iaux
-        peak_calc=max(cont_req,max(0.0,t["Ibatt"])+iaux)
+        operating_cont=max(0.0,e["Icalc_up"],e.get("Iturn_avg",0.0))+iaux
+        operating_peak=max(operating_cont,max(0.0,t["Ibatt"])+iaux)
+        low_v=min(max(1.0,self.bselMinVoltage.value()),e["V"])
+        rated_eff=max(0.10,self.bselRatedEfficiency.value()/100.0)
+        cont_margin=max(0.0,self.bselCurrentMargin.value()/100.0)
+        rated_motor_w=max(0.0,self.motorRatedPower.value())*max(1,t["n"])
+        rated_ref=(rated_motor_w/rated_eff+max(0.0,self.eaux.value()))/low_v
+        operating_low=operating_cont*e["V"]/low_v
+        cont_req=max(operating_low,rated_ref)*(1.0+cont_margin)
+        modeled_peak=max(cont_req,operating_peak*e["V"]/low_v)
+        vesc_pack_limit=max(0.0,self.bselVescPackBatteryLimit.value())
+        vesc_known=vesc_pack_limit>0.0
+        aux_low=max(0.0,self.eaux.value())/low_v
+        peak_calc=max(modeled_peak,vesc_pack_limit+aux_low if vesc_known else 0.0)
+        limit_conflict=vesc_known and vesc_pack_limit+aux_low+1e-8<cont_req
+        # Peak/stall capability is NOT verified until actual pack, cell and
+        # controller transient settings are checked outside this model.
         controller_indicator=self.controllerCurrent.value()*max(1,t["n"]) if hasattr(self,"controllerCurrent") else 0.0
         target_cont=max(0.1,self.bselTargetContC.value()) if hasattr(self,"bselTargetContC") else 3.0
         target_peak=max(0.1,self.bselTargetPeakC.value()) if hasattr(self,"bselTargetPeakC") else 5.0
@@ -10456,9 +10492,14 @@ void loop() {{
         suggested=float(suggested)
         suggested_runtime=self.battery_runtime_from_capacity(suggested,e)
         design_runtime=suggested_runtime["runtime_h"]
-        bms_cont=math.ceil(cont_req/5.0)*5.0 if cont_req>0 else 0.0
-        bms_peak=math.ceil(peak_calc/5.0)*5.0 if peak_calc>0 else 0.0
+        bms_cont=math.ceil(cont_req/10.0)*10.0 if cont_req>0 else 0.0
+        bms_peak=math.ceil(peak_calc/10.0)*10.0 if peak_calc>0 else 0.0
         return dict(e=e,t=t,energy_min=energy_min,cont_req=cont_req,peak_calc=peak_calc,
+                    operating_cont=operating_cont,operating_peak=operating_peak,
+                    operating_low=operating_low,rated_ref=rated_ref,rated_motor_w=rated_motor_w,
+                    rated_eff=rated_eff,low_v=low_v,cont_margin=cont_margin,aux_low=aux_low,
+                    vesc_pack_limit=vesc_pack_limit,vesc_known=vesc_known,
+                    limit_conflict=limit_conflict,peak_verified=False,
                     controller_indicator=controller_indicator,target_cont=target_cont,target_peak=target_peak,
                     ah_by_cont=ah_by_cont,ah_by_peak=ah_by_peak,design_ah=design_ah,
                     standards=standards,suggested=suggested,design_runtime=design_runtime,
