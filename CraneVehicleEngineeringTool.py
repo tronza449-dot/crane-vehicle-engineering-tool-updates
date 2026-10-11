@@ -13371,7 +13371,7 @@ class ForceDiagram(QWidget):
         track_px=body_px*float(d["W"])/body_width
         x0,x1=cx-L/2,cx+L/2;y0,y1=cy-body_px/2,cy+body_px/2
         yright,yleft=cy-track_px/2,cy+track_px/2
-        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(x0,y0,L,W))
+        p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(x0,y0,L,body_px))
         rearx=x0+L*.20;frontx=x0+L*.80
         for x in (rearx,frontx):
             for y in (yright,yleft):
