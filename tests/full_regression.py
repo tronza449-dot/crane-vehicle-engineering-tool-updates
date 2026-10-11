@@ -883,7 +883,9 @@ assert "อ่านสูตรแบบภาษาไทย" in battery_repor
 assert "แรงต้านทางราบ = ค่าสัมประสิทธิ์แรงต้านการกลิ้ง × มวลรถ × แรงโน้มถ่วง" in battery_report
 assert "พลังงานรวมต่อ 1 Cycle = พลังงานขับรถ + พลังงานอุปกรณ์เสริม" in battery_report
 assert "ความจุแบตขั้นต่ำ = พลังงานที่ออกแบบไว้ ÷ แรงดันแบตเตอรี่" in battery_report
-assert "กระแส Peak ที่ต้องรองรับ" in battery_report
+assert "กระแสสูงสุดตามแบบจำลอง" in battery_report
+assert "6.1 แยกให้ออกก่อน" in battery_report and "6.5 ทำไมสรุปเป็น BMS" in battery_report
+assert "ปัดขึ้นทีละ 5 A" in battery_report
 assert "What Is / Is Not Included" in battery_report
 assert "Appendix A — Detailed Formula & Substitution" in battery_report
 assert "คำอธิบายภาษาไทยเพิ่มเติม" not in battery_report
