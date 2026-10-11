@@ -206,10 +206,12 @@ try:
     pic=QImage(1180,760,QImage.Format_ARGB32_Premultiplied)
     pic.fill(Qt.white)
     painter=QPainter(pic)
+    recorded.clear()
     try:
         fd.longitudinal(painter,reference,"front")
     finally:
         painter.end()
+    assert not any("BOOM OUT OF PLANE - SKETCH ONLY" in t for t in recorded), "Boom must be projected at θ=0°"
     boom=next(x for label,x in tracked if label.startswith("W_B = "))
     load=next(x for label,x in tracked if label=="Kdyn·W_L")
     assert load > boom+15,(boom,load)
@@ -219,10 +221,12 @@ try:
     fd.setCaseAngle(-90.0)
     pic.fill(Qt.white)
     painter=QPainter(pic)
+    recorded.clear()
     try:
         fd.longitudinal(painter,reference,"rear")
     finally:
         painter.end()
+    assert any("BOOM OUT OF PLANE - SKETCH ONLY" in t for t in recorded), "±90° boom cue missing"
     assert sum(1 for label,x in tracked if label.startswith("W_B + W_L (same x)"))==1
     assert not any(label.startswith("W_B = ") for label,x in tracked)
     assert pic.save("fbd-boom-rear-reference.png","PNG")
