@@ -1,3 +1,11 @@
+## V53.8.76 — Independent formula audit and release-blocking engineering invariants
+
+- Independently review formulas across ramp, traction torque/power, 72 V battery, winch and 12 V battery, front/rear/side/slope stability, and What-if input propagation.
+- Add `tests/formula_audit.py`: independent reference calculations, dimensional invariants, torque monotonicity vs mass, speed/current interpolation, completed cycle accounting and tipping moments.
+- GitHub Actions now runs the formula audit **before** creating the Windows installer, and blocks release on an assertion failure.
+- Full audit and engineering caveats: `docs/ENGINEERING_FORMULA_AUDIT_2026-10-11.md`.
+- No silent rewrites of project assumptions or calculation results. Outstanding cases are documented: incomplete final cycle in 3h energy, invalid total-mass decomposition, first-layer winch interpolation and unvalidated dynamics/CGs.
+
 ## V53.8.75 — Fix What-if increasing payload incorrectly reducing drive torque
 
 - Fix stale scenario reference: `What-if` was constructed before restored/synced project inputs, so the Baseline could retain the startup slope (e.g. 19°) while the Scenario used the updated real slope. This compared different driving conditions and could incorrectly show lower torque with higher mass.
