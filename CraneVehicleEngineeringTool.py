@@ -13388,12 +13388,45 @@ class ForceDiagram(QWidget):
         self.axes(p,QPointF(75,hh-120),"+x forward","+y right",0)
         self.txt(p,20,hh-25,f"Crane convention: θ = -90° left, 0° forward, +90° right   |   Current θ = {self._angle(d):.1f}°",9,True)
 
+    def crane_plan_inset(self,p,d,angle):
+        """Top-view inset: show true crane reach when elevation projection collapses."""
+        w=266;h=142;x=max(420,self.width()-w-28);y=126
+        p.save()
+        p.setPen(QPen(QColor("#cbd5e1"),1))
+        p.setBrush(QColor("#ffffff"))
+        p.drawRoundedRect(QRectF(x,y,w,h),9,9)
+        self.txt(p,x+12,y+19,"CRANE PLAN VIEW / TOP",9,True,"#334155")
+        self.txt(p,x+12,y+35,f"θ = {angle:.1f}°    L = {d['L']:.2f} m",8,False,"#64748b")
+        cx=x+112;cy=y+91
+        p.setPen(QPen(QColor("#94a3b8"),1,Qt.DashLine))
+        p.drawLine(QPointF(cx-68,cy),QPointF(cx+95,cy))
+        p.drawLine(QPointF(cx,cy-44),QPointF(cx,cy+43))
+        p.setPen(QPen(QColor("#64748b"),1))
+        p.setBrush(QColor("#eff6ff"))
+        p.drawRect(QRectF(cx-28,cy-23,56,46))
+        p.setPen(QPen(QColor("#b45309"),2))
+        p.setBrush(QColor("#f59e0b"))
+        p.drawEllipse(QPointF(cx,cy),5,5)
+        rad=math.radians(angle)
+        reach=62
+        tip=QPointF(cx+reach*math.cos(rad),cy-reach*math.sin(rad))
+        p.setPen(QPen(QColor("#f59e0b"),5,Qt.SolidLine,Qt.RoundCap))
+        p.drawLine(QPointF(cx,cy),tip)
+        p.setPen(QPen(QColor("#92400e"),2))
+        p.setBrush(QColor("#fff7ed"))
+        p.drawEllipse(tip,7,7)
+        self.txt(p,x+194,y+69,"+x",8,True,"#64748b")
+        self.txt(p,x+191,y+86,"forward",7,False,"#64748b")
+        self.txt(p,x+12,y+132,"Orange = physical boom direction",7,False,"#92400e")
+        p.restore()
+
     def side(self,p,d,side):
         left=side=="left";name="LEFT" if left else "RIGHT";angle=self._angle(d)
         bal=self.app.side_moment_balance(d,angle,side)
         self.header(p,f"FREE-BODY DIAGRAM — {name} SIDE TIPPING (FRONT ELEVATION)",
                     f"{self._case_label()} θ={angle:.1f}° • weights act through CG/load points • moment arms measured to tipping axis P")
         self.legend(p)
+        self.crane_plan_inset(p,d,angle)
 
         ww,hh=self.width(),self.height();compact=hh<680
         if compact:
@@ -13416,7 +13449,13 @@ class ForceDiagram(QWidget):
             p.setBrush(QColor("#1f2937"));p.setPen(QPen(QColor("#1f2937"),1));p.drawEllipse(QPointF(x,ground-4),18 if compact else 21,18 if compact else 21)
 
         p.setPen(QPen(QColor("#f59e0b"),7,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(xzero,deck_top),QPointF(xzero,boom_y));p.drawLine(QPointF(xzero,boom_y),QPointF(xload,boom_y))
+        p.drawLine(QPointF(xzero,deck_top),QPointF(xzero,boom_y))
+        if abs(xload-xzero)<8:
+            p.setPen(QPen(QColor("#f59e0b"),2,Qt.DashLine))
+            p.drawEllipse(QPointF(xzero,boom_y),9,9)
+            self.txt(p,xzero+16,boom_y-15,"Boom projects out of this view",8,True,"#92400e")
+        else:
+            p.drawLine(QPointF(xzero,boom_y),QPointF(xload,boom_y))
         projected_coincident=abs(xboom-xload)<10
         if projected_coincident:
             self.marker(p,QPointF(xboom,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
@@ -13462,6 +13501,7 @@ class ForceDiagram(QWidget):
         self.header(p,f"FREE-BODY DIAGRAM — {name} TIPPING (SIDE ELEVATION)",
                     f"{self._case_label()} θ={angle:.1f}° • each vertical load line is shown at its calculated x-position")
         self.legend(p)
+        self.crane_plan_inset(p,d,angle)
 
         ww,hh=self.width(),self.height();compact=hh<680
         if compact:
@@ -13484,7 +13524,15 @@ class ForceDiagram(QWidget):
             p.setBrush(QColor("#1f2937"));p.setPen(QPen(QColor("#1f2937"),1));p.drawEllipse(QPointF(x,ground-4),18 if compact else 21,18 if compact else 21)
 
         p.setPen(QPen(QColor("#f59e0b"),7,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(xm,deck_top),QPointF(xm,boom_y));p.drawLine(QPointF(xm,boom_y),QPointF(xl,boom_y))
+        p.drawLine(QPointF(xm,deck_top),QPointF(xm,boom_y))
+        if abs(xl-xm)<8:
+            # At side-on crane rotation, the physical boom points out of the elevation plane.
+            # Draw a small projection cue; never invent a longitudinal reach.
+            p.setPen(QPen(QColor("#f59e0b"),2,Qt.DashLine))
+            p.drawEllipse(QPointF(xm,boom_y),9,9)
+            self.txt(p,xm+16,boom_y-15,"Boom projects out of this view",8,True,"#92400e")
+        else:
+            p.drawLine(QPointF(xm,boom_y),QPointF(xl,boom_y))
         projected_coincident=abs(xb-xl)<10
         if projected_coincident:self.marker(p,QPointF(xb,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
         else:
