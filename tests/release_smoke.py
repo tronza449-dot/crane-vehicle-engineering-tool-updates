@@ -3,7 +3,7 @@
 import os
 os.environ.setdefault("QT_QPA_PLATFORM","offscreen")
 import math
-from PySide6.QtWidgets import QApplication, QPushButton, QScrollArea
+from PySide6.QtWidgets import QApplication, QPushButton, QScrollArea, QGroupBox
 import CraneVehicleEngineeringTool as cvet
 
 print("SMOKE 1/5: QApplication startup", flush=True)
@@ -59,6 +59,10 @@ try:
         assert w.slopeScroll.viewport().height()>120
         # All horizontal content must fit; a hidden horizontal scrollbar may
         # otherwise conceal the entire right half of Ramp Geometry.
+        if w.slopeScroll.widget().width()>w.slopeScroll.viewport().width()+3:
+            print("SLOPE_WIDTH_OVERFLOW",width,w.slopeScroll.widget().width(),w.slopeScroll.viewport().width(),flush=True)
+            for g in w.slopeScroll.widget().findChildren(QGroupBox):
+                print("SLOPE_GROUP",g.title()[:90],"minimum",g.minimumSizeHint().width(),"hint",g.sizeHint().width(),flush=True)
         assert w.slopeScroll.widget().width()<=w.slopeScroll.viewport().width()+3, (
             width,w.slopeScroll.widget().width(),w.slopeScroll.viewport().width()
         )
