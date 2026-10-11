@@ -211,7 +211,7 @@ try:
         fd.longitudinal(painter,reference,"front")
     finally:
         painter.end()
-    assert not any("BOOM OUT OF PLANE - SKETCH ONLY" in t for t in recorded), "Boom must be projected at θ=0°"
+    assert not any("90° TO MAST - OUT OF PLANE (SKETCH ONLY)" in t for t in recorded), "θ=0° must show the actual projected boom"
     boom=next(x for label,x in tracked if label.startswith("W_B = "))
     load=next(x for label,x in tracked if label=="Kdyn·W_L")
     assert load > boom+15,(boom,load)
@@ -226,7 +226,7 @@ try:
         fd.longitudinal(painter,reference,"rear")
     finally:
         painter.end()
-    assert any("BOOM OUT OF PLANE - SKETCH ONLY" in t for t in recorded), "±90° boom cue missing"
+    assert any("90° TO MAST - OUT OF PLANE (SKETCH ONLY)" in t for t in recorded), "±90° must show 90° L-shape, not an inclined boom"
     assert sum(1 for label,x in tracked if label.startswith("W_B + W_L (same x)"))==1
     assert not any(label.startswith("W_B = ") for label,x in tracked)
     assert pic.save("fbd-boom-rear-reference.png","PNG")
