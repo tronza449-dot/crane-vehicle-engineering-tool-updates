@@ -10611,7 +10611,26 @@ void loop() {{
         ):
             lab=getattr(self,attr,None)
             if lab is not None:
-                lab.setText(self.input_source_html(module))
+                # Slope source notes live in a narrow, scrollable layout.
+                # Avoid &nbsp; rich-text badges because Qt treats those spans
+                # as nonbreaking words and forces the whole page wider than
+                # a 1024px viewport (previously 916px content / 761px space).
+                if module=="ramp":
+                    src=("LINKED • Main Battery 72 V" if hasattr(self,"rampUseMainMass") and self.rampUseMainMass.isChecked()
+                         else "MANUAL • Ramp page")
+                    lab.setTextFormat(Qt.PlainText)
+                    lab.setText("Input Source / ที่มาของค่า\n"
+                                "h, x, ระยะที่วัด: MANUAL • ค่าที่วัดจริง\n"
+                                "มวลรถ: "+src+" • มุมลาด: AUTO atan(h/x)")
+                elif module=="slope":
+                    hsrc=("FROM COMPONENT • Mass & CG" if hasattr(self,"massCalcMode") and self.massCalcMode.currentIndex()==1
+                          else "MANUAL • Slope page")
+                    lab.setTextFormat(Qt.PlainText)
+                    lab.setText("Input Source / ที่มาของค่า\n"
+                                "มุมทางลาด: MANUAL หรือ Apply Ramp\n"
+                                "hCG: "+hsrc+" • ความเร่ง: MANUAL")
+                else:
+                    lab.setText(self.input_source_html(module))
 
     def make_torque(self):
         w=QWidget();self.torquePage=w
