@@ -17,7 +17,7 @@ Scope: engineering calculation paths, dimensional consistency, linked state assu
 | Drive power/current | \`Pwheel=Fdesign v=Tω n\`, \`Pelec=Pwheel/η\`, \`I=Pelec/V\` | Identity consistent | Controller/battery peak currents and true motor torque-speed curve still require datasheets/measurements |
 | Traction 72 V energy | Per-cycle flat/up/down travel, \`Wh=F·distance/(3600η)\`, \`Etotal=Ncycles Edrive,cycle + Paux runtime\`, \`Ah=E(1+reserve)/(V DoD)\` | Dimensional identity consistent | Does not include start/acceleration energy, regenerative credit, unmodeled crane-slew demand or measured downhill braking current |
 | Pivot/differential | \`s=(W/2)φ\`, \`E= Cturn mg s/(3600η)\` | Dimensions consistent | \`Cturn\` is empirical; calibration on actual tires/concrete required |
-| Main battery sizing/BMS | Usable DoD, reserve, Kb, continuous/peak current checks; Wh and Ah separate | Arithmetic consistent | C-rate and current margins are design assumptions, not BMS or thermal validation |
+| Main battery sizing/BMS | Usable DoD, reserve, Kb, continuous/peak current checks; Wh and Ah separate | Base arithmetic consistent; **V53.8.77 reconciles mismatched BMS check panels** | C-rate/current limits are assumptions, not BMS or thermal validation; auxiliary current must be included |
 | Winch speed | Piecewise linear first-layer interpolation of supplier speed and current against load | Interpolation correct against table knots | Results are **first-layer estimates**, not certified for higher rope layers or altered voltage |
 | Winch time/energy | \`tup=h/vup·60\`, \`Eup=VIup tup/3600\`; same separately for DOWN | Unit conversions correct | DOWN=UP is a conservative modeling option, not a measurement; stall/startup surge unknown |
 | Winch work cycles | 1 job = 1 UP + 1 DOWN, 2 jobs/round where configured; \`rounds=floor(3h / tcycle)\` | Consistent with project definition | Manual jobs need to be physically feasible within the requested operation window |
@@ -37,6 +37,9 @@ Scope: engineering calculation paths, dimensional consistency, linked state assu
 7. **MEDIUM — 19° design vs measured slope.** 55/280 cm implies ~11.11°, while 19° is a separate steeper design case. Do not substitute one for the other; conservatively assess both if relevant.
 8. **MEDIUM — downhill braking and electronic loads.** No regen is credited; zero downhill **traction** energy is possible on a steep descent, but real control/braking electronics and crane rotation require power-budget inclusion or measurement.
 9. **MEDIUM — battery surge and thermal sizing.** Manufacturer winch first-layer 140 A table value is NOT a confirmed starting/stall surge; do not interpret continuous/peak BMS checks as certification.
+
+## Additional confirmed code defect fixed in V53.8.77
+The separate **Battery Selection**, **Integrated Design Check**, and **Battery+BMS** panels previously used inconsistent 72 V continuous/peak current formulas, sometimes omitting the 72 V auxiliary current. Additionally, winch 12 V peak BMS could show PASS by comparing only the 140 A first-layer table value even though startup/stall surge was unavailable. The BMS panels now reference the Battery Selection calculation for main current and must report Winch stall peak as CHECK. A dedicated release smoke assertion was added. The user still needs measured/transient current limits for final pack selection.
 
 ## Engineering priority before fabrication
 - Confirm **300 kg mass budget** with individual component masses and actual CGs. A 100→200 kg what-if increases total from 300→400 kg when other parts are held fixed, violating the target even if the software can explore it.
