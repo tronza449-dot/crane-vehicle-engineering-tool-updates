@@ -951,11 +951,19 @@ jobs:
           reverse_big=w.battery_runtime_from_capacity(w.eCandidateAh.value()+20.0)
           assert reverse_big["runtime_h"]+1e-9>=reverse["runtime_h"]
 
-          # Candidate current ratings at or above calculated requirements must pass.
-          w.eCandidateContA.setValue(math.ceil(br["cont_req"]+1.0))
-          w.eCandidatePeakA.setValue(math.ceil(br["peak_calc"]+1.0))
+          # Candidate capacity/current ratings above the CURRENT calculated requirements must pass.
+          # Re-read requirements after prior UI actions so this regression does not compare
+          # against a stale snapshot from before linked inputs were synchronized.
+          br_ready=w.battery_selection_results()
+          w.eCandidateAh.setValue(min(500.0,math.ceil(max(br_ready["energy_min"],br_ready["design_ah"],br_ready["suggested"])+5.0)))
+          w.eCandidateContA.setValue(math.ceil(br_ready["cont_req"]+5.0))
+          w.eCandidatePeakA.setValue(math.ceil(br_ready["peak_calc"]+5.0))
           w.update_battery_selection()
           QApplication.processEvents()
+          br_ready2=w.battery_selection_results()
+          assert w.eCandidateAh.value()+1e-9>=br_ready2["energy_min"]
+          assert w.eCandidateContA.value()+1e-9>=br_ready2["cont_req"]
+          assert w.eCandidatePeakA.value()+1e-9>=br_ready2["peak_calc"]
           assert "READY TO VERIFY DATASHEET" in w.batterySelectionView.toPlainText()
 
           # ---------- V53.8.43 Engineering Decision Tools ----------
