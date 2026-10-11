@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.70"
+APP_VERSION = "53.8.71"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -13364,7 +13364,7 @@ class ForceDiagram(QWidget):
 
     def geometry(self,p,d):
         self.header(p,"GEOMETRY & TIPPING-AXIS DEFINITION (TOP VIEW)",
-                    "REFERENCE GEOMETRY ONLY — this page defines support axes; force FBDs use elevation views")
+                    "Support lines and boom rotation; +y points to vehicle right (up on this plan drawing)")
         ww,hh=self.width(),self.height();cx,cy=ww*.48,hh*.47;L=min(360,ww*.44);W=min(230,hh*.38)
         x0,x1=cx-L/2,cx+L/2;y0,y1=cy-W/2,cy+W/2
         p.setPen(QPen(QColor("#334155"),2));p.setBrush(QColor("#eef2f6"));p.drawRect(QRectF(x0,y0,L,W))
@@ -13375,7 +13375,7 @@ class ForceDiagram(QWidget):
         p.setPen(QPen(QColor("#7c3aed"),1.7,Qt.DashLine))
         p.drawLine(QPointF(x0-35,y0),QPointF(x1+35,y0));p.drawLine(QPointF(x0-35,y1),QPointF(x1+35,y1))
         p.drawLine(QPointF(rearx,y0-35),QPointF(rearx,y1+35));p.drawLine(QPointF(frontx,y0-35),QPointF(frontx,y1+35))
-        self.txt(p,x1+42,y0+4,"Left tipping axis",8,True,"#7c3aed");self.txt(p,x1+42,y1+4,"Right tipping axis",8,True,"#7c3aed")
+        self.txt(p,x1+42,y0+4,"Right tipping axis (+y)",8,True,"#7c3aed");self.txt(p,x1+42,y1+4,"Left tipping axis (-y)",8,True,"#7c3aed")
         self.txt(p,rearx-35,y0-42,"Rear axis",8,True,"#7c3aed");self.txt(p,frontx-35,y0-42,"Front axis",8,True,"#7c3aed")
         crane_x=rearx+(d["xC"]/max(d["WB"],1e-9))*(frontx-rearx);crane_y=cy
         p.setBrush(QColor("#f59e0b"));p.setPen(QPen(QColor("#a45108"),2));p.drawEllipse(QPointF(crane_x,crane_y),10,10)
@@ -13384,13 +13384,13 @@ class ForceDiagram(QWidget):
         p.setPen(QPen(QColor("#f59e0b"),9,Qt.SolidLine,Qt.RoundCap));p.drawLine(QPointF(crane_x,crane_y),tip)
         p.setBrush(QColor("#cbd5e1"));p.setPen(QPen(QColor("#475569"),1.5));p.drawRect(QRectF(tip.x()-15,tip.y()-12,30,24))
         self.dim(p,QPointF(rearx,y1+56),QPointF(frontx,y1+56),f"WB = {d['WB']:.3f} m")
-        self.dim(p,QPointF(x1+105,y0),QPointF(x1+105,y1),f"W = {d['W']:.3f} m",True)
+        self.dim(p,QPointF(x1+105,y0-9),QPointF(x1+105,y1+9),f"Track W = {d['W']:.3f} m",True)
         self.axes(p,QPointF(75,hh-120),"+x forward","+y right",0)
-        self.txt(p,20,hh-25,f"Crane convention: θ = -90° left, 0° forward, +90° right   |   Current θ = {self._angle(d):.1f}°",9,True)
+        self.txt(p,20,hh-25,f"Crane angle: -90° left / 0° forward / +90° right   |   θ={self._angle(d):.1f}°   |   Vehicle body width = {d.get('vehicleWidth',d['W']):.3f} m",9,True)
 
     def crane_plan_inset(self,p,d,angle):
         """Top-view inset: show true crane reach when elevation projection collapses."""
-        w=266;h=142;x=max(420,self.width()-w-28);y=126
+        w=260;h=154;x=self.width()-w-20;y=122
         p.save()
         p.setPen(QPen(QColor("#cbd5e1"),1))
         p.setBrush(QColor("#ffffff"))
@@ -13417,7 +13417,8 @@ class ForceDiagram(QWidget):
         p.drawEllipse(tip,7,7)
         self.txt(p,x+194,y+69,"+x",8,True,"#64748b")
         self.txt(p,x+191,y+86,"forward",7,False,"#64748b")
-        self.txt(p,x+12,y+132,"Orange = physical boom direction",7,False,"#92400e")
+        self.txt(p,x+12,y+132,"Orange = boom in plan view",7,False,"#92400e")
+        self.txt(p,x+12,y+145,"Elevation shows projection only",7,False,"#64748b")
         p.restore()
 
     def side(self,p,d,side):
@@ -13426,7 +13427,7 @@ class ForceDiagram(QWidget):
         self.header(p,f"FREE-BODY DIAGRAM — {name} SIDE TIPPING (FRONT ELEVATION)",
                     f"{self._case_label()} θ={angle:.1f}° • weights act through CG/load points • moment arms measured to tipping axis P")
         self.legend(p)
-        self.crane_plan_inset(p,d,angle)
+        if self.width()>=900:self.crane_plan_inset(p,d,angle)
 
         ww,hh=self.width(),self.height();compact=hh<680
         if compact:
@@ -13438,7 +13439,7 @@ class ForceDiagram(QWidget):
             lanes=[505,537,569];track_y=602;axis_y=132;side_y=92
 
         yveh=d.get("yCG",0.0);yboom=bal["y_boom"];yload=bal["y_load"];yp=bal["pivot"]
-        mapper=self._linear_mapper([-d["W"]/2,d["W"]/2,yveh,yboom,yload,yp],130,ww-130,.15)
+        mapper=self._linear_mapper([-d["W"]/2,d["W"]/2,yveh,yboom,yload,yp],130,ww-370 if ww>=900 else ww-130,.12)
         xL=mapper(-d["W"]/2);xR=mapper(d["W"]/2);pivotx=mapper(yp);other=xR if left else xL
         xveh=mapper(yveh);xboom=mapper(yboom);xload=mapper(yload);xzero=mapper(0.0)
 
@@ -13453,12 +13454,13 @@ class ForceDiagram(QWidget):
         if abs(xload-xzero)<8:
             p.setPen(QPen(QColor("#f59e0b"),2,Qt.DashLine))
             p.drawEllipse(QPointF(xzero,boom_y),9,9)
-            self.txt(p,xzero+16,boom_y-15,"Boom projects out of this view",8,True,"#92400e")
         else:
             p.drawLine(QPointF(xzero,boom_y),QPointF(xload,boom_y))
         projected_coincident=abs(xboom-xload)<10
+        payload_factor=next(q["factor"] for q in bal["components"] if q["name"]=="Payload")
+        load_name="Kdyn·W_L" if abs(payload_factor-1.0)>1e-9 else "W_L"
         if projected_coincident:
-            self.marker(p,QPointF(xboom,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
+            self.marker(p,QPointF(xboom,boom_y),"CG_B + CG_L (projection)","#a45108",8,-9)
         else:
             self.marker(p,QPointF(xboom,boom_y),"CG_B","#a45108",8,-9);self.marker(p,QPointF(xload,boom_y),"CG_L","#a45108",8,-9)
         self.marker(p,QPointF(xveh,deck_top+deck_h/2),"CG_V","#334155",8,-8)
@@ -13466,16 +13468,16 @@ class ForceDiagram(QWidget):
         self.arrow(p,QPointF(xveh,deck_top+deck_h/2),QPointF(xveh,ground-14),"W_V","#111827",QPointF(7,-5))
         arrow1=74 if compact else 100;arrow2=86 if compact else 115
         if projected_coincident:
-            self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+arrow2),"W_B + W_L","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+arrow2),f"W_B + {load_name}","#111827",QPointF(7,-5))
             if not compact:self.txt(p,xboom+8,boom_y+132,"same projected line of action",7,False,"#52606d")
         else:
             self.arrow(p,QPointF(xboom,boom_y+8),QPointF(xboom,boom_y+arrow1),"W_B","#111827",QPointF(7,-5))
-            self.arrow(p,QPointF(xload,boom_y+8),QPointF(xload,boom_y+arrow2),"W_L","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xload,boom_y+8),QPointF(xload,boom_y+arrow2),load_name,"#111827",QPointF(7,-5))
 
         self.pivot(p,QPointF(pivotx,ground),"Tipping axis P","right" if left else "left")
         react_start=QPointF(pivotx+(18 if left else -18),ground-4)
         self.arrow(p,react_start,react_start+QPointF(0,-68 if compact else -86),"R_P","#16803a",QPointF(8,-2))
-        self.txt(p,other-50,ground+28 if compact else ground+42,"R_opposite = 0",8 if compact else 9,True,"#b42318")
+        self.txt(p,other-50,ground+28 if compact else ground+42,"R_opp → 0 at tipping",8 if compact else 9,True,"#b42318")
 
         if left:
             self.txt(p,85,side_y,"← OVERTURNING SIDE",8 if compact else 9,True,"#b42318")
@@ -13501,7 +13503,7 @@ class ForceDiagram(QWidget):
         self.header(p,f"FREE-BODY DIAGRAM — {name} TIPPING (SIDE ELEVATION)",
                     f"{self._case_label()} θ={angle:.1f}° • each vertical load line is shown at its calculated x-position")
         self.legend(p)
-        self.crane_plan_inset(p,d,angle)
+        if self.width()>=900:self.crane_plan_inset(p,d,angle)
 
         ww,hh=self.width(),self.height();compact=hh<680
         if compact:
@@ -13513,7 +13515,7 @@ class ForceDiagram(QWidget):
             lanes=[505,537,569];track_y=602;axis_y=132;side_y=92
 
         xr=bal["rear"];xf=bal["front"];xp=bal["pivot"];xveh=d["xCG"];xboom=bal["xboom"];xload=bal["xload"];xc=bal["xc"]
-        mapper=self._linear_mapper([xr,xf,xp,xveh,xboom,xload,xc],130,ww-130,.15)
+        mapper=self._linear_mapper([xr,xf,xp,xveh,xboom,xload,xc],130,ww-370 if ww>=900 else ww-130,.12)
         rear=mapper(xr);front=mapper(xf);pivotx=mapper(xp);other=rear if frontcase else front
         xv=mapper(xveh);xb=mapper(xboom);xl=mapper(xload);xm=mapper(xc)
 
@@ -13530,11 +13532,12 @@ class ForceDiagram(QWidget):
             # Draw a small projection cue; never invent a longitudinal reach.
             p.setPen(QPen(QColor("#f59e0b"),2,Qt.DashLine))
             p.drawEllipse(QPointF(xm,boom_y),9,9)
-            self.txt(p,xm+16,boom_y-15,"Boom projects out of this view",8,True,"#92400e")
         else:
             p.drawLine(QPointF(xm,boom_y),QPointF(xl,boom_y))
         projected_coincident=abs(xb-xl)<10
-        if projected_coincident:self.marker(p,QPointF(xb,boom_y),"CG_B / CG_L projection","#a45108",8,-9)
+        payload_factor=next(q["factor"] for q in bal["components"] if q["name"]=="Payload")
+        load_name="Kdyn·W_L" if abs(payload_factor-1.0)>1e-9 else "W_L"
+        if projected_coincident:self.marker(p,QPointF(xb,boom_y),"CG_B + CG_L (projection)","#a45108",8,-9)
         else:
             self.marker(p,QPointF(xb,boom_y),"CG_B","#a45108",8,-9);self.marker(p,QPointF(xl,boom_y),"CG_L","#a45108",8,-9)
         self.marker(p,QPointF(xv,deck_top+deck_h/2),"CG_V","#334155",8,-8)
@@ -13542,16 +13545,16 @@ class ForceDiagram(QWidget):
         self.arrow(p,QPointF(xv,deck_top+deck_h/2),QPointF(xv,ground-14),"W_V","#111827",QPointF(7,-5))
         arrow1=74 if compact else 100;arrow2=86 if compact else 115
         if projected_coincident:
-            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow2),"W_B + W_L","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow2),f"W_B + {load_name}","#111827",QPointF(7,-5))
             if not compact:self.txt(p,xb+8,boom_y+132,"same projected line of action",7,False,"#52606d")
         else:
             self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow1),"W_B","#111827",QPointF(7,-5))
-            self.arrow(p,QPointF(xl,boom_y+8),QPointF(xl,boom_y+arrow2),"W_L","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xl,boom_y+8),QPointF(xl,boom_y+arrow2),load_name,"#111827",QPointF(7,-5))
 
         self.pivot(p,QPointF(pivotx,ground),"Tipping axis P","left" if frontcase else "right")
         react_start=QPointF(pivotx+(-18 if frontcase else 18),ground-4)
         self.arrow(p,react_start,react_start+QPointF(0,-68 if compact else -86),"R_P","#16803a",QPointF(8,-2))
-        self.txt(p,other-50,ground+28 if compact else ground+42,"R_opposite = 0",8 if compact else 9,True,"#b42318")
+        self.txt(p,other-50,ground+28 if compact else ground+42,"R_opp → 0 at tipping",8 if compact else 9,True,"#b42318")
 
         if frontcase:
             self.txt(p,80,side_y,"← RESISTING SIDE",8 if compact else 9,True,"#176337")
