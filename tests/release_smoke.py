@@ -62,7 +62,7 @@ try:
         if w.slopeScroll.widget().width()>w.slopeScroll.viewport().width()+3:
             print("SLOPE_WIDTH_OVERFLOW",width,w.slopeScroll.widget().width(),w.slopeScroll.viewport().width(),flush=True)
             for g in w.slopeScroll.widget().findChildren(QGroupBox):
-                print("SLOPE_GROUP",g.title()[:90],"minimum",g.minimumSizeHint().width(),"hint",g.sizeHint().width(),flush=True)
+                print("SLOPE_GROUP",g.objectName() or "group","minimum",g.minimumSizeHint().width(),"hint",g.sizeHint().width(),flush=True)
         assert w.slopeScroll.widget().width()<=w.slopeScroll.viewport().width()+3, (
             width,w.slopeScroll.widget().width(),w.slopeScroll.viewport().width()
         )
