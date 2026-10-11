@@ -45,6 +45,18 @@ try:
     assert winch_peak[4]=="CHECK", "Missing winch starting/stall data cannot PASS"
     html=w.bms_check_html()
     assert "including auxiliary" in html and "stall/start surge unknown" in html
+    print("SMOKE: battery PDF report Step5 Thai formula and Step6 BMS arithmetic",flush=True)
+    battery_html=w.battery_report_html()
+    report_e=w.electrical_results()
+    report_sel=w.battery_selection_results()
+    report_aux=max(0.0,report_sel["e"].get("Iaux",0.0))
+    assert "พลังงานรวมทั้งหมด = (พลังงานขับเคลื่อนรถต่อ 1 รอบไป–กลับ" in battery_html
+    assert "E<sub>total</sub>" in battery_html
+    assert "กำลังไฟฟ้าเฉลี่ยของอุปกรณ์เสริม × ระยะเวลาทำงานทั้งหมดในหน่วยชั่วโมง" in battery_html
+    assert f"max({report_e['Icalc_up']:.2f}, {report_e.get('Iturn_avg',0.0):.2f}) + {report_aux:.2f} = <b>{report_sel['cont_req']:.2f} A</b>" in battery_html
+    assert f"max({report_sel['cont_req']:.2f}, {report_sel['t']['Ibatt']:.2f} + {report_aux:.2f}) = <b>{report_sel['peak_calc']:.2f} A</b>" in battery_html
+    assert abs(max(report_e["Icalc_up"],report_e.get("Iturn_avg",0.0),0)+report_aux-report_sel["cont_req"])<1e-8
+    assert abs(max(report_sel["cont_req"],report_sel["t"]["Ibatt"]+report_aux)-report_sel["peak_calc"])<1e-8
     print("SMOKE: simple What-if payload comparison after saved-state restore",flush=True)
     preserved=w.capture_project_state()
     try:
