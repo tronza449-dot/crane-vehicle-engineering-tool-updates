@@ -1,3 +1,11 @@
+## V53.8.73 — Visible out-of-plane boom on main longitudinal FBD
+
+- Front/Rear FBDs now show a short **dashed orange boom stub** attached to the crane mast when the arm is perpendicular to the side-elevation plane (at ±90°).
+- The stub is explicitly labeled `BOOM OUT OF PLANE - SKETCH ONLY`. Its x-offset is purely visual, NOT a force position, geometry dimension or moment arm.
+- Keep both `CG_B` and `CG_L` on the real same x-projection at ±90°; their combined gravity arrow and tipping moment calculations remain unchanged.
+- At θ=0° the real longitudinal projection is drawn as a solid horizontal boom with separate boom/payload arrows.
+- Added release smoke checks for the cue at ±90° and its absence when the boom points forward.
+
 ## V53.8.72 — Separate boom mass and payload in front/rear FBD
 
 - Treat `m_B` as the boom/arm mass (20 kg in the reference input), applied at the boom midpoint; `m_L` is the carried load, applied at the hook position.
