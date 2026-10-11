@@ -1,3 +1,11 @@
+## V53.8.67 — Restore editable Slope inputs and clean FBD labels
+
+- **Fix locked input confusion.** Final Design Input Lock (stored in saved projects) disables Ramp/Slope spinboxes. Stability now shows a prominent lock notice and a one-click "ปลดล็อกเพื่อแก้ค่า" control rather than leaving disabled boxes unexplained.
+- **Make the battery mass link obvious.** When Main Battery mass is selected, only the manual Ramp mass field is disabled and an explanation shows the effective linked mass. Unchecking the option enables manual mass entry again.
+- **Keep all other Ramp dimensions and Slope inputs interactive** when Final Design Input Lock is off.
+- **Fix overlapping axes and legend labels** in compact Engineering FBD widgets so axes no longer cut through the header.
+- Add release-blocking GUI checks that simulate an actual user mouse click to unlock, mouse click to toggle mass linking, typing a geometry value, and creating both Slope and FBD screenshots.
+
 ## V53.8.65 — Prevent Slope panel width overflow
 
 - Fix the true remaining cause of the 1024px Slope failure: long QGroupBox headings generated an unbreakable 758px minimum width.
