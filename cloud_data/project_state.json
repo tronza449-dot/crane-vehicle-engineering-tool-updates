@@ -1,14 +1,14 @@
 {
   "format": "CVETCloudProject",
   "schema_version": 1,
-  "updated_at": "2026-10-11T16:32:07+00:00",
+  "updated_at": "2026-10-11T18:10:59+00:00",
   "device_id": "DESKTOP-GBNC5JS-070e5f28",
-  "app_version": "53.8.79",
-  "state_hash": "586edd47c221156a800e65043b868373bca90032c220d03a9d9223eb641939a2",
+  "app_version": "53.8.81",
+  "state_hash": "4a78b07a7f547b35e7cb2fa9051c0185e9a668f871b5ca4d2a04ba297f5b0955",
   "state": {
     "format": "CraneVehicleEngineeringToolProject",
-    "version": "53.8.79",
-    "saved_at": "2026-10-11T09:32:07",
+    "version": "53.8.81",
+    "saved_at": "2026-10-11T11:10:59",
     "widgets": {
       "tm": {
         "kind": "double",
@@ -223,6 +223,22 @@
         "value": 0.0
       },
       "eCandidatePeakA": {
+        "kind": "double",
+        "value": 0.0
+      },
+      "bselMinVoltage": {
+        "kind": "double",
+        "value": 60.0
+      },
+      "bselRatedEfficiency": {
+        "kind": "double",
+        "value": 85.0
+      },
+      "bselCurrentMargin": {
+        "kind": "double",
+        "value": 25.0
+      },
+      "bselVescPackBatteryLimit": {
         "kind": "double",
         "value": 0.0
       },
