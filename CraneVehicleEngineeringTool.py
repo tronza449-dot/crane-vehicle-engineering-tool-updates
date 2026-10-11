@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.55"
+APP_VERSION = "53.8.56"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -51,7 +51,7 @@ def resource_path(relative_path):
     return base / relative_path
 
 APP_STYLE = """
-/* ==================== V53.8.55 CLEAN / MODERN UI ==================== */
+/* ==================== V53.8.56 CLEAN / MODERN UI ==================== */
 QMainWindow { background:#f7f8fa; }
 QWidget { color:#182230; }
 QLabel { color:#344054; font-size:10.4pt; }
