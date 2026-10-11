@@ -1,3 +1,11 @@
+## V53.8.69 — Engineering FBD readability and Slope number fields
+
+- **Engineering FBD:** prevent force diagram being squeezed under convention/help panels at laptop resolutions; move the whole page inside a vertical scrolling workspace and reserve 525px minimum height for the diagram.
+- Change the FBD case/view/action toolbar to a compact two-column layout rather than an over-wide six-column row.
+- **Slope:** restore visible up/down arrows to every numeric spinbox and explicitly set numeric text color for better Windows scaling/theme compatibility.
+- Keep linked-mass checkbox, clearly visible Final Design Lock notification and one-click unlock from V53.8.68.
+- Extend release GUI checks: actual click-and-type, no horizontal overflow, FBD height/vertical scrolling, and top/bottom FBD screenshots at 1024x650 and 1366x768.
+
 ## V53.8.68 — Fix mass-link checkbox mouse hit target
 
 - Main Battery mass checkbox no longer stretches into a huge invisible click target; clicking the center of the visible control reliably toggles it.
