@@ -2,7 +2,7 @@ from pathlib import Path
 import sys, math, os, json, csv, tempfile, re, hashlib, subprocess, threading, urllib.request, urllib.parse, shutil, socket, time, webbrowser, base64, platform, traceback
 from datetime import datetime
 from PySide6.QtCore import Qt, QPointF, QRectF, QSize, QTimer, QStandardPaths, Signal, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon,QPixmap
+from PySide6.QtGui import QPainter,QPen,QBrush,QColor,QPolygonF,QPageSize,QPdfWriter,QFont,QTextDocument,QPageLayout,QFontDatabase,QIcon,QPixmap,QTextOption
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter
 from cloud_sync import (
@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.63"
+APP_VERSION = "53.8.64"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -11479,6 +11479,13 @@ void loop() {{
         self.slopeout.setReadOnly(True)
         self.slopeout.setMinimumHeight(185)
         self.slopeout.setMaximumHeight(300)
+        # Engineering formula lines can be long; do not let them define a
+        # 758px minimum panel width when the available viewport is 761px.
+        self.slopeout.setMinimumWidth(0)
+        self.slopeout.setSizePolicy(QSizePolicy.Ignored,QSizePolicy.Preferred)
+        self.slopeout.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        self.slopeout.setWordWrapMode(QTextOption.WrapAnywhere)
+        self.slopeout.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.slopeout.setStyleSheet(
             "QPlainTextEdit{font-size:10.5pt;background:white;"
             "border:1px solid #dde5ef;border-radius:8px;padding:10px;}"
