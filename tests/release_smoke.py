@@ -34,6 +34,39 @@ try:
     cases=w.stability_fbd_cases()
     assert len(cases)==5, "Expected side L/R + front + rear + slope"
 
+    print("SMOKE: simple What-if payload comparison after saved-state restore",flush=True)
+    preserved=w.capture_project_state()
+    try:
+        for obj,value in ((w.mt,300.0),(w.ml,100.0),(w.mb,20.0),
+                          (w.slope,11.11),(w.wmass,100.0)):
+            obj.blockSignals(True)
+            try:obj.setValue(value)
+            finally:obj.blockSignals(False)
+        w.whatIfShowAdvanced.setChecked(False)
+        w.whatIfQuickParam.setCurrentIndex(0)
+        w.whatIfQuickValue.setValue(200.0)
+        # Deliberately poison the hidden advanced controls with old startup values.
+        w.whatIfSlope.setValue(19.0)
+        w.whatIfBaseMass.setValue(1500.0)
+        base,scenario=w._what_if_comparison_values()
+        assert base["payload"]==100.0 and scenario["payload"]==200.0
+        assert abs(base["slope"]-11.11)<1e-8 and scenario["slope"]==base["slope"]
+        assert scenario["base_mass"]==base["base_mass"]==180.0
+        assert abs(sum(scenario[k] for k in ("base_mass","payload","boom_mass"))-400.0)<1e-8
+        assert all(scenario[k]==base[k] for k in base if k not in ("payload","winch_load"))
+        before=w._evaluate_coupled_scenario(base)
+        after=w._evaluate_coupled_scenario(scenario)
+        assert before["torque_mass"]==300.0 and after["torque_mass"]==400.0
+        assert before["battery_mass"]==300.0 and after["battery_mass"]==400.0
+        assert after["torque"]>before["torque"],("torque must rise",before["torque"],after["torque"])
+        assert after["drive_cycle_wh"]>before["drive_cycle_wh"]
+        assert abs(after["torque"]/before["torque"]-4.0/3.0)<1e-5
+        html=w.sensitivity_analysis_html()
+        assert "300.0 kg" in html and "400.0 kg" in html
+        assert "Driving slope" in html and "11.11" in html
+    finally:
+        w.apply_project_state(preserved,False)
+        w._core_recalculate()
     print("SMOKE 4/5: save/updater widgets", flush=True)
     assert hasattr(w,"updateProgress") and hasattr(w,"updateStageLabel")
     assert hasattr(w,"updatePercentLabel")
