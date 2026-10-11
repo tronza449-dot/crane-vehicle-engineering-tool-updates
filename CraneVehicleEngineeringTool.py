@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.65"
+APP_VERSION = "53.8.66"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -11305,7 +11305,7 @@ void loop() {{
 
         content=QWidget()
         content.setObjectName("slopeWorkspace")
-        l=QVBoxLayout(content);l.setContentsMargins(14,12,14,20);l.setSpacing(12)
+        l=QVBoxLayout(content);l.setContentsMargins(6,12,6,20);l.setSpacing(12)
 
         intro=QLabel("ข้อมูลทางลาดและเสถียรภาพขณะขึ้นทางลาด")
         intro.setStyleSheet("color:#17324d;font-size:13pt;font-weight:850;")
@@ -11474,20 +11474,20 @@ void loop() {{
 
         result=QGroupBox("04  RESULT / ผลการคำนวณ")
         resultLayout=QVBoxLayout(result)
-        resultLayout.setContentsMargins(16,24,16,14)
-        self.slopeout=QPlainTextEdit()
+        resultLayout.setContentsMargins(10,24,10,14)
+        self.slopeout=QTextEdit()
         self.slopeout.setReadOnly(True)
         self.slopeout.setMinimumHeight(185)
         self.slopeout.setMaximumHeight(300)
         # Engineering formula lines can be long; do not let them define a
         # 758px minimum panel width when the available viewport is 761px.
         self.slopeout.setMinimumWidth(0)
-        self.slopeout.setSizePolicy(QSizePolicy.Ignored,QSizePolicy.Preferred)
-        self.slopeout.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        self.slopeout.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Preferred)
+        self.slopeout.setLineWrapMode(QTextEdit.WidgetWidth)
         self.slopeout.setWordWrapMode(QTextOption.WrapAnywhere)
         self.slopeout.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.slopeout.setStyleSheet(
-            "QPlainTextEdit{font-size:10.5pt;background:white;"
+            "QTextEdit{font-size:10.5pt;background:white;"
             "border:1px solid #dde5ef;border-radius:8px;padding:10px;}"
         )
         resultLayout.addWidget(self.slopeout)
