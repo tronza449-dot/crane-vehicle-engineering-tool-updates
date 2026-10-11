@@ -1,14 +1,14 @@
 {
   "format": "CVETCloudProject",
   "schema_version": 1,
-  "updated_at": "2026-10-11T10:28:41+00:00",
+  "updated_at": "2026-10-11T10:28:48+00:00",
   "device_id": "DESKTOP-GBNC5JS-070e5f28",
   "app_version": "53.8.69",
-  "state_hash": "74dc1c07feb0b83bde5531bdcf2d5c3ae8c816e8d85b83d2ee4f71865c1ed4f7",
+  "state_hash": "b35c9065130db5b53613e7529afd01dc6328cf79bd0016252e5777518b6f893b",
   "state": {
     "format": "CraneVehicleEngineeringToolProject",
     "version": "53.8.69",
-    "saved_at": "2026-10-11T03:28:41",
+    "saved_at": "2026-10-11T03:28:48",
     "widgets": {
       "tm": {
         "kind": "double",
@@ -492,7 +492,7 @@
       },
       "rampUseMainMass": {
         "kind": "check",
-        "value": false
+        "value": true
       },
       "slope": {
         "kind": "double",
