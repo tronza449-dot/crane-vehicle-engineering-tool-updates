@@ -3,7 +3,7 @@
 import os
 os.environ.setdefault("QT_QPA_PLATFORM","offscreen")
 import math
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication, QPushButton, QScrollArea
 import CraneVehicleEngineeringTool as cvet
 
 print("SMOKE 1/5: QApplication startup", flush=True)
@@ -40,7 +40,30 @@ try:
     assert w.updateProgress.value()==45 and w.updatePercentLabel.text()=="45%"
     assert w.updateProgress.isTextVisible()
 
-    print("SMOKE 5/5: close safely", flush=True)
+    print("SMOKE 5/6: responsive Slope UI at laptop and compact resolutions", flush=True)
+    assert isinstance(w.slopePage.findChild(QScrollArea,"slopeScrollArea"),QScrollArea)
+    assert w.slopeScroll.widget().layout() is not None
+    assert w.rampRiseCm.maximumWidth()<=170
+    assert w.rampGeomOut.minimumHeight()>=270
+    assert w.slopeout.minimumHeight()>=185
+    result=w.ramp_geometry_results()
+    assert w.slopeSummaryAngle.text()==f'{result["angle"]:.2f}°'
+    w.show()
+    w.show_stability_mode()
+    idx=next(i for i in range(w.stabilityTabs.count()) if w.stabilityTabs.tabText(i)=="Slope")
+    w.stabilityTabs.setCurrentIndex(idx)
+    for width,height in ((1366,768),(1024,650)):
+        w.resize(width,height)
+        QApplication.processEvents()
+        assert w.slopeScroll.widget().isVisible()
+        assert w.slopeScroll.viewport().height()>120
+        shot=w.grab()
+        assert not shot.isNull() and shot.width()>0
+        assert shot.save(f"slope-ui-{width}.png","PNG")
+        if width==1024:
+            assert w.slopeScroll.verticalScrollBar().maximum()>0
+
+    print("SMOKE 6/6: close safely", flush=True)
 finally:
     w.close()
     QApplication.processEvents()
