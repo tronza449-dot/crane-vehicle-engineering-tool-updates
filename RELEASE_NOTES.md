@@ -1,3 +1,11 @@
+## V53.8.63 — Fix horizontal overflow on small screens
+
+- Fixed the Stability > Slope actions grid that could force content wider than the available 1024px laptop viewport.
+- Place actions vertically so long Thai/English button captions wrap/fit instead of hiding controls off-screen.
+- Keep the slope summary, geometry, and driving stability sections scrollable with compact inputs.
+- Improved GitHub Actions Slope layout diagnostics so error logs do not fail on Windows console encoding.
+- Release-blocking screenshot/layout checks remain enabled at 1366x768 and 1024x650.
+
 ## V53.8.61 — Slope layout validated at 1024px
 
 - After inspecting automated screenshots, fix a real horizontal cut-off in Stability > Slope on compact laptop displays.
