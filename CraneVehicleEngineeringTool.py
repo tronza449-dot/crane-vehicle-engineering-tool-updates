@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.62"
+APP_VERSION = "53.8.63"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -11410,12 +11410,15 @@ void loop() {{
         exportSlope=QPushButton("Export Slope PDF")
         exportSlope.setObjectName("secondaryButton")
         exportSlope.clicked.connect(lambda:self.export_stability_mode_pdf("slope"))
-        for col,button in enumerate((self.rampCalcButton,self.rampApplyAngleButton,
+        # Place each action on its own row, as multi-line Thai captions could
+        # otherwise force two wide columns and horizontally clip at 1024px.
+        for row,button in enumerate((self.rampCalcButton,self.rampApplyAngleButton,
                                      self.rampApplyLengthButton,exportSlope)):
             button.setMinimumHeight(40)
             button.setToolTip(button.text())
-            actionsLayout.addWidget(button,col//2,col%2)
-        actionsLayout.setColumnStretch(0,1);actionsLayout.setColumnStretch(1,1)
+            button.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Fixed)
+            actionsLayout.addWidget(button,row,0)
+        actionsLayout.setColumnStretch(0,1)
         l.addWidget(actions)
 
         drive=QGroupBox("03  UPHILL STABILITY  /  ค่าที่ใช้วิเคราะห์การคว่ำ")
