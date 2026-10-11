@@ -1,3 +1,9 @@
+## V53.8.68 — Fix mass-link checkbox mouse hit target
+
+- Main Battery mass checkbox no longer stretches into a huge invisible click target; clicking the center of the visible control reliably toggles it.
+- Keeps the quick Final Design unlock, explicit mass source, editable geometry, and compact FBD coordinate/legend adjustments from V53.8.67.
+- Verify using actual Qt simulated clicks on lock/unlock, checkbox, and keyboard input before shipping.
+
 ## V53.8.67 — Restore editable Slope inputs and clean FBD labels
 
 - **Fix locked input confusion.** Final Design Input Lock (stored in saved projects) disables Ramp/Slope spinboxes. Stability now shows a prominent lock notice and a one-click "ปลดล็อกเพื่อแก้ค่า" control rather than leaving disabled boxes unexplained.
