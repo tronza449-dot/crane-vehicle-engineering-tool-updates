@@ -66,6 +66,14 @@ jobs:
           path: release-smoke.log
           if-no-files-found: ignore
 
+      - name: Upload Slope UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slope-ui-screenshots-${{ github.run_id }}
+          path: slope-ui-*.png
+          if-no-files-found: ignore
+
       - name: Generate application icon
         shell: pwsh
         run: |
