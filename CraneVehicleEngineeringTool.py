@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.78"
+APP_VERSION = "53.8.79"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -10283,11 +10283,11 @@ void loop() {{
             <p><b>ความหมาย:</b> นับพลังงานขับเฉพาะรอบไป–กลับที่ทำครบตาม STEP 4 ส่วนอุปกรณ์เสริมคิดไฟตลอดเวลาเป้าหมาย เช่น 3 ชั่วโมง แม้รถไม่ได้วิ่งตลอดเวลา</p>
 
             <div class='formula'><b>สูตรเผื่อ DoD:</b> E_nominal = E_total ÷ DoD</div>
-            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานแบตพิกัดที่ต้องมี = พลังงานที่ใช้จริง ÷ สัดส่วนความจุที่อนุญาตให้ใช้</div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> พลังงานแบตเตอรี่ที่ต้องเตรียม = พลังงานที่รถใช้จริง หารด้วยสัดส่วนความจุแบตเตอรี่ที่อนุญาตให้นำมาใช้ เช่น DoD 80% คือใช้ได้ 80% ของความจุที่ระบุ</div>
             <div class='substitute'><b>แทนค่า:</b> {q['Eload']:.2f} ÷ {q['dod']:.3f} = <b>{q['Enom']:.2f} Wh</b></div>
 
             <div class='formula'><b>สูตรเผื่อ Reserve:</b> E_design = E_nominal × (1 + Reserve)</div>
-            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานออกแบบ = พลังงานหลังเผื่อ DoD × (1 + สัดส่วนพลังงานสำรอง)</div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> พลังงานที่ใช้เลือกแบตเตอรี่ = พลังงานหลังเผื่อ DoD คูณด้วยหนึ่งบวกสัดส่วนพลังงานสำรอง เช่น เผื่อ 20% จึงคูณด้วย 1.20</div>
             <div class='substitute'><b>แทนค่า:</b> {q['Enom']:.2f} × (1 + {q['reserve']:.3f}) = <b>{q['Edesign']:.2f} Wh</b></div>
 
             <div class='formula'><b>สูตรความจุขั้นต่ำ:</b> Ah_min = E_design ÷ V</div>
@@ -10304,31 +10304,65 @@ void loop() {{
           </div>
         </div>
 
+        <div class='pagebreak'></div>
         <div class='stepbox'>
-          <div class='stephead'>STEP 6 — ตรวจ Continuous / Peak Current และ BMS</div>
+          <div class='stephead'>STEP 6 — เลือกกระแส BMS ให้เหมาะกับการขับรถ</div>
           <div class='stepbody'>
-            <p><b>กำลังหาอะไร:</b> ตรวจความสามารถของ BMS ในการจ่ายกระแส (A) ซึ่งต่างจากการตรวจความจุแบตเตอรี่ (Ah) ใน STEP 5</p>
-            <div class='formula'><b>สูตร Continuous:</b> I<sub>cont</sub> = max(I<sub>up</sub>, I<sub>turn,avg</sub>) + I<sub>aux</sub></div>
-            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> กระแสต่อเนื่องที่ต้องรองรับ = เลือกค่าที่มากกว่าระหว่างกระแสขณะขึ้นทางลาดกับกระแสขณะหมุนรถ แล้วบวกกระแสอุปกรณ์เสริมที่ทำงานพร้อมกัน</div>
-            <div class='substitute'><b>แทนค่า:</b> max({q['Icalc_up']:.2f}, {q.get('Iturn_avg',0.0):.2f}) + {max(0.0,sel['e'].get('Iaux',0.0)):.2f} = <b>{sel['cont_req']:.2f} A</b></div>
+            <p><b>กำลังหาอะไร:</b> แบตเตอรี่ 72 V ต้อง <b>จ่ายกระแสไฟฟ้าได้กี่แอมป์ (A)</b> ระหว่างรถวิ่งปกติและช่วงใช้แรงขับมากขึ้น
+            เพื่อใช้ตรวจคุณสมบัติ BMS โดยไม่สับสนกับความจุแบตเตอรี่ใน STEP 5</p>
 
-            <div class='formula'><b>สูตร Peak:</b> I<sub>peak</sub> = max(I<sub>cont</sub>, I<sub>drive,design</sub> + I<sub>aux</sub>)</div>
-            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> กระแสสูงสุดตามแบบจำลอง = เลือกค่าที่มากกว่าระหว่างกระแสต่อเนื่องรวม กับกระแสออกแบบตอนขับหรือเร่งบวกกระแสอุปกรณ์เสริม</div>
+            <h3>6.1 แยกให้ออกก่อน: Ah กับ A ไม่ใช่ค่าเดียวกัน</h3>
+            <table>
+              <tr><th>ค่าที่ตรวจ</th><th>อธิบายแบบง่าย</th></tr>
+              <tr><td><b>Ah</b> (STEP 5)</td><td>ความจุแบตเตอรี่: มีพลังงานเก็บไว้เพียงพอทำงานตามเป้าหมายหรือไม่</td></tr>
+              <tr><td><b>A</b> (STEP 6)</td><td>ความสามารถจ่ายกระแส: แบตเตอรี่และ BMS จ่ายไฟให้รถขณะทำงานได้หรือไม่</td></tr>
+            </table>
+
+            <h3>6.2 กระแสแต่ละตัวมาจากไหน?</h3>
+            <table>
+              <tr><th>ตัวแปร</th><th>ความหมาย</th><th>ค่าจากการคำนวณ</th></tr>
+              <tr><td>I<sub>up</sub></td><td>กระแสที่มอเตอร์ใช้ตอนขึ้นทางลาด</td><td>{q['Icalc_up']:.2f} A</td></tr>
+              <tr><td>I<sub>turn,avg</sub></td><td>กระแสเฉลี่ยที่ประมาณไว้ขณะหมุนรถแบบ Differential/Pivot</td><td>{q.get('Iturn_avg',0.0):.2f} A</td></tr>
+              <tr><td>I<sub>drive,design</sub></td><td>กระแสออกแบบจากหน้า Drive Torque รวมเงื่อนไขแรงขับและการเร่ง</td><td>{sel['t']['Ibatt']:.2f} A</td></tr>
+              <tr><td>I<sub>aux</sub></td><td>กระแสของไฟและอุปกรณ์เสริมที่ทำงานพร้อมกับมอเตอร์</td><td>{max(0.0,sel['e'].get('Iaux',0.0)):.2f} A</td></tr>
+            </table>
+            <div class='formula'><b>หากระแสอุปกรณ์เสริม:</b> I<sub>aux</sub> = P<sub>aux</sub> ÷ V</div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสอุปกรณ์เสริม = กำลังไฟฟ้าของอุปกรณ์เสริม (วัตต์) หารด้วยแรงดันแบตเตอรี่ (โวลต์)</div>
+            <div class='substitute'><b>แทนค่า:</b> {self.eaux.value():.1f} W ÷ {q['V']:.1f} V = <b>{max(0.0,sel['e'].get('Iaux',0.0)):.2f} A</b></div>
+
+            <h3>6.3 Continuous Current — กระแสที่ BMS ต้องจ่ายต่อเนื่อง</h3>
+            <p>รถอาจกำลังขึ้นทางลาดหรือกำลังหมุนรถ จึงเลือกกระแสขับเคลื่อนที่<b>มากกว่า</b>จากสองกรณี
+            แล้ว<b>บวกกระแสอุปกรณ์เสริม</b> เพราะอุปกรณ์เสริมยังทำงานพร้อมกัน</p>
+            <div class='formula'><b>สูตร:</b> I<sub>cont</sub> = max(I<sub>up</sub>, I<sub>turn,avg</sub>) + I<sub>aux</sub></div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสต่อเนื่องรวม = ค่ามากกว่าระหว่างกระแสขึ้นทางลาดกับกระแสหมุนรถ บวกกระแสของอุปกรณ์เสริม</div>
+            <div class='substitute'><b>แทนค่า:</b> max({q['Icalc_up']:.2f}, {q.get('Iturn_avg',0.0):.2f}) + {max(0.0,sel['e'].get('Iaux',0.0)):.2f} = <b>{sel['cont_req']:.2f} A</b></div>
+            <p><b>แปลผล:</b> BMS ต้องจ่ายกระแสได้อย่างน้อย {sel['cont_req']:.2f} A ต่อเนื่อง ตามแบบจำลองนี้</p>
+
+            <h3>6.4 Peak Current — กระแสสูงสุดตามแบบจำลอง</h3>
+            <p>ช่วงรถต้องใช้แรงขับมากขึ้น เช่น การเร่งหรือขึ้นทางลาด เราใช้ค่ากระแสจากหน้า Drive Torque
+            รวมกับอุปกรณ์เสริม แล้วเปรียบเทียบกับ Continuous เพื่อใช้ค่าที่สูงกว่า</p>
+            <div class='formula'><b>สูตร:</b> I<sub>peak</sub> = max(I<sub>cont</sub>, I<sub>drive,design</sub> + I<sub>aux</sub>)</div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสสูงสุดตามแบบจำลอง = ค่ามากกว่าระหว่างกระแสต่อเนื่องรวม กับกระแสออกแบบขับรถบวกกระแสอุปกรณ์เสริม</div>
             <div class='substitute'><b>แทนค่า:</b> max({sel['cont_req']:.2f}, {sel['t']['Ibatt']:.2f} + {max(0.0,sel['e'].get('Iaux',0.0)):.2f}) = <b>{sel['peak_calc']:.2f} A</b></div>
 
-            <div class='formula'><b>การเลือก BMS เบื้องต้น:</b> ปัดกระแสที่ต้องรองรับขึ้นเป็นค่ามาตรฐาน</div>
-            <div class='thai-formula'><b>อ่านแบบภาษาไทย:</b> BMS ต้องรับกระแสต่อเนื่องและกระแส Peak ได้ไม่น้อยกว่าค่าที่คำนวณได้</div>
-
-            <div class='stepresult'><b>ผล STEP 6:</b> BMS Continuous ≥ <b>{sel['bms_cont']:.0f} A</b> •
-            BMS Peak ≥ <b>{sel['bms_peak']:.0f} A</b></div>
-
-            <div class='warn'><b>หมายเหตุ:</b> ค่า Peak นี้เป็นค่าประมาณจากแบบจำลอง ไม่ใช่กระแสกระชากที่วัดจริงจาก VESC หรือมอเตอร์ ต้องตรวจข้อมูลผู้ผลิตและผลทดสอบก่อนซื้อ</div>
-            <div class='warn'><b>ก่อนซื้อจริง:</b> ตรวจ Pack voltage/chemistry, BMS Continuous/Peak, cell current rating,
-            connector, cable, fuse, charger และ VESC battery-current limit จาก datasheet จริง.</div>
+            <h3>6.5 ทำไมสรุปเป็น BMS 5 A / 10 A?</h3>
+            <p>เพื่อให้ตัวเลขอ่านง่าย โปรแกรม<b>ปัดขึ้นทีละ 5 A</b> สำหรับการประเมินเบื้องต้น
+            (ไม่ใช่การยืนยันว่ามี BMS รุ่นที่เหมาะสมขายตามค่านี้)</p>
+            <div class='formula'><b>สูตรปัดขึ้น:</b> I<sub>BMS,cont</sub> = ceil(I<sub>cont</sub> ÷ 5) × 5;
+            I<sub>BMS,peak</sub> = ceil(I<sub>peak</sub> ÷ 5) × 5</div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> นำกระแสที่ต้องใช้หารด้วย 5 ปัดเศษขึ้นเป็นจำนวนเต็ม แล้วคูณ 5 เพื่อได้ค่ากระแส BMS เบื้องต้น</div>
+            <div class='substitute'><b>Continuous:</b> ceil({sel['cont_req']:.2f} ÷ 5) × 5 = <b>{sel['bms_cont']:.0f} A</b></div>
+            <div class='substitute'><b>Peak:</b> ceil({sel['peak_calc']:.2f} ÷ 5) × 5 = <b>{sel['bms_peak']:.0f} A</b></div>
+            <div class='stepresult'><b>ผล STEP 6 (เฉพาะแบบจำลอง):</b>
+            Continuous ≥ {sel['bms_cont']:.0f} A • Peak ≥ {sel['bms_peak']:.0f} A</div>
+            <div class='warn'><b>สำคัญก่อนเลือกซื้อ:</b> ตัวเลขนี้คำนวณจากความเร็ว ความชัน และเงื่อนไขที่กรอก
+            ไม่ใช่กระแสสูงสุดจริงของมอเตอร์หรือกระแสกระชากตอนเริ่มหมุน หากใช้มอเตอร์กำลังสูงกว่าเงื่อนไขนี้
+            BMS ที่เลือกตาม {sel['bms_cont']:.0f}/{sel['bms_peak']:.0f} A อาจตัดการทำงานได้
+            ต้องตรวจ VESC Battery Current Limit, Pack/Cell Peak Current, สาย, ฟิวส์ และข้อมูลผู้ผลิตก่อนเลือกจริง</div>
           </div>
         </div>
 
-        <h2>What Is / Is Not Included</h2>
+                <h2>What Is / Is Not Included</h2>
         <table>
         <tr><th>หัวข้อ</th><th>สถานะ</th><th>รายละเอียด</th></tr>
         <tr><td>Drive traction energy</td><td>INCLUDED</td><td>Flat + uphill + downhill model</td></tr>
