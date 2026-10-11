@@ -1,3 +1,14 @@
+## V53.8.60 — Slope UI rebuilt for Windows
+
+- Rebuild Stability > Slope as a scrolling workspace. Inputs, results and actions no longer shrink into clipped boxes on laptops.
+- Add four immediately visible, automatically updating ramp metrics: slope angle, percentage, theoretical length, measurement difference.
+- Fix full-width number spinboxes: comfortable field widths, readable labels, no cramped up/down spinner buttons.
+- Arrange calculation results to the right of geometry inputs, with its own document scrolling rather than cutting off the bottom.
+- Separate action buttons and uphill stability parameters into clean sections with readable source-of-input guidance.
+- Prevent lower slope stability report from being cut off; page scrolls vertically at 1024x650 and 1366x768.
+- Add automated Qt UI layout checks and PNG screenshots at two display resolutions.
+- Keep the original equations and linked inputs unchanged.
+
 ## V53.8.59 — Reliable Windows build and visible update progress
 
 - Fix repeated GitHub Actions cancellations: remove the long-running full regression from the release-blocking pipeline.
