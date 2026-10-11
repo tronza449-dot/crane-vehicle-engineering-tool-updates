@@ -23,7 +23,7 @@ WINCH_LAYERS = (
     (4, 930.0, 8.1),
     (5, 739.0, 10.0),
 )
-STANDARD_AH = (10, 12, 15, 20, 30, 40, 50, 60, 80, 100, 120, 150, 200, 250, 300)
+STANDARD_AH = (5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200)
 
 
 def _f(data: Dict[str, Any], key: str, default: float) -> float:
