@@ -10149,17 +10149,18 @@ void loop() {{
         {metric("ขนาดมาตรฐานเบื้องต้น",f"{q['recommended_standard']:.0f} Ah @ {q['V']:.0f} V",f"Kb = {q['Kb']:.2f}")}
         </tr><tr>
         {metric("พลังงานรวม",f"{q['Eload']:.1f} Wh",f"{q['cycles']} Cycle")}
-        {metric("BMS Continuous ≥",f"{sel['bms_cont']:.0f} A",f"required {sel['cont_req']:.2f} A")}
-        {metric("BMS Peak ≥",f"{sel['bms_peak']:.0f} A",f"required {sel['peak_calc']:.2f} A")}
+        {metric("BMS Continuous (design)",f"≥ {sel['bms_cont']:.0f} A",f"rated {sel['rated_ref']:.1f} A @ {sel['low_v']:.0f} V")}
+        {metric("BMS Peak — CHECK",f"≥ {sel['bms_peak']:.0f} A*",f"modeled floor only; VESC not verified")}
         {metric("Turning Energy",turn_text,f"{q['Eturn_cycle']:.4f} Wh/Cycle")}
         </tr></table>
 
         <div class='answer'>
           <b>คำตอบสำหรับเลือกซื้อเบื้องต้น:</b>
           เริ่มตรวจสเปกที่ประมาณ <b>{max(q['recommended_standard'],sel['suggested']):.0f} Ah @ {q['V']:.0f} V</b>,
-          BMS Continuous อย่างน้อย <b>{sel['bms_cont']:.0f} A</b> และ BMS Peak อย่างน้อย
-          <b>{sel['bms_peak']:.0f} A</b> ตามแบบจำลองปัจจุบัน.<br>
-          <span class='small'>Ah ใช้ตรวจความจุพลังงาน ส่วน BMS/สาย/Fuse/VESC current limit ต้องตรวจแยก.</span>
+          BMS Continuous ประเมินอย่างน้อย <b>{sel['bms_cont']:.0f} A</b> เมื่อเผื่อกำลังพิกัดมอเตอร์ที่แรงดันต่ำสุด.
+          <b>Peak: ยังเลือกซื้อไม่ได้</b> จนกว่าจะยืนยัน Battery Current Max ของ VESC รวมสองช่อง
+          และกระแสกระชากของแบตเตอรี่จริง.<br>
+          <span class='small'>Ah เป็นพลังงานตามจำนวนรอบเดิม • A เป็นความสามารถจ่ายกระแส • ค่าประมาณ Continuous ยังต้องยืนยันสเปกเซลล์และ BMS</span>
         </div>
 
         <h2>2. Input & Assumptions / ข้อมูลตั้งต้น</h2>
@@ -10352,34 +10353,35 @@ void loop() {{
             <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสอุปกรณ์เสริม = กำลังไฟฟ้าของอุปกรณ์เสริม (วัตต์) หารด้วยแรงดันแบตเตอรี่ (โวลต์)</div>
             <div class='substitute'><b>แทนค่า:</b> {self.eaux.value():.1f} W ÷ {q['V']:.1f} V = <b>{max(0.0,sel['e'].get('Iaux',0.0)):.2f} A</b></div>
 
-            <h3>6.3 Continuous Current — กระแสที่ BMS ต้องจ่ายต่อเนื่อง</h3>
-            <p>รถอาจกำลังขึ้นทางลาดหรือกำลังหมุนรถ จึงเลือกกระแสขับเคลื่อนที่<b>มากกว่า</b>จากสองกรณี
-            แล้ว<b>บวกกระแสอุปกรณ์เสริม</b> เพราะอุปกรณ์เสริมยังทำงานพร้อมกัน</p>
-            <div class='formula'><b>สูตร:</b> I<sub>cont</sub> = max(I<sub>up</sub>, I<sub>turn,avg</sub>) + I<sub>aux</sub></div>
-            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสต่อเนื่องรวม = ค่ามากกว่าระหว่างกระแสขึ้นทางลาดกับกระแสหมุนรถ บวกกระแสของอุปกรณ์เสริม</div>
-            <div class='substitute'><b>แทนค่า:</b> max({q['Icalc_up']:.2f}, {q.get('Iturn_avg',0.0):.2f}) + {max(0.0,sel['e'].get('Iaux',0.0)):.2f} = <b>{sel['cont_req']:.2f} A</b></div>
-            <p><b>แปลผล:</b> BMS ต้องจ่ายกระแสได้อย่างน้อย {sel['cont_req']:.2f} A ต่อเนื่อง ตามแบบจำลองนี้</p>
+            <h3>6.3 Continuous Current — เทียบใช้งานจริงกับกำลังพิกัด</h3>
+            <p>กระแสตอนวิ่งช้าไม่ได้เป็นเกณฑ์เดียวสำหรับซื้อแบต ต้องเทียบกับกรณีมอเตอร์ทำงานที่กำลังพิกัดด้วย</p>
+            <div class='formula'><b>Operating:</b> I<sub>operating</sub> = max(I<sub>up</sub>, I<sub>turn,avg</sub>) + I<sub>aux</sub></div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสขณะใช้งาน = กระแสขับที่มากที่สุดในกรณีวิ่งปัจจุบัน บวกกระแสอุปกรณ์เสริม</div>
+            <div class='substitute'><b>แทนค่า:</b> max({q['Icalc_up']:.2f}, {q.get('Iturn_avg',0.0):.2f}) + {max(0.0,sel['e'].get('Iaux',0.0)):.2f} = <b>{sel['operating_cont']:.2f} A</b></div>
+            <div class='formula'><b>Rated Power Reference:</b> I<sub>rated</sub> = (P<sub>motors</sub> ÷ η<sub>rated</sub> + P<sub>aux</sub>) ÷ V<sub>min</sub></div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสอ้างอิงที่กำลังพิกัด = (กำลังพิกัดมอเตอร์ทั้งหมดหารด้วยประสิทธิภาพอ้างอิง แล้วบวกกำลังอุปกรณ์เสริม) หารด้วยแรงดันแบตต่ำสุด</div>
+            <div class='substitute'><b>แทนค่า:</b> ({sel['rated_motor_w']:.0f} ÷ {sel['rated_eff']:.2f} + {self.eaux.value():.0f}) ÷ {sel['low_v']:.1f} = <b>{sel['rated_ref']:.2f} A</b></div>
+            <div class='formula'><b>Design Continuous:</b> I<sub>cont,design</sub> = max(I<sub>operating,lowV</sub>, I<sub>rated</sub>) × (1 + Margin)</div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสต่อเนื่องเพื่อประเมิน BMS = เลือกกระแสสูงสุดระหว่างการใช้งานที่แรงดันต่ำกับการทำงานที่กำลังพิกัด แล้วคูณเผื่อกระแส</div>
+            <div class='substitute'><b>แทนค่า:</b> max({sel['operating_low']:.2f}, {sel['rated_ref']:.2f}) × (1 + {sel['cont_margin']:.2f}) = <b>{sel['cont_req']:.2f} A</b></div>
 
-            <h3>6.4 Peak Current — กระแสสูงสุดตามแบบจำลอง</h3>
-            <p>ช่วงรถต้องใช้แรงขับมากขึ้น เช่น การเร่งหรือขึ้นทางลาด เราใช้ค่ากระแสจากหน้า Drive Torque
-            รวมกับอุปกรณ์เสริม แล้วเปรียบเทียบกับ Continuous เพื่อใช้ค่าที่สูงกว่า</p>
-            <div class='formula'><b>สูตร:</b> I<sub>peak</sub> = max(I<sub>cont</sub>, I<sub>drive,design</sub> + I<sub>aux</sub>)</div>
-            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> กระแสสูงสุดตามแบบจำลอง = ค่ามากกว่าระหว่างกระแสต่อเนื่องรวม กับกระแสออกแบบขับรถบวกกระแสอุปกรณ์เสริม</div>
-            <div class='substitute'><b>แทนค่า:</b> max({sel['cont_req']:.2f}, {sel['t']['Ibatt']:.2f} + {max(0.0,sel['e'].get('Iaux',0.0)):.2f}) = <b>{sel['peak_calc']:.2f} A</b></div>
+            <h3>6.4 Peak Current — กระแสช่วงสั้นต้องตรวจ VESC จริง</h3>
+            <p>โปรแกรมคำนวณได้เพียง<b>ค่าต่ำสุดอ้างอิง (Model floor)</b> ไม่ใช่ค่ากระแสกระชากที่วัดจากมอเตอร์หรือ BMS</p>
+            <div class='formula'><b>สูตรอ้างอิง:</b> I<sub>peak,floor</sub> = max(I<sub>cont,design</sub>, I<sub>drive,design,lowV</sub>, I<sub>VESC,batt,max</sub> + I<sub>aux,lowV</sub>)</div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> เลือกค่ามากที่สุดระหว่างกระแสต่อเนื่องที่ออกแบบ กระแสขับจากโมเดลที่แรงดันต่ำ และค่าจำกัดกระแสแบตที่ตั้งใน VESC รวมกับอุปกรณ์เสริม (หากกรอกค่า VESC แล้ว)</div>
+            <div class='substitute'><b>ผลแบบจำลอง:</b> {sel['peak_calc']:.2f} A • ค่า VESC Battery Current Max รวมสองช่อง = {f"{sel['vesc_pack_limit']:.1f} A" if sel['vesc_known'] else "ยังไม่ได้ตั้ง (0 A)"}</div>
+            <div class='warn'><b>สถานะ: CHECK / NOT VERIFIED</b> — การตั้งค่า VESC และกระแส Peak / Stall ของแบตเตอรี่ต้องยืนยันจากข้อมูลผู้ผลิตก่อนซื้อ</div>
 
-            <h3>6.5 ทำไมสรุปเป็น BMS 5 A / 10 A?</h3>
-            <p>เพื่อให้ตัวเลขอ่านง่าย โปรแกรม<b>ปัดขึ้นทีละ 5 A</b> สำหรับการประเมินเบื้องต้น
-            (ไม่ใช่การยืนยันว่ามี BMS รุ่นที่เหมาะสมขายตามค่านี้)</p>
-            <div class='formula'><b>สูตรปัดขึ้น:</b> I<sub>BMS,cont</sub> = ceil(I<sub>cont</sub> ÷ 5) × 5;
-            I<sub>BMS,peak</sub> = ceil(I<sub>peak</sub> ÷ 5) × 5</div>
-            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> นำกระแสที่ต้องใช้หารด้วย 5 ปัดเศษขึ้นเป็นจำนวนเต็ม แล้วคูณ 5 เพื่อได้ค่ากระแส BMS เบื้องต้น</div>
-            <div class='substitute'><b>Continuous:</b> ceil({sel['cont_req']:.2f} ÷ 5) × 5 = <b>{sel['bms_cont']:.0f} A</b></div>
-            <div class='substitute'><b>Peak:</b> ceil({sel['peak_calc']:.2f} ÷ 5) × 5 = <b>{sel['bms_peak']:.0f} A</b></div>
-            <div class='stepresult'><b>ผล STEP 6 (เฉพาะแบบจำลอง):</b>
-            Continuous ≥ {sel['bms_cont']:.0f} A • Peak ≥ {sel['bms_peak']:.0f} A</div>
+            <h3>6.5 สรุปกระแสที่ใช้ตรวจเลือก BMS</h3>
+            <p>เพื่อเปรียบเทียบสินค้าร้านค้า โปรแกรม<b>ปัดขึ้นทีละ 10 A</b> เป็นค่าอ้างอิงเบื้องต้น ไม่ใช่สเปกที่ผ่านการรับรอง</p>
+            <div class='formula'><b>สูตรปัด Continuous:</b> I<sub>BMS,cont</sub> = ceil(I<sub>cont,design</sub> ÷ 10) × 10</div>
+            <div class='thai-formula'><b>อ่านสูตรภาษาไทย:</b> นำกระแสต่อเนื่องออกแบบหารด้วย 10 ปัดขึ้นเป็นจำนวนเต็ม แล้วคูณด้วย 10</div>
+            <div class='substitute'><b>แทนค่า:</b> ceil({sel['cont_req']:.2f} ÷ 10) × 10 = <b>{sel['bms_cont']:.0f} A</b></div>
+            <div class='stepresult'><b>ผล STEP 6:</b> Operating {sel['operating_cont']:.2f} A • Rated Reference {sel['rated_ref']:.2f} A • BMS Continuous อ้างอิง ≥ {sel['bms_cont']:.0f} A</div>
+            <div class='warn'><b>Peak ยังไม่ผ่าน:</b> ค่าจากโมเดลอย่างน้อย {sel['bms_peak']:.0f} A ไม่ใช่ข้อสรุปซื้อจริง ต้องตรวจ Battery Current Max ของ VESC, กระแสกระชาก, พิกัดเซลล์ และเวลาที่ BMS รับ Peak ได้</div>
             <div class='warn'><b>สำคัญก่อนเลือกซื้อ:</b> ตัวเลขนี้คำนวณจากความเร็ว ความชัน และเงื่อนไขที่กรอก
             ไม่ใช่กระแสสูงสุดจริงของมอเตอร์หรือกระแสกระชากตอนเริ่มหมุน หากใช้มอเตอร์กำลังสูงกว่าเงื่อนไขนี้
-            BMS ที่เลือกตาม {sel['bms_cont']:.0f}/{sel['bms_peak']:.0f} A อาจตัดการทำงานได้
+            BMS ที่เลือกจากค่าแบบจำลองโดยไม่ตรวจผู้ผลิตอาจตัดการทำงานได้
             ต้องตรวจ VESC Battery Current Limit, Pack/Cell Peak Current, สาย, ฟิวส์ และข้อมูลผู้ผลิตก่อนเลือกจริง</div>
           </div>
         </div>
