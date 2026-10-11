@@ -1,3 +1,11 @@
+## V53.8.61 — Slope layout validated at 1024px
+
+- After inspecting automated screenshots, fix a real horizontal cut-off in Stability > Slope on compact laptop displays.
+- Put Ramp Geometry input grid above the complete formula explanation; do not hide results beyond the right edge.
+- Convert the headline ramp results to a 2-column / 2-row grid.
+- Add a release-blocking test to detect horizontal overflow, plus capture full-window screenshots at 1024x650 and 1366x768.
+- Retain the same calculations and linked project inputs.
+
 ## V53.8.60 — Slope UI rebuilt for Windows
 
 - Rebuild Stability > Slope as a scrolling workspace. Inputs, results and actions no longer shrink into clipped boxes on laptops.
