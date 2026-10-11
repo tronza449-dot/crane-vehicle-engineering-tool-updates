@@ -420,6 +420,11 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     candidate_ah = max(0.0, _f(data, "candidate_ah", 40.0))
     candidate_bms_cont_a = max(0.0, _f(data, "candidate_bms_cont_a", 0.0))
     candidate_bms_peak_a = max(0.0, _f(data, "candidate_bms_peak_a", 0.0))
+    low_voltage = min(voltage, max(1.0, _f(data, "min_pack_voltage_v", 60.0)))
+    rated_eff = _clamp(_f(data, "rated_power_eff_pct", 85.0)/100.0, .10, 1.0)
+    cont_margin = max(0.0, _f(data, "continuous_margin_pct", 25.0)/100.0)
+    rated_motor_w = max(0.0, _f(data, "motor_rated_w", 1500.0))*max(1,_i(data, "motors", 2))
+    vesc_pack_limit = max(0.0, _f(data, "vesc_pack_battery_limit_a", 0.0))
 
     runtime_s = runtime_h * 3600.0
     cycle_distance = 2.0 * one
@@ -486,13 +491,17 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
 
     icalc_up = (pup_mech / eff) / voltage
     iaux = aux_w / voltage if voltage > 0 else 0.0
-    # Battery energy sizing remains the simple-cycle model, but BMS/current checks
-    # must also respect simultaneous Auxiliary load and the Drive Torque design reference.
+    # Keep the operating cycle current, but use a rated-power envelope for buying.
+    # This does not change any energy/Wh/Ah or completed-cycle calculations.
     drive_reference_current = max(0.0, _f(data, "drive_reference_current_a", 0.0))
-    # Continuous = largest steady traction/pivot demand + Auxiliary current.
-    # Peak = Drive Torque design reference + Auxiliary current when that is larger.
-    cont_req = max(0.0, icalc_up, iturn_avg) + iaux
-    peak_req = max(cont_req, drive_reference_current + iaux)
+    operating_current = max(0.0, icalc_up, iturn_avg) + iaux
+    operating_peak = max(operating_current, drive_reference_current + iaux)
+    rated_ref = (rated_motor_w/rated_eff+aux_w)/low_voltage
+    operating_low = operating_current*voltage/low_voltage
+    cont_req = max(operating_low,rated_ref)*(1.0+cont_margin)
+    peak_req = max(cont_req, operating_peak*voltage/low_voltage,
+                   vesc_pack_limit+aux_w/low_voltage if vesc_pack_limit>0 else 0.0)
+    limit_conflict = vesc_pack_limit>0 and vesc_pack_limit+aux_w/low_voltage+1e-8<cont_req
 
     ah_by_cont = cont_req / target_cont_c
     ah_by_peak = peak_req / target_peak_c
@@ -539,7 +548,7 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
     for cap in STANDARD_AH:
         rv = reverse_for(cap)
         rv["check"] = (
-            "PASS"
+            "CHECK PEAK"
             if rv["energy_ok"] and rv["c_rate_ok"]
             else ("ENERGY LOW" if not rv["energy_ok"] else "C-RATE CHECK")
         )
@@ -627,6 +636,18 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "drive_reference_current_a": drive_reference_current,
         "continuous_current_required_a": cont_req,
         "peak_current_required_a": peak_req,
+        "operating_current_a": operating_current,
+        "operating_peak_current_a": operating_peak,
+        "rated_current_reference_a": rated_ref,
+        "rated_motor_total_w": rated_motor_w,
+        "rated_power_efficiency": rated_eff,
+        "min_pack_voltage_v": low_voltage,
+        "operating_current_low_voltage_a": operating_low,
+        "continuous_margin": cont_margin,
+        "vesc_pack_battery_limit_a": vesc_pack_limit,
+        "vesc_limit_known": vesc_pack_limit>0,
+        "vesc_limit_conflict": limit_conflict,
+        "peak_verified": False,
 
         "target_cont_c": target_cont_c,
         "target_peak_c": target_peak_c,
