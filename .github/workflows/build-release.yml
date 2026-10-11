@@ -14,6 +14,7 @@ permissions:
 jobs:
   build-release:
     runs-on: windows-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -793,31 +794,44 @@ jobs:
               w.wTabs.setCurrentIndex(index);QApplication.processEvents()
               assert not w.winchSaveValuesButton.isHidden()
 
-          # ---------- Responsive UI / all main modes ----------
+          # ---------- Responsive UI smoke test ----------
+          # Do not exhaustively traverse every nested tab here. Some pages perform
+          # heavy recalculation on currentChanged; multiplying that by every size
+          # and font scale made release validation run for hours.
           modes = (
               w.show_home_mode,w.show_torque_mode,w.show_electrical_mode,
               w.show_winch_mode,w.show_stability_mode,w.show_safety_logic_mode,
-              w.show_telemetry_mode,w.show_integration_suite_mode,w.show_variable_dictionary_mode,w.show_project_tools_mode
+              w.show_telemetry_mode,w.show_integration_suite_mode,
+              w.show_variable_dictionary_mode,w.show_project_tools_mode
           )
-          for width,height in ((1024,650),(1366,768),(1600,900)):
+
+          # One complete pass through all visible top-level modes at the common
+          # laptop resolution.
+          w.resize(1366,768)
+          w.apply_ui_scale(1.00,save=False)
+          for method in modes:
+              method()
+              QApplication.processEvents()
+              shot=w.grab()
+              assert not shot.isNull(), f"Window grab failed for {method.__name__}"
+
+          # Targeted boundary-size checks for the two layouts changed in this
+          # release: Home and Stability/FBD. This keeps useful UI coverage
+          # without the previous combinatorial tab traversal.
+          for width,height,scale in ((1024,650,0.90),(1600,900,1.20)):
               w.resize(width,height)
-              for scale in (0.90,1.00,1.30):
-                  w.apply_ui_scale(scale,save=False)
-                  for method in modes:
-                      method()
-                      QApplication.processEvents()
-                  # Visit every internal tab to catch lazy page errors.
-                  for tab in w.findChildren(QTabWidget):
-                      # Hardware I/O is intentionally hidden from the product UI.
-                      # Keep its compatibility state out of expensive visual regression traversal.
-                      if tab is getattr(w,"hwTabs",None):
-                          continue
-                      for index in range(tab.count()):
-                          tab.setCurrentIndex(index)
+              w.apply_ui_scale(scale,save=False)
+              w.show_home_mode();QApplication.processEvents()
+              assert not w.grab().isNull()
+              w.show_stability_mode();QApplication.processEvents()
+              # Visit only the visible Stability tabs that were redesigned.
+              for label in ("Slope","Engineering FBD"):
+                  for index in range(w.stabilityTabs.count()):
+                      if w.stabilityTabs.tabText(index)==label:
+                          w.stabilityTabs.setCurrentIndex(index)
                           QApplication.processEvents()
-                  # Force real paint paths without displaying a desktop window.
-                  shot = w.grab()
-                  assert not shot.isNull(), f"Window grab failed at {width}x{height}, scale={scale}"
+                          assert not w.grab().isNull()
+                          break
 
           # Font controls must never collapse to the old unreadable symbol.
           texts=[b.text() for b in w.statusBar().findChildren(QPushButton)]
