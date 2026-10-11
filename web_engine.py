@@ -559,7 +559,8 @@ def calculate_drive_battery(data: Dict[str, Any]) -> Dict[str, Any]:
         "bms_cont_a": candidate_bms_cont_a,
         "bms_peak_a": candidate_bms_peak_a,
         "bms_cont_ok": candidate_bms_cont_a > 0 and candidate_bms_cont_a + 1e-9 >= cont_req,
-        "bms_peak_ok": candidate_bms_peak_a > 0 and candidate_bms_peak_a + 1e-9 >= peak_req,
+        "bms_peak_model_ok": candidate_bms_peak_a > 0 and candidate_bms_peak_a + 1e-9 >= peak_req,
+        "bms_peak_ok": False,  # Actual VESC surge and pack transient capability unverified.
     })
 
     return {
