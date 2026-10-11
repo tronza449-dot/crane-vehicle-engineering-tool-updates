@@ -1,3 +1,12 @@
+## V53.8.75 — Fix What-if increasing payload incorrectly reducing drive torque
+
+- Fix stale scenario reference: `What-if` was constructed before restored/synced project inputs, so the Baseline could retain the startup slope (e.g. 19°) while the Scenario used the updated real slope. This compared different driving conditions and could incorrectly show lower torque with higher mass.
+- Simple What-if now reads the current authoritative project inputs for both columns and changes **only the one selected control**, plus linked Winch load when appropriate. Hidden advanced controls no longer silently alter simple comparisons.
+- Enforce mass-link consistency across Torque, Battery and Stability; regression-check 300 → 400 kg with the same slope and settings (torque per motor must increase in the simple model).
+- Show Total Mass and Driving Slope in the compact comparison, plus route cycles and driving Wh per cycle so decreases in total Ah caused by fewer completed jobs are understandable.
+- Warn when a trial scenario exceeds the project's 300 kg target (comparison is exploratory; not a safety approval).
+- Refresh the displayed current What-if value after restoring project data without wiping the user's trial input.
+
 ## V53.8.74 — Show fixed 90° mast-to-boom geometry in FBD
 
 - Correct the out-of-plane boom cue in Front/Rear FBD at θ=±90°: the dashed illustrative boom is now perpendicular to the vertical column, instead of incorrectly slanting upward.
