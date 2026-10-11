@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   extended-audit:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
     runs-on: windows-latest
     timeout-minutes: 12
     env:
