@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.67"
+APP_VERSION = "53.8.68"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -11395,6 +11395,11 @@ void loop() {{
         self.rampMass=spin(300,0,5000,1,1)
         self.rampUseMainMass=QCheckBox("ใช้มวลจาก Main Battery 72 V")
         self.rampUseMainMass.setChecked(True)
+        # QCheckBox.hitButton() only treats the indicator and caption as a hit.
+        # A stretching checkbox occupied the whole input column, so clicking
+        # its visual center did nothing. Keep its widget tight to its caption.
+        self.rampUseMainMass.setSizePolicy(QSizePolicy.Maximum,QSizePolicy.Fixed)
+        self.rampUseMainMass.setMaximumWidth(340)
         self.rampMassSourceText=QLabel()
         self.rampMassSourceText.setWordWrap(True)
         self.rampMassSourceText.setStyleSheet("color:#48647e;font-size:9.4pt;")
