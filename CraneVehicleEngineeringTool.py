@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.71"
+APP_VERSION = "53.8.72"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -13393,18 +13393,22 @@ class ForceDiagram(QWidget):
         self.txt(p,20,hh-25,f"Crane angle: -90° left / 0° forward / +90° right   |   θ={self._angle(d):.1f}°   |   Vehicle body width = {d.get('vehicleWidth',d['W']):.3f} m",9,True)
 
     def crane_plan_inset(self,p,d,angle):
-        """Top-view inset: show true crane reach when elevation projection collapses."""
-        w=260;h=154;x=self.width()-w-20;y=122
+        """Plan view plus a separate boom-profile schematic.
+
+        The profile deliberately does NOT give longitudinal force coordinates.
+        Only the main orthographic FBD supplies the real projected x/y moment arms.
+        """
+        w=260;h=298;x=self.width()-w-20;y=122
         p.save()
         p.setPen(QPen(QColor("#cbd5e1"),1))
         p.setBrush(QColor("#ffffff"))
         p.drawRoundedRect(QRectF(x,y,w,h),9,9)
         self.txt(p,x+12,y+19,"CRANE PLAN VIEW / TOP",9,True,"#334155")
         self.txt(p,x+12,y+35,f"θ = {angle:.1f}°    L = {d['L']:.2f} m",8,False,"#64748b")
-        cx=x+112;cy=y+91
+        cx=x+112;cy=y+90
         p.setPen(QPen(QColor("#94a3b8"),1,Qt.DashLine))
-        p.drawLine(QPointF(cx-68,cy),QPointF(cx+95,cy))
-        p.drawLine(QPointF(cx,cy-44),QPointF(cx,cy+43))
+        p.drawLine(QPointF(cx-68,cy),QPointF(cx+96,cy))
+        p.drawLine(QPointF(cx,cy-43),QPointF(cx,cy+44))
         p.setPen(QPen(QColor("#64748b"),1))
         p.setBrush(QColor("#eff6ff"))
         p.drawRect(QRectF(cx-28,cy-23,56,46))
@@ -13412,18 +13416,51 @@ class ForceDiagram(QWidget):
         p.setBrush(QColor("#f59e0b"))
         p.drawEllipse(QPointF(cx,cy),5,5)
         rad=math.radians(angle)
-        reach=62
+        reach=60
         tip=QPointF(cx+reach*math.cos(rad),cy-reach*math.sin(rad))
         p.setPen(QPen(QColor("#f59e0b"),5,Qt.SolidLine,Qt.RoundCap))
         p.drawLine(QPointF(cx,cy),tip)
         p.setPen(QPen(QColor("#92400e"),2))
         p.setBrush(QColor("#fff7ed"))
         p.drawEllipse(tip,7,7)
-        self.txt(p,x+194,y+69,"+x",8,True,"#64748b")
-        self.txt(p,x+191,y+86,"forward",7,False,"#64748b")
-        self.txt(p,x+12,y+132,"Orange = boom in plan view",7,False,"#92400e")
-        self.txt(p,x+12,y+145,"Elevation shows projection only",7,False,"#64748b")
+        self.txt(p,x+199,y+77,"+x",7,True,"#64748b")
+        self.txt(p,x+185,y+91,"forward",7,False,"#64748b")
+        self.txt(p,x+12,y+154,"Top: actual boom rotation",7,False,"#52606d")
+        p.setPen(QPen(QColor("#e2e8f0"),1))
+        p.drawLine(QPointF(x+12,y+166),QPointF(x+w-12,y+166))
+
+        # A separate illustrative profile shows the boom's own CG and hook.
+        # It must NEVER be used as the projected lever arm on the main FBD.
+        self.txt(p,x+12,y+183,"BOOM PROFILE (SCHEMATIC)",8,True,"#334155")
+        mast=x+35;end=x+228;by=y+211
+        p.setPen(QPen(QColor("#f59e0b"),5,Qt.SolidLine,Qt.RoundCap))
+        p.drawLine(QPointF(mast,by+32),QPointF(mast,by))
+        p.drawLine(QPointF(mast,by),QPointF(end,by))
+        bm=mast+(end-mast)/2
+        p.setPen(QPen(QColor("#92400e"),1.5))
+        p.setBrush(QColor("white"))
+        p.drawEllipse(QPointF(bm,by),4,4)
+        p.drawEllipse(QPointF(end,by),4,4)
+        self.arrow(p,QPointF(bm,by+5),QPointF(bm,by+34),"","#111827",width=1.6)
+        self.arrow(p,QPointF(end,by+5),QPointF(end,by+34),"","#111827",width=1.6)
+        self.txt(p,x+74,y+261,f"W_B: {d['mb']:.1f} kg",7,True,"#334155")
+        self.txt(p,x+174,y+261,f"W_L: {d['ml']:.1f} kg",7,True,"#334155")
+        self.txt(p,x+12,y+287,"Not used for tipping moment arms",7,False,"#64748b")
         p.restore()
+
+    def draw_longitudinal_crane(self,p,xc,xb,xl,boom_y,deck_top,angle):
+        """Draw the true longitudinal orthographic boom projection, not a fake reach."""
+        p.setPen(QPen(QColor("#f59e0b"),7,Qt.SolidLine,Qt.RoundCap))
+        p.drawLine(QPointF(xc,deck_top),QPointF(xc,boom_y))
+        if abs(xl-xc)>=8:
+            p.drawLine(QPointF(xc,boom_y),QPointF(xl,boom_y))
+        else:
+            # At ±90 degrees the physical arm projects to a point in side elevation.
+            p.setPen(QPen(QColor("#b45309"),2,Qt.DashLine))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(QPointF(xc,boom_y),9,9)
+        # Mass of boom acts at xb (its midpoint projection).
+        # Mass of payload acts at xl (the hook projection). Caller draws weights.
 
     def side(self,p,d,side):
         left=side=="left";name="LEFT" if left else "RIGHT";angle=self._angle(d)
@@ -13529,31 +13566,32 @@ class ForceDiagram(QWidget):
         for x in (rear,front):
             p.setBrush(QColor("#1f2937"));p.setPen(QPen(QColor("#1f2937"),1));p.drawEllipse(QPointF(x,ground-4),18 if compact else 21,18 if compact else 21)
 
-        p.setPen(QPen(QColor("#f59e0b"),7,Qt.SolidLine,Qt.RoundCap))
-        p.drawLine(QPointF(xm,deck_top),QPointF(xm,boom_y))
-        if abs(xl-xm)<8:
-            # At side-on crane rotation, the physical boom points out of the elevation plane.
-            # Draw a small projection cue; never invent a longitudinal reach.
-            p.setPen(QPen(QColor("#f59e0b"),2,Qt.DashLine))
-            p.drawEllipse(QPointF(xm,boom_y),9,9)
-        else:
-            p.drawLine(QPointF(xm,boom_y),QPointF(xl,boom_y))
+        self.draw_longitudinal_crane(p,xm,xb,xl,boom_y,deck_top,angle)
         projected_coincident=abs(xb-xl)<10
         payload_factor=next(q["factor"] for q in bal["components"] if q["name"]=="Payload")
         load_name="Kdyn·W_L" if abs(payload_factor-1.0)>1e-9 else "W_L"
-        if projected_coincident:self.marker(p,QPointF(xb,boom_y),"CG_B + CG_L (projection)","#a45108",8,-9)
+        if projected_coincident:
+            self.marker(p,QPointF(xb,boom_y),"CG_B = CG_L (x projection)","#a45108",8,-9)
         else:
-            self.marker(p,QPointF(xb,boom_y),"CG_B","#a45108",8,-9);self.marker(p,QPointF(xl,boom_y),"CG_L","#a45108",8,-9)
-        self.marker(p,QPointF(xv,deck_top+deck_h/2),"CG_V","#334155",8,-8)
+            self.marker(p,QPointF(xb,boom_y),"CG_B (boom)","#a45108",8,-9)
+            self.marker(p,QPointF(xl,boom_y),"CG_L (load)","#a45108",8,-9)
+        self.marker(p,QPointF(xv,deck_top+deck_h/2),"CG_V (remaining mass)","#334155",8,-8)
 
         self.arrow(p,QPointF(xv,deck_top+deck_h/2),QPointF(xv,ground-14),"W_V","#111827",QPointF(7,-5))
         arrow1=74 if compact else 100;arrow2=86 if compact else 115
         if projected_coincident:
-            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow2),f"W_B + {load_name}","#111827",QPointF(7,-5))
-            if not compact:self.txt(p,xb+8,boom_y+132,"same projected line of action",7,False,"#52606d")
+            # The two physical weights are separate (see boom profile inset), but
+            # their longitudinal force lines are identical at ±90 deg.
+            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow2),
+                       f"W_B + {load_name} (same x)","#111827",QPointF(7,-5))
+            if not compact:
+                self.txt(p,xb+8,boom_y+135,
+                         f"Boom {d['mb']:.1f} kg + load {d['ml']:.1f} kg: same x-projection",7,False,"#52606d")
         else:
-            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow1),"W_B","#111827",QPointF(7,-5))
-            self.arrow(p,QPointF(xl,boom_y+8),QPointF(xl,boom_y+arrow2),load_name,"#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xb,boom_y+8),QPointF(xb,boom_y+arrow1),
+                       f"W_B = {d['mb']:.1f} kg x g","#111827",QPointF(7,-5))
+            self.arrow(p,QPointF(xl,boom_y+8),QPointF(xl,boom_y+arrow2),
+                       load_name,"#111827",QPointF(7,-5))
 
         self.pivot(p,QPointF(pivotx,ground),"Tipping axis P","left" if frontcase else "right")
         react_start=QPointF(pivotx+(-18 if frontcase else 18),ground-4)
@@ -13564,8 +13602,8 @@ class ForceDiagram(QWidget):
             self.txt(p,80,side_y,"← RESISTING SIDE",8 if compact else 9,True,"#176337")
             self.txt(p,pivotx+28,side_y,"OVERTURNING SIDE →",8 if compact else 9,True,"#b42318")
         else:
-            self.txt(p,80,side_y,"← OVERTURNING SIDE",8 if compact else 9,True,"#b42318")
-            self.txt(p,pivotx+28,side_y,"RESISTING SIDE →",8 if compact else 9,True,"#176337")
+            self.txt(p,80,side_y,"← OVERTURNING",8 if compact else 9,True,"#b42318")
+            self.txt(p,max(340,pivotx+28),side_y,"RESISTING SIDE →",8 if compact else 9,True,"#176337")
 
         comp={q["name"]:q for q in bal["components"]}
         for lane,nm,x,lab in zip(lanes,("Vehicle","Boom","Payload"),(xv,xb,xl),("d_V","d_B","d_L")):
