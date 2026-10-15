@@ -112,9 +112,10 @@
       const r=await api("/api/calc/stability",p);
       const ss=r.side.sf>=999?"∞":f(r.side.sf,3), fs=r.front.sf>=999?"∞":f(r.front.sf,3), rs=r.rear.sf>=999?"∞":f(r.rear.sf,3);
       const mveh=Math.max(0,p.total_mass_kg-p.payload_mass_kg-p.boom_mass_kg);
+      const massMode=document.querySelector('input[name="mass_mode"]:checked')?.value||"total";
       const sideTerms=(r.side.components||[]).map(q=>{
         const source=q.name==="Vehicle"
-          ? (p.mass_mode==="components" ? "รวมมวลฐานรถจากตาราง Components" : "M_total − M_payload − M_boom")
+          ? (massMode==="components" ? "รวมมวลฐานรถจากตาราง Components" : "M_total − M_payload − M_boom")
           : q.name==="Boom" ? "มวล Boom จากช่อง Input/ตาราง Components" : "มวล Payload จากช่อง Input/ตาราง Components";
         const k=Number(q.factor??1);
         const pos=Number(q.y_m??0), pivot=Number(r.side.pivot_m??0), arm=Number(q.arm_m??0);
