@@ -11232,8 +11232,10 @@ void loop() {{
                                if q["name"]=="Vehicle" else
                                "ค่ามวลแขนเครนจาก Input/ตารางมวล" if q["name"]=="Boom" else
                                "ค่ามวลบรรทุกจาก Input/ตารางมวล")
-                factor_note = ("K_i = Kdyn (ใช้เมื่อ Payload เป็นแรงคว่ำ)" if q["name"]=="Payload" and q.get("factor",1.0)!=1.0
-                               else "K_i = 1.00 (ไม่เพิ่ม Dynamic factor ในพจน์นี้)")
+                factor_value = float(q.get("factor",1.0))
+                factor_note = (f"K_i ใช้ค่าตัวคูณจริง {factor_value:.2f} ตามโมเดลในพจน์นี้"
+                               + ("; พจน์ Payload นี้มีการใช้ตัวคูณ Dynamic ตามเงื่อนไขของโมเดล" if q["name"]=="Payload" and factor_value!=1.0
+                                  else "; พจน์นี้ไม่ได้เพิ่ม Dynamic factor หาก K_i = 1.00"))
                 return (f"• <b>{q['name']} / {comp_thai(q['name'])}</b><br>"
                         f"มวลที่ใช้: m_i = {q['mass']:.2f} kg ({mass_source})<br>"
                         f"แรงที่ใช้: F_i = m_i × g × K_i = {q['mass']:.2f} × 9.81 × {q.get('factor',1.0):.2f} = <b>{q['force']:.2f} N</b>; "
