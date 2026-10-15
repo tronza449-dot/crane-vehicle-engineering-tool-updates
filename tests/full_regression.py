@@ -293,9 +293,11 @@ assert "STEP 6 — เลือกกระแส BMS ให้เหมาะ�
 assert "อ่านสูตรแบบภาษาไทย" in source
 assert "thai-formula" in source and "stepbox" in source
 assert "Appendix A — Detailed Formula & Substitution" in source
-assert "อ่านสูตรแบบภาษาคน" in source
-assert "ตัวแปรในสูตรนี้" in source
-assert "ตัวเลขแต่ละพจน์" in source
+assert "STEP 3 — โมเมนต์คว่ำ M_O" in source
+assert "STEP 4 — โมเมนต์ต้าน M_R" in source
+assert "อธิบายสูตร:" in source
+assert "<b>แทนค่า:</b> M_O = {mo_terms}" in source
+assert "<b>แทนค่า:</b> M_R = {mr_terms}" in source
 assert "ความจุแบตขั้นต่ำ (Ah) = พลังงานที่ออกแบบเผื่อแล้ว" in source
 assert "กำลังหาอะไร:" in source
 assert "คำตอบสำหรับเลือกซื้อเบื้องต้น" in source
