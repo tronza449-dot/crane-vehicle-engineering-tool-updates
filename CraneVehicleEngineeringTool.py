@@ -10214,9 +10214,21 @@ void loop() {{
             = <b>{q['Eflat_batt_oneway']:.3f} Wh/เที่ยว</b></div>
 
             <h3>2.2 ขึ้นทางลาด</h3>
-            <div class='formula'><b>สูตรแรง:</b> F_up = m g sinθ + Crr m g cosθ</div>
-            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> แรงขึ้นทางลาด = แรงที่ใช้ต้านน้ำหนักตามแนวลาด + แรงต้านการกลิ้งบนทางลาด</div>
-            <div class='substitute'><b>แทนค่า:</b> F_up = {q['Fgrade']:.2f} + {q['Frrs']:.2f} = <b>{q['Fup']:.2f} N</b></div>
+            <div class='formula'><b>สูตรแรงรวม:</b> F_up = m g sinθ + Crr m g cosθ</div>
+            <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> แรงขึ้นทางลาด = แรงจากน้ำหนักที่ดึงรถลงตามแนวลาด + แรงต้านการกลิ้งของล้อบนทางลาด</div>
+            <div class='substitute'><b>ขั้นที่ 1 — แทนค่าหาแรงจากน้ำหนักตามแนวลาด:</b><br>
+            F_grade = m × g × sinθ<br>
+            = {q['m']:.2f} kg × 9.81 m/s² × sin({math.degrees(q['theta']):.2f}°)<br>
+            = <b>{q['Fgrade']:.2f} N</b></div>
+            <div class='substitute'><b>ขั้นที่ 2 — แทนค่าหาแรงต้านการกลิ้งบนทางลาด:</b><br>
+            F_rr,slope = Crr × m × g × cosθ<br>
+            = {q['crr']:.3f} × {q['m']:.2f} kg × 9.81 m/s² × cos({math.degrees(q['theta']):.2f}°)<br>
+            = <b>{q['Frrs']:.2f} N</b></div>
+            <div class='substitute'><b>ขั้นที่ 3 — นำแรงทั้งสองส่วนมาบวกกัน:</b><br>
+            F_up = F_grade + F_rr,slope<br>
+            = {q['Fgrade']:.2f} N + {q['Frrs']:.2f} N<br>
+            = <b>{q['Fup']:.2f} N</b></div>
+            <p><b>หมายเหตุเรื่องแบตเตอรี่ 72 V:</b> ขั้นนี้คำนวณแรงเป็น N จึงยังไม่ต้องนำ 72 V มาแทนในสูตรแรง; แรงดัน 72 V จะใช้ตอนแปลงพลังงานที่ต้องใช้จาก Wh เป็นความจุแบตเตอรี่ Ah ใน STEP 10.</p>
 
             <div class='formula'><b>สูตรพลังงาน:</b> E_up = F_up × L_slope ÷ (η × 3600)</div>
             <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> พลังงานขึ้นลาด = แรงขึ้นทางลาด × ระยะทางลาด ÷ (ประสิทธิภาพระบบ × 3600)</div>
