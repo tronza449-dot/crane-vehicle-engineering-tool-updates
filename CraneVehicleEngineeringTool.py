@@ -33,7 +33,7 @@ except Exception:
 
 
 APP_NAME = "Crane Vehicle Engineering Tool"
-APP_VERSION = "53.8.88"
+APP_VERSION = "53.8.89"
 
 # Confirmed project geometry
 VEHICLE_WIDTH_M = 1.00
@@ -13982,6 +13982,7 @@ if __name__=="__main__":
     ui_font.setStyleStrategy(QFont.PreferAntialias)
     a.setFont(ui_font)
     w=App();w.show();sys.exit(a.exec())
+
 
 
 
