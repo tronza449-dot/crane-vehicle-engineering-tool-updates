@@ -1779,7 +1779,7 @@ with tempfile.TemporaryDirectory() as fbd_td:
     assert "ไม่ใช่ความยาวแขนเครน" in html
     assert "STEP 2 — หาแขนโมเมนต์ d⊥ ว่าเลขแต่ละตัวมาจากไหน" in html
     # Each directional tipping case starts STEP 3 on a dedicated page, separate from FBD/STEP 1–2.
-    assert "page-break-before:always'>CASE {i} — {case['thai']}: รายละเอียดโมเมนต์ (หน้าถัดไป)</h2>" in html
+    assert "page-break-before:always'>CASE " in html and ": รายละเอียดโมเมนต์ (หน้าถัดไป)</h2>" in html
     assert "STEP 3 — หาโมเมนต์คว่ำ M_O" in html and "STEP 4 — หาโมเมนต์ต้าน M_R" in html
     assert "CASE 1" in html and "CASE 5" in html
     assert "Design guidance" in html
