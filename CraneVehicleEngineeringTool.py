@@ -13005,6 +13005,8 @@ SF_slope = M_R,slope / M_O,slope = {fmt(slope['sf'])}
                 </div>
                 <p>{'<br><br>'.join(arm_lines)}</p>
 
+                <h2 style='page-break-before:always'>CASE {i} — {case['thai']}: รายละเอียดโมเมนต์ (หน้าถัดไป)</h2>
+                <p>แยกการคำนวณโมเมนต์ออกจากหน้า FBD และ STEP 1–2 เพื่อป้องกันเนื้อหาถูกตัดหรือบังใน PDF</p>
                 <h3>STEP 3 — หาโมเมนต์คว่ำ M_O</h3>
                 <p><b>สูตร:</b> M_O = Σ(F_i d_i)<br>
                 <b>แทนค่า:</b> M_O = {mo_terms} = <b>{bal['mo']:.2f} N·m</b></p>
