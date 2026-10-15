@@ -1784,6 +1784,14 @@ with tempfile.TemporaryDirectory() as fbd_td:
     assert "Σ (ซิกม่า)" in html and "เครื่องหมาย “ผลรวม”" in html
     assert "เขียนแบบขยาย:" in html and "ไม่ใช่ผลคำนวณรถจริง" in html
     assert "STEP 3 รวมเฉพาะแรงที่ทำให้คว่ำ" in html
+    # Battery STEP 2.2 must show the actual mass, slope angle, rolling coefficient,
+    # and each intermediate force before reporting the combined uphill force.
+    battery_source=source[source.index("def equation_html("):source.index("def ",source.index("def equation_html(")+10)]
+    assert "ขั้นที่ 1 — แทนค่าหาแรงจากน้ำหนักตามแนวลาด" in battery_source
+    assert "sin({math.degrees(q['theta']):.2f}°)" in battery_source
+    assert "ขั้นที่ 2 — แทนค่าหาแรงต้านการกลิ้งบนทางลาด" in battery_source
+    assert "cos({math.degrees(q['theta']):.2f}°)" in battery_source
+    assert "หมายเหตุเรื่องแบตเตอรี่ 72 V" in battery_source
     assert "CASE 1" in html and "CASE 5" in html
     assert "Design guidance" in html
     assert "ช่วงมุมที่แนะนำโดยประมาณ" in html
