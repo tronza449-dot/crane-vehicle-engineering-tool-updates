@@ -112,6 +112,25 @@
       const r=await api("/api/calc/stability",p);
       const ss=r.side.sf>=999?"∞":f(r.side.sf,3), fs=r.front.sf>=999?"∞":f(r.front.sf,3), rs=r.rear.sf>=999?"∞":f(r.rear.sf,3);
       const mveh=Math.max(0,p.total_mass_kg-p.payload_mass_kg-p.boom_mass_kg);
+      const sideTerms=(r.side.components||[]).map(q=>{
+        const source=q.name==="Vehicle"
+          ? (p.mass_mode==="components" ? "รวมมวลฐานรถจากตาราง Components" : "M_total − M_payload − M_boom")
+          : q.name==="Boom" ? "มวล Boom จากช่อง Input/ตาราง Components" : "มวล Payload จากช่อง Input/ตาราง Components";
+        const k=Number(q.factor??1);
+        const pos=Number(q.y_m??0), pivot=Number(r.side.pivot_m??0), arm=Number(q.arm_m??0);
+        const role=q.role==="overturning"?"ทำให้คว่ำ":q.role==="resisting"?"ต้านการคว่ำ":"อยู่บนแกนหมุน";
+        return [
+          "พจน์ "+q.name+" — "+(q.name==="Vehicle"?"ตัวรถ":q.name==="Boom"?"แขนเครน":"น้ำหนักบรรทุก"),
+          "M_i = F_i × d_i; F_i = m_i × g × K_i",
+          "m_i = "+f(q.mass_kg,2)+" kg ("+source+"); F_i = "+f(q.mass_kg,2)+" × 9.81 × "+f(k,2)+"; d_i = |y_i − y_P| = |"+f(pos,3)+" − "+f(pivot,3)+"|",
+          f(q.moment_nm,3),
+          "N·m",
+          "โมเมนต์ของ "+q.name+" ("+role+")",
+          "F_i = "+f(q.force_n,2)+" N; g = 9.81 m/s²; K_i = "+f(k,2)+"; d_i = "+f(arm,3)+" m; M_i = "+f(q.force_n,2)+" × "+f(arm,3)
+        ];
+      });
+      add(out,"อ่าน Σ(F_i d_i) ทีละพจน์ — ที่มาของ F_i และ d_i",sideTerms,
+        "F_i คือแรงน้ำหนักของชิ้นส่วน i (มวล m_i × g × ตัวคูณ K_i); d_i คือระยะตั้งฉากจากแนวแรงถึงแกนหมุน P ไม่ใช่ระยะตามแนวเครนโดยอัตโนมัติ g = 9.81 m/s². ตัวเลขมวลมาจาก Input หรือตาราง Components; ตำแหน่งมาจากเรขาคณิตและมุมเครนที่กรอก");
       add(out,"รายละเอียด Stability / Tipping",[
         ["Pivot side","track / 2",f(p.track_width_m,3)+" ÷ 2",f(r.side.pivot_m,4),"m","แนวล้อที่เป็นจุดหมุน","จุดหมุนด้านข้าง"],
         ["Vehicle mass model","Mtotal−Mload−Mboom",f(p.total_mass_kg,1)+"−"+f(p.payload_mass_kg,1)+"−"+f(p.boom_mass_kg,1),f(mveh,2),"kg","มวลรถที่เหลือในโมเดล","ใช้สร้างโมเมนต์ต้าน"],
