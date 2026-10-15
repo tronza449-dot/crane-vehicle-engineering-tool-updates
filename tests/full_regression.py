@@ -1788,8 +1788,9 @@ with tempfile.TemporaryDirectory() as fbd_td:
     # Battery STEP 2.2 must show the actual mass, slope angle, rolling coefficient,
     # and each intermediate force before reporting the combined uphill force.
     battery_start=source.index("def equation_html(")
-    battery_source=source[battery_start:source.index("\\n    def ",battery_start+1)]
+    battery_source=source[battery_start:source.index("\n    def ",battery_start+1)]
     assert "ขั้นที่ 1 — แทนค่าหาแรงจากน้ำหนักตามแนวลาด" in battery_source
+    assert "ตัวอย่างแทนค่าตัวเลข (ใช้ค่าที่ตั้งไว้จริงในโปรแกรม)" in battery_source
     assert "sin({math.degrees(q['theta']):.2f}°)" in battery_source
     assert "ขั้นที่ 2 — แทนค่าหาแรงต้านการกลิ้งบนทางลาด" in battery_source
     assert "cos({math.degrees(q['theta']):.2f}°)" in battery_source
