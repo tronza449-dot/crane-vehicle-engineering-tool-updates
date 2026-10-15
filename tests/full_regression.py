@@ -1781,9 +1781,10 @@ with tempfile.TemporaryDirectory() as fbd_td:
     # Each directional tipping case starts STEP 3 on a dedicated page, separate from FBD/STEP 1–2.
     assert "page-break-before:always'>CASE " in html and ": รายละเอียดโมเมนต์ (หน้าถัดไป)</h2>" in html
     assert "STEP 3 — หาโมเมนต์คว่ำ M_O" in html and "STEP 4 — หาโมเมนต์ต้าน M_R" in html
-    assert "Σ (ซิกม่า)" in html and "เครื่องหมาย “ผลรวม”" in html
-    assert "เขียนแบบขยาย:" in html and "ไม่ใช่ผลคำนวณรถจริง" in html
-    assert "STEP 3 รวมเฉพาะแรงที่ทำให้คว่ำ" in html
+    assert "<b>แทนค่าตัวเลข:</b> M_O =" in html and "<b>คำตอบ:</b> M_O =" in html
+    assert "<b>แทนค่าตัวเลข:</b> M_R =" in html and "<b>คำตอบ:</b> M_R =" in html
+    assert "อธิบายสัญลักษณ์ใน Σ" not in html
+    assert "ข้อควรเข้าใจ:" not in html
     # Battery STEP 2.2 must show the actual mass, slope angle, rolling coefficient,
     # and each intermediate force before reporting the combined uphill force.
     battery_start=source.index("def equation_html(")
