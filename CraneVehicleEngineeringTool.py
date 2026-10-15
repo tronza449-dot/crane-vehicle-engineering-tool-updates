@@ -11225,12 +11225,24 @@ void loop() {{
             mr_parts=[q for q in b["components"] if q["role"]=="resisting"]
             mo_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in mo_parts) or "0"
             mr_terms=" + ".join(f"({q['force']:.2f})({q['arm']:.3f})" for q in mr_parts) or "0"
-            mo_detail="<br>".join(
-                f"• {q['name']} / {comp_thai(q['name'])}: {q['force']:.2f} N × {q['arm']:.3f} m = {q['moment']:.2f} N·m"
-                for q in mo_parts) or "• ไม่มีแรงที่อยู่ฝั่งทำให้คว่ำในกรณีนี้"
-            mr_detail="<br>".join(
-                f"• {q['name']} / {comp_thai(q['name'])}: {q['force']:.2f} N × {q['arm']:.3f} m = {q['moment']:.2f} N·m"
-                for q in mr_parts) or "• ไม่มีแรงที่อยู่ฝั่งต้านในกรณีนี้"
+            def explain_term(q):
+                pos=float(q.get(coord,0.0))
+                pivot=float(b.get("pivot",0.0))
+                mass_source = ("มวลรถคงเหลือ = M_total − M_payload − M_boom"
+                               if q["name"]=="Vehicle" else
+                               "ค่ามวลแขนเครนจาก Input/ตารางมวล" if q["name"]=="Boom" else
+                               "ค่ามวลบรรทุกจาก Input/ตารางมวล")
+                factor_note = ("K_i = Kdyn (ใช้เมื่อ Payload เป็นแรงคว่ำ)" if q["name"]=="Payload" and q.get("factor",1.0)!=1.0
+                               else "K_i = 1.00 (ไม่เพิ่ม Dynamic factor ในพจน์นี้)")
+                return (f"• <b>{q['name']} / {comp_thai(q['name'])}</b><br>"
+                        f"มวลที่ใช้: m_i = {q['mass']:.2f} kg ({mass_source})<br>"
+                        f"แรงที่ใช้: F_i = m_i × g × K_i = {q['mass']:.2f} × 9.81 × {q.get('factor',1.0):.2f} = <b>{q['force']:.2f} N</b>; "
+                        f"g = 9.81 m/s², K_i = {q.get('factor',1.0):.2f} ({factor_note})<br>"
+                        f"ตำแหน่งแนวแรง: {coord}_i = {pos:.3f} m; จุดหมุน P = {pivot:.3f} m<br>"
+                        f"แขนโมเมนต์: d_i = |{coord}_i − {coord}_P| = |{pos:.3f} − {pivot:.3f}| = <b>{q['arm']:.3f} m</b><br>"
+                        f"โมเมนต์ของพจน์นี้: M_i = F_i × d_i = {q['force']:.2f} × {q['arm']:.3f} = <b>{q['moment']:.2f} N·m</b>")
+            mo_detail="<br><br>".join(explain_term(q) for q in mo_parts) or "• ไม่มีแรงที่อยู่ฝั่งทำให้คว่ำในกรณีนี้"
+            mr_detail="<br><br>".join(explain_term(q) for q in mr_parts) or "• ไม่มีแรงที่อยู่ฝั่งต้านในกรณีนี้"
             sf_sub="∞ (ไม่มีโมเมนต์คว่ำ)" if b["mo"]<=1e-12 else f"{b['mr']:.2f}/{b['mo']:.2f} = {fmt(b['sf'])}"
             return f"""<div style='border:1px solid #cfd9e3;padding:12px;margin:12px 0'>
             <h3>{title}</h3>{geom}
