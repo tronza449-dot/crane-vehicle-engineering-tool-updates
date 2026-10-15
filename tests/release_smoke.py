@@ -162,6 +162,12 @@ try:
     print("SMOKE: Final Design lock -> visible warning -> actual mouse click unlock", flush=True)
     w.resize(1366,768)
     QApplication.processEvents()
+    # Establish the expected precondition explicitly: this test asserts the
+    # linked-mass field is read-only, so restore the Main Battery link first.
+    # Earlier smoke scenarios may legitimately have toggled it to manual mode.
+    w.rampUseMainMass.setChecked(True)
+    QApplication.processEvents()
+    assert w.rampUseMainMass.isChecked() and not w.rampMass.isEnabled()
     w.designLockButton.setChecked(True)
     QApplication.processEvents()
     assert not w.rampRiseCm.isEnabled() and not w.rampUseMainMass.isEnabled()
