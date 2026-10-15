@@ -10216,7 +10216,8 @@ void loop() {{
             <h3>2.2 ขึ้นทางลาด</h3>
             <div class='formula'><b>สูตรแรงรวม:</b> F_up = m g sinθ + Crr m g cosθ</div>
             <div class='thai-formula'><b>อ่านสูตรแบบภาษาไทย:</b> แรงขึ้นทางลาด = แรงจากน้ำหนักที่ดึงรถลงตามแนวลาด + แรงต้านการกลิ้งของล้อบนทางลาด</div>
-            <div class='substitute'><b>ขั้นที่ 1 — แทนค่าหาแรงจากน้ำหนักตามแนวลาด:</b><br>
+            <div class='substitute'><b>ตัวอย่างแทนค่าตัวเลข (ใช้ค่าที่ตั้งไว้จริงในโปรแกรม):</b><br>
+            <b>ขั้นที่ 1 — หาแรงจากน้ำหนักตามแนวลาด:</b><br>
             F_grade = m × g × sinθ<br>
             = {q['m']:.2f} kg × 9.81 m/s² × sin({math.degrees(q['theta']):.2f}°)<br>
             = <b>{q['Fgrade']:.2f} N</b></div>
