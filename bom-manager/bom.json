@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-16T06:23:38+00:00",
+  "updatedAt": "2026-10-16T06:28:12+00:00",
   "currency": "THB",
   "items": [
     {
@@ -188,26 +188,13 @@
       "supplier": ""
     },
     {
-      "id": "14",
-      "category": "ระบบควบคุมและสื่อสาร",
-      "name": "โมดูล Optocoupler — PC817 2-channel isolation module",
-      "spec": "แยกวงจรสัญญาณลิมิตสวิตช์จากฝั่ง ESP32 | ไฟเลี้ยง: ขา ESP32 3.3 V; ฝั่ง field ตามวงจรที่ออกแบบ",
-      "qty": 1,
-      "unit": "ชิ้น",
-      "connection": "หนึ่งช่องต่อหนึ่งลิมิต; ห้ามป้อน 12 V เข้า GPIO | GPIO/จุดต่อ: เอาต์พุตช่อง 1 → GPIO34; ช่อง 2 → GPIO35 (ข้อเสนอ)",
-      "unitPrice": null,
-      "link": "https://www.ortech-online.com/product/2240/cm003-pc817-%E0%B9%82%E0%B8%A1%E0%B8%94%E0%B8%B9%E0%B8%A5%E0%B8%84%E0%B8%A7%E0%B8%9A%E0%B8%84%E0%B8%B8%E0%B8%A1%E0%B9%81%E0%B8%9A%E0%B8%9A%E0%B9%81%E0%B8%A2%E0%B8%81%E0%B8%81%E0%B8%A3%E0%B8%B2%E0%B8%A7%E0%B8%99%E0%B9%8C-2-%E0%B8%8A%E0%B9%88%E0%B8%AD%E0%B8%87-2-channel-optocoupler-isolation-optical-module-%E0%B8%AD%E0%B8%AD%E0%B8%9B%E0%B9%82%E0%B8%95%E0%B9%89%E0%B8%84%E0%B8%B1%E0%B8%9B%E0%B9%80",
-      "status": "เลือกโมดูล 2 ช่อง; ตรวจขั้ว/วงจรจริง",
-      "notes": "ตรวจผังขา IN/GND/OUT และตัวต้านทานบนโมดูลจริง"
-    },
-    {
       "id": "15",
       "category": "ระบบควบคุมและสื่อสาร",
       "name": "Arduino Relay 2ช่อง 5V Relay Module Active LOW 5V 2 Channel isolation control 250V/10A",
-      "spec": "รับคำสั่ง GPIO แล้วสั่งโหลดผ่านหน้าสัมผัสรีเลย์; ใช้ CH1 และ CH2, CH3 สำรอง | ไฟเลี้ยงบอร์ด: 5 V DC ที่ VCC; เผื่อกระแสเลี้ยงบอร์ดจาก DC-DC",
+      "spec": "",
       "qty": 1,
       "unit": "ชิ้น",
-      "connection": "ESP32 GPIO25 → IN1 (CH1 buzzer); GPIO33 → IN2 (CH2 ไฟเตือน); logic GND → ESP32 GND ตามคู่มือโมดูล | โหลดต่อผ่าน COM/NO ของแต่ละช่อง; เว้น NC และ CH3",
+      "connection": "",
       "unitPrice": 50.0,
       "link": "https://www.cybertice.com/product/5/arduino-relay-2%E0%B8%8A%E0%B9%88%E0%B8%AD%E0%B8%87-5v-relay-module-active-low-5v-2-channel-isolation-control-250v-10a?_gl=1*bwog5j*_up*MQ..*_gs*MQ..&gclid=CjwKCAjw88HWBhA3EiwAo2Zd6EqWypia3HRkEwgdyTS8uP1en4PTg_AE1KIOI-aP8OBI9yA-c_PTAhoCL4wQAvD_BwE&gbraid=0AAAAADc4pmPPN8jjNY2ldLqbi0jA6i7JF",
       "status": "เลือกแนวทาง/รุ่นแล้ว",
