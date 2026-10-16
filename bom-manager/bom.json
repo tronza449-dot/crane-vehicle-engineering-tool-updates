@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-16T06:14:46+00:00",
+  "updatedAt": "2026-10-16T06:23:38+00:00",
   "currency": "THB",
   "items": [
     {
@@ -473,6 +473,21 @@
       "status": "",
       "supplier": "",
       "link": "",
+      "connection": "",
+      "notes": ""
+    },
+    {
+      "id": "35",
+      "category": "แบตเตอรี่และไฟฟ้ากำลัง",
+      "name": "DC-DC 12V-5V",
+      "partNumber": "",
+      "spec": "",
+      "qty": 1,
+      "unit": "",
+      "unitPrice": 51.0,
+      "status": "",
+      "supplier": "",
+      "link": "https://shopee.co.th/product/1822331990/48761025517?gads_t_sig=gqRjZGVrxHCFomtpsTE0MjUxOnRzc19zZGtfa2V5omt20QACpGFsZ2_SAAAAZKNkZWvAomN0xEAAAAAMaBRvcqdZwgRklGTWoHoxFGhRfNAexxPkhN1n8rcCO5qFEud_-aY2hsGdfUnqCpX0P0Z7lpJy6IP6_Ew8qmNpcGhlcnRleHTEcwAAAAz60CJXaWmKVDuP0ZoF-J6vnVRk-vR0SuwCcHHMJqzxUd64WcGI5Xyu8JpcC2mbxot5KMcSrO4XvjaLYSl-La_40wdeyuSYV6tWksmCKmstQno57joxxylWny5Ri-qQVyWTnKj-H7f3CVwtDFZrTNs&gad_source=1&gad_campaignid=23289813561&gbraid=0AAAAADPpYO2ldFXghGUrsb3ZnZqevLzct&gclid=CjwKCAjw88HWBhA3EiwAo2Zd6Kac3ogHvcu4-VG0ejaZ7gcO6kJNC4XAwN4iJ7LYABz4ndzySRH5BxoCeFoQAvD_BwE",
       "connection": "",
       "notes": ""
     }
