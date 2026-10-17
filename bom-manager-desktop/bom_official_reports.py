@@ -34,7 +34,8 @@ def sorted_items(doc):
     the same category, including custom ↑/↓ moves made on another computer.
     """
     return sorted(doc["items"], key=lambda x:
-                  bom_categories.sort_key(x.get("category")))
+                  bom_categories.sort_key(bom_categories.LEGACY_CATEGORY_MAP.get(
+                      str(x.get("category") or ""), x.get("category"))))
 
 
 def price(value):
@@ -44,8 +45,9 @@ def price(value):
 def category_stats(items):
     result=[]
     for category,count in bom_categories.summary(items):
-        rows=[x for x in items if str(x.get("category") or
-               bom_categories.UNCATEGORIZED)==category]
+        rows=[x for x in items if bom_categories.LEGACY_CATEGORY_MAP.get(
+               str(x.get("category") or ""), str(x.get("category") or
+               bom_categories.UNCATEGORIZED))==category]
         missing=sum(price(x.get("unitPrice")) is None for x in rows)
         known=sum((price(x.get("unitPrice")) or 0) *
                   (price(x.get("qty")) or 0) for x in rows)
