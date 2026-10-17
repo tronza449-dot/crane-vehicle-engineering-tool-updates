@@ -250,18 +250,21 @@ class RecordDialog(QDialog):
                 control = QComboBox()
                 control.setEditable(False)
                 control.addItems(list(bom_categories.CATEGORY_OPTIONS))
-                # Keep categories from older BOM files selectable, never discard them.
-                categories_in_document = []
-                if parent is not None and hasattr(parent, "payload"):
-                    categories_in_document = bom_categories.sorted_categories(
-                        item.get("category") for item in
-                        parent.payload.get("items", []))
-                for category in categories_in_document:
-                    if control.findText(category) < 0:
-                        control.addItem(category)
+                # Show only major groups. Convert legacy detailed labels in the
+                # editor display; the saved row changes only when user confirms.
+                legacy_map = {
+                    "โครงสร้างและเครื่องกล": "เครื่องกล",
+                    "ระบบขับเคลื่อน": "เครื่องกล",
+                    "แบตเตอรี่และไฟฟ้ากำลัง": "ไฟฟ้า",
+                    "สายไฟและอุปกรณ์ติดตั้ง": "ไฟฟ้า",
+                    "ระบบควบคุมและสื่อสาร": "อิเล็กทรอนิกส์และระบบควบคุม",
+                    "เซนเซอร์และความปลอดภัย": "อิเล็กทรอนิกส์และระบบควบคุม",
+                    "อื่น ๆ / รอจัดหมวด": "อื่น ๆ",
+                }
                 current = str(val or bom_categories.UNCATEGORIZED)
+                current = legacy_map.get(current, current)
                 if control.findText(current) < 0:
-                    control.addItem(current)
+                    current = bom_categories.UNCATEGORIZED
                 control.setCurrentText(current)
                 control.setToolTip("คลิกเลือกหมวดอุปกรณ์จากรายการ ไม่ต้องพิมพ์เอง")
             elif key == "itemId" and "จัดซื้อ" in title:
