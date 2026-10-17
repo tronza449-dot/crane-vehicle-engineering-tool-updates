@@ -6,15 +6,12 @@ connections, suppliers, quantities and order records must remain unchanged.
 from collections import Counter
 
 CATEGORY_ORDER = (
-    "โครงสร้างและเครื่องกล",
-    "ระบบขับเคลื่อน",
-    "แบตเตอรี่และไฟฟ้ากำลัง",
-    "ระบบควบคุมและสื่อสาร",
-    "เซนเซอร์และความปลอดภัย",
+    "เครื่องกล",
+    "ไฟฟ้า",
+    "อิเล็กทรอนิกส์และระบบควบคุม",
     "ระบบเครนและวินช์",
-    "สายไฟและอุปกรณ์ติดตั้ง",
 )
-UNCATEGORIZED = "อื่น ๆ / รอจัดหมวด"
+UNCATEGORIZED = "อื่น ๆ"
 CATEGORY_OPTIONS = (*CATEGORY_ORDER, UNCATEGORIZED)
 
 # Exact BOM item IDs in the user's 33-item engineering BOM.
