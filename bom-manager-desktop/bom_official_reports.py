@@ -789,6 +789,11 @@ def export_excel(doc,destination,options=None):
         ["ID", "ตำแหน่ง / ชิ้นส่วน", "ชนิดหน้าตัด", "ขนาดหน้าตัด",
          "จำนวนชิ้น", "ยาว/ชิ้น (mm)", "รวมความยาว (m)",
          "ท่อนมาตรฐาน (m)", "หมายเหตุ"], True)
+    steel_summary.merge_range(
+        5, 0, 5, 5,
+        "จำนวนท่อนเป็นค่าประมาณจากความยาวรวม ไม่หัก kerf/เศษตัด/ระยะซ้อน "
+        "และไม่ใช่ cutting plan", notice)
+    steel_summary.set_row(5, 32)
     steel_length_fmt = fmt(num_format="#,##0.000", align="right",
                            border=1, border_color=EXCEL_LINE)
     for idx, raw in enumerate(steel_rows):
