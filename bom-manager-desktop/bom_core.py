@@ -7,6 +7,7 @@ from collections import Counter
 from decimal import Decimal, InvalidOperation
 
 import bom_categories
+import bom_steel
 
 
 class DataError(ValueError):
@@ -40,7 +41,7 @@ def valid_price(value):
 def ensure_doc(doc):
     if not isinstance(doc, dict) or not isinstance(doc.get("items"), list):
         raise DataError("ไฟล์ BOM ต้องมี items เป็นรายการ")
-    for list_key in ("wiring", "purchases"):
+    for list_key in ("wiring", "purchases", "steel_members"):
         if list_key in doc and not isinstance(doc[list_key], list):
             raise DataError(f"{list_key} ต้องเป็นรายการ")
     for wiring in doc.get("wiring", []):
@@ -51,6 +52,18 @@ def ensure_doc(doc):
             raise DataError("พบข้อมูลจัดซื้อที่ไม่ใช่รายการ")
         valid_qty(order.get("qty"))
         decimal_or_none(order.get("unitPrice"))
+    steel_ids = set()
+    for member in doc.get("steel_members", []):
+        if not isinstance(member, dict):
+            raise DataError("พบรายการโครงสร้างเหล็กที่ไม่ใช่ข้อมูลรายการ")
+        key = str(member.get("id", "")).strip()
+        if not key or key in steel_ids:
+            raise DataError(f"รหัสชิ้นส่วนเหล็กซ้ำ/ว่าง: {key!r}")
+        steel_ids.add(key)
+        try:
+            bom_steel.normalize_member(member)
+        except bom_steel.SteelDataError as exc:
+            raise DataError(f"โครงสร้างเหล็ก ID {key}: {exc}") from exc
     seen = set()
     for item in doc["items"]:
         if not isinstance(item, dict):
