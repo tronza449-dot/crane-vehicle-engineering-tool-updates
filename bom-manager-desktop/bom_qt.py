@@ -1108,19 +1108,21 @@ class BOMWindow(QMainWindow):
             "→ เลือกที่บันทึก", "caption"))
         group = self._panel("1  ส่งออกรายงานแบบทางการ (แนะนำสำหรับส่งอาจารย์)", body)
         text = self._label(
-            "PDF แบ่งตารางตาม 3 หมวดหลัก (เครื่องกล / ไฟฟ้ากำลัง / อิเล็กทรอนิกส์และควบคุม) "
-            "พร้อมยอดย่อยแต่ละหมวดและภาคผนวก; Excel ใช้แถบสีทั้งแถวตามหมวด "
-            "มีสูตรยอดรวม ตัวกรอง ตารางสเปก Wiring แหล่งอ้างอิง และจัดซื้อ", "caption")
+            "PDF แบบที่ 1: หน้าปก + สรุปงบ + ตารางแยกหน้าเป็น 3 หมวด + ภาคผนวก + ช่องลงชื่อ "
+            "• Excel แบบที่ 2: Summary + ตารางกรองได้/สูตรยอดรวม + สเปก/Wiring/จัดซื้อ/อ้างอิง/หน้าตรวจเอกสาร", "caption")
         text.setWordWrap(True)
         group.addWidget(text)
         export_cards = QGridLayout()
         export_cards.setHorizontalSpacing(13)
         for column, (heading, description, title, action, role) in enumerate((
-            ("PDF สำหรับรายงาน", "เอกสาร A4 มีเลขหน้า ภาคผนวก และ Revision",
-             "สร้าง PDF", lambda: self.export("pdf"), "primary"),
-            ("Excel ตรวจสอบข้อมูล", "ตาราง BOM พร้อมสูตรและชีตสเปก / แหล่งอ้างอิง",
-             "สร้าง Excel", lambda: self.export("xlsx"), "success"),
-            ("ชุดเอกสารรายงาน", "สร้างไฟล์ PDF และ Excel พร้อมกันในโฟลเดอร์เดียว",
+            ("PDF แบบที่ 1 · รายงานส่งอาจารย์",
+             "หน้าปกและข้อมูลเอกสาร • สรุปงบ • ตารางแยกหมวดหลัก • ภาคผนวก • ช่องลงชื่อ",
+             "สร้าง PDF ทางการ", lambda: self.export("pdf"), "primary"),
+            ("Excel แบบที่ 2 · ตารางวิศวกรรม",
+             "Summary • BOM พร้อมตัวกรอง/สูตร • สเปก • Wiring • จัดซื้อ • แหล่งอ้างอิง • Approval",
+             "สร้าง Excel ทางการ", lambda: self.export("xlsx"), "success"),
+            ("ชุดเอกสาร PDF + Excel",
+             "ใช้ข้อมูลหน้าปกชุดเดียวกันและสร้างไฟล์ชื่อเวอร์ชันใหม่ทั้งสองไฟล์",
              "สร้างทั้งสองไฟล์", self.export_report_pair, None),
         )):
             card = QFrame()
