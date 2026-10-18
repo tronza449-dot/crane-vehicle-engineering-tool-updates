@@ -1403,7 +1403,7 @@ class BOMWindow(QMainWindow):
 
     def show_page(self, number):
         self.stack.setCurrentIndex(number)
-        if number == 5:
+        if number == 6:
             self.refresh_diagnostics()
         for i, button in enumerate(self.nav_buttons):
             button.setProperty("active", number == i)
