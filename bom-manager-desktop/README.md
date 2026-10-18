@@ -465,5 +465,5 @@ The Windows installer contains **no shared GitHub PAT**, neither in cleartext no
   - ไฟฟ้ากำลัง: แบตเตอรี่ มอเตอร์ VESC/ไดรเวอร์ ฟิวส์ คอนแทคเตอร์ สายกำลัง และ DC-DC
   - อิเล็กทรอนิกส์/ควบคุม: ESP32, เซนเซอร์, CAN, RC, จอ และวงจรสัญญาณ/ควบคุม
 - ปรับหมวดของรายการ BOM ที่มีอยู่ทั้ง 33 รายการโดยแก้เฉพาะฟิลด์ category; BOM ID, ชื่อ, สเปก, ราคา, ลิงก์ และรายการจัดซื้อเดิมไม่เปลี่ยน
-- Web BOM dropdown และ Desktop dropdown ใช้ชื่อหมวดหลักชุดเดียวกัน; ป้ายหมวดเก่าจะ normalize เข้ากลุ่มใหม่
+- Web BOM dropdown, ค่าเริ่มต้นสำรองของเว็บ และ Desktop dropdown ใช้ชื่อหมวดหลักชุดเดียวกัน; ป้ายหมวดเก่าจะ normalize เข้ากลุ่มใหม่
 
