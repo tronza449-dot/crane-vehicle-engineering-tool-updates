@@ -92,9 +92,10 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("xl/worksheets/sheet6.xml", names)
             self.assertIn("xl/worksheets/sheet7.xml", names)
             self.assertIn("xl/worksheets/sheet8.xml", names)
+            self.assertIn("xl/worksheets/sheet9.xml", names)
             wb = xlsx.read("xl/workbook.xml").decode("utf-8")
             for tab in ("Summary","BOM","Specification","Wiring","Purchasing",
-                        "Notes","References","Completeness"):
+                        "Notes","References","Completeness","Approval"):
                 self.assertIn('name="'+tab+'"', wb)
             summary = xlsx.read("xl/worksheets/sheet1.xml").decode("utf-8")
             detail = xlsx.read("xl/worksheets/sheet2.xml").decode("utf-8")
@@ -104,8 +105,10 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("MASTER BOM REGISTER", shared)
             self.assertIn("ไฟฟ้า", shared)
             self.assertIn("อิเล็กทรอนิกส์/ควบคุม", shared)
-            self.assertIn("อาจารย์ที่ปรึกษา / ผู้ตรวจทาน", shared)
+            self.assertIn("ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา", shared)
             self.assertIn("อาจารย์ทดสอบ", shared)
+            self.assertIn("ผู้จัดทำ / PREPARED BY", shared)
+            self.assertIn("ผู้ตรวจสอบ / REVIEWED BY", shared)
             self.assertIn("18/10/2026", shared)
             self.assertIn("SUM(H8:H40)", detail)
             self.assertIn("COUNTA", summary)
@@ -129,6 +132,10 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("autoFilter", xlsx.read("xl/worksheets/sheet7.xml").decode())
             review = xlsx.read("xl/worksheets/sheet8.xml").decode("utf-8")
             self.assertIn("mergeCell", review)
+            approval = xlsx.read("xl/worksheets/sheet9.xml").decode("utf-8")
+            self.assertIn("mergeCell", approval)
+            self.assertIn("pageSetup", approval)
+            self.assertIn("printOptions", approval)
 
     def test_formal_pdf_sections_and_metadata(self):
         from bom_reports import _thai_font
@@ -147,9 +154,17 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("MASTER BOM REGISTER", report_text)
             self.assertIn("ไฟฟ้า", report_text)
             self.assertIn("อิเล็กทรอนิกส์/ควบคุม", report_text)
-            self.assertIn("อาจารย์ที่ปรึกษา / ผู้ตรวจทาน", report_text)
+            self.assertIn("ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา", report_text)
             self.assertIn("อาจารย์ทดสอบ", report_text)
             self.assertIn("18/10/2026", report_text)
+            self.assertIn("PREPARED & REVIEWED", report_text)
+            self.assertIn("ผู้จัดทำ / PREPARED BY", report_text)
+            self.assertIn("ผู้ตรวจสอบ / REVIEWED BY", report_text)
+            self.assertIn("ลายมือชื่อ", report_text)
+            with fitz.open(str(pdf)) as exported:
+                signoff = exported[-1].get_text()
+                self.assertIn("PREPARED & REVIEWED", signoff)
+                self.assertIn("อาจารย์ทดสอบ", signoff)
             # The master register is visibly divided into top-level system groups.
             self.assertIn("MASTER BOM REGISTER", report_text)
             self.assertIn("รายการ", report_text)
