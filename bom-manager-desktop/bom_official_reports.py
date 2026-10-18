@@ -102,31 +102,46 @@ def export_pdf(doc, destination, options=None):
     numeric=ParagraphStyle("numeric",parent=body,alignment=TA_RIGHT)
     def P(text,sty=body):
         return Paragraph(escape(str(text if text is not None else "—")).replace("\n","<br/>"),sty)
-    def TABLE(headings,rows,widths,category_col=None):
-        # Formal tables with a repeated header and visible category transitions.
+    def TABLE(headings, rows, widths, category_col=None, section_label=None):
+        """Official, high-contrast table with repeatable section and column headers."""
         numeric_cols={i for i,h in enumerate(headings)
                       if any(word in h.casefold() for word in
                              ("จำนวน","ราคา","รวม","ยอด","ไม่มีราคา"))}
         center_cols={i for i,h in enumerate(headings)
                      if h.strip().casefold() in ("id","bom id","ลำดับ","สถานะ")}
-        data=[[P(h,white) for h in headings]]
+        data=[]
+        if section_label:
+            data.append([P(section_label, white)] + [P("", white) for _ in headings[1:]])
+        data.append([P(h,white) for h in headings])
+        body_start=2 if section_label else 1
         body_rows=rows or [["ยังไม่มีข้อมูล"]+[""]*(len(headings)-1)]
         data += [[P(value, numeric if col in numeric_cols else
                     centered if col in center_cols else body)
                   for col,value in enumerate(row)] for row in body_rows]
-        t=LongTable(data,colWidths=widths,repeatRows=1,hAlign="LEFT")
+        t=LongTable(data,colWidths=widths,
+                    repeatRows=body_start,hAlign="LEFT",splitByRow=1)
         commands=[
-            ("BACKGROUND",(0,0),(-1,0),navy),
-            ("ROWBACKGROUNDS",(0,1),(-1,-1),
+            ("BACKGROUND",(0,0),(-1,0),colors.HexColor(BLUE) if section_label else navy),
+            ("ROWBACKGROUNDS",(0,body_start),(-1,-1),
              [colors.white,colors.HexColor("#F3F7FB")]),
-            ("BOX",(0,0),(-1,-1),.55,line),
-            ("INNERGRID",(0,0),(-1,-1),.3,line),
-            ("VALIGN",(0,0),(-1,-1),"TOP"),
-            ("LEFTPADDING",(0,0),(-1,-1),6),
-            ("RIGHTPADDING",(0,0),(-1,-1),6),
-            ("TOPPADDING",(0,0),(-1,-1),6),
-            ("BOTTOMPADDING",(0,0),(-1,-1),6),
+            ("BOX",(0,0),(-1,-1),.65,line),
+            ("INNERGRID",(0,0),(-1,-1),.35,line),
+            ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+            ("LEFTPADDING",(0,0),(-1,-1),7),
+            ("RIGHTPADDING",(0,0),(-1,-1),7),
+            ("TOPPADDING",(0,0),(-1,-1),7),
+            ("BOTTOMPADDING",(0,0),(-1,-1),7),
         ]
+        if section_label:
+            commands.extend([
+                ("SPAN",(0,0),(-1,0)),
+                ("ALIGN",(0,0),(-1,0),"LEFT"),
+                ("TOPPADDING",(0,0),(-1,0),9),
+                ("BOTTOMPADDING",(0,0),(-1,0),9),
+                ("BACKGROUND",(0,1),(-1,1),navy),
+            ])
+        else:
+            commands.append(("BACKGROUND",(0,0),(-1,0),navy))
         if category_col is not None and rows:
             fills={
                 "เครื่องกล":colors.HexColor("#E4F0F8"),
@@ -135,7 +150,7 @@ def export_pdf(doc, destination, options=None):
                 "อื่น ๆ":colors.HexColor("#EEE8F8"),
             }
             previous=None
-            for row_index,row in enumerate(rows,1):
+            for row_index,row in enumerate(rows,body_start):
                 category=str(row[category_col])
                 commands.append(("BACKGROUND",(category_col,row_index),
                                  (category_col,row_index),fills.get(category,colors.white)))
@@ -197,11 +212,11 @@ def export_pdf(doc, destination, options=None):
     # Separate tables by engineering discipline instead of making users scan
     # a mixed, deeply-columned register. Every table repeats its column header.
     row_number = 1
-    for category, count, _missing, subtotal in categories:
+    for category_index, (category, count, _missing, subtotal) in enumerate(categories):
+        if category_index:
+            story.append(PageBreak())
         category_items = [item for item in items
                           if bom_categories.normalize_category(item.get("category")) == category]
-        story.append(P(f"{category}  |  {count} รายการ", section))
-        story.append(Spacer(1, 4))
         master_rows = []
         for item in category_items:
             unitprice = price(item.get("unitPrice"))
@@ -217,7 +232,8 @@ def export_pdf(doc, destination, options=None):
         story.append(TABLE(
             ["ลำดับ", "BOM ID", "อุปกรณ์ / รุ่น", "จำนวน / หน่วย",
              "ราคา/หน่วย (บาท)", "รวม (บาท)", "สถานะ"],
-            master_rows, [36, 56, 285, 78, 105, 105, width - 665]))
+            master_rows, [36, 56, 285, 78, 105, 105, width - 665],
+            section_label=f"หมวดหลัก: {category}  |  {count} รายการ"))
         story.append(Spacer(1, 3))
         story.append(P(
             f"รวมหมวด {category}: {subtotal:,.2f} บาท "
