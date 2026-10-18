@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import bom_official_reports as reports
 import bom_core
+import bom_categories
 
 MAIN = ROOT.parent / "bom-manager" / "bom.json"
 
@@ -40,8 +41,25 @@ class ReportExportTests(unittest.TestCase):
         self.assertEqual(sum(x[1] for x in rows), len(self.doc["items"]))
         self.assertEqual(sum(x[2] for x in rows), stats["missing"])
         self.assertAlmostEqual(sum(x[3] for x in rows), float(stats["known_cost"]))
-        self.assertEqual(len(rows), len({x.get("category") or "อื่น ๆ / รอจัดหมวด"
-                                         for x in self.doc["items"]}))
+        self.assertEqual(len(rows), len({bom_categories.normalize_category(
+            x.get("category")) for x in self.doc["items"]}))
+        self.assertLessEqual({x[0] for x in rows},
+                             set(bom_categories.CATEGORY_OPTIONS))
+
+    def test_legacy_labels_collapse_to_three_major_categories(self):
+        items = [
+            {"id":"1","category":"โครงสร้างและเครื่องกล"},
+            {"id":"2","category":"แบตเตอรี่และไฟฟ้ากำลัง"},
+            {"id":"3","category":"ระบบควบคุมและสื่อสาร"},
+            {"id":"4","category":"ระบบเครนและวินช์"},
+            {"id":"5","category":"unrecognized imported label"},
+        ]
+        self.assertEqual(
+            [bom_categories.normalize_category(x["category"]) for x in items],
+            ["เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์", "เครื่องกล", "อื่น ๆ"])
+        self.assertEqual(
+            {category for category, _ in bom_categories.summary(items)},
+            {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์", "อื่น ๆ"})
 
     def test_custom_item_order_is_preserved_in_formal_reports(self):
         # Names are deliberately reverse alphabetical, as a user-arranged BOM.
