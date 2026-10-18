@@ -19,6 +19,17 @@ LINE="#CFD8E3"
 ROW_ALT="#F4F7FB"
 CATEGORY_FILL="#E7EFF8"
 
+# Excel intentionally has its own worksheet-first palette (teal / mist grey).
+# PDF remains navy-blue and report-like; the two outputs must not look like
+# the same template recolored.
+EXCEL_NAVY="#123B4A"
+EXCEL_BLUE="#087E8B"
+EXCEL_GREY="#5C6F73"
+EXCEL_PALE="#E6F3F4"
+EXCEL_LINE="#C7D9DC"
+EXCEL_ROW_ALT="#F5F9F9"
+EXCEL_CATEGORY_FILL="#DDEFF1"
+
 
 def metadata(doc, values=None):
     v=values or {}
@@ -148,12 +159,35 @@ def export_pdf(doc, destination, options=None):
                     previous=category
         t.setStyle(TableStyle(commands))
         return t
-    story=[
-        Spacer(1,10),P("ENGINEERING DESIGN DOCUMENT",label),
-        Spacer(1,7),P("รายงานรายการวัสดุและอุปกรณ์",title),
-        P("BILL OF MATERIALS (BOM) / CRANE VEHICLE",section),
-        Spacer(1,12),
-    ]
+    # PDF style 1: a clear document cover with a solid navy title panel.
+    # This is deliberately a different composition from the Excel workbook.
+    cover_kicker=ParagraphStyle("cover_kicker",parent=body,fontSize=9,
+        leading=14,textColor=colors.HexColor("#BFD7F0"))
+    cover_title=ParagraphStyle("cover_title",parent=body,fontSize=22,
+        leading=31,textColor=colors.white)
+    cover_subtitle=ParagraphStyle("cover_subtitle",parent=body,fontSize=10,
+        leading=16,textColor=colors.white)
+    cover=LongTable([
+        [P("ENGINEERING DESIGN DOCUMENT",cover_kicker)],
+        [P("รายงานรายการวัสดุและอุปกรณ์",cover_title)],
+        [P("BILL OF MATERIALS (BOM)  |  CRANE VEHICLE",cover_subtitle)],
+    ],colWidths=[width],hAlign="LEFT")
+    cover.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(-1,-1),navy),
+        ("BOX",(0,0),(-1,-1),0,navy),
+        ("LINEBELOW",(0,-1),(-1,-1),4,colors.HexColor(BLUE)),
+        ("LEFTPADDING",(0,0),(-1,-1),18),
+        ("RIGHTPADDING",(0,0),(-1,-1),18),
+        ("TOPPADDING",(0,0),(-1,0),14),
+        ("BOTTOMPADDING",(0,0),(-1,0),4),
+        ("TOPPADDING",(0,1),(-1,1),2),
+        ("BOTTOMPADDING",(0,1),(-1,1),3),
+        ("TOPPADDING",(0,2),(-1,2),2),
+        ("BOTTOMPADDING",(0,2),(-1,2),15),
+    ]))
+    story=[cover,Spacer(1,18),
+           P("DOCUMENT CONTROL / ข้อมูลควบคุมเอกสาร",section),
+           Spacer(1,8)]
     rows=[
         ["โครงการ",m["project"]],
         ["ผู้จัดทำ",m["author"]],
@@ -319,10 +353,16 @@ def export_pdf(doc, destination, options=None):
         subject=m["project"])
     def decoration(canvas,page_doc):
         canvas.saveState()
-        canvas.setFillColor(navy)
-        canvas.rect(0,page[1]-34,page[0],34,stroke=0,fill=1)
-        canvas.setFillColor(colors.white);canvas.setFont(font,9)
-        canvas.drawString(32,page[1]-22,"ENGINEERING BOM / DRAFT  |  "+m["document_no"][:44])
+        if page_doc.page == 1:
+            # Keep the cover title panel as the dominant visual element.
+            canvas.setStrokeColor(colors.HexColor(BLUE))
+            canvas.setLineWidth(2.5)
+            canvas.line(32,page[1]-25,page[0]-32,page[1]-25)
+        else:
+            canvas.setFillColor(navy)
+            canvas.rect(0,page[1]-34,page[0],34,stroke=0,fill=1)
+            canvas.setFillColor(colors.white);canvas.setFont(font,9)
+            canvas.drawString(32,page[1]-22,"ENGINEERING BOM / DRAFT  |  "+m["document_no"][:44])
         canvas.setStrokeColor(line);canvas.line(32,34,page[0]-32,34)
         canvas.setFillColor(colors.HexColor(GREY));canvas.setFont(font,8)
         canvas.drawString(32,21,f'Rev. {m["revision"]}  |  {m["date"]}  |  รายงานประกอบการออกแบบ')
@@ -347,69 +387,75 @@ def export_excel(doc,destination,options=None):
     def fmt(**kwargs):
         return wb.add_format({"font_name":"Tahoma","font_size":11,
                               "font_color":"#21384E","valign":"vcenter",**kwargs})
-    title=fmt(bold=True,font_size=18,font_color=NAVY)
-    subtitle=fmt(font_size=10,font_color=GREY)
-    bar=fmt(bold=True,font_color="white",bg_color=NAVY,font_size=12)
-    head=fmt(bold=True,font_color="white",bg_color=NAVY,
-             align="center",text_wrap=True,font_size=10,border=1,border_color="#FFFFFF")
-    normal=fmt(text_wrap=True,border=1,border_color=LINE)
-    alternate=fmt(text_wrap=True,bg_color=ROW_ALT,border=1,border_color=LINE)
+    # Excel style 2: teal worksheet bands, generous row height and mist-grey
+    # body cells. The PDF stays navy-blue; do not merge these palettes.
+    title=fmt(bold=True,font_size=19,font_color="white",bg_color=EXCEL_NAVY,
+              valign="vcenter",bottom=4,bottom_color=EXCEL_BLUE)
+    subtitle=fmt(font_size=10,font_color=EXCEL_GREY,bg_color=EXCEL_PALE,
+                 valign="vcenter")
+    bar=fmt(bold=True,font_color="white",bg_color=EXCEL_BLUE,font_size=12,
+            bottom=2,bottom_color=EXCEL_NAVY)
+    head=fmt(bold=True,font_color="white",bg_color=EXCEL_NAVY,
+             align="center",text_wrap=True,font_size=10,border=1,border_color=EXCEL_BLUE,
+             valign="vcenter")
+    normal=fmt(text_wrap=True,border=1,border_color=EXCEL_LINE)
+    alternate=fmt(text_wrap=True,bg_color=EXCEL_ROW_ALT,border=1,border_color=EXCEL_LINE)
     # Keep category styling consistent with the PDF and the agreed prototype:
     # navy table headers, pale-blue category bands, dark navy labels.
     category_colors={
-        "เครื่องกล":(ROW_ALT,CATEGORY_FILL,NAVY),
-        "ไฟฟ้ากำลัง":(ROW_ALT,CATEGORY_FILL,NAVY),
-        "อิเล็กทรอนิกส์/ควบคุม":(ROW_ALT,CATEGORY_FILL,NAVY),
-        "อื่น ๆ":(ROW_ALT,CATEGORY_FILL,NAVY),
+        "เครื่องกล":(EXCEL_ROW_ALT,EXCEL_CATEGORY_FILL,EXCEL_NAVY),
+        "ไฟฟ้ากำลัง":(EXCEL_ROW_ALT,EXCEL_CATEGORY_FILL,EXCEL_NAVY),
+        "อิเล็กทรอนิกส์/ควบคุม":(EXCEL_ROW_ALT,EXCEL_CATEGORY_FILL,EXCEL_NAVY),
+        "อื่น ๆ":(EXCEL_ROW_ALT,EXCEL_CATEGORY_FILL,EXCEL_NAVY),
     }
     category_formats={
         cat:fmt(bold=True,bg_color=palette[1],font_color=palette[2],
-                border=1,border_color=LINE)
+                border=1,border_color=EXCEL_LINE)
         for cat,palette in category_colors.items()
     }
     category_row_formats={
-        cat:fmt(bg_color=palette[0],text_wrap=True,border=1,border_color=LINE)
+        cat:fmt(bg_color=palette[0],text_wrap=True,border=1,border_color=EXCEL_LINE)
         for cat,palette in category_colors.items()
     }
     category_start_formats={
-        cat:fmt(bg_color=palette[0],text_wrap=True,border=1,border_color=LINE,
-                top=2,top_color=NAVY)
+        cat:fmt(bg_color=palette[0],text_wrap=True,border=1,border_color=EXCEL_LINE,
+                top=2,top_color=EXCEL_NAVY)
         for cat,palette in category_colors.items()
     }
     category_number_formats={
         cat:fmt(bg_color=palette[0],num_format="#,##0.##",align="center",
-                border=1,border_color=LINE)
+                border=1,border_color=EXCEL_LINE)
         for cat,palette in category_colors.items()
     }
     category_money_formats={
         cat:fmt(bg_color=palette[0],num_format="#,##0.00;[Red](#,##0.00)",
-                align="right",border=1,border_color=LINE)
+                align="right",border=1,border_color=EXCEL_LINE)
         for cat,palette in category_colors.items()
     }
     category_start_number_formats={
         cat:fmt(bg_color=palette[0],num_format="#,##0.##",align="center",
-                border=1,border_color=LINE,top=2,top_color=NAVY)
+                border=1,border_color=EXCEL_LINE,top=2,top_color=EXCEL_NAVY)
         for cat,palette in category_colors.items()
     }
     category_start_money_formats={
         cat:fmt(bg_color=palette[0],num_format="#,##0.00;[Red](#,##0.00)",
-                align="right",border=1,border_color=LINE,top=2,top_color=NAVY)
+                align="right",border=1,border_color=EXCEL_LINE,top=2,top_color=EXCEL_NAVY)
         for cat,palette in category_colors.items()
     }
-    label=fmt(bold=True,font_color=NAVY)
-    total_fmt=fmt(bold=True,bg_color=PALE,font_color=NAVY,
-                  border=1,border_color=LINE)
-    number=fmt(num_format="#,##0.##",align="center",border=1,border_color=LINE)
+    label=fmt(bold=True,font_color=EXCEL_NAVY)
+    total_fmt=fmt(bold=True,bg_color=EXCEL_PALE,font_color=EXCEL_NAVY,
+                  border=1,border_color=EXCEL_LINE)
+    number=fmt(num_format="#,##0.##",align="center",border=1,border_color=EXCEL_LINE)
     money=fmt(num_format="#,##0.00;[Red](#,##0.00)",align="right",
-              border=1,border_color=LINE)
-    total_money=fmt(bold=True,bg_color=PALE,font_color=NAVY,
+              border=1,border_color=EXCEL_LINE)
+    total_money=fmt(bold=True,bg_color=EXCEL_PALE,font_color=EXCEL_NAVY,
                     num_format="#,##0.00;[Red](#,##0.00)",align="right",
-                    border=1,border_color=LINE)
+                    border=1,border_color=EXCEL_LINE)
     notice=fmt(font_color="#805000",bg_color="#FFF8E8",text_wrap=True)
     def sheet(name,widths,headers=None,wide=False):
         w=wb.add_worksheet(name)
         w.hide_gridlines(2)
-        w.set_tab_color(BLUE if name=="BOM" else NAVY)
+        w.set_tab_color(EXCEL_BLUE if name in ("BOM","Summary") else EXCEL_NAVY)
         w.set_landscape();w.set_paper(8 if wide else 9)
         w.fit_to_pages(1,0);w.center_horizontally()
         w.set_margins(.34,.34,.55,.55)
@@ -591,8 +637,8 @@ def export_excel(doc,destination,options=None):
     sources=sheet("References",[12,44,25,29,52,36,56],
         ["BOM ID","อุปกรณ์ / รุ่น","Part Number","ผู้ขาย","ลิงก์แหล่งข้อมูล",
          "สถานะการเลือก","หมายเหตุการอ้างอิง"],True)
-    sourcefmt=fmt(font_color=BLUE,underline=True,text_wrap=True,
-                   border=1,border_color=LINE)
+    sourcefmt=fmt(font_color=EXCEL_BLUE,underline=True,text_wrap=True,
+                   border=1,border_color=EXCEL_LINE)
     for idx,item in enumerate(items):
         row=7+idx
         values=[item.get("id"),item.get("name"),item.get("partNumber"),
@@ -655,7 +701,7 @@ def export_excel(doc,destination,options=None):
     approval.merge_range("C8:D8", "ชื่อ-สกุล: " + m["advisor"], normal)
     approval.merge_range("A10:B10", "ลายมือชื่อ / Signature", label)
     approval.merge_range("C10:D10", "ลายมือชื่อ / Signature", label)
-    signature_line = fmt(bottom=1, bottom_color=GREY)
+    signature_line = fmt(bottom=1, bottom_color=EXCEL_GREY)
     approval.merge_range("A11:B11", " ", signature_line)
     approval.merge_range("C11:D11", " ", signature_line)
     approval.merge_range("A12:B12", "วันที่ / Date: ........../........../..........", normal)
