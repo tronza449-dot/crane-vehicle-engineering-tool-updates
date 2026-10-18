@@ -160,10 +160,16 @@ def export_excel(doc, destination):
 def _thai_font():
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
+    # Prefer TH Sarabun New for Thai academic reports. Embed it in the PDF
+    # so the recipient does not need the font installed. Fall back to Tahoma
+    # on clean Windows installations and to available Thai fonts on Linux.
     paths = [
+        r"C:\Windows\Fonts\THSarabunNew.ttf",
+        r"C:\Windows\Fonts\TH Sarabun New.ttf",
         r"C:\Windows\Fonts\tahoma.ttf",
         r"C:\Windows\Fonts\LeelawUI.ttf",
         r"C:\Windows\Fonts\LeelawadeeUI.ttf",
+        "/usr/share/fonts/truetype/thai-tlwg/THSarabunNew.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
         "/usr/share/fonts/truetype/thai-tlwg/Garuda.ttf",
     ]

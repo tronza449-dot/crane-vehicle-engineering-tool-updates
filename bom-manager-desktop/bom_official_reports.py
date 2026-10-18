@@ -29,6 +29,7 @@ EXCEL_PALE="#E6F3F4"
 EXCEL_LINE="#C7D9DC"
 EXCEL_ROW_ALT="#F5F9F9"
 EXCEL_CATEGORY_FILL="#DDEFF1"
+EXCEL_FONT="TH Sarabun New"
 
 
 def metadata(doc, values=None):
@@ -102,15 +103,15 @@ def export_pdf(doc, destination, options=None):
     line=colors.HexColor(LINE)
     page=landscape(A4)
     width=page[0]-64
-    body=ParagraphStyle("body",fontName=font,fontSize=8.5,leading=14,
+    body=ParagraphStyle("body",fontName=font,fontSize=10,leading=16,
                         textColor=colors.HexColor("#23394D"),wordWrap="CJK",
                         splitLongWords=True)
-    small=ParagraphStyle("small",parent=body,fontSize=8,leading=12)
-    label=ParagraphStyle("label",parent=body,fontSize=9,leading=15,
+    small=ParagraphStyle("small",parent=body,fontSize=9,leading=14)
+    label=ParagraphStyle("label",parent=body,fontSize=10,leading=16,
                          textColor=colors.HexColor(GREY))
-    title=ParagraphStyle("title",parent=body,fontSize=19,leading=29,
+    title=ParagraphStyle("title",parent=body,fontSize=21,leading=31,
                          textColor=navy)
-    section=ParagraphStyle("section",parent=body,fontSize=14,leading=22,
+    section=ParagraphStyle("section",parent=body,fontSize=15,leading=24,
                            textColor=navy)
     white=ParagraphStyle("white",parent=body,fontSize=8,leading=12,
                          textColor=colors.white,alignment=TA_CENTER)
@@ -399,18 +400,19 @@ def export_excel(doc,destination,options=None):
                        "author":m["author"],"subject":m["project"],
                        "comments":"Unknown prices are intentionally blank."})
     def fmt(**kwargs):
-        return wb.add_format({"font_name":"Tahoma","font_size":11,
+        return wb.add_format({"font_name":EXCEL_FONT,"font_size":14,
                               "font_color":"#21384E","valign":"vcenter",**kwargs})
-    # Excel style 2: teal worksheet bands, generous row height and mist-grey
-    # body cells. The PDF stays navy-blue; do not merge these palettes.
-    title=fmt(bold=True,font_size=19,font_color="white",bg_color=EXCEL_NAVY,
+    # Excel style 2: deep teal worksheet bands and mist-grey rows, retained as
+    # a distinct formal workbook design. Use the Thai academic font TH Sarabun New.
+    # PDF uses the same preferred Thai font with its separate navy-blue design.
+    title=fmt(bold=True,font_size=22,font_color="white",bg_color=EXCEL_NAVY,
               valign="vcenter",bottom=4,bottom_color=EXCEL_BLUE)
-    subtitle=fmt(font_size=10,font_color=EXCEL_GREY,bg_color=EXCEL_PALE,
+    subtitle=fmt(font_size=13,font_color=EXCEL_GREY,bg_color=EXCEL_PALE,
                  valign="vcenter")
-    bar=fmt(bold=True,font_color="white",bg_color=EXCEL_BLUE,font_size=12,
+    bar=fmt(bold=True,font_color="white",bg_color=EXCEL_BLUE,font_size=15,
             bottom=2,bottom_color=EXCEL_NAVY)
     head=fmt(bold=True,font_color="white",bg_color=EXCEL_NAVY,
-             align="center",text_wrap=True,font_size=10,border=1,border_color=EXCEL_BLUE,
+             align="center",text_wrap=True,font_size=13,border=1,border_color=EXCEL_BLUE,
              valign="vcenter")
     normal=fmt(text_wrap=True,border=1,border_color=EXCEL_LINE)
     alternate=fmt(text_wrap=True,bg_color=EXCEL_ROW_ALT,border=1,border_color=EXCEL_LINE)

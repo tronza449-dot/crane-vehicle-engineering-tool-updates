@@ -150,6 +150,7 @@ class ReportExportTests(unittest.TestCase):
         self.assertEqual(reports.EXCEL_NAVY, "#123B4A")
         self.assertEqual(reports.EXCEL_BLUE, "#087E8B")
         self.assertEqual(reports.EXCEL_CATEGORY_FILL, "#DDEFF1")
+        self.assertEqual(reports.EXCEL_FONT, "TH Sarabun New")
         self.assertNotEqual(reports.NAVY, reports.EXCEL_NAVY)
         self.assertNotEqual(reports.CATEGORY_FILL, reports.EXCEL_CATEGORY_FILL)
         file = Path(self.temp.name) / "palette.xlsx"
@@ -160,6 +161,7 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("FF087E8B", styles)   # section accent bands
             self.assertIn("FFDDEFF1", styles)   # category row shading
             self.assertIn("FFF5F9F9", styles)   # quiet alternating rows
+            self.assertIn("TH SARABUN NEW", styles)  # Thai academic typeface
             # PDF-only navy-blue palette must not be used as Excel's main palette.
             self.assertNotIn("FF18324F", styles)
             self.assertNotIn("FFE7F0F6", styles)

@@ -467,3 +467,11 @@ The Windows installer contains **no shared GitHub PAT**, neither in cleartext no
 - ปรับหมวดของรายการ BOM ที่มีอยู่ทั้ง 33 รายการโดยแก้เฉพาะฟิลด์ category; BOM ID, ชื่อ, สเปก, ราคา, ลิงก์ และรายการจัดซื้อเดิมไม่เปลี่ยน
 - Web BOM dropdown, ค่าเริ่มต้นสำรองของเว็บ และ Desktop dropdown ใช้ชื่อหมวดหลักชุดเดียวกัน; ป้ายหมวดเก่าจะ normalize เข้ากลุ่มใหม่
 
+
+
+## v1.10.12 — Formal Thai typography
+
+- PDF keeps the selected academic report design: white paper, restrained navy/blue headings, thin rules, readable table shading and repeated table headers.
+- Excel keeps the selected worksheet design: deep teal headings, pale grey/teal row fills and clearly separated sections.
+- Both formats prefer **TH Sarabun New** for Thai academic work. The PDF embeds the installed font when available; it falls back to Tahoma or another installed Thai font on clean systems. Excel uses TH Sarabun New at 14 pt for body text, with larger title and section hierarchy.
+- Font and palette checks are included in the official report tests; generated PDF/Excel examples are rendered during the Windows build.
