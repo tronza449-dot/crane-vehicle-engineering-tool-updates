@@ -1,13 +1,22 @@
 """Windows Minimal Engineering entrypoint with packaged EXE smoke-test mode."""
 import json
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 from bom_qt import main
 
 
 def smoke_test():
-    """Verify packaged PySide6 can load all pages without any GitHub access."""
+    """Verify packaged PySide6 can load all pages without any GitHub access.
+
+    Tests run after unit tests in the same Windows runner. Give the EXE a
+    clean local profile so a test-created dirty draft cannot trigger the
+    unsaved-changes confirmation dialog and stall the smoke test.
+    """
+    os.environ["LOCALAPPDATA"] = tempfile.mkdtemp(prefix="bom-manager-smoke-")
+    os.environ["BOM_MANAGER_DISABLE_STARTUP_UPDATE_CHECK"] = "1"
     from PySide6.QtWidgets import QApplication
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtCore import Qt
@@ -77,7 +86,12 @@ def smoke_test():
         snapshot("ReadableBOMPreview.png")
         win.font_scale_selector.setCurrentIndex(1)
         win.show_page(0)
+    # A preview test must never prompt to save test-only edits.
+    win.dirty = False
+    win.busy = False
+    win.downloading = False
     win.close()
+    app.quit()
     return 0
 
 
