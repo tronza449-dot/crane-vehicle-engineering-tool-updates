@@ -101,8 +101,8 @@ def export_pdf(doc, destination, options=None):
     numeric=ParagraphStyle("numeric",parent=body,alignment=TA_RIGHT)
     def P(text,sty=body):
         return Paragraph(escape(str(text if text is not None else "—")).replace("\n","<br/>"),sty)
-    def TABLE(headings,rows,widths):
-        # Keep identifiers centered and numerical quantities/costs aligned for scanning.
+    def TABLE(headings,rows,widths,category_col=None):
+        # Formal tables with a repeated header and visible category transitions.
         numeric_cols={i for i,h in enumerate(headings)
                       if any(word in h.casefold() for word in
                              ("จำนวน","ราคา","รวม","ยอด","ไม่มีราคา"))}
@@ -114,18 +114,34 @@ def export_pdf(doc, destination, options=None):
                     centered if col in center_cols else body)
                   for col,value in enumerate(row)] for row in body_rows]
         t=LongTable(data,colWidths=widths,repeatRows=1,hAlign="LEFT")
-        t.setStyle(TableStyle([
+        commands=[
             ("BACKGROUND",(0,0),(-1,0),navy),
             ("ROWBACKGROUNDS",(0,1),(-1,-1),
              [colors.white,colors.HexColor("#F3F7FB")]),
-            ("BOX",(0,0),(-1,-1),.45,line),
-            ("INNERGRID",(0,0),(-1,-1),.25,line),
+            ("BOX",(0,0),(-1,-1),.55,line),
+            ("INNERGRID",(0,0),(-1,-1),.3,line),
             ("VALIGN",(0,0),(-1,-1),"TOP"),
             ("LEFTPADDING",(0,0),(-1,-1),6),
             ("RIGHTPADDING",(0,0),(-1,-1),6),
-            ("TOPPADDING",(0,0),(-1,-1),7),
-            ("BOTTOMPADDING",(0,0),(-1,-1),7),
-        ]))
+            ("TOPPADDING",(0,0),(-1,-1),6),
+            ("BOTTOMPADDING",(0,0),(-1,-1),6),
+        ]
+        if category_col is not None and rows:
+            fills={
+                "เครื่องกล":colors.HexColor("#E4F0F8"),
+                "ไฟฟ้ากำลัง":colors.HexColor("#FFF0D9"),
+                "อิเล็กทรอนิกส์/ควบคุม":colors.HexColor("#E1F5EE"),
+                "อื่น ๆ":colors.HexColor("#EEE8F8"),
+            }
+            previous=None
+            for row_index,row in enumerate(rows,1):
+                category=str(row[category_col])
+                commands.append(("BACKGROUND",(category_col,row_index),
+                                 (category_col,row_index),fills.get(category,colors.white)))
+                if category != previous:
+                    commands.append(("LINEABOVE",(0,row_index),(-1,row_index),1.1,navy))
+                    previous=category
+        t.setStyle(TableStyle(commands))
         return t
     story=[
         Spacer(1,22),P("ENGINEERING DESIGN DOCUMENT",label),
@@ -168,27 +184,35 @@ def export_pdf(doc, destination, options=None):
        [[c,n,missing,f"{amount:,.2f}"] for c,n,missing,amount in categories],
        [width*.44,width*.16,width*.17,width*.23]))
     story.append(PageBreak())
-    for category,num,missing,known in categories:
-        story += [P("ภาคผนวก ก. รายการวัสดุและอุปกรณ์",label),
-                  P(category,section),
-                  P(f"จำนวน {num} รายการ | ยังไม่มีราคา {missing} | "
-                    f"มูลค่าที่ทราบ {known:,.2f} บาท",label),Spacer(1,9)]
-        members=[x for x in items if bom_categories.normalize_category(
-                     x.get("category")) == category]
-        rows=[]
-        for k,item in enumerate(members,1):
-            unitprice=price(item.get("unitPrice"))
-            qty=price(item.get("qty")) or 0
-            rows.append([k,item.get("id"),item.get("partNumber") or "—",
-                         item.get("name",""),item.get("qty"),item.get("unit"),
-                         "—" if unitprice is None else f"{unitprice:,.2f}",
-                         "—" if unitprice is None else f"{qty*unitprice:,.2f}",
-                         item.get("status")])
-        story.append(TABLE(["ลำดับ","BOM ID","Part No.","ชื่ออุปกรณ์ / รุ่น","จำนวน",
-             "หน่วย","ราคา/หน่วย","รวม (THB)","สถานะ"],
-             rows,[31,38,90,245,48,43,80,83,width-658]))
-        story += [Spacer(1,12),P("ราคาไม่ทราบแสดงเป็น — และไม่รวมในยอดงบประมาณ",label),
-                  PageBreak()]
+    story += [
+        P("ทะเบียนรายการวัสดุและอุปกรณ์ / MASTER BOM REGISTER", section),
+        P("รายการทั้งหมดเรียงตามหมวดหลัก • ราคาที่ยังไม่ทราบแสดงเป็น — "
+          "และไม่ถูกรวมเป็นศูนย์บาท", label),
+        Spacer(1, 8),
+    ]
+    master_rows = []
+    for index, item in enumerate(items, 1):
+        category = bom_categories.normalize_category(item.get("category"))
+        unitprice = price(item.get("unitPrice"))
+        qty = price(item.get("qty")) or 0
+        master_rows.append([
+            index, item.get("id"), category, item.get("partNumber") or "—",
+            item.get("name", ""), item.get("qty"), item.get("unit") or "—",
+            "—" if unitprice is None else f"{unitprice:,.2f}",
+            "—" if unitprice is None else f"{qty * unitprice:,.2f}",
+            item.get("status") or "—",
+        ])
+    story.append(TABLE(
+        ["ลำดับ", "BOM ID", "หมวดหลัก", "Part No.", "อุปกรณ์ / รุ่น",
+         "จำนวน", "หน่วย", "ราคา/หน่วย (บาท)", "รวม (บาท)", "สถานะ"],
+        master_rows, [26, 40, 92, 72, 160, 38, 35, 74, 75, width - 612],
+        category_col=2))
+    story += [
+        Spacer(1, 10),
+        P("หมายเหตุ: BOM ID ใช้อ้างอิงรายการภายในโครงการ • Part No. เป็นรหัสจากผู้ผลิต "
+          "เมื่อมีข้อมูล • ยอดรวมคำนวณเฉพาะรายการที่ทราบราคา", label),
+        PageBreak(),
+    ]
     story += [P("ภาคผนวก ข. สเปกและแหล่งอ้างอิงอุปกรณ์",section),
               P("Part Number (ถ้ามี) เป็นรหัสผู้ผลิต ส่วน BOM ID เป็นรหัสรายการในโครงการ",label),
               Spacer(1,8)]
