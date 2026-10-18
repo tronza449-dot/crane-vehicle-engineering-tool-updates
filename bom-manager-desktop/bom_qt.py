@@ -1499,11 +1499,18 @@ class BOMWindow(QMainWindow):
         self.bom_table.setRowCount(len(display))
         self.visible_count_label.setText(
             f"แสดง {len(entries)} จาก {len(values)} รายการ")
+        category_palette = {
+            "เครื่องกล": ("#E4F0F8", "#174F8C"),
+            "ไฟฟ้ากำลัง": ("#FFF0D9", "#805000"),
+            "อิเล็กทรอนิกส์/ควบคุม": ("#E1F5EE", "#176650"),
+            "อื่น ๆ": ("#EEE8F8", "#6546A5"),
+        }
         for i, row in enumerate(display):
             if row[0] == "heading":
                 header = QTableWidgetItem(f"▣  {row[1]}    ·    {row[2]} รายการ")
-                header.setBackground(QBrush(QColor("#E7F1FC")))
-                header.setForeground(QBrush(QColor("#174F8C")))
+                fill, ink = category_palette.get(row[1], ("#E7F1FC", "#174F8C"))
+                header.setBackground(QBrush(QColor(fill)))
+                header.setForeground(QBrush(QColor(ink)))
                 font = header.font()
                 font.setBold(True)
                 header.setFont(font)
@@ -1527,6 +1534,15 @@ class BOMWindow(QMainWindow):
                 if col in (4, 6, 7):
                     cell.setTextAlignment(Qt.AlignmentFlag.AlignVCenter |
                                           Qt.AlignmentFlag.AlignRight)
+                if col == 2:
+                    fill, ink = category_palette.get(
+                        bom_categories.normalize_category(item.get("category")),
+                        ("#F0F3F7", "#526579"))
+                    cell.setBackground(QBrush(QColor(fill)))
+                    cell.setForeground(QBrush(QColor(ink)))
+                    category_font = cell.font()
+                    category_font.setBold(True)
+                    cell.setFont(category_font)
                 if col in (6, 7) and price is None:
                     cell.setForeground(QBrush(QColor("#A86521")))
                 if col == 8 and "ยัง" in str(val):
