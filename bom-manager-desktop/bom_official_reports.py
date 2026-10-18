@@ -34,8 +34,8 @@ def sorted_items(doc):
     the same category, including custom ↑/↓ moves made on another computer.
     """
     return sorted(doc["items"], key=lambda x:
-                  bom_categories.sort_key(bom_categories.LEGACY_CATEGORY_MAP.get(
-                      str(x.get("category") or ""), x.get("category"))))
+                  bom_categories.sort_key(bom_categories.normalize_category(
+                      x.get("category"))))
 
 
 def price(value):
@@ -45,9 +45,8 @@ def price(value):
 def category_stats(items):
     result=[]
     for category,count in bom_categories.summary(items):
-        rows=[x for x in items if bom_categories.LEGACY_CATEGORY_MAP.get(
-               str(x.get("category") or ""), str(x.get("category") or
-               bom_categories.UNCATEGORIZED))==category]
+        rows=[x for x in items if bom_categories.normalize_category(
+               x.get("category")) == category]
         missing=sum(price(x.get("unitPrice")) is None for x in rows)
         known=sum((price(x.get("unitPrice")) or 0) *
                   (price(x.get("qty")) or 0) for x in rows)
@@ -70,6 +69,7 @@ def export_pdf(doc, destination, options=None):
     """Landscape A4 academic report with cover, category BOM and appendices."""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
                                     PageBreak, LongTable, TableStyle)
@@ -96,13 +96,23 @@ def export_pdf(doc, destination, options=None):
     section=ParagraphStyle("section",parent=body,fontSize=14,leading=22,
                            textColor=navy)
     white=ParagraphStyle("white",parent=body,fontSize=8,leading=12,
-                         textColor=colors.white)
+                         textColor=colors.white,alignment=TA_CENTER)
+    centered=ParagraphStyle("centered",parent=body,alignment=TA_CENTER)
+    numeric=ParagraphStyle("numeric",parent=body,alignment=TA_RIGHT)
     def P(text,sty=body):
         return Paragraph(escape(str(text if text is not None else "—")).replace("\n","<br/>"),sty)
     def TABLE(headings,rows,widths):
+        # Keep identifiers centered and numerical quantities/costs aligned for scanning.
+        numeric_cols={i for i,h in enumerate(headings)
+                      if any(word in h.casefold() for word in
+                             ("จำนวน","ราคา","รวม","ยอด","ไม่มีราคา"))}
+        center_cols={i for i,h in enumerate(headings)
+                     if h.strip().casefold() in ("id","bom id","ลำดับ","สถานะ")}
         data=[[P(h,white) for h in headings]]
-        data += [[P(x) for x in row] for row in (rows or [
-            ["ยังไม่มีข้อมูล"]+[""]*(len(headings)-1)])]
+        body_rows=rows or [["ยังไม่มีข้อมูล"]+[""]*(len(headings)-1)]
+        data += [[P(value, numeric if col in numeric_cols else
+                    centered if col in center_cols else body)
+                  for col,value in enumerate(row)] for row in body_rows]
         t=LongTable(data,colWidths=widths,repeatRows=1,hAlign="LEFT")
         t.setStyle(TableStyle([
             ("BACKGROUND",(0,0),(-1,0),navy),
@@ -163,8 +173,8 @@ def export_pdf(doc, destination, options=None):
                   P(category,section),
                   P(f"จำนวน {num} รายการ | ยังไม่มีราคา {missing} | "
                     f"มูลค่าที่ทราบ {known:,.2f} บาท",label),Spacer(1,9)]
-        members=[x for x in items if str(x.get("category") or
-                     bom_categories.UNCATEGORIZED)==category]
+        members=[x for x in items if bom_categories.normalize_category(
+                     x.get("category")) == category]
         rows=[]
         for k,item in enumerate(members,1):
             unitprice=price(item.get("unitPrice"))
@@ -326,7 +336,7 @@ def export_excel(doc,destination,options=None):
          "Part No.","ร้านค้า / ผู้ขาย","ข้อมูลเพิ่มเติม / ลิงก์"],True)
     for idx,item in enumerate(items):
         row=7+idx;erow=row+1
-        category=item.get("category") or bom_categories.UNCATEGORIZED
+        category=bom_categories.normalize_category(item.get("category"))
         qty=price(item.get("qty")) or 0
         amount=price(item.get("unitPrice"))
         entries=[item.get("id"),category,item.get("partNumber"),item.get("name"),
