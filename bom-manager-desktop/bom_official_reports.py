@@ -21,6 +21,7 @@ def metadata(doc, values=None):
         "project": str(v.get("project") or doc.get("project") or "Crane Vehicle"),
         "author": str(v.get("author") or "ไม่ระบุ"),
         "institution": str(v.get("institution") or "ไม่ระบุ"),
+        "advisor": str(v.get("advisor") or "ไม่ระบุ"),
         "document_no": str(v.get("document_no") or "BOM-001"),
         "revision": str(v.get("revision") or "00"),
         "date": str(v.get("date") or datetime.now().strftime("%d/%m/%Y")),
@@ -153,6 +154,7 @@ def export_pdf(doc, destination, options=None):
         ["โครงการ",m["project"]],
         ["ผู้จัดทำ",m["author"]],
         ["สถาบัน / หน่วยงาน",m["institution"]],
+        ["อาจารย์ที่ปรึกษา / ผู้ตรวจทาน",m["advisor"]],
         ["เลขที่เอกสาร",m["document_no"]],
         ["Revision / วันที่",f'{m["revision"]}  /  {m["date"]}'],
         ["สถานะเอกสาร", "DRAFT / ใช้ประกอบรายงานการออกแบบ ไม่ใช่เอกสารอนุมัติการผลิต"],
@@ -190,26 +192,39 @@ def export_pdf(doc, destination, options=None):
           "รายละเอียด Part Number และสเปกอยู่ในภาคผนวก", label),
         Spacer(1, 8),
     ]
-    master_rows = []
-    for index, item in enumerate(items, 1):
-        category = bom_categories.normalize_category(item.get("category"))
-        unitprice = price(item.get("unitPrice"))
-        qty = price(item.get("qty")) or 0
-        master_rows.append([
-            index, item.get("id"), category, item.get("name", ""),
-            f'{item.get("qty", "")} {item.get("unit") or ""}'.strip(),
-            "—" if unitprice is None else f"{unitprice:,.2f}",
-            "—" if unitprice is None else f"{qty * unitprice:,.2f}",
-        ])
-    story.append(TABLE(
-        ["ลำดับ", "BOM ID", "หมวดหลัก", "อุปกรณ์ / รุ่น",
-         "จำนวน / หน่วย", "ราคา/หน่วย (บาท)", "รวม (บาท)"],
-        master_rows, [35, 52, 112, 260, 75, 110, width - 644],
-        category_col=2))
+    # Separate tables by engineering discipline instead of making users scan
+    # a mixed, deeply-columned register. Every table repeats its column header.
+    row_number = 1
+    for category, count, _missing, subtotal in categories:
+        category_items = [item for item in items
+                          if bom_categories.normalize_category(item.get("category")) == category]
+        story.append(P(f"{category}  |  {count} รายการ", section))
+        story.append(Spacer(1, 4))
+        master_rows = []
+        for item in category_items:
+            unitprice = price(item.get("unitPrice"))
+            qty = price(item.get("qty")) or 0
+            master_rows.append([
+                row_number, item.get("id"), item.get("name", ""),
+                f'{item.get("qty", "")} {item.get("unit") or ""}'.strip(),
+                "—" if unitprice is None else f"{unitprice:,.2f}",
+                "—" if unitprice is None else f"{qty * unitprice:,.2f}",
+                item.get("status") or "—",
+            ])
+            row_number += 1
+        story.append(TABLE(
+            ["ลำดับ", "BOM ID", "อุปกรณ์ / รุ่น", "จำนวน / หน่วย",
+             "ราคา/หน่วย (บาท)", "รวม (บาท)", "สถานะ"],
+            master_rows, [36, 56, 285, 78, 105, 105, width - 665]))
+        story.append(Spacer(1, 3))
+        story.append(P(
+            f"รวมหมวด {category}: {subtotal:,.2f} บาท "
+            "(รวมเฉพาะรายการที่ทราบราคา)", label))
+        story.append(Spacer(1, 12))
     story += [
-        Spacer(1, 10),
+        Spacer(1, 4),
         P("หมายเหตุ: BOM ID ใช้อ้างอิงรายการภายในโครงการ • Part No. เป็นรหัสจากผู้ผลิต "
-          "เมื่อมีข้อมูล • ยอดรวมคำนวณเฉพาะรายการที่ทราบราคา", label),
+          "เมื่อมีข้อมูล • ช่องราคา — หมายถึงยังไม่ทราบราคา ไม่ใช่ศูนย์บาท", label),
         PageBreak(),
     ]
     story += [P("ภาคผนวก ก. สเปกและแหล่งอ้างอิงอุปกรณ์",section),
@@ -284,15 +299,45 @@ def export_excel(doc,destination,options=None):
              align="center",text_wrap=True,font_size=10,border=1,border_color="#FFFFFF")
     normal=fmt(text_wrap=True,border=1,border_color=LINE)
     alternate=fmt(text_wrap=True,bg_color="#F2F6FA",border=1,border_color=LINE)
+    category_colors={
+        "เครื่องกล":("#F0F6FB","#DDEBF5",NAVY),
+        "ไฟฟ้า":("#FFFAF0","#FFF0D9","#805000"),
+        "อิเล็กทรอนิกส์/ควบคุม":("#F0FAF6","#DDF3EA","#176650"),
+        "อื่น ๆ":("#F8F5FC","#EEE8F8","#6546A5"),
+    }
     category_formats={
-        "เครื่องกล":fmt(bold=True,bg_color="#E4F0F8",font_color=NAVY,
-                        border=1,border_color=LINE),
-        "ไฟฟ้า":fmt(bold=True,bg_color="#FFF0D9",font_color="#805000",
-                         border=1,border_color=LINE),
-        "อิเล็กทรอนิกส์/ควบคุม":fmt(bold=True,bg_color="#E1F5EE",font_color="#176650",
-                                  border=1,border_color=LINE),
-        "อื่น ๆ":fmt(bold=True,bg_color="#EEE8F8",font_color="#6546A5",
-                     border=1,border_color=LINE),
+        cat:fmt(bold=True,bg_color=palette[1],font_color=palette[2],
+                border=1,border_color=LINE)
+        for cat,palette in category_colors.items()
+    }
+    category_row_formats={
+        cat:fmt(bg_color=palette[0],text_wrap=True,border=1,border_color=LINE)
+        for cat,palette in category_colors.items()
+    }
+    category_start_formats={
+        cat:fmt(bg_color=palette[0],text_wrap=True,border=1,border_color=LINE,
+                top=2,top_color=NAVY)
+        for cat,palette in category_colors.items()
+    }
+    category_number_formats={
+        cat:fmt(bg_color=palette[0],num_format="#,##0.##",align="center",
+                border=1,border_color=LINE)
+        for cat,palette in category_colors.items()
+    }
+    category_money_formats={
+        cat:fmt(bg_color=palette[0],num_format="#,##0.00;[Red](#,##0.00)",
+                align="right",border=1,border_color=LINE)
+        for cat,palette in category_colors.items()
+    }
+    category_start_number_formats={
+        cat:fmt(bg_color=palette[0],num_format="#,##0.##",align="center",
+                border=1,border_color=LINE,top=2,top_color=NAVY)
+        for cat,palette in category_colors.items()
+    }
+    category_start_money_formats={
+        cat:fmt(bg_color=palette[0],num_format="#,##0.00;[Red](#,##0.00)",
+                align="right",border=1,border_color=LINE,top=2,top_color=NAVY)
+        for cat,palette in category_colors.items()
     }
     label=fmt(bold=True,font_color=NAVY)
     total_fmt=fmt(bold=True,bg_color=PALE,font_color=NAVY,
@@ -342,6 +387,7 @@ def export_excel(doc,destination,options=None):
     for row,(key,value) in enumerate([
         ("โครงการ",m["project"]),("ผู้จัดทำ",m["author"]),
         ("สถาบัน / หน่วยงาน",m["institution"]),
+        ("อาจารย์ที่ปรึกษา / ผู้ตรวจทาน",m["advisor"]),
         ("เลขที่เอกสาร",m["document_no"]),("Revision",m["revision"]),
         ("วันที่จัดทำ",m["date"])],7):
         summary.write(row,0,key,label)
@@ -382,6 +428,7 @@ def export_excel(doc,destination,options=None):
     details=sheet("Specification",[12,29,50,68,27,36,54],
         ["ID","หมวด","อุปกรณ์ / รุ่น","สเปกทางเทคนิค",
          "Part No.","ร้านค้า / ผู้ขาย","ข้อมูลเพิ่มเติม / ลิงก์"],True)
+    previous_category = None
     for idx,item in enumerate(items):
         row=7+idx;erow=row+1
         category=bom_categories.normalize_category(item.get("category"))
@@ -389,19 +436,24 @@ def export_excel(doc,destination,options=None):
         amount=price(item.get("unitPrice"))
         entries=[item.get("id"),category,item.get("partNumber"),item.get("name"),
                  qty,item.get("unit"),amount,None,item.get("status")]
+        first_in_group = category != previous_category
+        row_fmt = category_start_formats.get(category, normal) if first_in_group else category_row_formats.get(category, normal)
+        num_fmt = category_start_number_formats.get(category, number) if first_in_group else category_number_formats.get(category, number)
+        money_fmt = category_start_money_formats.get(category, money) if first_in_group else category_money_formats.get(category, money)
         for col,val in enumerate(entries):
-            style=alternate if idx%2 else normal
             if col==7:
                 bom.write_formula(row,col,'=IF(G'+str(erow)+'="","",E'+
-                                  str(erow)+'*G'+str(erow)+')',money,
+                                  str(erow)+'*G'+str(erow)+')',money_fmt,
                                   "" if amount is None else float(qty*amount))
             elif val is None:
-                bom.write_blank(row,col,None,style)
+                bom.write_blank(row,col,None,row_fmt)
             elif col in (4,6):
-                bom.write_number(row,col,float(val),number if col==4 else money)
+                bom.write_number(row,col,float(val),num_fmt if col==4 else money_fmt)
             else:
-                bom.write_string(row,col,str(val),category_formats.get(category,total_fmt) if col==1 else style)
+                bom.write_string(row,col,str(val),
+                                 category_formats.get(category,row_fmt) if col==1 else row_fmt)
         bom.set_row(row,43)
+        previous_category = category
         extra="\n".join(str(item.get(k)) for k in ("link","connection","notes")
                         if item.get(k))
         values=[item.get("id"),category,item.get("name"),item.get("spec"),
