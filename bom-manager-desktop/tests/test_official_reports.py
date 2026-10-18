@@ -29,8 +29,10 @@ class ReportExportTests(unittest.TestCase):
         self.metadata = {
             "author": "ทดสอบการจัดทำรายงาน",
             "institution": "สถาบันทดสอบด้านวิศวกรรม",
+            "advisor": "อาจารย์ทดสอบ",
             "document_no": "ENG-BOM-2026-01",
             "revision": "A",
+            "date": "18/10/2026",
         }
 
     def test_category_totals_match_budget(self):
@@ -102,6 +104,9 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("MASTER BOM REGISTER", shared)
             self.assertIn("ไฟฟ้า", shared)
             self.assertIn("อิเล็กทรอนิกส์/ควบคุม", shared)
+            self.assertIn("อาจารย์ที่ปรึกษา / ผู้ตรวจทาน", shared)
+            self.assertIn("อาจารย์ทดสอบ", shared)
+            self.assertIn("18/10/2026", shared)
             self.assertIn("SUM(H8:H40)", detail)
             self.assertIn("COUNTA", summary)
             self.assertIn("IF(G8", detail)
@@ -142,6 +147,12 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("MASTER BOM REGISTER", report_text)
             self.assertIn("ไฟฟ้า", report_text)
             self.assertIn("อิเล็กทรอนิกส์/ควบคุม", report_text)
+            self.assertIn("อาจารย์ที่ปรึกษา / ผู้ตรวจทาน", report_text)
+            self.assertIn("อาจารย์ทดสอบ", report_text)
+            self.assertIn("18/10/2026", report_text)
+            # The master register is visibly divided into top-level system groups.
+            self.assertIn("MASTER BOM REGISTER", report_text)
+            self.assertIn("รายการ", report_text)
 
     def test_explicit_identification_and_traceability_counts(self):
         gaps = reports.report_quality(self.doc["items"])
