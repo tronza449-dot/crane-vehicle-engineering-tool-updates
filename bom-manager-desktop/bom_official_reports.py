@@ -11,13 +11,13 @@ import bom_categories
 # One restrained palette shared by PDF and Excel to match the formal
 # academic prototype: navy headings, blue accents, pale-blue table bands.
 # Category identity is communicated by labels and grouping, not rainbow fills.
-NAVY="#17365D"
-BLUE="#2F75B5"
-GREY="#5B6573"
-PALE="#EAF1F8"
-LINE="#CFD8E3"
-ROW_ALT="#F4F7FB"
-CATEGORY_FILL="#E7EFF8"
+NAVY="#18324F"
+BLUE="#3F789E"
+GREY="#5E6B78"
+PALE="#EEF3F7"
+LINE="#D1DCE5"
+ROW_ALT="#F7F9FB"
+CATEGORY_FILL="#E7F0F6"
 
 # Excel intentionally has its own worksheet-first palette (teal / mist grey).
 # PDF remains navy-blue and report-like; the two outputs must not look like
@@ -161,28 +161,31 @@ def export_pdf(doc, destination, options=None):
         return t
     # PDF style 1: a clear document cover with a solid navy title panel.
     # This is deliberately a different composition from the Excel workbook.
+    # Academic cover: white paper, dark ink, one muted-blue accent.
+    # Large solid-color blocks are avoided so the report prints cleanly in B/W.
     cover_kicker=ParagraphStyle("cover_kicker",parent=body,fontSize=9,
-        leading=14,textColor=colors.HexColor("#BFD7F0"))
+        leading=14,textColor=colors.HexColor(BLUE))
     cover_title=ParagraphStyle("cover_title",parent=body,fontSize=22,
-        leading=31,textColor=colors.white)
+        leading=31,textColor=navy)
     cover_subtitle=ParagraphStyle("cover_subtitle",parent=body,fontSize=10,
-        leading=16,textColor=colors.white)
+        leading=16,textColor=colors.HexColor(GREY))
     cover=LongTable([
         [P("ENGINEERING DESIGN DOCUMENT",cover_kicker)],
         [P("รายงานรายการวัสดุและอุปกรณ์",cover_title)],
         [P("BILL OF MATERIALS (BOM)  |  CRANE VEHICLE",cover_subtitle)],
     ],colWidths=[width],hAlign="LEFT")
     cover.setStyle(TableStyle([
-        ("BACKGROUND",(0,0),(-1,-1),navy),
-        ("BOX",(0,0),(-1,-1),0,navy),
-        ("LINEBELOW",(0,-1),(-1,-1),4,colors.HexColor(BLUE)),
+        ("BOX",(0,0),(-1,-1),0.65,colors.HexColor(LINE)),
+        ("LINEBEFORE",(0,0),(0,-1),4,colors.HexColor(BLUE)),
+        ("LINEBELOW",(0,0),(-1,0),0.6,colors.HexColor(LINE)),
+        ("LINEBELOW",(0,-1),(-1,-1),2.2,colors.HexColor(BLUE)),
         ("LEFTPADDING",(0,0),(-1,-1),18),
         ("RIGHTPADDING",(0,0),(-1,-1),18),
         ("TOPPADDING",(0,0),(-1,0),14),
-        ("BOTTOMPADDING",(0,0),(-1,0),4),
-        ("TOPPADDING",(0,1),(-1,1),2),
-        ("BOTTOMPADDING",(0,1),(-1,1),3),
-        ("TOPPADDING",(0,2),(-1,2),2),
+        ("BOTTOMPADDING",(0,0),(-1,0),6),
+        ("TOPPADDING",(0,1),(-1,1),5),
+        ("BOTTOMPADDING",(0,1),(-1,1),5),
+        ("TOPPADDING",(0,2),(-1,2),4),
         ("BOTTOMPADDING",(0,2),(-1,2),15),
     ]))
     story=[cover,Spacer(1,18),
@@ -200,11 +203,14 @@ def export_pdf(doc, destination, options=None):
     ]
     meta=LongTable([[P(a,label),P(b)] for a,b in rows],colWidths=[150,width-150])
     meta.setStyle(TableStyle([
-        ("BACKGROUND",(0,0),(-1,-1),colors.HexColor(PALE)),
-        ("LINEBELOW",(0,0),(-1,-1),.4,line),
+        ("BACKGROUND",(0,0),(0,-1),colors.HexColor(PALE)),
+        ("BACKGROUND",(1,0),(1,-1),colors.white),
+        ("LINEBELOW",(0,0),(-1,-1),.45,line),
+        ("LINEAFTER",(0,0),(0,-1),.6,line),
         ("TOPPADDING",(0,0),(-1,-1),8),
         ("BOTTOMPADDING",(0,0),(-1,-1),8),
         ("LEFTPADDING",(0,0),(-1,-1),12),
+        ("RIGHTPADDING",(0,0),(-1,-1),12),
     ]))
     story += [meta,Spacer(1,18),P("สรุปข้อมูลและงบประมาณ",section),Spacer(1,7)]
     story.append(TABLE(["จำนวนรายการ","มีราคาแล้ว","ยังไม่มีราคา","ยอดรวมที่ทราบราคา (บาท)"],[
@@ -353,19 +359,27 @@ def export_pdf(doc, destination, options=None):
         subject=m["project"])
     def decoration(canvas,page_doc):
         canvas.saveState()
-        if page_doc.page == 1:
-            # Keep the cover title panel as the dominant visual element.
-            canvas.setStrokeColor(colors.HexColor(BLUE))
-            canvas.setLineWidth(2.5)
-            canvas.line(32,page[1]-25,page[0]-32,page[1]-25)
-        else:
+        # Print-friendly running header: white paper, a fine steel-blue rule,
+        # and restrained dark text instead of a full-width dark banner.
+        canvas.setStrokeColor(colors.HexColor(BLUE))
+        canvas.setLineWidth(1.1 if page_doc.page == 1 else 0.8)
+        canvas.line(32,page[1]-25,page[0]-32,page[1]-25)
+        if page_doc.page > 1:
             canvas.setFillColor(navy)
-            canvas.rect(0,page[1]-34,page[0],34,stroke=0,fill=1)
-            canvas.setFillColor(colors.white);canvas.setFont(font,9)
-            canvas.drawString(32,page[1]-22,"ENGINEERING BOM / DRAFT  |  "+m["document_no"][:44])
-        canvas.setStrokeColor(line);canvas.line(32,34,page[0]-32,34)
-        canvas.setFillColor(colors.HexColor(GREY));canvas.setFont(font,8)
-        canvas.drawString(32,21,f'Rev. {m["revision"]}  |  {m["date"]}  |  รายงานประกอบการออกแบบ')
+            canvas.setFont(font,9)
+            canvas.drawString(32,page[1]-20,
+                             "ENGINEERING BOM  /  DRAFT")
+            canvas.setFillColor(colors.HexColor(GREY))
+            canvas.setFont(font,8)
+            canvas.drawRightString(page[0]-32,page[1]-20,
+                                   m["document_no"][:44])
+        canvas.setStrokeColor(line)
+        canvas.setLineWidth(0.6)
+        canvas.line(32,34,page[0]-32,34)
+        canvas.setFillColor(colors.HexColor(GREY))
+        canvas.setFont(font,8)
+        canvas.drawString(32,21,
+            f'Rev. {m["revision"]}  |  {m["date"]}  |  รายงานประกอบการออกแบบ')
         canvas.drawRightString(page[0]-32,21,f"หน้า {page_doc.page}")
         canvas.restoreState()
     template.build(story,onFirstPage=decoration,onLaterPages=decoration)
