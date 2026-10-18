@@ -49,6 +49,10 @@ def normalize_member(values):
         raise SteelDataError("จำนวนชิ้นต้องเป็นจำนวนเต็ม")
     length_mm = _positive(row.get("length_mm"), "ความยาวต่อชิ้น (mm)")
     stock_length_m = _positive(row.get("stock_length_m") or 6, "ความยาวเหล็กมาตรฐาน (m)")
+    if length_mm > stock_length_m * Decimal("1000"):
+        raise SteelDataError(
+            "ความยาวชิ้นงานมากกว่าท่อนมาตรฐานที่เลือก "
+            "ให้ตรวจความยาวหรือเปลี่ยนความยาวท่อนมาตรฐาน")
     row.update({
         "member": member,
         "profile": profile,
