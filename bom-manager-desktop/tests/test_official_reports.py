@@ -141,10 +141,12 @@ class ReportExportTests(unittest.TestCase):
     def test_pdf_and_excel_use_deliberately_distinct_formal_designs(self):
         # PDF is the academic report (navy / blue); Excel is a worksheet-first
         # working document (deep teal / mist grey). They must not look identical.
-        self.assertEqual(reports.NAVY, "#17365D")
-        self.assertEqual(reports.BLUE, "#2F75B5")
-        self.assertEqual(reports.CATEGORY_FILL, "#E7EFF8")
-        self.assertEqual(reports.ROW_ALT, "#F4F7FB")
+        self.assertEqual(reports.NAVY, "#18324F")
+        self.assertEqual(reports.BLUE, "#3F789E")
+        self.assertEqual(reports.GREY, "#5E6B78")
+        self.assertEqual(reports.PALE, "#EEF3F7")
+        self.assertEqual(reports.CATEGORY_FILL, "#E7F0F6")
+        self.assertEqual(reports.ROW_ALT, "#F7F9FB")
         self.assertEqual(reports.EXCEL_NAVY, "#123B4A")
         self.assertEqual(reports.EXCEL_BLUE, "#087E8B")
         self.assertEqual(reports.EXCEL_CATEGORY_FILL, "#DDEFF1")
@@ -159,9 +161,9 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("FFDDEFF1", styles)   # category row shading
             self.assertIn("FFF5F9F9", styles)   # quiet alternating rows
             # PDF-only navy-blue palette must not be used as Excel's main palette.
-            self.assertNotIn("FF17365D", styles)
-            self.assertNotIn("FFE7EFF8", styles)
-            self.assertNotIn("FFF4F7FB", styles)
+            self.assertNotIn("FF18324F", styles)
+            self.assertNotIn("FFE7F0F6", styles)
+            self.assertNotIn("FFF7F9FB", styles)
 
     def test_formal_pdf_sections_and_metadata(self):
         from bom_reports import _thai_font
@@ -176,6 +178,16 @@ class ReportExportTests(unittest.TestCase):
         import fitz
         with fitz.open(str(pdf)) as exported:
             self.assertGreaterEqual(len(exported), 7)
+            # The revised PDF must be white-paper friendly: no solid navy cover
+            # panel or full-width dark running header on interior pages.
+            cover_pix = exported[0].get_pixmap(matrix=fitz.Matrix(1, 1), alpha=False)
+            cover_corner = cover_pix.pixel(cover_pix.width - 45, 90)
+            self.assertTrue(all(channel >= 230 for channel in cover_corner),
+                            f"Cover background should be white/light, got {cover_corner}")
+            interior_pix = exported[1].get_pixmap(matrix=fitz.Matrix(1, 1), alpha=False)
+            header_corner = interior_pix.pixel(10, 10)
+            self.assertTrue(all(channel >= 230 for channel in header_corner),
+                            f"Interior header should not be a dark full-width band: {header_corner}")
             report_text = " ".join(page.get_text() for page in exported)
             self.assertIn("ENGINEERING DESIGN DOCUMENT", report_text)
             self.assertIn("DOCUMENT CONTROL", report_text)
