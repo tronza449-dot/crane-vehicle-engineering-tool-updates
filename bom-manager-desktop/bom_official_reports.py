@@ -7,6 +7,7 @@ from datetime import datetime
 from xml.sax.saxutils import escape
 import bom_core
 import bom_categories
+import bom_steel
 
 # One restrained palette shared by PDF and Excel to match the formal
 # academic prototype: navy headings, blue accents, pale-blue table bands.
@@ -320,6 +321,45 @@ def export_pdf(doc, destination, options=None):
         "เอกสารจัดทำจากข้อมูล BOM ณ วันที่ส่งออก ใช้เพื่อประกอบรายงานออกแบบ "
         "ไม่ใช่ใบสั่งซื้อหรือเอกสารที่ผ่านการอนุมัติ",label)]
 
+    # Structural-steel cut list is part of the same shared engineering document.
+    # Estimated stock bars are length-only lower bounds, not an optimized cut plan.
+    steel_rows = doc.get("steel_members", [])
+    steel_totals = bom_steel.summarize(steel_rows)
+    story += [
+        PageBreak(),
+        P("ภาคผนวก ง. รายการตัดเหล็กและวัสดุโครงสร้าง / STEEL CUT LIST", section),
+        P("สรุปจำนวนชิ้นและความยาวแยกตามชนิดหน้าตัด ขนาด และความยาวท่อนมาตรฐาน", label),
+        Spacer(1, 8),
+        TABLE(
+            ["ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น", "ความยาวรวม (m)",
+             "ท่อนมาตรฐาน (m)", "จำนวนท่อน (ประมาณ)"],
+            [[g["profile"], g["size"], g["pieces"],
+              bom_steel.format_length(g["total_length_m"]),
+              f'{g["stock_length_m"]:g}', g["estimated_stock_bars"]]
+             for g in steel_totals["groups"]],
+            [110, 125, 70, 110, 110, width - 525]),
+        Spacer(1, 8),
+        P(f'รวมจำนวนชิ้น: {steel_totals["total_pieces"]:,}  |  '
+          f'ความยาวรวม: {bom_steel.format_length(steel_totals["total_length_m"])} m  |  '
+          f'ท่อนมาตรฐานที่ประมาณ: {steel_totals["estimated_stock_bars"]:,} ท่อน', label),
+        Spacer(1, 12),
+        P("รายละเอียดชิ้นส่วนสำหรับถอดปริมาณเหล็ก", section),
+        Spacer(1, 6),
+        TABLE(
+            ["ID", "ตำแหน่ง / ชิ้นส่วน", "ชนิดหน้าตัด", "ขนาดหน้าตัด",
+             "จำนวน", "ยาว/ชิ้น (mm)", "รวม (m)", "ท่อนมาตรฐาน (m)", "หมายเหตุ"],
+            [[r.get("id"), r.get("member"), r.get("profile"), r.get("size"),
+              r.get("qty"), r.get("length_mm"),
+              bom_steel.format_length(bom_steel.total_length_m(r)),
+              f'{float(r.get("stock_length_m") or 6):g}', r.get("notes")]
+             for r in steel_rows],
+            [32, 105, 88, 82, 50, 65, 65, 75, width - 562]),
+        Spacer(1, 8),
+        P("ข้อจำกัดการประมาณ: จำนวนท่อนมาตรฐานคำนวณจากความยาวรวมเท่านั้น "
+          "ยังไม่หัก kerf เศษตัด ระยะซ้อน/ต่อ และข้อจำกัดการจัดวางชิ้นตัด "
+          "ต้องตรวจแผนตัดจริงก่อนสั่งซื้อเหล็ก", label),
+    ]
+
     # Dedicated sign-off page: leave actual signature/date spaces for a printed
     # academic submission. Names come from report options; no approval is implied.
     story += [
@@ -492,6 +532,8 @@ def export_excel(doc,destination,options=None):
                 "Purchasing":"ทะเบียนรายการจัดซื้อ / PURCHASING REGISTER",
                 "References":"แหล่งอ้างอิงและการตรวจสอบย้อนกลับ / REFERENCES",
                 "Completeness":"ตรวจความครบถ้วนของข้อมูล / COMPLETENESS REVIEW",
+                "Steel Summary":"สรุปปริมาณเหล็กตามหน้าตัด / STEEL SUMMARY",
+                "Steel Cut List":"รายการตัดเหล็ก / STEEL CUT LIST",
             }
             w.merge_range(4,0,4,len(widths)-1,
                           section_titles.get(name,name+" / ENGINEERING DOCUMENT"),bar)
@@ -737,4 +779,90 @@ def export_excel(doc,destination,options=None):
     approval.set_row(16, 28)
     approval.print_area("A1:D17")
     approval.fit_to_pages(1, 1)
+    # Structural-steel takeoff: separate group summary and editable cut list.
+    steel_rows = doc.get("steel_members", [])
+    steel_totals = bom_steel.summarize(steel_rows)
+    steel_summary = sheet("Steel Summary", [28, 29, 16, 22, 22, 24],
+        ["ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น", "ความยาวรวม (m)",
+         "ท่อนมาตรฐาน (m)", "จำนวนท่อน (ประมาณ)"], True)
+    steel_cut = sheet("Steel Cut List", [10, 32, 27, 28, 14, 20, 18, 22, 44],
+        ["ID", "ตำแหน่ง / ชิ้นส่วน", "ชนิดหน้าตัด", "ขนาดหน้าตัด",
+         "จำนวนชิ้น", "ยาว/ชิ้น (mm)", "รวมความยาว (m)",
+         "ท่อนมาตรฐาน (m)", "หมายเหตุ"], True)
+    steel_length_fmt = fmt(num_format="#,##0.000", align="right",
+                           border=1, border_color=EXCEL_LINE)
+    for idx, raw in enumerate(steel_rows):
+        item = bom_steel.normalize_member(raw)
+        row = 7 + idx
+        excel_row = row + 1
+        values = [item.get("id"), item.get("member"), item.get("profile"),
+                  item.get("size"), item.get("qty"), item.get("length_mm"),
+                  None, item.get("stock_length_m"), item.get("notes")]
+        rowfmt = alternate if idx % 2 else normal
+        for col, value in enumerate(values):
+            if col == 6:
+                length = float(bom_steel.total_length_m(item))
+                steel_cut.write_formula(
+                    row, col, f"=E{excel_row}*F{excel_row}/1000",
+                    steel_length_fmt, length)
+            elif col in (4, 5, 7):
+                if value is None:
+                    steel_cut.write_blank(row, col, None, rowfmt)
+                else:
+                    steel_cut.write_number(row, col, float(value),
+                                           number if col == 4 else steel_length_fmt)
+            else:
+                steel_cut.write_string(row, col, "" if value is None else str(value), rowfmt)
+        steel_cut.set_row(row, 43)
+    cut_last_excel = max(8, 7 + len(steel_rows))
+    if steel_rows:
+        steel_cut.autofilter(6, 0, 6 + len(steel_rows), 8)
+    steel_cut.print_area(0, 0, max(7, 6 + len(steel_rows)), 8)
+
+    if steel_totals["groups"]:
+        for idx, group in enumerate(steel_totals["groups"]):
+            row = 7 + idx
+            excel_row = row + 1
+            steel_summary.write_string(row, 0, group["profile"], alternate if idx % 2 else normal)
+            steel_summary.write_string(row, 1, group["size"], alternate if idx % 2 else normal)
+            steel_summary.write_formula(
+                row, 2,
+                f"=SUMIFS('Steel Cut List'!$E$8:$E${cut_last_excel},"
+                f"'Steel Cut List'!$C$8:$C${cut_last_excel},A{excel_row},"
+                f"'Steel Cut List'!$D$8:$D${cut_last_excel},B{excel_row},"
+                f"'Steel Cut List'!$H$8:$H${cut_last_excel},E{excel_row})",
+                number, group["pieces"])
+            steel_summary.write_formula(
+                row, 3,
+                f"=SUMIFS('Steel Cut List'!$G$8:$G${cut_last_excel},"
+                f"'Steel Cut List'!$C$8:$C${cut_last_excel},A{excel_row},"
+                f"'Steel Cut List'!$D$8:$D${cut_last_excel},B{excel_row},"
+                f"'Steel Cut List'!$H$8:$H${cut_last_excel},E{excel_row})",
+                steel_length_fmt, float(group["total_length_m"]))
+            steel_summary.write_number(row, 4, group["stock_length_m"], steel_length_fmt)
+            steel_summary.write_formula(
+                row, 5, f"=IF(E{excel_row}>0,ROUNDUP(D{excel_row}/E{excel_row},0),0)",
+                number, group["estimated_stock_bars"])
+            steel_summary.set_row(row, 32)
+        steel_summary.autofilter(6, 0, 6 + len(steel_totals["groups"]), 5)
+        steel_total_row = 7 + len(steel_totals["groups"])
+        steel_summary.merge_range(steel_total_row, 0, steel_total_row, 1,
+                                  "รวมทั้งหมด", total_fmt)
+        last_summary_excel = 7 + len(steel_totals["groups"])
+        steel_summary.write_formula(
+            steel_total_row, 2, f"=SUM(C8:C{last_summary_excel})",
+            number, steel_totals["total_pieces"])
+        steel_summary.write_formula(
+            steel_total_row, 3, f"=SUM(D8:D{last_summary_excel})",
+            steel_length_fmt, float(steel_totals["total_length_m"]))
+        steel_summary.write_blank(steel_total_row, 4, None, total_fmt)
+        steel_summary.write_formula(
+            steel_total_row, 5, f"=SUM(F8:F{last_summary_excel})",
+            number, steel_totals["estimated_stock_bars"])
+        steel_summary.set_row(steel_total_row, 32)
+        steel_summary.print_area(0, 0, steel_total_row, 5)
+    else:
+        steel_summary.write_string(7, 0, "ยังไม่มีข้อมูลโครงสร้างเหล็ก", normal)
+        steel_summary.print_area("A1:F8")
+
     wb.close()
