@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-16T06:28:12+00:00",
+  "updatedAt": "2026-10-18T10:30:25+00:00",
   "currency": "THB",
   "items": [
     {
@@ -50,28 +50,17 @@
     {
       "id": "4",
       "category": "แบตเตอรี่และไฟฟ้ากำลัง",
-      "name": "แบตเตอรี่ขับเคลื่อน — Li-ion 72 V (20S)",
+      "name": "แบตเตอรี่ขับเคลื่อน — Li-ion 72 V 20Ah",
       "spec": "จ่ายไฟให้ FSESC และระบบรถ | ไฟเลี้ยง: แรงดันเต็มอาจประมาณ 84 V",
       "qty": 1,
       "unit": "ชิ้น",
-      "connection": "ผ่านฟิวส์หลักและคอนแทคเตอร์ที่รองรับแรงดัน DC | GPIO/จุดต่อ: B+ / B− เข้า FSESC ตามคู่มือ",
-      "unitPrice": null,
-      "link": null,
+      "connection": "",
+      "unitPrice": 9790.0,
+      "link": "https://shopee.co.th/product/87064891/28334623559?d_id=93012&uls_trackid=56tgsgto00kl&utm_content=368eUZgWHFCqzVsKc4pKJwLZCm6P",
       "status": "แนวทางเลือกแล้ว",
-      "notes": "ความจุ Ah, กระแสต่อเนื่อง/พีก, รูปแบบแพ็ก และผู้ขาย | ยังไม่มีลิงก์ซื้อ: ต้องกำหนด Ah, discharge current และแพ็ก/ผู้ผลิตก่อน"
-    },
-    {
-      "id": "5",
-      "category": "แบตเตอรี่และไฟฟ้ากำลัง",
-      "name": "BMS — BMS สำหรับแพ็ก Li-ion 20S",
-      "spec": "ป้องกันเซลล์และตัดเมื่อเงื่อนไขเกินกำหนด | ไฟเลี้ยง: ต้องตรงกับ 20S และกระแสแบตเตอรี่",
-      "qty": 1,
-      "unit": "ชิ้น",
-      "connection": "ต่อกับแพ็กตามผัง BMS; telemetry ยังไม่กำหนด | GPIO/จุดต่อ: ยังไม่มี GPIO ที่ยืนยัน",
-      "unitPrice": null,
-      "link": null,
-      "status": "รุ่นยังไม่เลือก",
-      "notes": "กระแสต่อเนื่อง/พีก, balancing, วิธีอ่านข้อมูล | ยังไม่มีลิงก์ซื้อ: ต้องคำนวณ BMS 20S จากกระแสแพ็กและกำหนดการสื่อสารก่อน"
+      "notes": "ความจุ Ah, กระแสต่อเนื่อง/พีก, รูปแบบแพ็ก และผู้ขาย | ยังไม่มีลิงก์ซื้อ: ต้องกำหนด Ah, discharge current และแพ็ก/ผู้ผลิตก่อน",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "6",
@@ -268,10 +257,12 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "ESP32 บนรถส่ง telemetry ไป ESP32-S3; วิธีส่งยังไม่เลือก | GPIO/จุดต่อ: ไม่ใช้ GPIO ของ ESP32 รถโดยตรง",
-      "unitPrice": null,
-      "link": "https://www.waveshare.com/product/esp32-s3-lcd-7b.htm",
+      "unitPrice": 2590.0,
+      "link": "https://www.smartfarmdiys.com/product/1564/waveshare-esp32-s3-7-0-%E0%B8%99%E0%B8%B4%E0%B9%89%E0%B8%A7-1024x600-lcd-development-board-esp32-%E0%B8%88%E0%B8%AD%E0%B9%81%E0%B8%AA%E0%B8%94%E0%B8%87%E0%B8%9C%E0%B8%A5%E0%B8%AB%E0%B8%99%E0%B9%89%E0%B8%B2%E0%B8%88%E0%B8%AD%E0%B8%AA%E0%B8%B1%E0%B8%A1%E0%B8%9C%E0%B8%B1%E0%B8%AA-lvgl-gui-%E0%B8%AA%E0%B9%8D%E0%B8%B2%E0%B8%AB%E0%B8%A3",
       "status": "รุ่นระบุชัด; ยังเป็นตัวเลือก",
-      "notes": "บอร์ดมี ESP32-S3 ในตัว; ต้องกำหนดวิธีส่งข้อมูลและทดสอบการเชื่อมต่อก่อนซื้อ"
+      "notes": "บอร์ดมี ESP32-S3 ในตัว; ต้องกำหนดวิธีส่งข้อมูลและทดสอบการเชื่อมต่อก่อนซื้อ",
+      "partNumber": "",
+      "supplier": ""
     },
     {
       "id": "13",
