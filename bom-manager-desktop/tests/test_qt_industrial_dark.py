@@ -26,8 +26,8 @@ class IndustrialDarkTests(unittest.TestCase):
         self.window.deleteLater()
 
     def test_navigation_and_dashboard(self):
-        self.assertEqual(len(self.window.nav_buttons), 6)
-        self.assertEqual(self.window.stack.count(), 6)
+        self.assertEqual(len(self.window.nav_buttons), 7)
+        self.assertEqual(self.window.stack.count(), 7)
         self.assertEqual(len(self.window.cards), 6)
         self.assertFalse(self.window.install_btn.isEnabled())
         self.window.payload = {
@@ -53,9 +53,9 @@ class IndustrialDarkTests(unittest.TestCase):
         self.assertIsNone(self.window.bom_table.item(0, 0).data(Qt.ItemDataRole.UserRole))
         self.assertIn("Battery", self.window.bom_table.item(1, 1).text())
         self.window.show_metric("wiring")
-        self.assertEqual(self.window.stack.currentIndex(), 2)
-        self.window.show_metric("purchases")
         self.assertEqual(self.window.stack.currentIndex(), 3)
+        self.window.show_metric("purchases")
+        self.assertEqual(self.window.stack.currentIndex(), 4)
 
     def test_document_preserves_original_custom_data(self):
         import bom_core
