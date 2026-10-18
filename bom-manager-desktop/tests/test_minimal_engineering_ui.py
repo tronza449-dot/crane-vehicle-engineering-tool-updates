@@ -48,13 +48,13 @@ class MinimalEngineeringTests(unittest.TestCase):
         self.assertEqual(self.win.cards["priced"].figure.text(), "1")
         self.assertEqual(self.win.cards["missing"].figure.text(), "1")
         self.assertEqual(self.win.cards["known_cost"].figure.text(), "6,000.00")
-        self.assertIn("1 รายการ",self.win.category_buttons["ไฟฟ้า"].text())
+        self.assertIn("1 รายการ",self.win.category_buttons["ไฟฟ้ากำลัง"].text())
         self.assertEqual(self.win.price_progress.value(),50)
 
     def test_category_tile_drills_into_filtered_bom(self):
         self.win.category_buttons["ไฟฟ้า"].click()
         self.assertEqual(self.win.stack.currentIndex(),1)
-        self.assertEqual(self.win.category.currentText(),"ไฟฟ้า")
+        self.assertEqual(self.win.category.currentText(),"ไฟฟ้ากำลัง")
         self.assertEqual(self.win.bom_table.columnCount(),9)
         self.assertEqual(self.win.bom_table.rowCount(),2)
         self.assertEqual(self.win.bom_table.item(1,0).text(),"2")
@@ -86,8 +86,8 @@ class MinimalEngineeringTests(unittest.TestCase):
         self.assertEqual(
             [dlg.widgets["category"].itemText(i)
              for i in range(dlg.widgets["category"].count())],
-            ["เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์", "อื่น ๆ"])
-        self.assertEqual(dlg.widgets["category"].currentText(), "ไฟฟ้า")
+            ["เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ"])
+        self.assertEqual(dlg.widgets["category"].currentText(), "ไฟฟ้ากำลัง")
         self.assertEqual(dlg.widgets["spec"].toPlainText(),"72V 1500W")
         dlg.tabs.setCurrentIndex(2)
         self.assertEqual(dlg.get_values()["unitPrice"],"123.45")
