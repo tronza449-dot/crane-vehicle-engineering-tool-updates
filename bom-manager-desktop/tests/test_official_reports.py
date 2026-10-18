@@ -116,7 +116,7 @@ class ReportExportTests(unittest.TestCase):
             ns={"x":"http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
             formula_cells = [c for c in root.findall(".//x:c",ns)
                              if c.find("x:f",ns) is not None]
-            self.assertEqual(len(formula_cells), len(self.doc["items"]))
+            self.assertEqual(len(formula_cells), len(self.doc["items"]) + 1)  # one grand-total formula
             blank_inputs = sum(reports.price(x.get("unitPrice")) is None
                                for x in self.doc["items"])
             self.assertGreater(blank_inputs,0)
