@@ -74,7 +74,7 @@ class DashboardActionTests(unittest.TestCase):
 
     def test_purchasing_tasks_open_purchase_table(self):
         self.win.task_buttons["pending_receipt"].click()
-        self.assertEqual(self.win.stack.currentIndex(), 3)
+        self.assertEqual(self.win.stack.currentIndex(), 4)
         self.win.show_page(0)
         self.win.task_buttons["pending_order"].click()
         self.assertEqual(self.win.stack.currentIndex(), 3)
