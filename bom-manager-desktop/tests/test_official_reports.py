@@ -46,6 +46,12 @@ class ReportExportTests(unittest.TestCase):
         self.assertLessEqual({x[0] for x in rows},
                              set(bom_categories.CATEGORY_OPTIONS))
 
+    def test_shared_bom_uses_only_major_categories(self):
+        categories = {item.get("category") for item in self.doc["items"]}
+        self.assertTrue(categories.issubset(set(bom_categories.CATEGORY_OPTIONS)))
+        self.assertEqual(categories, {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์"})
+        self.assertEqual(len(self.doc["items"]), 33)
+
     def test_legacy_labels_collapse_to_three_major_categories(self):
         items = [
             {"id":"1","category":"โครงสร้างและเครื่องกล"},
