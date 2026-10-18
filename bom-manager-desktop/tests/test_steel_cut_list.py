@@ -52,6 +52,9 @@ class SteelQuantityTests(unittest.TestCase):
         invalid = dict(self.rows[0], size="")
         with self.assertRaises(bom_steel.SteelDataError):
             bom_steel.normalize_member(invalid)
+        invalid = dict(self.rows[0], length_mm=7000, stock_length_m=6)
+        with self.assertRaises(bom_steel.SteelDataError):
+            bom_steel.normalize_member(invalid)
 
     def test_core_schema_and_multi_pc_merge_preserve_steel_members(self):
         doc = {"items": [], "wiring": [], "purchases": [],
