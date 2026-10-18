@@ -353,8 +353,10 @@ class ReportOptionsDialog(QDialog):
     FIELDS = (
         ("author", "ผู้จัดทำ"),
         ("institution", "มหาวิทยาลัย / สถาบัน"),
+        ("advisor", "อาจารย์ที่ปรึกษา / ผู้ตรวจทาน"),
         ("document_no", "เลขที่เอกสาร"),
         ("revision", "Revision"),
+        ("date", "วันที่จัดทำ (DD/MM/YYYY)"),
     )
 
     def __init__(self, document, parent=None):
@@ -368,14 +370,18 @@ class ReportOptionsDialog(QDialog):
         title = QLabel("จัดทำรายงาน BOM แบบทางการ")
         title.setObjectName("sectionTitle")
         form.addWidget(title)
-        hint = QLabel("กรอกข้อมูลหน้ารายงานครั้งเดียว โปรแกรมจะจำค่าไว้สำหรับครั้งถัดไป")
+        hint = QLabel(
+            "กรอกข้อมูลหน้าปกรายงานครั้งเดียว โปรแกรมจะจำค่าไว้สำหรับครั้งถัดไป "
+            "ทั้ง PDF และ Excel จะใช้เลขที่เอกสาร Revision และวันที่ชุดเดียวกัน")
         hint.setObjectName("caption")
         hint.setWordWrap(True)
         form.addWidget(hint)
         grid = QFormLayout()
         grid.setVerticalSpacing(13)
         for key,label in self.FIELDS:
-            default = "BOM-001" if key == "document_no" else "00" if key == "revision" else ""
+            default = ("BOM-001" if key == "document_no" else
+                       "00" if key == "revision" else
+                       datetime.now().strftime("%d/%m/%Y") if key == "date" else "")
             control = QLineEdit(str(settings.value("report/"+key, default)))
             control.setMinimumWidth(305)
             if key in ("author", "institution"):
@@ -383,8 +389,9 @@ class ReportOptionsDialog(QDialog):
             self.inputs[key] = control
             grid.addRow(label, control)
         form.addLayout(grid)
-        note = QLabel("ใช้ข้อมูล BOM ปัจจุบัน ราคาที่ยังไม่ทราบจะแสดงเป็น — "
-                      "และไม่ถูกรวมเป็นราคาศูนย์")
+        note = QLabel(
+            "เอกสารจัดรูปแบบสำหรับรายงานวิศวกรรม สถานะเป็น DRAFT "
+            "ราคาที่ยังไม่ทราบจะแสดงเป็น — และไม่ถูกรวมเป็นศูนย์")
         note.setWordWrap(True)
         note.setObjectName("hint")
         form.addWidget(note)
@@ -1096,13 +1103,13 @@ class BOMWindow(QMainWindow):
             "• ต้องมีสิทธิ์เฉพาะเมื่อต้องการบันทึกการแก้ไขขึ้น GitHub",
             "caption"))
         body.addWidget(self._label(
-            "ขั้นตอนออกรายงาน: เลือก PDF หรือ Excel → กรอกชื่อผู้จัดทำ / สถาบัน → เลือกที่บันทึก",
-            "caption"))
+            "ขั้นตอน: เลือก PDF หรือ Excel → กรอกข้อมูลหน้าปก (ผู้จัดทำ/สถาบัน/อาจารย์/เลขที่เอกสาร/Revision/วันที่) "
+            "→ เลือกที่บันทึก", "caption"))
         group = self._panel("1  ส่งออกรายงานแบบทางการ (แนะนำสำหรับส่งอาจารย์)", body)
         text = self._label(
-            "PDF จัดตาราง BOM หลักใหม่ให้เหลือเฉพาะข้อมูลสำคัญ อ่านง่ายขึ้น ส่วน Part Number และสเปกอยู่ภาคผนวก "
-            "มีหัวตารางซ้ำ เลขหน้า เลขที่เอกสาร และยอดงบประมาณ; Excel มีชีตสรุป ตารางกรองได้ "
-            "แยกสีหมวด และแถวรวมยอด พร้อมชีตสเปก Wiring แหล่งอ้างอิง และจัดซื้อ", "caption")
+            "PDF แบ่งตารางตาม 3 หมวดหลัก (เครื่องกล / ไฟฟ้า / อิเล็กทรอนิกส์และควบคุม) "
+            "พร้อมยอดย่อยแต่ละหมวดและภาคผนวก; Excel ใช้แถบสีทั้งแถวตามหมวด "
+            "มีสูตรยอดรวม ตัวกรอง ตารางสเปก Wiring แหล่งอ้างอิง และจัดซื้อ", "caption")
         text.setWordWrap(True)
         group.addWidget(text)
         export_cards = QGridLayout()
