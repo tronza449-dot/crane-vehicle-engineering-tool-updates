@@ -103,17 +103,17 @@ def export_pdf(doc, destination, options=None):
     line=colors.HexColor(LINE)
     page=landscape(A4)
     width=page[0]-64
-    body=ParagraphStyle("body",fontName=font,fontSize=10,leading=16,
+    body=ParagraphStyle("body",fontName=font,fontSize=10,leading=15,
                         textColor=colors.HexColor("#23394D"),wordWrap="CJK",
                         splitLongWords=True)
-    small=ParagraphStyle("small",parent=body,fontSize=9,leading=14)
-    label=ParagraphStyle("label",parent=body,fontSize=10,leading=16,
+    small=ParagraphStyle("small",parent=body,fontSize=9,leading=13)
+    label=ParagraphStyle("label",parent=body,fontSize=9.5,leading=14,
                          textColor=colors.HexColor(GREY))
     title=ParagraphStyle("title",parent=body,fontSize=21,leading=31,
                          textColor=navy)
     section=ParagraphStyle("section",parent=body,fontSize=15,leading=24,
                            textColor=navy)
-    white=ParagraphStyle("white",parent=body,fontSize=8,leading=12,
+    white=ParagraphStyle("white",parent=body,fontSize=9,leading=13,
                          textColor=colors.white,alignment=TA_CENTER)
     centered=ParagraphStyle("centered",parent=body,alignment=TA_CENTER)
     numeric=ParagraphStyle("numeric",parent=body,alignment=TA_RIGHT)
@@ -208,8 +208,8 @@ def export_pdf(doc, destination, options=None):
         ("BACKGROUND",(1,0),(1,-1),colors.white),
         ("LINEBELOW",(0,0),(-1,-1),.45,line),
         ("LINEAFTER",(0,0),(0,-1),.6,line),
-        ("TOPPADDING",(0,0),(-1,-1),8),
-        ("BOTTOMPADDING",(0,0),(-1,-1),8),
+        ("TOPPADDING",(0,0),(-1,-1),6),
+        ("BOTTOMPADDING",(0,0),(-1,-1),6),
         ("LEFTPADDING",(0,0),(-1,-1),12),
         ("RIGHTPADDING",(0,0),(-1,-1),12),
     ]))
