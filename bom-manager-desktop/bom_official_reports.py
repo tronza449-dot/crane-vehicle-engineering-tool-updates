@@ -213,7 +213,7 @@ def export_pdf(doc, destination, options=None):
           "เมื่อมีข้อมูล • ยอดรวมคำนวณเฉพาะรายการที่ทราบราคา", label),
         PageBreak(),
     ]
-    story += [P("ภาคผนวก ข. สเปกและแหล่งอ้างอิงอุปกรณ์",section),
+    story += [P("ภาคผนวก ก. สเปกและแหล่งอ้างอิงอุปกรณ์",section),
               P("Part Number (ถ้ามี) เป็นรหัสผู้ผลิต ส่วน BOM ID เป็นรหัสรายการในโครงการ",label),
               Spacer(1,8)]
     story.append(TABLE(["BOM ID","ชื่ออุปกรณ์ / รุ่น","สเปก / รายละเอียดที่บันทึก",
@@ -223,7 +223,7 @@ def export_pdf(doc, destination, options=None):
           "ที่มา: "+str(item.get("link") or "ยังไม่ระบุ"))]
         for item in items],[46,201,260,width-507]))
     story.append(PageBreak())
-    story += [P("ภาคผนวก ค. ตารางการเดินสาย (Wiring Schedule)",section),
+    story += [P("ภาคผนวก ข. ตารางการเดินสาย (Wiring Schedule)",section),
               P("ข้อมูลเบื้องต้น ต้องตรวจสอบแรงดัน กระแส ฟิวส์ และ pinout ก่อนต่อวงจรจริง",label),
               Spacer(1,9)]
     story.append(TABLE(["ID","ต้นทาง","ปลายทาง","สัญญาณ / แรงดัน",
@@ -233,7 +233,7 @@ def export_pdf(doc, destination, options=None):
          w.get("cable"),w.get("protection"),w.get("status")]
         for w in doc.get("wiring",[])],[38,135,135,115,105,115,width-643]))
     story.append(PageBreak())
-    story += [P("ภาคผนวก ง. รายการจัดซื้อ (Purchasing)",section),Spacer(1,9)]
+    story += [P("ภาคผนวก ค. รายการจัดซื้อ (Purchasing)",section),Spacer(1,9)]
     story.append(TABLE(["ID","BOM ID","รายการ","ผู้ขาย","จำนวน","รวม (บาท)","สถานะ"],[
         [o.get("id"),o.get("itemId"),o.get("description"),o.get("supplier"),
          o.get("qty"),"—" if price(o.get("unitPrice")) is None
