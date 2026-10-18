@@ -49,7 +49,7 @@ class ReportExportTests(unittest.TestCase):
     def test_shared_bom_uses_only_major_categories(self):
         categories = {item.get("category") for item in self.doc["items"]}
         self.assertTrue(categories.issubset(set(bom_categories.CATEGORY_OPTIONS)))
-        self.assertEqual(categories, {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์"})
+        self.assertEqual(categories, {"เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม"})
         self.assertEqual(len(self.doc["items"]), 33)
 
     def test_legacy_labels_collapse_to_three_major_categories(self):
@@ -62,10 +62,10 @@ class ReportExportTests(unittest.TestCase):
         ]
         self.assertEqual(
             [bom_categories.normalize_category(x["category"]) for x in items],
-            ["เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์", "เครื่องกล", "อื่น ๆ"])
+            ["เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม", "เครื่องกล", "อื่น ๆ"])
         self.assertEqual(
             {category for category, _ in bom_categories.summary(items)},
-            {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์", "อื่น ๆ"})
+            {"เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ"})
 
     def test_custom_item_order_is_preserved_in_formal_reports(self):
         # Names are deliberately reverse alphabetical, as a user-arranged BOM.
