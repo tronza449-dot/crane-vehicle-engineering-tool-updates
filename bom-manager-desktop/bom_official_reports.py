@@ -118,8 +118,8 @@ def export_pdf(doc, destination, options=None):
             ("BACKGROUND",(0,0),(-1,0),navy),
             ("ROWBACKGROUNDS",(0,1),(-1,-1),
              [colors.white,colors.HexColor("#F3F7FB")]),
-            ("LINEBELOW",(0,0),(-1,0),1,navy),
-            ("LINEBELOW",(0,1),(-1,-1),.35,line),
+            ("BOX",(0,0),(-1,-1),.45,line),
+            ("INNERGRID",(0,0),(-1,-1),.25,line),
             ("VALIGN",(0,0),(-1,-1),"TOP"),
             ("LEFTPADDING",(0,0),(-1,-1),6),
             ("RIGHTPADDING",(0,0),(-1,-1),6),
@@ -257,13 +257,15 @@ def export_excel(doc,destination,options=None):
     subtitle=fmt(font_size=10,font_color=GREY)
     bar=fmt(bold=True,font_color="white",bg_color=NAVY,font_size=12)
     head=fmt(bold=True,font_color="white",bg_color=NAVY,
-             align="center",text_wrap=True,font_size=10)
-    normal=fmt(text_wrap=True,bottom=1,bottom_color=LINE)
-    alternate=fmt(text_wrap=True,bg_color="#F2F6FA",bottom=1,bottom_color=LINE)
-    category_fmt=fmt(bold=True,bg_color="#E4F0F8",font_color=NAVY)
+             align="center",text_wrap=True,font_size=10,border=1,border_color="#FFFFFF")
+    normal=fmt(text_wrap=True,border=1,border_color=LINE)
+    alternate=fmt(text_wrap=True,bg_color="#F2F6FA",border=1,border_color=LINE)
+    category_fmt=fmt(bold=True,bg_color="#E4F0F8",font_color=NAVY,
+                     border=1,border_color=LINE)
     label=fmt(bold=True,font_color=NAVY)
-    number=fmt(num_format="#,##0.##",align="center")
-    money=fmt(num_format="#,##0.00;[Red](#,##0.00)",align="right")
+    number=fmt(num_format="#,##0.##",align="center",border=1,border_color=LINE)
+    money=fmt(num_format="#,##0.00;[Red](#,##0.00)",align="right",
+              border=1,border_color=LINE)
     notice=fmt(font_color="#986015",bg_color="#FFF4E5",text_wrap=True)
     def sheet(name,widths,headers=None,wide=False):
         w=wb.add_worksheet(name)
@@ -417,7 +419,8 @@ def export_excel(doc,destination,options=None):
     sources=sheet("References",[12,44,25,29,52,36,56],
         ["BOM ID","อุปกรณ์ / รุ่น","Part Number","ผู้ขาย","ลิงก์แหล่งข้อมูล",
          "สถานะการเลือก","หมายเหตุการอ้างอิง"],True)
-    sourcefmt=fmt(font_color=BLUE,underline=True,text_wrap=True)
+    sourcefmt=fmt(font_color=BLUE,underline=True,text_wrap=True,
+                   border=1,border_color=LINE)
     for idx,item in enumerate(items):
         row=7+idx
         values=[item.get("id"),item.get("name"),item.get("partNumber"),
