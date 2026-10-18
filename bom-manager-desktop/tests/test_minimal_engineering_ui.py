@@ -52,7 +52,7 @@ class MinimalEngineeringTests(unittest.TestCase):
         self.assertEqual(self.win.price_progress.value(),50)
 
     def test_category_tile_drills_into_filtered_bom(self):
-        self.win.category_buttons["ไฟฟ้า"].click()
+        self.win.category_buttons["ไฟฟ้ากำลัง"].click()
         self.assertEqual(self.win.stack.currentIndex(),1)
         self.assertEqual(self.win.category.currentText(),"ไฟฟ้ากำลัง")
         self.assertEqual(self.win.bom_table.columnCount(),9)
