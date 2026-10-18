@@ -418,9 +418,9 @@ def export_excel(doc,destination,options=None):
     total_row=7+count
     bom.merge_range(total_row,0,total_row,6,
                     "รวมมูลค่ารายการที่ทราบราคา (บาท)",total_fmt)
-    last_data_excel_row=max(7,count+7)
-    bom.write_formula(total_row,7,
-                      "=SUM(H8:H"+str(last_data_excel_row)+")",
+    last_data_excel_row=count+7
+    total_formula=("=SUM(H8:H"+str(last_data_excel_row)+")") if count else "=0"
+    bom.write_formula(total_row,7,total_formula,
                       total_money,float(stats["known_cost"]))
     bom.set_row(total_row,30)
     bom.print_area(0,0,total_row,8)
