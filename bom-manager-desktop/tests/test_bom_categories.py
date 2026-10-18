@@ -17,6 +17,8 @@ class CategoryDataTests(unittest.TestCase):
     def test_project_groups_cover_33_unique_ids(self):
         self.assertEqual(len(bom_categories.ID_TO_CATEGORY), 33)
         self.assertEqual(len(bom_categories.CATEGORY_ORDER), 3)
+        self.assertEqual(bom_categories.CATEGORY_ORDER,
+                         ("เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม"))
         self.assertEqual(
             [len(bom_categories.PROJECT_CATEGORY_IDS[c])
              for c in bom_categories.CATEGORY_ORDER],
@@ -64,6 +66,8 @@ class CategoryDataTests(unittest.TestCase):
             "New Custom", "ระบบขับเคลื่อน", "โครงสร้างและเครื่องกล", "New Custom"
         ])
         self.assertEqual(categories, ["เครื่องกล", "ไฟฟ้ากำลัง", "อื่น ๆ"])
+        self.assertEqual(bom_categories.normalize_category("ขับเคลื่อน/พลังงาน"), "ไฟฟ้ากำลัง")
+        self.assertEqual(bom_categories.normalize_category("สายไฟ/อุปกรณ์ประกอบ"), "ไฟฟ้ากำลัง")
 
 
 class QtCategoryTests(unittest.TestCase):
