@@ -8,11 +8,16 @@ from xml.sax.saxutils import escape
 import bom_core
 import bom_categories
 
-NAVY="#153752"
-BLUE="#205983"
-GREY="#5B7185"
-PALE="#EDF3F8"
-LINE="#D5E1EC"
+# One restrained palette shared by PDF and Excel to match the formal
+# academic prototype: navy headings, blue accents, pale-blue table bands.
+# Category identity is communicated by labels and grouping, not rainbow fills.
+NAVY="#17365D"
+BLUE="#2F75B5"
+GREY="#5B6573"
+PALE="#EAF1F8"
+LINE="#CFD8E3"
+ROW_ALT="#F4F7FB"
+CATEGORY_FILL="#E7EFF8"
 
 
 def metadata(doc, values=None):
@@ -118,7 +123,7 @@ def export_pdf(doc, destination, options=None):
         commands=[
             ("BACKGROUND",(0,0),(-1,0),navy),
             ("ROWBACKGROUNDS",(0,1),(-1,-1),
-             [colors.white,colors.HexColor("#F3F7FB")]),
+             [colors.white,colors.HexColor(ROW_ALT)]),
             ("BOX",(0,0),(-1,-1),.65,line),
             ("INNERGRID",(0,0),(-1,-1),.35,line),
             ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
@@ -128,12 +133,11 @@ def export_pdf(doc, destination, options=None):
             ("BOTTOMPADDING",(0,0),(-1,-1),5),
         ]
         if category_col is not None and rows:
-            fills={
-                "เครื่องกล":colors.HexColor("#E4F0F8"),
-                "ไฟฟ้ากำลัง":colors.HexColor("#FFF0D9"),
-                "อิเล็กทรอนิกส์/ควบคุม":colors.HexColor("#E1F5EE"),
-                "อื่น ๆ":colors.HexColor("#EEE8F8"),
-            }
+            # Use the same subtle blue for all engineering categories.
+            # Section titles and table borders provide the hierarchy.
+            fills={category: colors.HexColor(CATEGORY_FILL)
+                   for category in ("เครื่องกล", "ไฟฟ้ากำลัง",
+                                    "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ")}
             previous=None
             for row_index,row in enumerate(rows,1):
                 category=str(row[category_col])
@@ -349,12 +353,14 @@ def export_excel(doc,destination,options=None):
     head=fmt(bold=True,font_color="white",bg_color=NAVY,
              align="center",text_wrap=True,font_size=10,border=1,border_color="#FFFFFF")
     normal=fmt(text_wrap=True,border=1,border_color=LINE)
-    alternate=fmt(text_wrap=True,bg_color="#F2F6FA",border=1,border_color=LINE)
+    alternate=fmt(text_wrap=True,bg_color=ROW_ALT,border=1,border_color=LINE)
+    # Keep category styling consistent with the PDF and the agreed prototype:
+    # navy table headers, pale-blue category bands, dark navy labels.
     category_colors={
-        "เครื่องกล":("#F0F6FB","#DDEBF5",NAVY),
-        "ไฟฟ้ากำลัง":("#FFFAF0","#FFF0D9","#805000"),
-        "อิเล็กทรอนิกส์/ควบคุม":("#F0FAF6","#DDF3EA","#176650"),
-        "อื่น ๆ":("#F8F5FC","#EEE8F8","#6546A5"),
+        "เครื่องกล":(ROW_ALT,CATEGORY_FILL,NAVY),
+        "ไฟฟ้ากำลัง":(ROW_ALT,CATEGORY_FILL,NAVY),
+        "อิเล็กทรอนิกส์/ควบคุม":(ROW_ALT,CATEGORY_FILL,NAVY),
+        "อื่น ๆ":(ROW_ALT,CATEGORY_FILL,NAVY),
     }
     category_formats={
         cat:fmt(bold=True,bg_color=palette[1],font_color=palette[2],
@@ -399,7 +405,7 @@ def export_excel(doc,destination,options=None):
     total_money=fmt(bold=True,bg_color=PALE,font_color=NAVY,
                     num_format="#,##0.00;[Red](#,##0.00)",align="right",
                     border=1,border_color=LINE)
-    notice=fmt(font_color="#986015",bg_color="#FFF4E5",text_wrap=True)
+    notice=fmt(font_color="#805000",bg_color="#FFF8E8",text_wrap=True)
     def sheet(name,widths,headers=None,wide=False):
         w=wb.add_worksheet(name)
         w.hide_gridlines(2)
