@@ -198,7 +198,7 @@ def export_pdf(doc, destination, options=None):
               [[quality["part_number_missing"],quality["supplier_missing"],
                 quality["reference_missing"],quality["price_missing"]]],
               [width*.25,width*.25,width*.25,width*.25]),
-        Spacer(1,14),P("รายการแยกตามระบบวิศวกรรม",section),Spacer(1,6)]
+        Spacer(1,14),P("รายการแยกตามระบบวิศวกรรม / CATEGORY DEFINITIONS",section),Spacer(1,6)]
     category_definitions = {
         "เครื่องกล": "โครงรถ โครงสร้าง ล้อ เครน และตะกร้า",
         "ไฟฟ้ากำลัง": "แบตเตอรี่ มอเตอร์ VESC/ไดรเวอร์ ฟิวส์ คอนแทคเตอร์ สายกำลัง และ DC-DC",
