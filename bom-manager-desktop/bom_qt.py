@@ -250,19 +250,8 @@ class RecordDialog(QDialog):
                 control = QComboBox()
                 control.setEditable(False)
                 control.addItems(list(bom_categories.CATEGORY_OPTIONS))
-                # Show only major groups. Convert legacy detailed labels in the
-                # editor display; the saved row changes only when user confirms.
-                legacy_map = {
-                    "โครงสร้างและเครื่องกล": "เครื่องกล",
-                    "ระบบขับเคลื่อน": "เครื่องกล",
-                    "แบตเตอรี่และไฟฟ้ากำลัง": "ไฟฟ้า",
-                    "สายไฟและอุปกรณ์ติดตั้ง": "ไฟฟ้า",
-                    "ระบบควบคุมและสื่อสาร": "อิเล็กทรอนิกส์และระบบควบคุม",
-                    "เซนเซอร์และความปลอดภัย": "อิเล็กทรอนิกส์และระบบควบคุม",
-                    "อื่น ๆ / รอจัดหมวด": "อื่น ๆ",
-                }
-                current = str(val or bom_categories.UNCATEGORIZED)
-                current = legacy_map.get(current, current)
+                # Show a small fixed list of major groups; legacy labels are normalized.
+                current = bom_categories.normalize_category(val)
                 if control.findText(current) < 0:
                     current = bom_categories.UNCATEGORIZED
                 control.setCurrentText(current)
@@ -1475,7 +1464,7 @@ class BOMWindow(QMainWindow):
         price_filter = self.price_filter.currentText()
         entries = []
         for index, item in enumerate(values):
-            item_cat = str(item.get("category") or bom_categories.UNCATEGORIZED)
+            item_cat = bom_categories.normalize_category(item.get("category"))
             if cat != "ทุกหมวด" and item_cat != cat:
                 continue
             has_price = item.get("unitPrice") is not None and str(item.get("unitPrice")).strip() != ""
@@ -1496,10 +1485,10 @@ class BOMWindow(QMainWindow):
             display = []
             previous = None
             for index, item in entries:
-                item_cat = str(item.get("category") or bom_categories.UNCATEGORIZED)
+                item_cat = bom_categories.normalize_category(item.get("category"))
                 if item_cat != previous:
-                    count = sum(1 for _, row in entries if str(
-                        row.get("category") or bom_categories.UNCATEGORIZED) == item_cat)
+                    count = sum(1 for _, row in entries if
+                                bom_categories.normalize_category(row.get("category")) == item_cat)
                     display.append(("heading", item_cat, count))
                     previous = item_cat
                 display.append(("item", index, item))
@@ -1525,7 +1514,8 @@ class BOMWindow(QMainWindow):
             qty = item.get("qty", 0)
             price = item.get("unitPrice")
             columns = [item.get("id", ""), item.get("name", ""),
-                       item.get("category", ""), item.get("partNumber", "") or "—",
+                       bom_categories.normalize_category(item.get("category")),
+                       item.get("partNumber", "") or "—",
                        qty, item.get("unit", ""), money(price),
                        money(float(qty) * float(price)) if price is not None else "—",
                        item.get("status", "")]
@@ -1571,7 +1561,8 @@ class BOMWindow(QMainWindow):
         source = self.payload["items"][int(source_index)]
         target = self.payload["items"][int(target_index)]
         if (self.group_mode.currentIndex() == 0 and
-                source.get("category") != target.get("category")):
+                bom_categories.normalize_category(source.get("category")) !=
+                bom_categories.normalize_category(target.get("category"))):
             self.set_status("การจัดกลุ่มเลื่อนได้เฉพาะในหมวดเดียวกัน · เลือก 'แสดงรายการต่อเนื่อง' เพื่อเลื่อนข้ามหมวด")
             return
         source_id = str(source["id"])
