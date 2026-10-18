@@ -138,6 +138,24 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("pageSetup", approval)
             self.assertIn("printOptions", approval)
 
+    def test_pdf_and_excel_use_the_same_formal_navy_blue_palette(self):
+        self.assertEqual(reports.NAVY, "#17365D")
+        self.assertEqual(reports.BLUE, "#2F75B5")
+        self.assertEqual(reports.CATEGORY_FILL, "#E7EFF8")
+        self.assertEqual(reports.ROW_ALT, "#F4F7FB")
+        file = Path(self.temp.name) / "palette.xlsx"
+        reports.export_excel(self.doc, file, self.metadata)
+        with zipfile.ZipFile(file) as xlsx:
+            styles = xlsx.read("xl/styles.xml").decode("utf-8").upper()
+            self.assertIn("FF17365D", styles)   # shared navy headings
+            self.assertIn("FFE7EFF8", styles)   # consistent category bands
+            self.assertIn("FFF4F7FB", styles)   # subtle alternating rows
+            # Old category-specific amber/green/purple fills caused the
+            # exported sheets to differ from the agreed formal prototype.
+            self.assertNotIn("FFFFF0D9", styles)
+            self.assertNotIn("FFDDF3EA", styles)
+            self.assertNotIn("FFEEE8F8", styles)
+
     def test_formal_pdf_sections_and_metadata(self):
         from bom_reports import _thai_font
         try:
