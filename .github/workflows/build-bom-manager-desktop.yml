@@ -95,6 +95,12 @@ jobs:
           $process = Start-Process -FilePath $exe -ArgumentList "--capture-preview" -PassThru
           if (-not $process.WaitForExit(90000)) {
             $process.Kill()
+            if (Test-Path "output\smoke_trace.log") {
+              Write-Host "Smoke-test trace before timeout:"
+              Get-Content "output\smoke_trace.log"
+            } else {
+              Write-Host "Smoke-test trace file was not created"
+            }
             throw "Windows EXE smoke test timed out"
           }
           if ($process.ExitCode -ne 0) { throw "Windows EXE smoke test failed ($($process.ExitCode))" }
