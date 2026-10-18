@@ -116,15 +116,15 @@ class DebugQtTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_debug_page_and_data_summary(self):
-        self.assertEqual(self.win.stack.count(), 6)
-        self.assertEqual(len(self.win.nav_buttons), 6)
+        self.assertEqual(self.win.stack.count(), 7)
+        self.assertEqual(len(self.win.nav_buttons), 7)
         self.win.payload = {
             "schemaVersion": 1, "project": "SECRET DESIGN",
             "items": [{"id": "1", "name": "HUB 1500W", "qty": 2, "unitPrice": None}],
         }
         self.reporter.event("ERROR", "export", "EXPORT_FAILED", "test failure")
-        self.win.show_page(5)
-        self.assertEqual(self.win.stack.currentIndex(), 5)
+        self.win.show_page(6)
+        self.assertEqual(self.win.stack.currentIndex(), 6)
         self.assertIn("ERROR 1", self.win.debug_summary.text())
         self.assertGreaterEqual(self.win.debug_checks.rowCount(), 3)
         self.assertGreaterEqual(self.win.debug_events.rowCount(), 2)
