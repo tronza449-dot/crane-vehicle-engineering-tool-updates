@@ -129,7 +129,7 @@ def export_pdf(doc, destination, options=None):
         if category_col is not None and rows:
             fills={
                 "เครื่องกล":colors.HexColor("#E4F0F8"),
-                "ไฟฟ้ากำลัง":colors.HexColor("#FFF0D9"),
+                "ไฟฟ้า":colors.HexColor("#FFF0D9"),
                 "อิเล็กทรอนิกส์/ควบคุม":colors.HexColor("#E1F5EE"),
                 "อื่น ๆ":colors.HexColor("#EEE8F8"),
             }
@@ -186,8 +186,8 @@ def export_pdf(doc, destination, options=None):
     story.append(PageBreak())
     story += [
         P("ทะเบียนรายการวัสดุและอุปกรณ์ / MASTER BOM REGISTER", section),
-        P("รายการทั้งหมดเรียงตามหมวดหลัก • ราคาที่ยังไม่ทราบแสดงเป็น — "
-          "และไม่ถูกรวมเป็นศูนย์บาท", label),
+        P("รายการทั้งหมดเรียงตามหมวดหลัก • ตารางหลักแสดงเฉพาะข้อมูลสำคัญเพื่อให้อ่านง่าย "
+          "รายละเอียด Part Number และสเปกอยู่ในภาคผนวก", label),
         Spacer(1, 8),
     ]
     master_rows = []
@@ -196,16 +196,15 @@ def export_pdf(doc, destination, options=None):
         unitprice = price(item.get("unitPrice"))
         qty = price(item.get("qty")) or 0
         master_rows.append([
-            index, item.get("id"), category, item.get("partNumber") or "—",
-            item.get("name", ""), item.get("qty"), item.get("unit") or "—",
+            index, item.get("id"), category, item.get("name", ""),
+            f'{item.get("qty", "")} {item.get("unit") or ""}'.strip(),
             "—" if unitprice is None else f"{unitprice:,.2f}",
             "—" if unitprice is None else f"{qty * unitprice:,.2f}",
-            item.get("status") or "—",
         ])
     story.append(TABLE(
-        ["ลำดับ", "BOM ID", "หมวดหลัก", "Part No.", "อุปกรณ์ / รุ่น",
-         "จำนวน", "หน่วย", "ราคา/หน่วย (บาท)", "รวม (บาท)", "สถานะ"],
-        master_rows, [26, 40, 92, 72, 160, 38, 35, 74, 75, width - 612],
+        ["ลำดับ", "BOM ID", "หมวดหลัก", "อุปกรณ์ / รุ่น",
+         "จำนวน / หน่วย", "ราคา/หน่วย (บาท)", "รวม (บาท)"],
+        master_rows, [35, 52, 112, 260, 75, 110, width - 644],
         category_col=2))
     story += [
         Spacer(1, 10),
@@ -214,7 +213,8 @@ def export_pdf(doc, destination, options=None):
         PageBreak(),
     ]
     story += [P("ภาคผนวก ก. สเปกและแหล่งอ้างอิงอุปกรณ์",section),
-              P("Part Number (ถ้ามี) เป็นรหัสผู้ผลิต ส่วน BOM ID เป็นรหัสรายการในโครงการ",label),
+              P("Part Number (ถ้ามี) เป็นรหัสผู้ผลิต ส่วน BOM ID เป็นรหัสรายการในโครงการ "
+                "• หมวดไฟฟ้าครอบคลุมแหล่งจ่าย/กำลัง ส่วนอิเล็กทรอนิกส์/ควบคุมครอบคลุมวงจรสัญญาณและประมวลผล",label),
               Spacer(1,8)]
     story.append(TABLE(["BOM ID","ชื่ออุปกรณ์ / รุ่น","สเปก / รายละเอียดที่บันทึก",
                         "ผู้ขาย / แหล่งอ้างอิง"],[
@@ -287,7 +287,7 @@ def export_excel(doc,destination,options=None):
     category_formats={
         "เครื่องกล":fmt(bold=True,bg_color="#E4F0F8",font_color=NAVY,
                         border=1,border_color=LINE),
-        "ไฟฟ้ากำลัง":fmt(bold=True,bg_color="#FFF0D9",font_color="#805000",
+        "ไฟฟ้า":fmt(bold=True,bg_color="#FFF0D9",font_color="#805000",
                          border=1,border_color=LINE),
         "อิเล็กทรอนิกส์/ควบคุม":fmt(bold=True,bg_color="#E1F5EE",font_color="#176650",
                                   border=1,border_color=LINE),
