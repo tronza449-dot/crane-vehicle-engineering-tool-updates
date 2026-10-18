@@ -17,8 +17,14 @@ with fitz.open(str(SOURCE)) as pdf:
                         if "MASTER BOM REGISTER" in page.get_text()), None)
     assert table_index is not None, "The new consolidated BOM table is missing from the PDF"
     assert "BOM ID" in pdf[table_index].get_text(), "The master BOM table must include BOM IDs"
+    signoff_index = len(pdf) - 1
+    signoff_text = pdf[signoff_index].get_text()
+    assert "PREPARED & REVIEWED" in signoff_text, "PDF sign-off page is missing"
+    assert "ผู้จัดทำ / PREPARED BY" in signoff_text, "Prepared-by field is missing"
+    assert "ผู้ตรวจสอบ / REVIEWED BY" in signoff_text, "Reviewer field is missing"
     targets = [(0, "EngineeringBOM_Cover.png"),
-               (table_index, "EngineeringBOM_Table.png")]
+               (table_index, "EngineeringBOM_Table.png"),
+               (signoff_index, "EngineeringBOM_Signoff.png")]
     for index, name in targets:
         page = pdf[index]
         pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
