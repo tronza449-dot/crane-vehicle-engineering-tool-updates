@@ -255,7 +255,7 @@ class RecordDialog(QDialog):
                 if control.findText(current) < 0:
                     current = bom_categories.UNCATEGORIZED
                 control.setCurrentText(current)
-                control.setToolTip("เลือกหมวดหลักเท่านั้น: เครื่องกล=โครงสร้าง/ล้อ/เครน; ไฟฟ้า=แบตเตอรี่/มอเตอร์/สายไฟ/กำลัง; อิเล็กทรอนิกส์/ควบคุม=ESP32/รีเลย์/เซนเซอร์/สัญญาณ")
+                control.setToolTip("เลือกหมวดหลักเท่านั้น: เครื่องกล=โครงสร้าง/ล้อ/เครน; ไฟฟ้ากำลัง=แบตเตอรี่/มอเตอร์/ฟิวส์/สายไฟ; อิเล็กทรอนิกส์/ควบคุม=ESP32/รีเลย์/เซนเซอร์/สัญญาณ")
             elif key == "itemId" and "จัดซื้อ" in title:
                 control = QComboBox()
                 control.setEditable(False)
@@ -1108,7 +1108,7 @@ class BOMWindow(QMainWindow):
             "→ เลือกที่บันทึก", "caption"))
         group = self._panel("1  ส่งออกรายงานแบบทางการ (แนะนำสำหรับส่งอาจารย์)", body)
         text = self._label(
-            "PDF แบ่งตารางตาม 3 หมวดหลัก (เครื่องกล / ไฟฟ้า / อิเล็กทรอนิกส์และควบคุม) "
+            "PDF แบ่งตารางตาม 3 หมวดหลัก (เครื่องกล / ไฟฟ้ากำลัง / อิเล็กทรอนิกส์และควบคุม) "
             "พร้อมยอดย่อยแต่ละหมวดและภาคผนวก; Excel ใช้แถบสีทั้งแถวตามหมวด "
             "มีสูตรยอดรวม ตัวกรอง ตารางสเปก Wiring แหล่งอ้างอิง และจัดซื้อ", "caption")
         text.setWordWrap(True)
@@ -1138,7 +1138,7 @@ class BOMWindow(QMainWindow):
             export_cards.setColumnStretch(column, 1)
         group.addLayout(export_cards)
         text = self._label(
-            "หมวดหลักมี 3 กลุ่ม: เครื่องกล • ไฟฟ้า (แบตเตอรี่/มอเตอร์/กำลังไฟ) • อิเล็กทรอนิกส์/ควบคุม (ESP32/รีเลย์/เซนเซอร์/สัญญาณ). "
+            "หมวดหลักมี 3 กลุ่ม: เครื่องกล (โครงสร้าง/ล้อ/เครน) • ไฟฟ้ากำลัง (แบตเตอรี่/มอเตอร์/ฟิวส์/คอนแทคเตอร์/สายไฟ) • อิเล็กทรอนิกส์/ควบคุม (ESP32/เซนเซอร์/CAN/สัญญาณ). "
             "PDF: A4 แนวนอน ตารางหลักลดคอลัมน์ที่ไม่จำเป็นและย้ายสเปกไปภาคผนวก • Excel: ตารางกรองได้ แถวรวมยอดและสูตรคำนวณ", "hint")
         text.setWordWrap(True)
         group.addWidget(text)
