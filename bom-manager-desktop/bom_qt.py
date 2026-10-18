@@ -1008,7 +1008,7 @@ class BOMWindow(QMainWindow):
         actions.addWidget(self._button("ลบที่เลือก", lambda: self.delete_record("items"), "danger"))
         actions.addStretch()
         actions.addWidget(self._button("ออกเอกสาร PDF / Excel",
-                                       lambda: self.show_page(4)))
+                                       lambda: self.show_page(5)))
         body.addLayout(actions)
         ordering = QHBoxLayout()
         ordering.addWidget(self._label("จัดลำดับรายการด้วย ↑ ↓ หรือลากวางแถว", "hint"))
@@ -1428,6 +1428,7 @@ class BOMWindow(QMainWindow):
     def render_all(self):
         self.render_dashboard()
         self.render_bom()
+        self.render_steel()
         self.render_wiring()
         self.render_purchases()
         self.top_project_label.setText(str(self.payload.get("project") or "ยังไม่ได้ตั้งชื่อโครงการ"))
@@ -2143,7 +2144,7 @@ class BOMWindow(QMainWindow):
             return
         item = self.payload["items"][index]
         if str(item.get("id") or "") in bom_core.purchased_item_ids(self.payload):
-            self.show_page(3)
+            self.show_page(4)
             QMessageBox.information(self, "มีในรายการจัดซื้อแล้ว",
                                     "อุปกรณ์นี้ถูกเพิ่มในรายการจัดซื้อแล้ว จึงไม่แสดงให้เลือกซ้ำ\n"
                                     "หากต้องการแก้จำนวนหรือราคา ให้แก้ในตารางจัดซื้อ")
