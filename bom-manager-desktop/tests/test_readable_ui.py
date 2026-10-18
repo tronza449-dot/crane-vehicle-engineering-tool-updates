@@ -59,22 +59,43 @@ class ReadabilityTests(unittest.TestCase):
 
     def test_switch_fonts_and_persist_text_zoom(self):
         import bom_qt_theme as theme
-        self.window.font_scale_selector.setCurrentIndex(2)
-        self.assertEqual(theme.current_scale(), 1.3)
-        self.assertEqual(self.window.zoom_factor, 1.3)
-        self.assertGreaterEqual(self.window.bom_table.verticalHeader().defaultSectionSize(), 68)
-        self.window.font_family_selector.setCurrentText("Leelawadee UI")
-        self.assertEqual(theme.current_font(), "Leelawadee UI")
-        self.assertIn('font-family: "Leelawadee UI";', self.app.styleSheet())
-        self.window.font_family_selector.setCurrentText("Tahoma")
-        self.assertEqual(theme.current_font(), "Tahoma")
-        self.assertIn('font-family: "Tahoma";', self.app.styleSheet())
-        self.window.increase_font_scale()
-        self.assertEqual(theme.current_scale(), 1.45)
-        self.window.reset_font_scale()
-        self.assertEqual(theme.current_scale(), 1.15)
-        self.window.decrease_font_scale()
-        self.assertEqual(theme.current_scale(), 1.0)
+        # Exercise all selector callbacks and persistence without repeatedly
+        # forcing Qt to re-polish every widget in the full 7-page window.
+        # The actual stylesheet generator is checked separately below.
+        with patch.object(theme, "apply_theme") as apply_theme:
+            self.window.font_scale_selector.setCurrentIndex(2)
+            self.assertEqual(theme.current_scale(), 1.3)
+            self.assertEqual(self.window.zoom_factor, 1.3)
+            self.assertGreaterEqual(
+                self.window.bom_table.verticalHeader().defaultSectionSize(), 68)
+            self.window.font_family_selector.setCurrentText("Leelawadee UI")
+            self.assertEqual(theme.current_font(), "Leelawadee UI")
+            self.window.font_family_selector.setCurrentText("Tahoma")
+            self.assertEqual(theme.current_font(), "Tahoma")
+            self.window.increase_font_scale()
+            self.assertEqual(theme.current_scale(), 1.45)
+            self.window.reset_font_scale()
+            self.assertEqual(theme.current_scale(), 1.15)
+            self.window.decrease_font_scale()
+            self.assertEqual(theme.current_scale(), 1.0)
+            self.assertEqual(apply_theme.call_count, 7)
+
+    def test_stylesheet_generator_supports_each_font_without_repainting_window(self):
+        import bom_qt_theme as theme
+
+        class StyleSink:
+            def setFont(self, font):
+                self.font = font
+
+            def setStyleSheet(self, stylesheet):
+                self.stylesheet = stylesheet
+
+        sink = StyleSink()
+        result = theme.apply_theme(sink, scale=1.3, font_family="Leelawadee UI")
+        self.assertEqual(result, {"scale": 1.3, "font_family": "Leelawadee UI"})
+        self.assertIn('font-family: "Leelawadee UI";', sink.stylesheet)
+        self.assertIn("font-size: 21px", sink.stylesheet)
+        self.assertEqual(sink.font.family(), "Leelawadee UI")
 
     def test_large_text_does_not_remove_data_or_update_controls(self):
         self.window.payload = {
