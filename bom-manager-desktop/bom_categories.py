@@ -1,57 +1,76 @@
-"""Stable engineering-system categories for the Crane Vehicle BOM.
+"""Small, stable BOM categories for engineering reports and everyday editing.
 
-Only the category field is reclassified. Component identities, prices,
-connections, suppliers, quantities and order records must remain unchanged.
+Legacy labels are normalized for display/export, and an explicit migration helper
+can change only category fields while preserving every other BOM value.
 """
 from collections import Counter
 
-CATEGORY_ORDER = (
-    "เครื่องกล",
-    "ไฟฟ้า",
-    "อิเล็กทรอนิกส์และระบบควบคุม",
-    "ระบบเครนและวินช์",
-)
+CATEGORY_ORDER = ("เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์")
 UNCATEGORIZED = "อื่น ๆ"
 CATEGORY_OPTIONS = (*CATEGORY_ORDER, UNCATEGORIZED)
 
-# Exact BOM item IDs in the user's 33-item engineering BOM.
-# This is ONLY used for deliberate one-time project migration, never
-# for changing category during ordinary loading or editing.
-PROJECT_CATEGORY_IDS = {
-    "โครงสร้างและเครื่องกล": ("26", "27", "28"),
-    "ระบบขับเคลื่อน": ("2", "3"),
-    "แบตเตอรี่และไฟฟ้ากำลัง": ("4", "5", "6", "7", "9", "10"),
-    "ระบบควบคุมและสื่อสาร": ("1", "11", "14", "15", "18", "19", "20"),
-    "เซนเซอร์และความปลอดภัย": ("8", "12", "13", "16", "17", "21"),
-    "ระบบเครนและวินช์": ("22", "23", "24", "25"),
-    "สายไฟและอุปกรณ์ติดตั้ง": ("29", "30", "31", "32", "33"),
+LEGACY_CATEGORY_MAP = {
+    # Previous detailed labels -> one of the three main engineering disciplines.
+    "โครงสร้างและเครื่องกล": "เครื่องกล",
+    "ระบบเครนและวินช์": "เครื่องกล",
+    "ระบบขับเคลื่อน": "ไฟฟ้า",
+    "แบตเตอรี่และไฟฟ้ากำลัง": "ไฟฟ้า",
+    "สายไฟและอุปกรณ์ติดตั้ง": "ไฟฟ้า",
+    "ระบบควบคุมและสื่อสาร": "อิเล็กทรอนิกส์",
+    "เซนเซอร์และความปลอดภัย": "อิเล็กทรอนิกส์",
+    "อิเล็กทรอนิกส์และระบบควบคุม": "อิเล็กทรอนิกส์",
+    "อื่น ๆ / รอจัดหมวด": UNCATEGORIZED,
+    "Uncategorized": UNCATEGORIZED,
+    "Mechanical": "เครื่องกล",
+    "Electrical": "ไฟฟ้า",
+    "Electronics": "อิเล็กทรอนิกส์",
+    "Power": "ไฟฟ้า",
 }
 
+# Original 33-item baseline only. These IDs are used by the explicit, strict
+# migration helper, never as a rule for classifying newly created BOM items.
+PROJECT_CATEGORY_IDS = {
+    "เครื่องกล": ("26", "27", "28"),
+    "ไฟฟ้า": ("3", "4", "5", "6", "7", "9", "10", "22", "23", "25",
+              "29", "30", "31", "32", "33"),
+    "อิเล็กทรอนิกส์": ("1", "2", "8", "11", "12", "13", "14", "15", "16",
+                      "17", "18", "19", "20", "21", "24"),
+}
 ID_TO_CATEGORY = {
     item_id: category
     for category, item_ids in PROJECT_CATEGORY_IDS.items()
     for item_id in item_ids
 }
-assert len(ID_TO_CATEGORY) == 33, "Each initial BOM ID must be assigned once"
+assert len(ID_TO_CATEGORY) == 33, "Each baseline BOM ID must be assigned once"
+
+
+def normalize_category(category):
+    """Return one of the three major categories or 'อื่น ๆ' for unknown labels."""
+    raw = str(category or "").strip()
+    if raw in CATEGORY_OPTIONS:
+        return raw
+    return LEGACY_CATEGORY_MAP.get(raw, UNCATEGORIZED)
 
 
 def sort_key(category):
-    category = str(category or UNCATEGORIZED)
+    normalized = normalize_category(category)
     try:
-        return (CATEGORY_ORDER.index(category), "")
+        return (CATEGORY_ORDER.index(normalized), "")
     except ValueError:
-        return (len(CATEGORY_ORDER), category.casefold())
+        return (len(CATEGORY_ORDER), normalized.casefold())
 
 
 def sorted_categories(categories):
-    return sorted(set(str(cat or UNCATEGORIZED) for cat in categories), key=sort_key)
+    present = {normalize_category(category) for category in categories}
+    return [category for category in CATEGORY_ORDER if category in present] + (
+        [UNCATEGORIZED] if UNCATEGORIZED in present else [])
 
 
 def reclassify_project_items(items, *, strict=True):
-    """Return a copy of rows changing *only* category, never underlying rows.
+    """Return a copy of the original baseline rows with only category changed.
 
-    Require all 33 original IDs with no extras when strict=True to protect
-    against accidental application to a changed BOM.
+    The strict ID guard prevents applying a baseline migration to an unrelated
+    or modified project. This function intentionally does not infer new items.
     """
     keys = [str(item.get("id")) for item in items]
     if strict and (len(keys) != 33 or len(set(keys)) != 33
@@ -60,13 +79,15 @@ def reclassify_project_items(items, *, strict=True):
     updated = []
     for entry in items:
         row = dict(entry)
-        new_cat = ID_TO_CATEGORY.get(str(entry.get("id")))
-        if new_cat:
-            row["category"] = new_cat
+        target = ID_TO_CATEGORY.get(str(entry.get("id")))
+        if target:
+            row["category"] = target
+        else:
+            row["category"] = normalize_category(entry.get("category"))
         updated.append(row)
     return updated
 
 
 def summary(items):
-    counts = Counter(str(item.get("category") or UNCATEGORIZED) for item in items)
-    return [(cat, counts[cat]) for cat in sorted_categories(counts)]
+    counts = Counter(normalize_category(item.get("category")) for item in items)
+    return [(category, counts[category]) for category in sorted_categories(counts)]
