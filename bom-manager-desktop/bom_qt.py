@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 import bom_core
 import bom_categories
+import bom_steel
 import bom_reports
 import bom_official_reports
 import bom_advanced
@@ -72,7 +73,17 @@ PURCHASE_FIELDS = [
     ("po", "เลขอ้างอิง PO"), ("dueDate", "กำหนดรับ YYYY-MM-DD"),
     ("link", "ลิงก์ร้านค้า"), ("notes", "หมายเหตุ"),
 ]
-FIELD_SET = {"items": ITEM_FIELDS, "wiring": WIRE_FIELDS, "purchases": PURCHASE_FIELDS}
+STEEL_FIELDS = [
+    ("member", "ตำแหน่ง / ชิ้นส่วน"),
+    ("profile", "ชนิดหน้าตัดเหล็ก"),
+    ("size", "ขนาดหน้าตัด เช่น 25×25×2 mm"),
+    ("qty", "จำนวนชิ้น"),
+    ("length_mm", "ความยาวต่อชิ้น (mm)"),
+    ("stock_length_m", "ความยาวเหล็กมาตรฐาน (m)"),
+    ("notes", "หมายเหตุ"),
+]
+FIELD_SET = {"items": ITEM_FIELDS, "wiring": WIRE_FIELDS,
+             "purchases": PURCHASE_FIELDS, "steel_members": STEEL_FIELDS}
 WIRE_STATUS = ["รอตรวจสอบ", "ตรวจสอบแล้ว", "แก้ไขแบบ", "ยกเลิก"]
 PURCHASE_STATUS = ["วางแผน", "ขอราคา", "สั่งแล้ว", "ได้รับบางส่วน", "ได้รับแล้ว", "ยกเลิก"]
 MULTILINE = {"spec", "connection", "notes"}
@@ -256,6 +267,15 @@ class RecordDialog(QDialog):
                     current = bom_categories.UNCATEGORIZED
                 control.setCurrentText(current)
                 control.setToolTip("เลือกหมวดหลักเท่านั้น: เครื่องกล=โครงสร้าง/ล้อ/เครน; ไฟฟ้ากำลัง=แบตเตอรี่/มอเตอร์/ฟิวส์/สายไฟ; อิเล็กทรอนิกส์/ควบคุม=ESP32/รีเลย์/เซนเซอร์/สัญญาณ")
+            elif key == "profile" and "เหล็ก" in title:
+                control = QComboBox()
+                control.setEditable(False)
+                control.addItems(list(bom_steel.PROFILE_OPTIONS))
+                current = str(val or bom_steel.PROFILE_OPTIONS[0])
+                if control.findText(current) < 0:
+                    control.addItem(current)
+                control.setCurrentText(current)
+                control.setToolTip("เลือกชนิดหน้าตัดหลัก แล้วระบุขนาดจริงในช่องขนาดหน้าตัด")
             elif key == "itemId" and "จัดซื้อ" in title:
                 control = QComboBox()
                 control.setEditable(False)
@@ -293,6 +313,12 @@ class RecordDialog(QDialog):
                     control.setPlaceholderText("เว้นว่างหากยังไม่ทราบราคา")
                 if key == "qty":
                     control.setPlaceholderText("จำนวนต้องมากกว่า 0")
+                if key == "size":
+                    control.setPlaceholderText("เช่น 25×25×2 mm, 50×25×2 mm")
+                if key == "length_mm":
+                    control.setPlaceholderText("ความยาวต่อชิ้น เช่น 750")
+                if key == "stock_length_m":
+                    control.setPlaceholderText("เช่น 6 หรือ 12 เมตร")
             self.widgets[key] = control
             (groups.get(key) if is_bom else form).addRow(QLabel(label), control)
         if "จัดซื้อ" in title and "itemId" in self.widgets:
@@ -421,7 +447,7 @@ class BOMWindow(QMainWindow):
         self.resize(1580, 960)
         self.setMinimumSize(1180, 750)
         self.payload = {"schemaVersion": 1, "project": "รถไฟฟ้าพร้อมเครน",
-                        "currency": "THB", "items": []}
+                        "currency": "THB", "items": [], "steel_members": []}
         self.sha = None
         self.base_payload = None  # shared GitHub ancestor for three-way merge
         self.dirty = False
@@ -549,6 +575,7 @@ class BOMWindow(QMainWindow):
         labels = [
             "⌂    หน้าหลัก",
             "▤    รายการอุปกรณ์ (BOM)",
+            "▦    โครงสร้างเหล็ก / Cut List",
             "⌁    สายไฟและการเชื่อมต่อ",
             "▣    จัดซื้อและราคา",
             "⇩    รายงาน (PDF / Excel)",
@@ -633,7 +660,7 @@ class BOMWindow(QMainWindow):
         action_row.addWidget(self._button("+ เพิ่มอุปกรณ์",
                                            lambda: self.edit_record("items"), "primary"))
         action_row.addWidget(self._button("ส่งออก PDF / Excel",
-                                           lambda: self.show_page(4)))
+                                           lambda: self.show_page(5)))
         action_row.addWidget(self._button("รับข้อมูล GitHub ล่าสุด",
                                            self.load_remote))
         self.sync_btn = self._button("ซิงก์ข้อมูลตอนนี้", self.sync_now, "primary")
@@ -646,6 +673,7 @@ class BOMWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.stack.addWidget(self._scrolling_dashboard(self._build_dashboard()))
         self.stack.addWidget(self._build_bom())
+        self.stack.addWidget(self._scrolling_dashboard(self._build_steel()))
         self.stack.addWidget(self._build_wiring())
         self.stack.addWidget(self._build_purchases())
         self.stack.addWidget(self._scrolling_dashboard(self._build_sync()))
@@ -680,7 +708,7 @@ class BOMWindow(QMainWindow):
             action = QShortcut(QKeySequence(shortcut), self)
             action.activated.connect(slot)
         export_shortcut = QShortcut(QKeySequence("Ctrl+E"), self)
-        export_shortcut.activated.connect(lambda: self.show_page(4))
+        export_shortcut.activated.connect(lambda: self.show_page(5))
         self._apply_readability_metrics()
 
     def _apply_readability_metrics(self):
@@ -689,8 +717,9 @@ class BOMWindow(QMainWindow):
         self.sidebar_frame.setFixedWidth(round(245 * zoom))
         row_h = round(53 * zoom)
         header_h = round(49 * zoom)
-        for table in (self.category_table, self.bom_table, self.wire_table,
-                      self.purchase_table, self.debug_checks, self.debug_events):
+        for table in (self.category_table, self.bom_table, self.steel_table,
+                      self.steel_summary_table, self.wire_table, self.purchase_table,
+                      self.debug_checks, self.debug_events):
             table.verticalHeader().setDefaultSectionSize(row_h)
             table.horizontalHeader().setFixedHeight(header_h)
         for card in self.cards.values():
@@ -815,7 +844,7 @@ class BOMWindow(QMainWindow):
         quick.addWidget(self.dashboard_sync_time)
         quick.addWidget(self._button("เปิดรายการอุปกรณ์  →",
                                      lambda: self.show_page(1), "primary"))
-        quick.addWidget(self._button("ส่งออกรายงาน", lambda: self.show_page(4)))
+        quick.addWidget(self._button("ส่งออกรายงาน", lambda: self.show_page(5)))
         line.addLayout(quick)
         body.addWidget(hero)
 
@@ -957,7 +986,7 @@ class BOMWindow(QMainWindow):
             self.price_filter.setCurrentText(
                 "ไม่มีราคา" if kind == "missing_price" else "ไม่มีผู้ขาย")
         elif kind in ("pending_order", "pending_receipt"):
-            self.show_page(3)
+            self.show_page(4)
             if kind == "pending_order":
                 self.set_status("เปิดรายการจัดซื้อแล้ว • ใช้ปุ่มเพิ่มยอดสั่งซื้อเพื่อดำเนินการ")
             else:
@@ -1041,6 +1070,54 @@ class BOMWindow(QMainWindow):
         footer.addWidget(self._button("สร้างรายการจัดซื้อจากที่เลือก",
                                       self.purchase_selected))
         table_box.addLayout(footer)
+        return page
+
+    def _build_steel(self):
+        page, body = self._page(
+            "โครงสร้างเหล็ก / Steel Cut List",
+            "นับจำนวนชิ้นและความยาวเหล็กแยกตามชนิดหน้าตัดและขนาด เพื่อประมาณความยาวรวมที่ต้องเตรียม")
+        actions = QHBoxLayout()
+        actions.addWidget(self._button(
+            "+ เพิ่มชิ้นส่วนเหล็ก", lambda: self.edit_record("steel_members"), "primary"))
+        actions.addWidget(self._button(
+            "แก้ไขรายการ", lambda: self.edit_record("steel_members", True)))
+        actions.addWidget(self._button(
+            "ลบรายการ", lambda: self.delete_record("steel_members"), "danger"))
+        actions.addStretch()
+        body.addLayout(actions)
+        intro = self._label(
+            "กรอกความยาวของเหล็ก 1 ชิ้นเป็นมิลลิเมตร และจำนวนชิ้นที่ใช้ "
+            "โปรแกรมจะคูณรวมเป็นเมตรและจัดกลุ่มตามชนิด/ขนาดหน้าตัดให้อัตโนมัติ", "caption")
+        intro.setWordWrap(True)
+        body.addWidget(intro)
+        self.steel_totals_label = self._label(
+            "จำนวนชิ้น: 0  •  ความยาวรวม: 0.000 m  •  เหล็กท่อนมาตรฐาน: 0 ท่อน (ประมาณ)", "sectionTitle")
+        body.addWidget(self.steel_totals_label)
+        summary = self._table_panel(body, "สรุปตามชนิดและขนาดเหล็ก")
+        self.steel_summary_table = self._table(
+            ["ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น", "ความยาวรวม (m)",
+             "ความยาวท่อนมาตรฐาน (m)", "จำนวนท่อนที่ต้องเตรียม (ประมาณ)"], 1)
+        self.steel_summary_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        for col, width in {0: 170, 1: 155, 2: 100, 3: 135, 4: 170, 5: 205}.items():
+            self.steel_summary_table.setColumnWidth(col, width)
+        summary.addWidget(self.steel_summary_table)
+        detail = self._table_panel(body, "รายการตัดเหล็ก / รายชิ้นส่วน")
+        self.steel_table = self._table(
+            ["ID", "ตำแหน่ง / ชิ้นส่วน", "ชนิดหน้าตัด", "ขนาดหน้าตัด",
+             "จำนวนชิ้น", "ยาวต่อชิ้น (mm)", "รวมความยาว (m)",
+             "ท่อนมาตรฐาน (m)", "หมายเหตุ"], 1)
+        for col, width in {0: 55, 1: 180, 2: 165, 3: 150, 4: 85,
+                           5: 125, 6: 125, 7: 135, 8: 210}.items():
+            self.steel_table.setColumnWidth(col, width)
+        self.steel_table.cellDoubleClicked.connect(
+            lambda *_: self.edit_record("steel_members", True))
+        detail.addWidget(self.steel_table)
+        note = self._label(
+            "หมายเหตุ: จำนวนท่อนมาตรฐานเป็นค่าประมาณขั้นต่ำจากความยาวรวม "
+            "ยังไม่หักรอยตัด (kerf) เศษเหลือ ระยะซ้อน/ต่อ และข้อจำกัดการจัดวางชิ้นตัด "
+            "ก่อนซื้อเหล็กจริงควรตรวจ cutting plan และเผื่อเศษตามงานผลิต", "hint")
+        note.setWordWrap(True)
+        body.addWidget(note)
         return page
 
     def _build_wiring(self):
@@ -1335,9 +1412,9 @@ class BOMWindow(QMainWindow):
 
     def show_metric(self, target):
         if target == "wiring":
-            self.show_page(2)
-        elif target == "purchases":
             self.show_page(3)
+        elif target == "purchases":
+            self.show_page(4)
         else:
             self.show_page(1)
             self.search.clear()
@@ -1653,6 +1730,52 @@ class BOMWindow(QMainWindow):
         self.changed()
         self.set_status("ย้อนลำดับอุปกรณ์แล้ว • จะซิงก์ GitHub อัตโนมัติ")
 
+    def render_steel(self):
+        rows = self.payload.get("steel_members", [])
+        self.steel_table.setRowCount(len(rows))
+        for index, raw in enumerate(rows):
+            try:
+                entry = bom_steel.normalize_member(raw)
+                total_m = bom_steel.total_length_m(entry)
+                total_text = bom_steel.format_length(total_m)
+            except bom_steel.SteelDataError:
+                entry = raw
+                total_text = "ตรวจข้อมูล"
+            values = [
+                entry.get("id", ""), entry.get("member", ""), entry.get("profile", ""),
+                entry.get("size", ""), entry.get("qty", ""), entry.get("length_mm", ""),
+                total_text, entry.get("stock_length_m", ""), entry.get("notes", ""),
+            ]
+            for col, value in enumerate(values):
+                cell = QTableWidgetItem(str(value if value is not None else ""))
+                cell.setData(Qt.ItemDataRole.UserRole, index)
+                self.steel_table.setItem(index, col, cell)
+        self.steel_table.clearSelection()
+
+        summary = bom_steel.summarize(rows)
+        self.steel_summary_table.setRowCount(len(summary["groups"]))
+        for index, group in enumerate(summary["groups"]):
+            values = [
+                group["profile"], group["size"], group["pieces"],
+                bom_steel.format_length(group["total_length_m"]),
+                f'{group["stock_length_m"]:g}',
+                group["estimated_stock_bars"],
+            ]
+            for col, value in enumerate(values):
+                cell = QTableWidgetItem(str(value))
+                cell.setData(Qt.ItemDataRole.UserRole, index)
+                self.steel_summary_table.setItem(index, col, cell)
+        if not summary["groups"]:
+            self.steel_summary_table.setRowCount(1)
+            empty = QTableWidgetItem("ยังไม่มีรายการโครงสร้างเหล็ก")
+            empty.setFlags(empty.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+            self.steel_summary_table.setItem(0, 0, empty)
+        self.steel_summary_table.clearSelection()
+        self.steel_totals_label.setText(
+            f'จำนวนชิ้น: {summary["total_pieces"]:,}  •  '
+            f'ความยาวรวม: {bom_steel.format_length(summary["total_length_m"])} m  •  '
+            f'เหล็กท่อนมาตรฐาน: {summary["estimated_stock_bars"]:,} ท่อน (ประมาณ)')
+
     def render_wiring(self):
         rows = self.payload.get("wiring", [])
         self._fill_table(self.wire_table, rows, [
@@ -1695,6 +1818,7 @@ class BOMWindow(QMainWindow):
 
     def _selected_index(self, kind):
         table = {"items": self.bom_table,
+                 "steel_members": self.steel_table,
                  "wiring": self.wire_table,
                  "purchases": self.purchase_table}[kind]
         row = table.currentRow()
@@ -1911,10 +2035,16 @@ class BOMWindow(QMainWindow):
         if kind == "items" and index is None:
             row.setdefault("category", bom_categories.UNCATEGORIZED)
             row.setdefault("qty", 1)
+        if kind == "steel_members" and index is None:
+            row.setdefault("profile", bom_steel.PROFILE_OPTIONS[0])
+            row.setdefault("qty", 1)
+            row.setdefault("stock_length_m", 6)
         title = {
             "items": ("แก้ไขอุปกรณ์" if existing else "เพิ่มอุปกรณ์"),
             "wiring": ("แก้ไขจุดต่อสาย" if existing else "เพิ่มจุดต่อสาย"),
             "purchases": ("แก้ไขการจัดซื้อ" if existing else "เพิ่มการจัดซื้อ"),
+            "steel_members": ("แก้ไขชิ้นส่วนโครงสร้างเหล็ก" if existing
+                              else "เพิ่มชิ้นส่วนโครงสร้างเหล็ก"),
         }[kind]
         dlg = RecordDialog(title, FIELD_SET[kind], row, self,
                            allow_repeat=allow_repeat)
@@ -1929,6 +2059,8 @@ class BOMWindow(QMainWindow):
         try:
             if kind == "items":
                 values = bom_core.normalize_dialog_values(values)
+            elif kind == "steel_members":
+                values = bom_steel.normalize_member(values)
             elif kind == "wiring":
                 if not values["from"] or not values["to"]:
                     raise bom_core.DataError("ต้องระบุจุดต้นทางและปลายทาง")
@@ -2016,7 +2148,7 @@ class BOMWindow(QMainWindow):
                                     "อุปกรณ์นี้ถูกเพิ่มในรายการจัดซื้อแล้ว จึงไม่แสดงให้เลือกซ้ำ\n"
                                     "หากต้องการแก้จำนวนหรือราคา ให้แก้ในตารางจัดซื้อ")
             return
-        self.show_page(3)
+        self.show_page(4)
         self.edit_record("purchases", defaults={
             "itemId": str(item.get("id") or ""),
             "description": str(item.get("name") or ""),
