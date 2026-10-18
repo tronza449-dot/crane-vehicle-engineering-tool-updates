@@ -163,10 +163,9 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("ผู้จัดทำ / PREPARED BY", report_text)
             self.assertIn("ผู้ตรวจสอบ / REVIEWED BY", report_text)
             self.assertIn("ลายมือชื่อ", report_text)
-            with fitz.open(str(pdf)) as exported:
-                signoff = exported[-1].get_text()
-                self.assertIn("PREPARED & REVIEWED", signoff)
-                self.assertIn("อาจารย์ทดสอบ", signoff)
+            signoff = exported[-1].get_text()
+            self.assertIn("PREPARED & REVIEWED", signoff)
+            self.assertIn("อาจารย์ทดสอบ", signoff)
             # The master register is visibly divided into top-level system groups.
             self.assertIn("MASTER BOM REGISTER", report_text)
             self.assertIn("รายการ", report_text)
