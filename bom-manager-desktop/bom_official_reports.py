@@ -145,10 +145,10 @@ def export_pdf(doc, destination, options=None):
         t.setStyle(TableStyle(commands))
         return t
     story=[
-        Spacer(1,22),P("ENGINEERING DESIGN DOCUMENT",label),
-        Spacer(1,9),P("รายงานรายการวัสดุและอุปกรณ์",title),
+        Spacer(1,10),P("ENGINEERING DESIGN DOCUMENT",label),
+        Spacer(1,7),P("รายงานรายการวัสดุและอุปกรณ์",title),
         P("BILL OF MATERIALS (BOM) / CRANE VEHICLE",section),
-        Spacer(1,22),
+        Spacer(1,12),
     ]
     rows=[
         ["โครงการ",m["project"]],
@@ -173,15 +173,17 @@ def export_pdf(doc, destination, options=None):
         [stats["items"],stats["priced"],stats["missing"],
          f'{stats["known_cost"]:,.2f}']],
         [width*.20,width*.20,width*.20,width*.40]))
-    story += [Spacer(1,12),P(
+    story += [Spacer(1,9),P(
         "หมายเหตุ: ราคาไม่ทราบจะแสดงเป็น — ไม่ถือว่าราคาเท่ากับศูนย์ "
         "ยอดรวมยังไม่รวมรายการที่ไม่มีราคา รวมทั้งค่าขนส่ง ภาษี และค่าแรงที่ยังไม่บันทึก",label),
-        Spacer(1,11),P("ตรวจสอบความครบถ้วนก่อนใช้จัดซื้อ",section),Spacer(1,6),
+        PageBreak(),P("ตรวจความครบถ้วนและสรุปตามหมวดวิศวกรรม",section),Spacer(1,6),
+        P("ตรวจข้อมูลที่ยังขาดก่อนนำรายการไปจัดซื้อหรือใช้เป็นเอกสารอ้างอิง",label),
+        Spacer(1,5),
         TABLE(["ไม่มี Part No.","ยังไม่ระบุผู้ขาย","ไม่มีแหล่งอ้างอิง","ยังไม่ทราบราคา"],
               [[quality["part_number_missing"],quality["supplier_missing"],
                 quality["reference_missing"],quality["price_missing"]]],
               [width*.25,width*.25,width*.25,width*.25]),
-        PageBreak(),P("รายการแยกตามระบบวิศวกรรม",section),Spacer(1,6)]
+        Spacer(1,14),P("รายการแยกตามระบบวิศวกรรม",section),Spacer(1,6)]
     story.append(TABLE(["ระบบ / หมวดหมู่","รายการ","ไม่มีราคา","ยอดรวมที่ทราบ (บาท)"],
        [[c,n,missing,f"{amount:,.2f}"] for c,n,missing,amount in categories],
        [width*.44,width*.16,width*.17,width*.23]))
