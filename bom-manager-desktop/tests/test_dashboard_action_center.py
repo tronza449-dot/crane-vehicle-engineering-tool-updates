@@ -77,7 +77,7 @@ class DashboardActionTests(unittest.TestCase):
         self.assertEqual(self.win.stack.currentIndex(), 4)
         self.win.show_page(0)
         self.win.task_buttons["pending_order"].click()
-        self.assertEqual(self.win.stack.currentIndex(), 3)
+        self.assertEqual(self.win.stack.currentIndex(), 4)
         self.assertIn("เพิ่มยอดสั่งซื้อ", self.win.status.text())
 
     def test_no_token_status_is_true_public_viewer_not_connected_until_verified(self):
