@@ -16,11 +16,11 @@ import bom_categories
 class CategoryDataTests(unittest.TestCase):
     def test_project_groups_cover_33_unique_ids(self):
         self.assertEqual(len(bom_categories.ID_TO_CATEGORY), 33)
-        self.assertEqual(len(bom_categories.CATEGORY_ORDER), 7)
+        self.assertEqual(len(bom_categories.CATEGORY_ORDER), 3)
         self.assertEqual(
             [len(bom_categories.PROJECT_CATEGORY_IDS[c])
              for c in bom_categories.CATEGORY_ORDER],
-            [3, 2, 6, 7, 6, 4, 5])
+            [3, 16, 14])
 
     def test_migration_changes_only_category(self):
         data = [{"id": str(i), "name": f"Part {i}", "qty": i,
@@ -45,8 +45,14 @@ class CategoryDataTests(unittest.TestCase):
         items_by_id = {str(item["id"]): item for item in doc["items"]}
         self.assertGreaterEqual(len(doc["items"]), len(bom_categories.ID_TO_CATEGORY))
         for item_id, category in bom_categories.ID_TO_CATEGORY.items():
-            self.assertIn(item_id, items_by_id)
-            self.assertEqual(items_by_id[item_id]["category"], category)
+            # The current live BOM may remove an obsolete baseline row; all
+            # retained baseline IDs must use their mapped major category.
+            if item_id in items_by_id:
+                self.assertEqual(items_by_id[item_id]["category"], category)
+        self.assertTrue({x.get("category") for x in doc["items"]}.issubset(
+            set(bom_categories.CATEGORY_OPTIONS)))
+        self.assertEqual({x.get("category") for x in doc["items"]},
+                         {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์"})
         summary = bom_categories.summary(doc["items"])
         self.assertEqual(sum(count for _, count in summary), len(doc["items"]))
         self.assertEqual(
@@ -57,9 +63,7 @@ class CategoryDataTests(unittest.TestCase):
         categories = bom_categories.sorted_categories([
             "New Custom", "ระบบขับเคลื่อน", "โครงสร้างและเครื่องกล", "New Custom"
         ])
-        self.assertEqual(categories, [
-            "โครงสร้างและเครื่องกล", "ระบบขับเคลื่อน", "New Custom"
-        ])
+        self.assertEqual(categories, ["เครื่องกล", "ไฟฟ้า", "อื่น ๆ"])
 
 
 class QtCategoryTests(unittest.TestCase):
@@ -106,7 +110,7 @@ class QtCategoryTests(unittest.TestCase):
     def test_dashboard_double_click_category(self):
         self.window.open_category_from_dashboard(0, 0)
         self.assertEqual(self.window.stack.currentIndex(), 1)
-        self.assertEqual(self.window.category.currentText(), "ระบบขับเคลื่อน")
+        self.assertEqual(self.window.category.currentText(), "ไฟฟ้า")
         self.assertEqual(self.window.bom_table.rowCount(), 3)
 
     def test_editor_lists_standard_groups(self):
@@ -118,11 +122,12 @@ class QtCategoryTests(unittest.TestCase):
         picker = dialog.widgets["category"]
         self.assertIsInstance(picker, QComboBox)
         self.assertFalse(picker.isEditable())
-        self.assertEqual(picker.currentText(), "ระบบเครนและวินช์")
-        self.assertIn("ระบบขับเคลื่อน", [picker.itemText(i) for i in range(picker.count())])
-        self.assertEqual(len(bom_categories.CATEGORY_OPTIONS), 8)
-        picker.setCurrentText("ระบบขับเคลื่อน")
-        self.assertEqual(dialog.get_values()["category"], "ระบบขับเคลื่อน")
+        self.assertEqual(picker.currentText(), "เครื่องกล")
+        self.assertEqual([picker.itemText(i) for i in range(picker.count())],
+                         ["เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์", "อื่น ๆ"])
+        self.assertEqual(len(bom_categories.CATEGORY_OPTIONS), 4)
+        picker.setCurrentText("ไฟฟ้า")
+        self.assertEqual(dialog.get_values()["category"], "ไฟฟ้า")
         dialog.close()
 
     def test_unknown_existing_category_is_selectable_not_lost(self):
@@ -135,9 +140,9 @@ class QtCategoryTests(unittest.TestCase):
                               {"category": "หมวดเก่าพิเศษ"}, self.window)
         selector = editor.widgets["category"]
         self.assertFalse(selector.isEditable())
-        self.assertEqual(selector.currentText(), "หมวดเก่าพิเศษ")
-        self.assertIn("หมวดเก่าพิเศษ",
-                      [selector.itemText(i) for i in range(selector.count())])
+        self.assertEqual(selector.currentText(), "อื่น ๆ")
+        self.assertNotIn("หมวดเก่าพิเศษ",
+                         [selector.itemText(i) for i in range(selector.count())])
         editor.close()
 
     def test_add_form_disallows_freetext_category(self):
