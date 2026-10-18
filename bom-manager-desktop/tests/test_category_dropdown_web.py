@@ -10,7 +10,7 @@ class CategoryDropdownWebTest(unittest.TestCase):
         html = (ROOT / "bom-manager" / "index.html").read_text(encoding="utf-8")
         self.assertIn('select class="category-pick" data-k="category"', html)
         self.assertNotIn('<input data-k="category"', html)
-        self.assertIn("const engineeringCategoryOrder=['เครื่องกล','ไฟฟ้า','อิเล็กทรอนิกส์']", html)
+        self.assertIn("const engineeringCategoryOrder=['เครื่องกล','ไฟฟ้ากำลัง','อิเล็กทรอนิกส์/ควบคุม']", html)
         self.assertIn("function normalizeCategory(value)", html)
         self.assertIn("select[data-k=\"category\"]", html)
         self.assertIn("item.category=el.value;markDirty(row);render()", html)
