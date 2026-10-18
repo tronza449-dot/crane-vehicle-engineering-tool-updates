@@ -440,3 +440,13 @@ GitHub Token อยู่ใน Windows Credential Manager แต่ละเค
 The GitHub repo is currently **public**. Anyone with internet and the repository URL may read `bom-manager/bom.json`, including prices, supplier information and any purchasing rows stored there. Installing the app is **not** an access restriction.
 
 The Windows installer contains **no shared GitHub PAT**, neither in cleartext nor reversibly encrypted form. Reversible encryption cannot protect a distributed client secret because every installed app must also have the decryption method. Owners should revoke any token previously pasted into a chat and issue individual, least-privilege credentials only for editors. The desktop reads GitHub without authentication; writing is explicitly denied without an editor credential. A previously cached invalid PAT can fall back to public **GET only**. If private shared data or token-free editing is required, use an authenticated backend that stores server credentials outside distributed installers; it is not configured in this release.
+
+
+## v1.10.3 — หมวดหลักชัดเจน / รายงาน PDF และ Excel แบบตารางทางการ
+
+- หมวดอุปกรณ์เหลือ 3 หมวดหลักและ "อื่น ๆ": **เครื่องกล**, **ไฟฟ้ากำลัง**, **อิเล็กทรอนิกส์/ควบคุม**. รายการเก่าจะถูกแปลงเป็นหมวดหลักสำหรับการแสดงผลและรายงาน โดยไม่ลบข้อมูลสเปกหรือรหัส BOM.
+- แนวทางจัดหมวด: โครงรถ/ล้อ/เครน/ตะกร้าเป็นเครื่องกล; แบตเตอรี่/มอเตอร์/ฟิวส์/คอนแทคเตอร์/ตัวแปลง DC-DC/สายไฟกำลังเป็นไฟฟ้ากำลัง; ESP32/VESC/เซนเซอร์/IMU/รีโมต/วงจรสัญญาณเป็นอิเล็กทรอนิกส์/ควบคุม.
+- **PDF:** ปรับเป็นทะเบียน BOM รวมทุกหมวดในตารางหลักเดียว มีหัวตารางซ้ำเมื่อขึ้นหน้าใหม่ เส้นแบ่งกลุ่มหมวด สีแยกหมวดหลัก เลขเอกสาร Revision เลขหน้า และตารางภาคผนวก.
+- **Excel:** เพิ่มหัวข้อชีตภาษาไทย/อังกฤษ แยกสีหมวดหลัก และแถวรวมมูลค่าที่ทราบราคาด้วยสูตร Excel พร้อมคงตัวกรอง สูตรรายการ และชีตสเปก/สายไฟ/จัดซื้อ/แหล่งอ้างอิง.
+- ไฟล์ตัวอย่าง PDF และ XLSX ถูกสร้างจาก BOM ที่อยู่ใน repository โดย CI เพื่อให้ตรวจรูปแบบก่อนนำไปใส่รายงาน.
+- รายงานเป็นเอกสาร **DRAFT** สำหรับประกอบรายงานออกแบบ ไม่ได้อ้างว่าได้รับการรับรองหรืออนุมัติจากสถาบัน.
