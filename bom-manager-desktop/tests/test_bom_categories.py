@@ -18,11 +18,11 @@ class CategoryDataTests(unittest.TestCase):
         self.assertEqual(len(bom_categories.ID_TO_CATEGORY), 33)
         self.assertEqual(len(bom_categories.CATEGORY_ORDER), 3)
         self.assertEqual(bom_categories.CATEGORY_ORDER,
-                         ("เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม"))
+                         ("เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม"))
         self.assertEqual(
             [len(bom_categories.PROJECT_CATEGORY_IDS[c])
              for c in bom_categories.CATEGORY_ORDER],
-            [4, 15, 14])
+            [4, 16, 13])
 
     def test_migration_changes_only_category(self):
         ids = sorted(bom_categories.ID_TO_CATEGORY, key=int)
@@ -55,7 +55,7 @@ class CategoryDataTests(unittest.TestCase):
         self.assertTrue({x.get("category") for x in doc["items"]}.issubset(
             set(bom_categories.CATEGORY_OPTIONS)))
         self.assertEqual({x.get("category") for x in doc["items"]},
-                         {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม"})
+                         {"เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม"})
         summary = bom_categories.summary(doc["items"])
         self.assertEqual(sum(count for _, count in summary), len(doc["items"]))
         self.assertEqual(
@@ -66,11 +66,11 @@ class CategoryDataTests(unittest.TestCase):
         categories = bom_categories.sorted_categories([
             "New Custom", "ระบบขับเคลื่อน", "โครงสร้างและเครื่องกล", "New Custom"
         ])
-        self.assertEqual(categories, ["เครื่องกล", "ไฟฟ้า", "อื่น ๆ"])
-        self.assertEqual(bom_categories.normalize_category("ขับเคลื่อน/พลังงาน"), "ไฟฟ้า")
-        self.assertEqual(bom_categories.normalize_category("สายไฟ/อุปกรณ์ประกอบ"), "ไฟฟ้า")
-        self.assertEqual(bom_categories.normalize_category("ไฟฟ้ากำลัง"), "ไฟฟ้า")
-        self.assertEqual(bom_categories.normalize_category("แบตเตอรี่และไฟฟ้า"), "ไฟฟ้า")
+        self.assertEqual(categories, ["เครื่องกล", "ไฟฟ้ากำลัง", "อื่น ๆ"])
+        self.assertEqual(bom_categories.normalize_category("ขับเคลื่อน/พลังงาน"), "ไฟฟ้ากำลัง")
+        self.assertEqual(bom_categories.normalize_category("สายไฟ/อุปกรณ์ประกอบ"), "ไฟฟ้ากำลัง")
+        self.assertEqual(bom_categories.normalize_category("ไฟฟ้า"), "ไฟฟ้ากำลัง")
+        self.assertEqual(bom_categories.normalize_category("แบตเตอรี่และไฟฟ้า"), "ไฟฟ้ากำลัง")
 
 
 class QtCategoryTests(unittest.TestCase):
@@ -117,7 +117,7 @@ class QtCategoryTests(unittest.TestCase):
     def test_dashboard_double_click_category(self):
         self.window.open_category_from_dashboard(0, 0)
         self.assertEqual(self.window.stack.currentIndex(), 1)
-        self.assertEqual(self.window.category.currentText(), "ไฟฟ้า")
+        self.assertEqual(self.window.category.currentText(), "ไฟฟ้ากำลัง")
         self.assertEqual(self.window.bom_table.rowCount(), 3)
 
     def test_editor_lists_standard_groups(self):
@@ -131,10 +131,10 @@ class QtCategoryTests(unittest.TestCase):
         self.assertFalse(picker.isEditable())
         self.assertEqual(picker.currentText(), "เครื่องกล")
         self.assertEqual([picker.itemText(i) for i in range(picker.count())],
-                         ["เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ"])
+                         ["เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ"])
         self.assertEqual(len(bom_categories.CATEGORY_OPTIONS), 4)
-        picker.setCurrentText("ไฟฟ้า")
-        self.assertEqual(dialog.get_values()["category"], "ไฟฟ้า")
+        picker.setCurrentText("ไฟฟ้ากำลัง")
+        self.assertEqual(dialog.get_values()["category"], "ไฟฟ้ากำลัง")
         dialog.close()
 
     def test_unknown_existing_category_is_selectable_not_lost(self):
