@@ -475,3 +475,17 @@ The Windows installer contains **no shared GitHub PAT**, neither in cleartext no
 - Excel keeps the selected worksheet design: deep teal headings, pale grey/teal row fills and clearly separated sections.
 - Both formats prefer **TH Sarabun New** for Thai academic work. The PDF embeds the installed font when available; it falls back to Tahoma or another installed Thai font on clean systems. Excel uses TH Sarabun New at 14 pt for body text, with larger title and section hierarchy.
 - Font and palette checks are included in the official report tests; generated PDF/Excel examples are rendered during the Windows build.
+
+
+## Structural Steel Cut List / ถอดปริมาณเหล็กโครงสร้าง
+
+The desktop app includes a dedicated **โครงสร้างเหล็ก / Steel Cut List** page. Add each frame member using:
+- **ตำแหน่ง/ชิ้นส่วน** — e.g. base cross-member, upright, crane mount.
+- **ชนิดหน้าตัด** — choose a major profile type from the dropdown (square tube, rectangular tube, angle, channel, I/H section, flat bar, round tube, rebar, or other).
+- **ขนาดหน้าตัด** — enter the actual section dimensions/thickness (for example 25×25×2 mm or 50×25×2 mm).
+- **จำนวนชิ้น** and **ความยาวต่อชิ้น (mm)** — the app calculates the row total in metres and aggregates pieces/length by profile and size.
+- **ความยาวเหล็กมาตรฐาน (m)** — defaults to 6 m; change to the supplier's actual stock length when needed.
+
+The page shows a detailed cut list and a grouped summary by profile, size, and stock length. The formal PDF report adds a steel cut-list appendix; the formal Excel workbook adds Steel Summary and Steel Cut List worksheets with formulas for total length and estimated stock bars. The data is saved inside the same shared GitHub BOM document, so the list follows the project across computers.
+
+**Important:** stock-bar counts are estimates based on total length only. They do not optimize the cutting pattern or account for saw kerf, offcuts, overlap/joints, or fabrication waste. Check an actual cutting plan and add a suitable waste allowance before purchasing steel. Dimensions and member lengths must be verified against the SolidWorks model and fabrication drawings.
