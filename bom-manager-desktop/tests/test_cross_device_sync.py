@@ -48,9 +48,11 @@ class CloudBOMTests(unittest.TestCase):
 
     def tearDown(self):
         self.window.auto_sync_timer.stop()
+        self.window.auto_sync_timer.stop()
         self.window.auto_sync_retry_timer.stop()
         self.window.remote_refresh_timer.stop()
-        # No interactive confirmation dialog during offscreen test teardown.
+        # No lingering single-shot timer may start a real network request after
+        # this test has finished; no interactive confirmation during teardown.
         self.window.dirty = False
         self.window.busy = False
         self.window.close()
