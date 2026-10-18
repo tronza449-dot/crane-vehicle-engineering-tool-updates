@@ -49,30 +49,30 @@ class ReportExportTests(unittest.TestCase):
     def test_shared_bom_uses_only_major_categories(self):
         categories = {item.get("category") for item in self.doc["items"]}
         self.assertTrue(categories.issubset(set(bom_categories.CATEGORY_OPTIONS)))
-        self.assertEqual(categories, {"เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม"})
+        self.assertEqual(categories, {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม"})
         self.assertEqual(len(self.doc["items"]), 33)
 
     def test_legacy_labels_collapse_to_three_major_categories(self):
         items = [
             {"id":"1","category":"โครงสร้างและเครื่องกล"},
-            {"id":"2","category":"แบตเตอรี่และไฟฟ้ากำลัง"},
+            {"id":"2","category":"แบตเตอรี่และไฟฟ้า"},
             {"id":"3","category":"ระบบควบคุมและสื่อสาร"},
             {"id":"4","category":"ระบบเครนและวินช์"},
             {"id":"5","category":"unrecognized imported label"},
         ]
         self.assertEqual(
             [bom_categories.normalize_category(x["category"]) for x in items],
-            ["เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม", "เครื่องกล", "อื่น ๆ"])
+            ["เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม", "เครื่องกล", "อื่น ๆ"])
         self.assertEqual(
             {category for category, _ in bom_categories.summary(items)},
-            {"เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ"})
+            {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ"})
 
     def test_custom_item_order_is_preserved_in_formal_reports(self):
         # Names are deliberately reverse alphabetical, as a user-arranged BOM.
         doc = {"items": [
             {"id": "20", "category": "ระบบขับเคลื่อน", "name": "Z Motor"},
             {"id": "5", "category": "ระบบขับเคลื่อน", "name": "A Motor"},
-            {"id": "6", "category": "แบตเตอรี่และไฟฟ้ากำลัง",
+            {"id": "6", "category": "แบตเตอรี่และไฟฟ้า",
              "name": "Battery"},
         ]}
         ordered = reports.sorted_items(doc)
@@ -100,7 +100,7 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("SUMIF", summary)
             shared = xlsx.read("xl/sharedStrings.xml").decode("utf-8")
             self.assertIn("MASTER BOM REGISTER", shared)
-            self.assertIn("ไฟฟ้ากำลัง", shared)
+            self.assertIn("ไฟฟ้า", shared)
             self.assertIn("อิเล็กทรอนิกส์/ควบคุม", shared)
             self.assertIn("SUM(H8:H40)", detail)
             self.assertIn("COUNTA", summary)
@@ -140,7 +140,7 @@ class ReportExportTests(unittest.TestCase):
             self.assertGreaterEqual(len(exported), 7)
             report_text = " ".join(page.get_text() for page in exported)
             self.assertIn("MASTER BOM REGISTER", report_text)
-            self.assertIn("ไฟฟ้ากำลัง", report_text)
+            self.assertIn("ไฟฟ้า", report_text)
             self.assertIn("อิเล็กทรอนิกส์/ควบคุม", report_text)
 
     def test_explicit_identification_and_traceability_counts(self):
