@@ -17,6 +17,15 @@ def smoke_test():
     """
     os.environ["LOCALAPPDATA"] = tempfile.mkdtemp(prefix="bom-manager-smoke-")
     os.environ["BOM_MANAGER_DISABLE_STARTUP_UPDATE_CHECK"] = "1"
+    trace_path = Path("output") / "smoke_trace.log"
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def trace(stage):
+        with trace_path.open("a", encoding="utf-8") as stream:
+            stream.write(stage + "\\n")
+            stream.flush()
+
+    trace("start")
     from PySide6.QtWidgets import QApplication
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtCore import Qt
@@ -25,8 +34,11 @@ def smoke_test():
     from bom_qt import BOMWindow
     from bom_qt_theme import apply_theme
     app = QApplication([])
+    trace("QApplication ready")
     apply_theme(app)
+    trace("theme ready")
     win = BOMWindow(auto_load=False)
+    trace("BOMWindow constructed")
     # CI may provide real project data for a faithful screenshot.
     source = Path.cwd().parent / "bom-manager" / "bom.json"
     if source.exists():
@@ -35,9 +47,11 @@ def smoke_test():
         bom_core.ensure_doc(doc)
         win.payload = doc
     win.render_all()
+    trace("initial render complete")
     win.resize(1480, 890)
     win.show()
     app.processEvents()
+    trace("window shown and events processed")
     assert len(win.nav_buttons) == 6
     assert win.stack.count() == 6
     assert win.bom_table.columnCount() == 9
@@ -48,10 +62,12 @@ def smoke_test():
     assert win.update_btn.isEnabled()
     assert win.install_btn.isHidden()  # displayed only when update found
     win.show_page(5)
+    trace("debug page shown")
     assert win.debug_checks.rowCount() >= 3
     assert win.debug_events.columnCount() == 5
     win.show_page(0)
     app.processEvents()
+    trace("dashboard restored")
     if "--capture-preview" in sys.argv:
         folder = Path("output")
         folder.mkdir(parents=True, exist_ok=True)
@@ -63,12 +79,16 @@ def smoke_test():
 
         win.show_page(0)
         snapshot("MinimalDashboardPreview.png")
+        trace("dashboard screenshot saved")
         win.show_page(1)
         snapshot("MinimalBOMPreview.png")
+        trace("BOM screenshot saved")
         win.show_page(4)
         snapshot("MinimalReportsPreview.png")
+        trace("reports screenshot saved")
         win.show_page(5)
         snapshot("DebugReportPreview.png")
+        trace("debug screenshot saved")
 
         # Show a real editable Qt item form without submitting/changing BOM data.
         from bom_qt import RecordDialog, ITEM_FIELDS
@@ -76,22 +96,28 @@ def smoke_test():
                                    {"category": "ระบบขับเคลื่อน"}, win)
         item_dialog.show()
         app.processEvents()
+        trace("item editor shown")
         if not item_dialog.grab().save(str(folder / "MinimalFormPreview.png"), "PNG"):
             raise RuntimeError("Could not capture MinimalFormPreview.png")
         item_dialog.close()
+        trace("item editor screenshot saved")
 
         # Accessibility option is also verified on the packaged executable.
         win.font_scale_selector.setCurrentIndex(2)
+        trace("font zoom increased")
         win.show_page(1)
         snapshot("ReadableBOMPreview.png")
+        trace("readability screenshot saved")
         win.font_scale_selector.setCurrentIndex(1)
         win.show_page(0)
     # A preview test must never prompt to save test-only edits.
     win.dirty = False
     win.busy = False
     win.downloading = False
+    trace("closing main window")
     win.close()
     app.quit()
+    trace("smoke test complete")
     return 0
 
 
