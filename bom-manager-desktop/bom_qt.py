@@ -276,6 +276,20 @@ class RecordDialog(QDialog):
                     control.addItem(current)
                 control.setCurrentText(current)
                 control.setToolTip("เลือกชนิดหน้าตัดหลัก แล้วระบุขนาดจริงในช่องขนาดหน้าตัด")
+            elif key == "size" and "เหล็ก" in title:
+                control = QComboBox()
+                control.setEditable(True)
+                control.addItems([
+                    "20×20×1.6 mm", "25×25×2 mm", "30×30×2 mm",
+                    "40×40×2 mm", "50×50×2 mm", "50×25×2 mm",
+                    "75×45×2 mm", "100×50×3 mm", "Ø25×2 mm",
+                    "เหล็กแบน 25×3 mm",
+                ])
+                current = str(val or "")
+                if current and control.findText(current) < 0:
+                    control.addItem(current)
+                control.setCurrentText(current)
+                control.setToolTip("เลือกขนาดตัวอย่างหรือพิมพ์ขนาดจริงจากแบบ SolidWorks ได้")
             elif key == "itemId" and "จัดซื้อ" in title:
                 control = QComboBox()
                 control.setEditable(False)
