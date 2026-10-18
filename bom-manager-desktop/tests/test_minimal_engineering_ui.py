@@ -83,6 +83,11 @@ class MinimalEngineeringTests(unittest.TestCase):
         }, self.win)
         self.assertEqual(dlg.tabs.count(),4)
         self.assertFalse(dlg.widgets["category"].isEditable())
+        self.assertEqual(
+            [dlg.widgets["category"].itemText(i)
+             for i in range(dlg.widgets["category"].count())],
+            ["เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์", "อื่น ๆ"])
+        self.assertEqual(dlg.widgets["category"].currentText(), "ไฟฟ้า")
         self.assertEqual(dlg.widgets["spec"].toPlainText(),"72V 1500W")
         dlg.tabs.setCurrentIndex(2)
         self.assertEqual(dlg.get_values()["unitPrice"],"123.45")
