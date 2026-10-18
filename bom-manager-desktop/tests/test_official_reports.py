@@ -98,6 +98,11 @@ class ReportExportTests(unittest.TestCase):
             detail = xlsx.read("xl/worksheets/sheet2.xml").decode("utf-8")
             self.assertIn("COUNTIFS", summary)
             self.assertIn("SUMIF", summary)
+            shared = xlsx.read("xl/sharedStrings.xml").decode("utf-8")
+            self.assertIn("MASTER BOM REGISTER", shared)
+            self.assertIn("ไฟฟ้ากำลัง", shared)
+            self.assertIn("อิเล็กทรอนิกส์/ควบคุม", shared)
+            self.assertIn("SUM(H8:H40)", detail)
             self.assertIn("COUNTA", summary)
             self.assertIn("IF(G8", detail)
             self.assertIn("E8*G8", detail)
@@ -130,6 +135,13 @@ class ReportExportTests(unittest.TestCase):
         reports.export_pdf(self.doc, pdf, self.metadata)
         self.assertTrue(pdf.read_bytes().startswith(b"%PDF-"))
         self.assertGreater(pdf.stat().st_size, 10000)
+        import fitz
+        with fitz.open(str(pdf)) as exported:
+            self.assertGreaterEqual(len(exported), 7)
+            report_text = " ".join(page.get_text() for page in exported)
+            self.assertIn("MASTER BOM REGISTER", report_text)
+            self.assertIn("ไฟฟ้ากำลัง", report_text)
+            self.assertIn("อิเล็กทรอนิกส์/ควบคุม", report_text)
 
     def test_explicit_identification_and_traceability_counts(self):
         gaps = reports.report_quality(self.doc["items"])
