@@ -8,6 +8,11 @@ with fitz.open(str(SOURCE)) as pdf:
     assert len(pdf) >= 7, f"Unexpectedly short formal report ({len(pdf)} pages)"
     assert all(abs(page.rect.width - 841.89) < 2 and abs(page.rect.height - 595.28) < 2
                for page in pdf), "Report pages must all use landscape A4"
+    cover_text = pdf[0].get_text()
+    assert "รายงานรายการวัสดุและอุปกรณ์" in cover_text, "PDF cover title is missing"
+    assert "สรุปข้อมูลและงบประมาณ" in cover_text, "PDF cover budget summary is missing"
+    assert "ตรวจความครบถ้วนและสรุปตามหมวดวิศวกรรม" not in cover_text, (
+        "Completeness review should be on page 2, not overflowing the cover")
     table_index = next((i for i, page in enumerate(pdf)
                         if "MASTER BOM REGISTER" in page.get_text()), None)
     assert table_index is not None, "The new consolidated BOM table is missing from the PDF"
