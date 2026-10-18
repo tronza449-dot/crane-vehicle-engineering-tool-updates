@@ -1100,8 +1100,10 @@ class BOMWindow(QMainWindow):
             "caption"))
         group = self._panel("1  ส่งออกรายงานแบบทางการ (แนะนำสำหรับส่งอาจารย์)", body)
         text = self._label(
-            "รายงานมีส่วนหัวโครงการ เลขที่เอกสาร Revision สรุปงบประมาณ "
-            "และ BOM แยกหมวด พร้อมข้อมูลสเปก Wiring และจัดซื้อ", "caption")
+            "PDF รุ่นใหม่นี้มีทะเบียน BOM รวมทุกหมวดไว้ในตารางเดียว พร้อมหัวตารางซ้ำทุกหน้า "
+            "แถบสีแยกหมวดหลัก ยอดงบประมาณ เลขที่เอกสาร และเลขหน้า; "
+            "Excel มีชีตสรุป ตาราง BOM พร้อมตัวกรอง สีหมวด และแถวรวมยอด "
+            "พร้อมชีตสเปก Wiring แหล่งอ้างอิง และจัดซื้อ", "caption")
         text.setWordWrap(True)
         group.addWidget(text)
         export_cards = QGridLayout()
@@ -1129,8 +1131,8 @@ class BOMWindow(QMainWindow):
             export_cards.setColumnStretch(column, 1)
         group.addLayout(export_cards)
         text = self._label(
-            "PDF: A4 แนวนอน พร้อมเลขหน้าและภาคผนวก  |  "
-            "Excel: แยกชีตสรุป อุปกรณ์ สเปก สายไฟ และจัดซื้อ พร้อมสูตรคำนวณ", "hint")
+            "PDF: A4 แนวนอน • ตารางทะเบียน BOM รวมทุกหมวด • หัวตารางซ้ำทุกหน้า • เลขหน้า "
+            "| Excel: ตารางกรองได้ • แยกสีหมวดหลัก • แถวรวมยอด • สูตรคำนวณ • ชีตสเปก/สายไฟ/จัดซื้อ", "hint")
         text.setWordWrap(True)
         group.addWidget(text)
 
