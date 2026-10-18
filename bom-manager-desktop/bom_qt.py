@@ -255,7 +255,7 @@ class RecordDialog(QDialog):
                 if control.findText(current) < 0:
                     current = bom_categories.UNCATEGORIZED
                 control.setCurrentText(current)
-                control.setToolTip("คลิกเลือกหมวดอุปกรณ์จากรายการ ไม่ต้องพิมพ์เอง")
+                control.setToolTip("เลือกหมวดหลักเท่านั้น: เครื่องกล=โครงสร้าง/ล้อ/เครน; ไฟฟ้า=แบตเตอรี่/มอเตอร์/สายไฟ/กำลัง; อิเล็กทรอนิกส์/ควบคุม=ESP32/รีเลย์/เซนเซอร์/สัญญาณ")
             elif key == "itemId" and "จัดซื้อ" in title:
                 control = QComboBox()
                 control.setEditable(False)
@@ -1100,10 +1100,9 @@ class BOMWindow(QMainWindow):
             "caption"))
         group = self._panel("1  ส่งออกรายงานแบบทางการ (แนะนำสำหรับส่งอาจารย์)", body)
         text = self._label(
-            "PDF รุ่นใหม่นี้มีทะเบียน BOM รวมทุกหมวดไว้ในตารางเดียว พร้อมหัวตารางซ้ำทุกหน้า "
-            "แถบสีแยกหมวดหลัก ยอดงบประมาณ เลขที่เอกสาร และเลขหน้า; "
-            "Excel มีชีตสรุป ตาราง BOM พร้อมตัวกรอง สีหมวด และแถวรวมยอด "
-            "พร้อมชีตสเปก Wiring แหล่งอ้างอิง และจัดซื้อ", "caption")
+            "PDF จัดตาราง BOM หลักใหม่ให้เหลือเฉพาะข้อมูลสำคัญ อ่านง่ายขึ้น ส่วน Part Number และสเปกอยู่ภาคผนวก "
+            "มีหัวตารางซ้ำ เลขหน้า เลขที่เอกสาร และยอดงบประมาณ; Excel มีชีตสรุป ตารางกรองได้ "
+            "แยกสีหมวด และแถวรวมยอด พร้อมชีตสเปก Wiring แหล่งอ้างอิง และจัดซื้อ", "caption")
         text.setWordWrap(True)
         group.addWidget(text)
         export_cards = QGridLayout()
@@ -1131,8 +1130,8 @@ class BOMWindow(QMainWindow):
             export_cards.setColumnStretch(column, 1)
         group.addLayout(export_cards)
         text = self._label(
-            "PDF: A4 แนวนอน • ตารางทะเบียน BOM รวมทุกหมวด • หัวตารางซ้ำทุกหน้า • เลขหน้า "
-            "| Excel: ตารางกรองได้ • แยกสีหมวดหลัก • แถวรวมยอด • สูตรคำนวณ • ชีตสเปก/สายไฟ/จัดซื้อ", "hint")
+            "หมวดหลักมี 3 กลุ่ม: เครื่องกล • ไฟฟ้า (แบตเตอรี่/มอเตอร์/กำลังไฟ) • อิเล็กทรอนิกส์/ควบคุม (ESP32/รีเลย์/เซนเซอร์/สัญญาณ). "
+            "PDF: A4 แนวนอน ตารางหลักลดคอลัมน์ที่ไม่จำเป็นและย้ายสเปกไปภาคผนวก • Excel: ตารางกรองได้ แถวรวมยอดและสูตรคำนวณ", "hint")
         text.setWordWrap(True)
         group.addWidget(text)
 
