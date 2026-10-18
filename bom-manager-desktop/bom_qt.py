@@ -473,10 +473,11 @@ class BOMWindow(QMainWindow):
         self.debugger.event("INFO", "application", "APP_STARTED",
                             f"Minimal Engineering desktop v{VERSION} started")
         if auto_load:
-            # Every launch checks GitHub without requiring a click. Protect
-            # recovered unsynced drafts while checking the remote SHA.
+            # Every real launch checks GitHub without requiring a click.
+            # Tests can disable the delayed updater request to stay deterministic.
             QTimer.singleShot(0, self._startup_sync)
-            QTimer.singleShot(1500, lambda: self.check_version(silent=True))
+            if os.environ.get("BOM_MANAGER_DISABLE_STARTUP_UPDATE_CHECK") != "1":
+                QTimer.singleShot(1500, lambda: self.check_version(silent=True))
 
     @staticmethod
     def _cache_path():
