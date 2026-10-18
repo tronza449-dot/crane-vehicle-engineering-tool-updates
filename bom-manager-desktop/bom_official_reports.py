@@ -424,7 +424,7 @@ def export_excel(doc,destination,options=None):
     for row,(key,value) in enumerate([
         ("โครงการ",m["project"]),("ผู้จัดทำ",m["author"]),
         ("สถาบัน / หน่วยงาน",m["institution"]),
-        ("อาจารย์ที่ปรึกษา / ผู้ตรวจทาน",m["advisor"]),
+        ("ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา",m["advisor"]),
         ("เลขที่เอกสาร",m["document_no"]),("Revision",m["revision"]),
         ("วันที่จัดทำ",m["date"])],7):
         summary.write(row,0,key,label)
