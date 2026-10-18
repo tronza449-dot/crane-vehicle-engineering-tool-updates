@@ -51,7 +51,7 @@ class ReportExportTests(unittest.TestCase):
     def test_shared_bom_uses_only_major_categories(self):
         categories = {item.get("category") for item in self.doc["items"]}
         self.assertTrue(categories.issubset(set(bom_categories.CATEGORY_OPTIONS)))
-        self.assertEqual(categories, {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม"})
+        self.assertEqual(categories, {"เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม"})
         self.assertEqual(len(self.doc["items"]), 33)
 
     def test_legacy_labels_collapse_to_three_major_categories(self):
@@ -64,10 +64,10 @@ class ReportExportTests(unittest.TestCase):
         ]
         self.assertEqual(
             [bom_categories.normalize_category(x["category"]) for x in items],
-            ["เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม", "เครื่องกล", "อื่น ๆ"])
+            ["เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม", "เครื่องกล", "อื่น ๆ"])
         self.assertEqual(
             {category for category, _ in bom_categories.summary(items)},
-            {"เครื่องกล", "ไฟฟ้า", "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ"})
+            {"เครื่องกล", "ไฟฟ้ากำลัง", "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ"})
 
     def test_custom_item_order_is_preserved_in_formal_reports(self):
         # Names are deliberately reverse alphabetical, as a user-arranged BOM.
@@ -103,7 +103,8 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("SUMIF", summary)
             shared = xlsx.read("xl/sharedStrings.xml").decode("utf-8")
             self.assertIn("MASTER BOM REGISTER", shared)
-            self.assertIn("ไฟฟ้า", shared)
+            self.assertIn("ไฟฟ้ากำลัง", shared)
+            self.assertIn("CATEGORY DEFINITIONS", shared)
             self.assertIn("อิเล็กทรอนิกส์/ควบคุม", shared)
             self.assertIn("ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา", shared)
             self.assertIn("อาจารย์ทดสอบ", shared)
@@ -152,7 +153,8 @@ class ReportExportTests(unittest.TestCase):
             self.assertGreaterEqual(len(exported), 7)
             report_text = " ".join(page.get_text() for page in exported)
             self.assertIn("MASTER BOM REGISTER", report_text)
-            self.assertIn("ไฟฟ้า", report_text)
+            self.assertIn("ไฟฟ้ากำลัง", report_text)
+            self.assertIn("CATEGORY DEFINITIONS", report_text)
             self.assertIn("อิเล็กทรอนิกส์/ควบคุม", report_text)
             self.assertIn("ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา", report_text)
             self.assertIn("อาจารย์ทดสอบ", report_text)
@@ -168,6 +170,15 @@ class ReportExportTests(unittest.TestCase):
             # The master register is visibly divided into top-level system groups.
             self.assertIn("MASTER BOM REGISTER", report_text)
             self.assertIn("รายการ", report_text)
+            self.assertIn("หมวดหลัก: เครื่องกล", report_text)
+            self.assertIn("หมวดหลัก: ไฟฟ้ากำลัง", report_text)
+            self.assertIn("หมวดหลัก: อิเล็กทรอนิกส์/ควบคุม", report_text)
+            for heading in ("หมวดหลัก: เครื่องกล", "หมวดหลัก: ไฟฟ้ากำลัง",
+                            "หมวดหลัก: อิเล็กทรอนิกส์/ควบคุม"):
+                pages = [page.get_text() for page in exported if heading in page.get_text()]
+                self.assertTrue(pages, f"Missing grouped table title: {heading}")
+                self.assertTrue(any("BOM ID" in page_text for page_text in pages),
+                                f"Column header did not repeat with {heading}")
 
     def test_explicit_identification_and_traceability_counts(self):
         gaps = reports.report_quality(self.doc["items"])
