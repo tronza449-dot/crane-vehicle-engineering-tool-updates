@@ -17,6 +17,17 @@ with fitz.open(str(SOURCE)) as pdf:
                         if "MASTER BOM REGISTER" in page.get_text()), None)
     assert table_index is not None, "The new consolidated BOM table is missing from the PDF"
     assert "BOM ID" in pdf[table_index].get_text(), "The master BOM table must include BOM IDs"
+    all_text = "\\n".join(page.get_text() for page in pdf)
+    assert "ไฟฟ้ากำลัง" in all_text, "The power-electrical category label is missing"
+    assert "CATEGORY DEFINITIONS" in all_text, "The report must define the three major categories"
+    for category_title in (
+            "หมวดหลัก: เครื่องกล",
+            "หมวดหลัก: ไฟฟ้ากำลัง",
+            "หมวดหลัก: อิเล็กทรอนิกส์/ควบคุม"):
+        category_pages = [page for page in pdf if category_title in page.get_text()]
+        assert category_pages, f"Missing category section header: {category_title}"
+        assert any("BOM ID" in page.get_text() for page in category_pages), (
+            f"Category section must repeat the table column header: {category_title}")
     signoff_index = len(pdf) - 1
     signoff_text = pdf[signoff_index].get_text()
     assert "PREPARED & REVIEWED" in signoff_text, "PDF sign-off page is missing"
