@@ -154,7 +154,7 @@ def export_pdf(doc, destination, options=None):
         ["โครงการ",m["project"]],
         ["ผู้จัดทำ",m["author"]],
         ["สถาบัน / หน่วยงาน",m["institution"]],
-        ["อาจารย์ที่ปรึกษา / ผู้ตรวจทาน",m["advisor"]],
+        ["ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา",m["advisor"]],
         ["เลขที่เอกสาร",m["document_no"]],
         ["Revision / วันที่",f'{m["revision"]}  /  {m["date"]}'],
         ["สถานะเอกสาร", "DRAFT / ใช้ประกอบรายงานการออกแบบ ไม่ใช่เอกสารอนุมัติการผลิต"],
@@ -260,6 +260,41 @@ def export_pdf(doc, destination, options=None):
     story += [Spacer(1,15),P(
         "เอกสารจัดทำจากข้อมูล BOM ณ วันที่ส่งออก ใช้เพื่อประกอบรายงานออกแบบ "
         "ไม่ใช่ใบสั่งซื้อหรือเอกสารที่ผ่านการอนุมัติ",label)]
+
+    # Dedicated sign-off page: leave actual signature/date spaces for a printed
+    # academic submission. Names come from report options; no approval is implied.
+    story += [
+        PageBreak(),
+        P("การจัดทำและตรวจสอบเอกสาร / PREPARED & REVIEWED",section),
+        P("ลงนามหลังจากตรวจสอบรายการอุปกรณ์ จำนวน ราคาอ้างอิง และความครบถ้วนแล้ว",label),
+        Spacer(1,14),
+    ]
+    signoff = LongTable([
+        [P("ผู้จัดทำ / PREPARED BY",white),
+         P("ผู้ตรวจสอบ / REVIEWED BY",white)],
+        [P("ชื่อ-สกุล: "+m["author"]),
+         P("ชื่อ-สกุล: "+m["advisor"])],
+        [P("ลายมือชื่อ: ........................................................"),
+         P("ลายมือชื่อ: ........................................................")],
+        [P("วันที่: ........../........../.........."),
+         P("วันที่: ........../........../..........")],
+    ], colWidths=[width*.5,width*.5], hAlign="LEFT")
+    signoff.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(-1,0),navy),
+        ("BACKGROUND",(0,1),(-1,-1),colors.HexColor(PALE)),
+        ("BOX",(0,0),(-1,-1),.65,line),
+        ("INNERGRID",(0,0),(-1,-1),.4,line),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),13),
+        ("RIGHTPADDING",(0,0),(-1,-1),13),
+        ("TOPPADDING",(0,0),(-1,-1),14),
+        ("BOTTOMPADDING",(0,0),(-1,-1),14),
+    ]))
+    story += [
+        signoff, Spacer(1,18),
+        P("สถานะเอกสาร: DRAFT • หน้าลงนามนี้เป็นช่องสำหรับตรวจทานในรายงานการศึกษา "
+          "ไม่ใช่การรับรองความปลอดภัยหรือการอนุมัติให้ผลิต",label),
+    ]
     template=SimpleDocTemplate(str(destination),pagesize=page,
         leftMargin=32,rightMargin=32,topMargin=60,bottomMargin=46,
         title="Engineering Bill of Materials",author=m["author"],
@@ -579,4 +614,36 @@ def export_excel(doc,destination,options=None):
         summary.write(row,0,name,label)
         summary.write_number(row,1,value,number)
     summary.print_area("A1:D49")
+
+    # Separate one-page sign-off sheet so the Excel report can be printed and
+    # signed without disturbing the budget and category-summary worksheet.
+    approval = sheet("Approval", [30, 24, 30, 24])
+    approval.merge_range("A5:D5",
+                         "การจัดทำและตรวจสอบเอกสาร / DOCUMENT SIGN-OFF", bar)
+    approval.merge_range("A7:B7", "ผู้จัดทำ / PREPARED BY", bar)
+    approval.merge_range("C7:D7", "ผู้ตรวจสอบ / REVIEWED BY", bar)
+    approval.merge_range("A8:B8", "ชื่อ-สกุล: " + m["author"], normal)
+    approval.merge_range("C8:D8", "ชื่อ-สกุล: " + m["advisor"], normal)
+    approval.merge_range("A10:B10", "ลายมือชื่อ / Signature", label)
+    approval.merge_range("C10:D10", "ลายมือชื่อ / Signature", label)
+    signature_line = fmt(bottom=1, bottom_color=GREY)
+    approval.merge_range("A11:B11", " ", signature_line)
+    approval.merge_range("C11:D11", " ", signature_line)
+    approval.merge_range("A12:B12", "วันที่ / Date: ........../........../..........", normal)
+    approval.merge_range("C12:D12", "วันที่ / Date: ........../........../..........", normal)
+    approval.set_row(6, 28)
+    approval.set_row(7, 34)
+    approval.set_row(9, 24)
+    approval.set_row(10, 42)
+    approval.set_row(11, 30)
+    approval.merge_range(
+        "A15:D17",
+        "สถานะเอกสาร: DRAFT • ใช้ประกอบรายงานการศึกษา "
+        "การลงนามเป็นการตรวจทานเอกสาร ไม่ใช่การรับรองความปลอดภัยหรืออนุมัติให้ผลิต",
+        notice)
+    approval.set_row(14, 28)
+    approval.set_row(15, 28)
+    approval.set_row(16, 28)
+    approval.print_area("A1:D17")
+    approval.fit_to_pages(1, 1)
     wb.close()
