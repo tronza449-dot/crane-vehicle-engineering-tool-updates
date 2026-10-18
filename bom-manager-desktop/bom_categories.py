@@ -18,6 +18,7 @@ LEGACY_CATEGORY_MAP = {
     "ระบบขับเคลื่อน": "ไฟฟ้า",
     "ขับเคลื่อน/พลังงาน": "ไฟฟ้า",
     "แบตเตอรี่และไฟฟ้ากำลัง": "ไฟฟ้า",
+    "แบตเตอรี่และไฟฟ้า": "ไฟฟ้า",
     "สายไฟและอุปกรณ์ติดตั้ง": "ไฟฟ้า",
     "สายไฟ/อุปกรณ์ประกอบ": "ไฟฟ้า",
     "วินช์/เครน": "ไฟฟ้า",
@@ -34,13 +35,13 @@ LEGACY_CATEGORY_MAP = {
     "อื่น ๆ / รอจัดหมวด": UNCATEGORIZED,
 }
 
-# Original 33-item baseline only. These IDs are used by the explicit, strict
-# migration helper, never as a rule for classifying newly created BOM items.
+# IDs in the current shared 33-item project BOM. The explicit migration helper
+# changes only category fields; newly added items are not inferred by ID.
 PROJECT_CATEGORY_IDS = {
-    "เครื่องกล": ("26", "27", "28"),
-    "ไฟฟ้า": ("3", "4", "5", "6", "7", "9", "10", "16", "22", "23",
-                  "25", "29", "30", "31", "33"),
-    "อิเล็กทรอนิกส์/ควบคุม": ("1", "2", "8", "11", "12", "13", "14", "15",
+    "เครื่องกล": ("26", "27", "28", "34"),
+    "ไฟฟ้า": ("3", "4", "6", "7", "9", "10", "16", "22", "23",
+              "25", "29", "30", "31", "33", "35"),
+    "อิเล็กทรอนิกส์/ควบคุม": ("1", "2", "8", "11", "12", "13", "15",
                               "17", "18", "19", "20", "21", "24", "32"),
 }
 ID_TO_CATEGORY = {
