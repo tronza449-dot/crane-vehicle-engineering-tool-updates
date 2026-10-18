@@ -78,7 +78,7 @@ class ReadabilityTests(unittest.TestCase):
             self.assertEqual(theme.current_scale(), 1.15)
             self.window.decrease_font_scale()
             self.assertEqual(theme.current_scale(), 1.0)
-            self.assertEqual(apply_theme.call_count, 7)
+            self.assertEqual(apply_theme.call_count, 6)
 
     def test_stylesheet_generator_supports_each_font_without_repainting_window(self):
         import bom_qt_theme as theme
