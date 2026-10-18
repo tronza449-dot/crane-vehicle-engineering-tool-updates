@@ -284,12 +284,25 @@ def export_excel(doc,destination,options=None):
              align="center",text_wrap=True,font_size=10,border=1,border_color="#FFFFFF")
     normal=fmt(text_wrap=True,border=1,border_color=LINE)
     alternate=fmt(text_wrap=True,bg_color="#F2F6FA",border=1,border_color=LINE)
-    category_fmt=fmt(bold=True,bg_color="#E4F0F8",font_color=NAVY,
-                     border=1,border_color=LINE)
+    category_formats={
+        "เครื่องกล":fmt(bold=True,bg_color="#E4F0F8",font_color=NAVY,
+                        border=1,border_color=LINE),
+        "ไฟฟ้ากำลัง":fmt(bold=True,bg_color="#FFF0D9",font_color="#805000",
+                         border=1,border_color=LINE),
+        "อิเล็กทรอนิกส์/ควบคุม":fmt(bold=True,bg_color="#E1F5EE",font_color="#176650",
+                                  border=1,border_color=LINE),
+        "อื่น ๆ":fmt(bold=True,bg_color="#EEE8F8",font_color="#6546A5",
+                     border=1,border_color=LINE),
+    }
     label=fmt(bold=True,font_color=NAVY)
+    total_fmt=fmt(bold=True,bg_color=PALE,font_color=NAVY,
+                  border=1,border_color=LINE)
     number=fmt(num_format="#,##0.##",align="center",border=1,border_color=LINE)
     money=fmt(num_format="#,##0.00;[Red](#,##0.00)",align="right",
               border=1,border_color=LINE)
+    total_money=fmt(bold=True,bg_color=PALE,font_color=NAVY,
+                    num_format="#,##0.00;[Red](#,##0.00)",align="right",
+                    border=1,border_color=LINE)
     notice=fmt(font_color="#986015",bg_color="#FFF4E5",text_wrap=True)
     def sheet(name,widths,headers=None,wide=False):
         w=wb.add_worksheet(name)
@@ -308,7 +321,16 @@ def export_excel(doc,destination,options=None):
             "  |  Rev: "+m["revision"]+"  |  "+m["date"],subtitle)
         w.set_row(0,25);w.set_row(1,20);w.set_row(2,24)
         if headers:
-            w.merge_range(4,0,4,len(widths)-1,name+" / Design documentation",bar)
+            section_titles={
+                "BOM":"ทะเบียนรายการวัสดุและอุปกรณ์ / MASTER BOM REGISTER",
+                "Specification":"รายละเอียดสเปกทางเทคนิค / TECHNICAL SPECIFICATION",
+                "Wiring":"ตารางการเดินสาย / WIRING SCHEDULE",
+                "Purchasing":"ทะเบียนรายการจัดซื้อ / PURCHASING REGISTER",
+                "References":"แหล่งอ้างอิงและการตรวจสอบย้อนกลับ / REFERENCES",
+                "Completeness":"ตรวจความครบถ้วนของข้อมูล / COMPLETENESS REVIEW",
+            }
+            w.merge_range(4,0,4,len(widths)-1,
+                          section_titles.get(name,name+" / ENGINEERING DOCUMENT"),bar)
             for i,h in enumerate(headers):w.write(6,i,h,head)
             w.set_row(6,35);w.freeze_panes(7,2);w.repeat_rows(0,6)
         return w
@@ -378,7 +400,7 @@ def export_excel(doc,destination,options=None):
             elif col in (4,6):
                 bom.write_number(row,col,float(val),number if col==4 else money)
             else:
-                bom.write_string(row,col,str(val),category_fmt if col==1 else style)
+                bom.write_string(row,col,str(val),category_formats.get(category,total_fmt) if col==1 else style)
         bom.set_row(row,43)
         extra="\n".join(str(item.get(k)) for k in ("link","connection","notes")
                         if item.get(k))
@@ -393,7 +415,15 @@ def export_excel(doc,destination,options=None):
         details.autofilter(6,0,6+count,6)
         bom.conditional_format(7,6,6+count,6,
                                {"type":"blanks","format":notice})
-    bom.print_area(0,0,max(7,6+count),8)
+    total_row=7+count
+    bom.merge_range(total_row,0,total_row,6,
+                    "รวมมูลค่ารายการที่ทราบราคา (บาท)",total_fmt)
+    last_data_excel_row=max(7,count+7)
+    bom.write_formula(total_row,7,
+                      "=SUM(H8:H"+str(last_data_excel_row)+")",
+                      total_money,float(stats["known_cost"]))
+    bom.set_row(total_row,30)
+    bom.print_area(0,0,total_row,8)
     details.print_area(0,0,max(7,6+count),6)
     wiring=sheet("Wiring",[11,32,32,22,20,28,37,25],
         ["ID","ต้นทาง","ปลายทาง","สัญญาณ","แรงดัน",
