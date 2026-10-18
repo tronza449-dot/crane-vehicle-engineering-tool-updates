@@ -199,9 +199,17 @@ def export_pdf(doc, destination, options=None):
                 quality["reference_missing"],quality["price_missing"]]],
               [width*.25,width*.25,width*.25,width*.25]),
         Spacer(1,14),P("รายการแยกตามระบบวิศวกรรม",section),Spacer(1,6)]
-    story.append(TABLE(["ระบบ / หมวดหมู่","รายการ","ไม่มีราคา","ยอดรวมที่ทราบ (บาท)"],
-       [[c,n,missing,f"{amount:,.2f}"] for c,n,missing,amount in categories],
-       [width*.44,width*.16,width*.17,width*.23]))
+    category_definitions = {
+        "เครื่องกล": "โครงรถ โครงสร้าง ล้อ เครน และตะกร้า",
+        "ไฟฟ้ากำลัง": "แบตเตอรี่ มอเตอร์ VESC/ไดรเวอร์ ฟิวส์ คอนแทคเตอร์ สายกำลัง และ DC-DC",
+        "อิเล็กทรอนิกส์/ควบคุม": "ESP32 เซนเซอร์ CAN รีโมต RC จอ และวงจรสัญญาณ/ควบคุม",
+        "อื่น ๆ": "รายการที่ยังไม่จัดเข้าหมวดหลัก",
+    }
+    story.append(TABLE(
+       ["หมวดหลัก","ขอบเขตของหมวด","รายการ","ไม่มีราคา","ยอดรวมที่ทราบ (บาท)"],
+       [[c,category_definitions.get(c,""),n,missing,f"{amount:,.2f}"]
+        for c,n,missing,amount in categories],
+       [width*.21,width*.35,width*.12,width*.12,width*.20]))
     story.append(PageBreak())
     story += [
         P("ทะเบียนรายการวัสดุและอุปกรณ์ / MASTER BOM REGISTER", section),
@@ -470,6 +478,15 @@ def export_excel(doc,destination,options=None):
         summary.write_formula(row,3,"=SUMIF("+startend("B")+",A"+str(erow)+
                               ","+startend("H")+")",money,amount)
         summary.set_row(row,28)
+    summary.merge_range("A30:D30","ขอบเขตของหมวดหลัก / CATEGORY DEFINITIONS",bar)
+    for row,(cat,description) in enumerate([
+        ("เครื่องกล","โครงรถ โครงสร้าง ล้อ เครน และตะกร้า"),
+        ("ไฟฟ้ากำลัง","แบตเตอรี่ มอเตอร์ VESC/ไดรเวอร์ ฟิวส์ คอนแทคเตอร์ สายกำลัง และ DC-DC"),
+        ("อิเล็กทรอนิกส์/ควบคุม","ESP32 เซนเซอร์ CAN รีโมต RC จอ และวงจรสัญญาณ/ควบคุม"),
+    ],30):
+        summary.write(row,0,cat,category_formats[cat])
+        summary.merge_range(row,1,row,3,description,normal)
+        summary.set_row(row,34)
     summary.merge_range("A36:D38",
         "หมายเหตุ: รายการที่ไม่ทราบราคาไม่ถูกถือว่ามีราคา 0 บาท "
         "และยอดรวมยังไม่ใช่งบประมาณสุดท้าย "
