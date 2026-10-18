@@ -1089,32 +1089,51 @@ class BOMWindow(QMainWindow):
     def _build_steel(self):
         page, body = self._page(
             "โครงสร้างเหล็ก / Steel Cut List",
-            "นับจำนวนชิ้นและความยาวเหล็กแยกตามชนิดหน้าตัดและขนาด เพื่อประมาณความยาวรวมที่ต้องเตรียม")
+            "เพิ่มรายการเหล็กแต่ละขนาด แล้วสรุปจำนวนชิ้น ความยาวที่ต้องใช้ และจำนวนท่อนมาตรฐาน")
         actions = QHBoxLayout()
-        actions.addWidget(self._button(
-            "+ เพิ่มชิ้นส่วนเหล็ก", lambda: self.edit_record("steel_members"), "primary"))
-        actions.addWidget(self._button(
-            "แก้ไขรายการ", lambda: self.edit_record("steel_members", True)))
-        actions.addWidget(self._button(
-            "ลบรายการ", lambda: self.delete_record("steel_members"), "danger"))
+        actions.addWidget(self._button("+ เพิ่มชิ้นส่วนเหล็ก",
+                                       lambda: self.edit_record("steel_members"), "primary"))
+        actions.addWidget(self._button("แก้ไขรายการ",
+                                       lambda: self.edit_record("steel_members", True)))
+        actions.addWidget(self._button("ลบรายการ",
+                                       lambda: self.delete_record("steel_members"), "danger"))
         actions.addStretch()
         body.addLayout(actions)
         intro = self._label(
-            "กรอกความยาวของเหล็ก 1 ชิ้นเป็นมิลลิเมตร และจำนวนชิ้นที่ใช้ "
-            "โปรแกรมจะคูณรวมเป็นเมตรและจัดกลุ่มตามชนิด/ขนาดหน้าตัดให้อัตโนมัติ", "caption")
+            "ใช้กับโครงสร้างที่ออกแบบใน SolidWorks: เพิ่มแต่ละขนาดเหล็กแยกบรรทัด "
+            "ใส่จำนวนและความยาวต่อชิ้น ระบบจะรวมเฉพาะเหล็กชนิด/ขนาด/ความยาวท่อนมาตรฐานเดียวกัน "
+            "ไม่เปลี่ยน BOM อุปกรณ์เดิม", "caption")
         intro.setWordWrap(True)
         body.addWidget(intro)
-        self.steel_totals_label = self._label(
-            "จำนวนชิ้น: 0  •  ความยาวรวม: 0.000 m  •  เหล็กท่อนมาตรฐาน: 0 ท่อน (ประมาณ)", "sectionTitle")
+        self.steel_totals_label = self._label("กำลังคำนวณรายการเหล็ก…", "sectionTitle")
         body.addWidget(self.steel_totals_label)
-        summary = self._table_panel(body, "สรุปตามชนิดและขนาดเหล็ก")
+        estimate = self._panel("ประมาณการจัดซื้อเหล็ก (แยกจากงบ BOM)", body)
+        form = QGridLayout()
+        self.steel_waste_input = QComboBox()
+        for value in (0, 5, 10, 15, 20):
+            self.steel_waste_input.addItem(f"{value}%", value)
+        self.steel_waste_input.setCurrentIndex(1)
+        self.steel_waste_input.currentIndexChanged.connect(self.render_steel)
+        self.steel_unit_price_input = QLineEdit()
+        self.steel_unit_price_input.setPlaceholderText("ไม่บังคับ เช่น 350")
+        self.steel_unit_price_input.setToolTip("ราคาเหล็กต่อท่อนมาตรฐาน ใช้เป็นประมาณการคร่าว ๆ เท่านั้น")
+        self.steel_unit_price_input.textChanged.connect(self.render_steel)
+        form.addWidget(self._label("เผื่อเศษตัด", "caption"), 0, 0)
+        form.addWidget(self.steel_waste_input, 0, 1)
+        form.addWidget(self._label("ราคาเหล็กต่อท่อน (บาท)", "caption"), 0, 2)
+        form.addWidget(self.steel_unit_price_input, 0, 3)
+        estimate.addLayout(form)
+        self.steel_estimate_label = self._label("ยังไม่มีข้อมูล", "hint")
+        self.steel_estimate_label.setWordWrap(True)
+        estimate.addWidget(self.steel_estimate_label)
+        summary_panel = self._table_panel(body, "สรุปจำนวนเหล็กตามชนิดและขนาด")
         self.steel_summary_table = self._table(
-            ["ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น", "ความยาวรวม (m)",
-             "ความยาวท่อนมาตรฐาน (m)", "จำนวนท่อนที่ต้องเตรียม (ประมาณ)"], 1)
+            ["ชนิดหน้าตัด", "ขนาดหน้าตัด", "ท่อนมาตรฐาน (m)", "จำนวนชิ้น",
+             "ความยาวใช้จริง (m)", "รวมเผื่อเศษ (m)", "จำนวนท่อนที่ควรเตรียม"], 1)
         self.steel_summary_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        for col, width in {0: 170, 1: 155, 2: 100, 3: 135, 4: 170, 5: 205}.items():
+        for col, width in {0: 165, 1: 145, 2: 135, 3: 85, 4: 130, 5: 130, 6: 165}.items():
             self.steel_summary_table.setColumnWidth(col, width)
-        summary.addWidget(self.steel_summary_table)
+        summary_panel.addWidget(self.steel_summary_table)
         detail = self._table_panel(body, "รายการตัดเหล็ก / รายชิ้นส่วน")
         self.steel_table = self._table(
             ["ID", "ตำแหน่ง / ชิ้นส่วน", "ชนิดหน้าตัด", "ขนาดหน้าตัด",
@@ -1123,13 +1142,12 @@ class BOMWindow(QMainWindow):
         for col, width in {0: 55, 1: 180, 2: 165, 3: 150, 4: 85,
                            5: 125, 6: 125, 7: 135, 8: 210}.items():
             self.steel_table.setColumnWidth(col, width)
-        self.steel_table.cellDoubleClicked.connect(
-            lambda *_: self.edit_record("steel_members", True))
+        self.steel_table.cellDoubleClicked.connect(lambda *_: self.edit_record("steel_members", True))
         detail.addWidget(self.steel_table)
         note = self._label(
-            "หมายเหตุ: จำนวนท่อนมาตรฐานเป็นค่าประมาณขั้นต่ำจากความยาวรวม "
-            "ยังไม่หักรอยตัด (kerf) เศษเหลือ ระยะซ้อน/ต่อ และข้อจำกัดการจัดวางชิ้นตัด "
-            "ก่อนซื้อเหล็กจริงควรตรวจ cutting plan และเผื่อเศษตามงานผลิต", "hint")
+            "หมายเหตุ: จำนวนท่อนเป็นค่าประมาณจากความยาวรวมและเปอร์เซ็นต์เผื่อเศษ "
+            "ยังไม่ใช่แผนตัดที่เหมาะที่สุด และไม่รวม kerf, ระยะต่อ/ซ้อน หรือชิ้นเศษที่นำกลับมาใช้ได้ "
+            "ตรวจ Cut List จาก SolidWorks ก่อนสั่งซื้อจริง", "hint")
         note.setWordWrap(True)
         body.addWidget(note)
         return page
@@ -1767,29 +1785,47 @@ class BOMWindow(QMainWindow):
                 self.steel_table.setItem(index, col, cell)
         self.steel_table.clearSelection()
 
-        summary = bom_steel.summarize(rows)
-        self.steel_summary_table.setRowCount(len(summary["groups"]))
-        for index, group in enumerate(summary["groups"]):
+        import bom_steel_bom
+        try:
+            waste = self.steel_waste_input.currentData() if hasattr(self, "steel_waste_input") else 5
+            unit_price = self.steel_unit_price_input.text() if hasattr(self, "steel_unit_price_input") else ""
+            summary = bom_steel_bom.summarize_bom_and_steel(
+                self.payload, steel_purchase_unit_price=unit_price, waste_percent=waste)
+        except (ValueError, bom_steel.SteelDataError) as exc:
+            self.steel_totals_label.setText(f"ตรวจข้อมูลเหล็ก: {exc}")
+            return
+        self.steel_summary_table.setRowCount(len(summary["steel_groups"]))
+        for index, group in enumerate(summary["steel_groups"]):
             values = [
-                group["profile"], group["size"], group["pieces"],
-                bom_steel.format_length(group["total_length_m"]),
-                f'{group["stock_length_m"]:g}',
-                group["estimated_stock_bars"],
+                group["profile"], group["size"], f'{group["stock_length_m"]:g}',
+                group["pieces"], bom_steel.format_length(group["total_length_m"]),
+                bom_steel.format_length(group["length_with_waste_m"]),
+                group["estimated_bars_with_waste"],
             ]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(str(value))
                 cell.setData(Qt.ItemDataRole.UserRole, index)
                 self.steel_summary_table.setItem(index, col, cell)
-        if not summary["groups"]:
+        if not summary["steel_groups"]:
             self.steel_summary_table.setRowCount(1)
             empty = QTableWidgetItem("ยังไม่มีรายการโครงสร้างเหล็ก")
             empty.setFlags(empty.flags() & ~Qt.ItemFlag.ItemIsSelectable)
             self.steel_summary_table.setItem(0, 0, empty)
         self.steel_summary_table.clearSelection()
         self.steel_totals_label.setText(
-            f'จำนวนชิ้น: {summary["total_pieces"]:,}  •  '
-            f'ความยาวรวม: {bom_steel.format_length(summary["total_length_m"])} m  •  '
-            f'เหล็กท่อนมาตรฐาน: {summary["estimated_stock_bars"]:,} ท่อน (ประมาณ)')
+            f'จำนวนชิ้น: {summary["steel_pieces"]:,}  •  '
+            f'ความยาวใช้จริง: {bom_steel.format_length(summary["steel_required_length_m"])} m  •  '
+            f'ความยาวรวมเผื่อเศษ: {bom_steel.format_length(summary["steel_length_with_waste_m"])} m  •  '
+            f'ท่อนที่ควรเตรียม: {summary["steel_stock_bars"]:,} ท่อน')
+        if hasattr(self, "steel_estimate_label"):
+            price_text = (f'{summary["steel_cost_estimate"]:,.2f} บาท'
+                          if summary["steel_cost_estimate"] is not None
+                          else "ยังไม่คำนวณราคา (กรอกราคา/ท่อน)")
+            self.steel_estimate_label.setText(
+                f'ความยาวท่อนที่ต้องซื้อรวม: {bom_steel.format_length(summary["steel_procurement_length_m"])} m'
+                f'  •  ประมาณการค่าเหล็ก: {price_text}'
+                f'  •  เผื่อเศษ {summary["waste_percent"]:g}%'
+                '  |  แยกจากงบ BOM เพื่อป้องกันการนับวัสดุซ้ำ')
 
     def render_wiring(self):
         rows = self.payload.get("wiring", [])
