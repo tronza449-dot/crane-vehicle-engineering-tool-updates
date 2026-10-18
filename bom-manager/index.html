@@ -32,16 +32,16 @@ function setStatus(msg,kind=''){const e=$('#syncStatus');e.textContent=msg;e.cla
 function persistDraft(){try{localStorage.setItem('bom-manager-draft',JSON.stringify(doc));localStorage.setItem('bom-manager-config',JSON.stringify(cfg))}catch{}}
 function markDirty(row){dirty=true;setStatus('มีการแก้ไขที่ยังไม่บันทึก','');persistDraft();if(row){const i=Number(row.dataset.i),x=doc.items[i];row.querySelector('.total').textContent=x.unitPrice==null||x.unitPrice===''?'—':money((Number(x.qty)||0)*(Number(x.unitPrice)||0))}updateMetrics()}
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-const engineeringCategoryOrder=['เครื่องกล','ไฟฟ้า','อิเล็กทรอนิกส์/ควบคุม'];
+const engineeringCategoryOrder=['เครื่องกล','ไฟฟ้ากำลัง','อิเล็กทรอนิกส์/ควบคุม'];
 const uncategorized='อื่น ๆ';
 const legacyCategoryMap={
  'โครงสร้างและเครื่องกล':'เครื่องกล','โครงสร้างเครื่องกล':'เครื่องกล',
  'ระบบเครนและวินช์':'เครื่องกล','Mechanical':'เครื่องกล',
- 'ระบบขับเคลื่อน':'ไฟฟ้า','ขับเคลื่อน/พลังงาน':'ไฟฟ้า',
- 'แบตเตอรี่และไฟฟ้า':'ไฟฟ้า','แบตเตอรี่และไฟฟ้ากำลัง':'ไฟฟ้า',
- 'สายไฟและอุปกรณ์ติดตั้ง':'ไฟฟ้า','สายไฟ/อุปกรณ์ประกอบ':'ไฟฟ้า',
- 'วินช์/เครน':'ไฟฟ้า','ไฟฟ้า':'ไฟฟ้า','ไฟฟ้ากำลัง':'ไฟฟ้า',
- 'Electrical':'ไฟฟ้า','Power':'ไฟฟ้า',
+ 'ระบบขับเคลื่อน':'ไฟฟ้ากำลัง','ขับเคลื่อน/พลังงาน':'ไฟฟ้ากำลัง',
+ 'แบตเตอรี่และไฟฟ้า':'ไฟฟ้ากำลัง','แบตเตอรี่และไฟฟ้ากำลัง':'ไฟฟ้ากำลัง',
+ 'สายไฟและอุปกรณ์ติดตั้ง':'ไฟฟ้ากำลัง','สายไฟ/อุปกรณ์ประกอบ':'ไฟฟ้ากำลัง',
+ 'วินช์/เครน':'ไฟฟ้ากำลัง','ไฟฟ้า':'ไฟฟ้ากำลัง','ไฟฟ้ากำลัง':'ไฟฟ้ากำลัง',
+ 'Electrical':'ไฟฟ้ากำลัง','Power':'ไฟฟ้ากำลัง',
  'ระบบควบคุมและสื่อสาร':'อิเล็กทรอนิกส์/ควบคุม',
  'เซนเซอร์และความปลอดภัย':'อิเล็กทรอนิกส์/ควบคุม',
  'อิเล็กทรอนิกส์':'อิเล็กทรอนิกส์/ควบคุม',
