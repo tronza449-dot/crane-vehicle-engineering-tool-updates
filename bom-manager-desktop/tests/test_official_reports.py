@@ -95,7 +95,8 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("xl/worksheets/sheet9.xml", names)
             wb = xlsx.read("xl/workbook.xml").decode("utf-8")
             for tab in ("Summary","BOM","Specification","Wiring","Purchasing",
-                        "Notes","References","Completeness","Approval"):
+                        "Notes","References","Completeness","Approval",
+                        "Steel Summary","Steel Cut List"):
                 self.assertIn('name="'+tab+'"', wb)
             summary = xlsx.read("xl/worksheets/sheet1.xml").decode("utf-8")
             detail = xlsx.read("xl/worksheets/sheet2.xml").decode("utf-8")
