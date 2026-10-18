@@ -71,9 +71,9 @@ class MinimalEngineeringTests(unittest.TestCase):
         self.assertEqual(self.win.bom_table.rowCount(),0)
         self.win.search.clear()
         self.win.price_filter.setCurrentText("ทุกราคา")
-        self.win.show_page(4)
-        self.assertEqual(self.win.stack.currentIndex(),4)
-        self.assertEqual(len(self.win.nav_buttons),6)
+        self.win.show_page(5)
+        self.assertEqual(self.win.stack.currentIndex(),5)
+        self.assertEqual(len(self.win.nav_buttons),7)
 
     def test_four_tab_bom_editor_keeps_all_inputs(self):
         from bom_qt import RecordDialog, ITEM_FIELDS
@@ -104,7 +104,7 @@ class MinimalEngineeringTests(unittest.TestCase):
         info = {"version": "9.9.9"}
         with patch.object(self.win, "_job", side_effect=lambda task, ok, fail,
                           context=None: ok(info)):
-            for page in range(6):
+            for page in range(7):
                 self.win.show_page(page)
                 self.win.check_version(silent=True)
                 self.assertFalse(self.win.install_btn.isHidden())
@@ -120,7 +120,7 @@ class MinimalEngineeringTests(unittest.TestCase):
     def test_redesign_does_not_mutate_bom_on_navigation(self):
         import json
         before=json.dumps(self.win.payload,ensure_ascii=False,sort_keys=True)
-        for tab in range(6):
+        for tab in range(7):
             self.win.show_page(tab)
         self.win.group_mode.setCurrentIndex(1)
         self.win.search.setText("ESP32")
