@@ -6,6 +6,8 @@ existing item fields are never removed or automatically fabricated.
 from collections import Counter
 from decimal import Decimal, InvalidOperation
 
+import bom_categories
+
 
 class DataError(ValueError):
     pass
@@ -107,7 +109,7 @@ def metrics(doc):
     for item in items:
         qty = decimal_or_none(item.get("qty")) or Decimal("0")
         total_qty += qty
-        cats[str(item.get("category") or "ไม่ระบุ")] += 1
+        cats[bom_categories.normalize_category(item.get("category"))] += 1
         price = decimal_or_none(item.get("unitPrice"))
         if price is not None:
             priced += 1
