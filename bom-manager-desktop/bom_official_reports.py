@@ -130,7 +130,7 @@ def export_pdf(doc, destination, options=None):
         if category_col is not None and rows:
             fills={
                 "เครื่องกล":colors.HexColor("#E4F0F8"),
-                "ไฟฟ้า":colors.HexColor("#FFF0D9"),
+                "ไฟฟ้ากำลัง":colors.HexColor("#FFF0D9"),
                 "อิเล็กทรอนิกส์/ควบคุม":colors.HexColor("#E1F5EE"),
                 "อื่น ๆ":colors.HexColor("#EEE8F8"),
             }
@@ -231,7 +231,7 @@ def export_pdf(doc, destination, options=None):
     ]
     story += [P("ภาคผนวก ก. สเปกและแหล่งอ้างอิงอุปกรณ์",section),
               P("Part Number (ถ้ามี) เป็นรหัสผู้ผลิต ส่วน BOM ID เป็นรหัสรายการในโครงการ "
-                "• หมวดไฟฟ้าครอบคลุมแหล่งจ่าย/กำลัง ส่วนอิเล็กทรอนิกส์/ควบคุมครอบคลุมวงจรสัญญาณและประมวลผล",label),
+                "• ไฟฟ้ากำลัง: แบตเตอรี่ มอเตอร์ ฟิวส์ คอนแทคเตอร์ และสายจ่ายกำลัง • อิเล็กทรอนิกส์/ควบคุม: ESP32, เซนเซอร์, CAN และวงจรสัญญาณ",label),
               Spacer(1,8)]
     story.append(TABLE(["BOM ID","ชื่ออุปกรณ์ / รุ่น","สเปก / รายละเอียดที่บันทึก",
                         "ผู้ขาย / แหล่งอ้างอิง"],[
@@ -338,7 +338,7 @@ def export_excel(doc,destination,options=None):
     alternate=fmt(text_wrap=True,bg_color="#F2F6FA",border=1,border_color=LINE)
     category_colors={
         "เครื่องกล":("#F0F6FB","#DDEBF5",NAVY),
-        "ไฟฟ้า":("#FFFAF0","#FFF0D9","#805000"),
+        "ไฟฟ้ากำลัง":("#FFFAF0","#FFF0D9","#805000"),
         "อิเล็กทรอนิกส์/ควบคุม":("#F0FAF6","#DDF3EA","#176650"),
         "อื่น ๆ":("#F8F5FC","#EEE8F8","#6546A5"),
     }
