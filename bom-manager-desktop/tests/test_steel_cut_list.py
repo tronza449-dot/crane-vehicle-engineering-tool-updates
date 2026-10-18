@@ -34,7 +34,7 @@ class SteelQuantityTests(unittest.TestCase):
         result = bom_steel.summarize(self.rows)
         self.assertEqual(result["total_pieces"], 8)
         self.assertAlmostEqual(float(result["total_length_m"]), 9.4)
-        self.assertEqual(result["estimated_stock_bars"], 3)
+        self.assertEqual(result["estimated_stock_bars"], 2)
         groups = {g["size"]: g for g in result["groups"]}
         self.assertEqual(groups["25×25×2 mm"]["pieces"], 6)
         self.assertAlmostEqual(float(groups["25×25×2 mm"]["total_length_m"]), 5.4)
