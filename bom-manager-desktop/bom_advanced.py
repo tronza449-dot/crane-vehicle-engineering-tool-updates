@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import bom_core
 
 _MISSING = object()
-_COLLECTIONS = ("items", "wiring", "purchases")
+_COLLECTIONS = ("items", "wiring", "purchases", "steel_members")
 
 
 def purchase_progress(doc):
