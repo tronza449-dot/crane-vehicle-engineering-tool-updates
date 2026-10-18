@@ -353,7 +353,7 @@ class ReportOptionsDialog(QDialog):
     FIELDS = (
         ("author", "ผู้จัดทำ"),
         ("institution", "มหาวิทยาลัย / สถาบัน"),
-        ("advisor", "อาจารย์ที่ปรึกษา / ผู้ตรวจทาน"),
+        ("advisor", "ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา"),
         ("document_no", "เลขที่เอกสาร"),
         ("revision", "Revision"),
         ("date", "วันที่จัดทำ (DD/MM/YYYY)"),
