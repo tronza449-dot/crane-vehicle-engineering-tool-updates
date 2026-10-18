@@ -148,6 +148,7 @@ jobs:
             bom-manager-desktop/output/EngineeringBOM_Example.xlsx
             bom-manager-desktop/output/EngineeringBOM_Cover.png
             bom-manager-desktop/output/EngineeringBOM_Table.png
+            bom-manager-desktop/output/EngineeringBOM_Signoff.png
           if-no-files-found: error
           retention-days: 30
 
@@ -171,10 +172,11 @@ jobs:
           $excel="bom-manager-desktop/output/EngineeringBOM_Example.xlsx"
           $cover="bom-manager-desktop/output/EngineeringBOM_Cover.png"
           $tablePreview="bom-manager-desktop/output/EngineeringBOM_Table.png"
+          $signoffPreview="bom-manager-desktop/output/EngineeringBOM_Signoff.png"
           gh release view $env:BOM_TAG --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "::warning::BOM release $env:BOM_TAG already exists. Increment bom-manager-desktop/VERSION to publish a new version."
             exit 0
           }
-          gh release create $env:BOM_TAG $installer $checksum $preview $bomPreview $formPreview $reportPreview $debugPreview $readablePreview $pdf $excel $cover $tablePreview --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
+          gh release create $env:BOM_TAG $installer $checksum $preview $bomPreview $formPreview $reportPreview $debugPreview $readablePreview $pdf $excel $cover $tablePreview $signoffPreview --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --latest=false --title "Crane Vehicle BOM Manager v$env:BOM_VER" --notes "Windows installer for BOM Manager v$env:BOM_VER. Includes in-app Check Version / Update Now, SHA256 validation, and GitHub BOM sync."
           if ($LASTEXITCODE -ne 0) { throw "GitHub Release creation failed" }
