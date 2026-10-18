@@ -9,9 +9,11 @@ TARGETS = [
     (2, "EngineeringBOM_Table.png"),
 ]
 with fitz.open(str(SOURCE)) as pdf:
-    assert len(pdf) >= 9, f"Unexpected number of pages ({len(pdf)}); check annex breaks"
+    assert len(pdf) >= 7, f"Unexpectedly short formal report ({len(pdf)} pages)"
     assert all(abs(page.rect.width - 841.89) < 2 and abs(page.rect.height - 595.28) < 2
                for page in pdf), "Report pages must all use landscape A4"
+    assert "MASTER BOM REGISTER" in pdf[2].get_text(), "The new consolidated BOM table is missing from the PDF preview"
+    assert "BOM ID" in pdf[2].get_text(), "The master BOM table must include BOM IDs"
     for index, name in TARGETS:
         page = pdf[index]
         pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
