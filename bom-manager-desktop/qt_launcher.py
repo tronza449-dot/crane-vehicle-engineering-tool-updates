@@ -52,8 +52,8 @@ def smoke_test():
     win.show()
     app.processEvents()
     trace("window shown and events processed")
-    assert len(win.nav_buttons) == 6
-    assert win.stack.count() == 6
+    assert len(win.nav_buttons) == 7
+    assert win.stack.count() == 7
     assert win.bom_table.columnCount() == 9
     assert len(win.cards) == 6
     import bom_categories
@@ -61,7 +61,7 @@ def smoke_test():
     assert win.update_btn.parentWidget().objectName() == "topbar"
     assert win.update_btn.isEnabled()
     assert win.install_btn.isHidden()  # displayed only when update found
-    win.show_page(5)
+    win.show_page(6)
     trace("debug page shown")
     assert win.debug_checks.rowCount() >= 3
     assert win.debug_events.columnCount() == 5
@@ -83,10 +83,10 @@ def smoke_test():
         win.show_page(1)
         snapshot("MinimalBOMPreview.png")
         trace("BOM screenshot saved")
-        win.show_page(4)
+        win.show_page(5)
         snapshot("MinimalReportsPreview.png")
         trace("reports screenshot saved")
-        win.show_page(5)
+        win.show_page(6)
         snapshot("DebugReportPreview.png")
         trace("debug screenshot saved")
 
