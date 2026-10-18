@@ -177,6 +177,9 @@ class ReportExportTests(unittest.TestCase):
         with fitz.open(str(pdf)) as exported:
             self.assertGreaterEqual(len(exported), 7)
             report_text = " ".join(page.get_text() for page in exported)
+            self.assertIn("ENGINEERING DESIGN DOCUMENT", report_text)
+            self.assertIn("DOCUMENT CONTROL", report_text)
+            self.assertIn("BILL OF MATERIALS (BOM)", report_text)
             self.assertIn("MASTER BOM REGISTER", report_text)
             self.assertIn("ไฟฟ้ากำลัง", report_text)
             self.assertIn("CATEGORY DEFINITIONS", report_text)
