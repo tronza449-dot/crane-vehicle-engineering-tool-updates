@@ -96,7 +96,7 @@ class ReportExportTests(unittest.TestCase):
             wb = xlsx.read("xl/workbook.xml").decode("utf-8")
             for tab in ("Summary","BOM","Specification","Wiring","Purchasing",
                         "Notes","References","Completeness","Approval",
-                        "Steel Summary","Steel Cut List"):
+                        "Steel Summary","Steel Cut List","Mass Summary"):
                 self.assertIn('name="'+tab+'"', wb)
             summary = xlsx.read("xl/worksheets/sheet1.xml").decode("utf-8")
             detail = xlsx.read("xl/worksheets/sheet2.xml").decode("utf-8")
@@ -116,6 +116,13 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("COUNTA", summary)
             self.assertIn("IF(G8", detail)
             self.assertIn("E8*G8", detail)
+            self.assertIn("IF(J8", detail)
+            self.assertIn("E8*J8", detail)
+            mass_sheet = xlsx.read("xl/worksheets/sheet12.xml").decode("utf-8")
+            self.assertIn("SUM(BOM!K8:K", mass_sheet)
+            self.assertIn("Steel Cut List", mass_sheet)
+            self.assertIn("น้ำหนักรวม (kg)", shared)
+            self.assertIn("น้ำหนัก/หน่วย (kg)", shared)
             self.assertIn("SUMIF", summary)
             self.assertIn("COUNTIFS", summary)
             self.assertIn("autoFilter", detail)
@@ -126,7 +133,8 @@ class ReportExportTests(unittest.TestCase):
             ns={"x":"http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
             formula_cells = [c for c in root.findall(".//x:c",ns)
                              if c.find("x:f",ns) is not None]
-            self.assertEqual(len(formula_cells), len(self.doc["items"]) + 1)  # one grand-total formula
+            self.assertEqual(len(formula_cells), 2 * len(self.doc["items"]) + 1)
+            # Each BOM row has price and mass formulas, plus the price grand total.
             blank_inputs = sum(reports.price(x.get("unitPrice")) is None
                                for x in self.doc["items"])
             self.assertGreater(blank_inputs,0)
@@ -211,6 +219,9 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("อาจารย์ทดสอบ", signoff)
             # The master register is visibly divided into top-level system groups.
             self.assertIn("MASTER BOM REGISTER", report_text)
+            self.assertIn("TOTAL MASS ROLL-UP", report_text)
+            self.assertIn("น้ำหนัก/หน่วย (kg)", report_text)
+            self.assertIn("น้ำหนักรวมที่ทราบ (kg)", report_text)
             self.assertIn("รายการ", report_text)
             self.assertIn("หมวดหลัก: เครื่องกล", report_text)
             self.assertIn("หมวดหลัก: ไฟฟ้ากำลัง", report_text)
@@ -221,6 +232,50 @@ class ReportExportTests(unittest.TestCase):
                 self.assertTrue(pages, f"Missing grouped table title: {heading}")
                 self.assertTrue(any("BOM ID" in page_text for page_text in pages),
                                 f"Column header did not repeat with {heading}")
+
+
+    def test_mass_rollup_in_pdf_and_excel_uses_entered_weights(self):
+        import copy
+        from decimal import Decimal
+        from bom_steel_bom import summarize_bom_and_steel
+        doc = copy.deepcopy(self.doc)
+        doc["items"][0]["qty"] = 2
+        doc["items"][0]["unitWeightKg"] = 3.25
+        doc["steel_members"] = [{
+            "id": "S1", "member": "Frame rail", "material": "SS400",
+            "profile": "เหล็กกล่องสี่เหลี่ยม", "size": "40x40x2 mm",
+            "qty": 2, "length_mm": 500, "stock_length_m": 6,
+            "weight_reference_length_m": 6, "weight_reference_kg": 12,
+        }]
+        result = summarize_bom_and_steel(doc)
+        self.assertEqual(result["equipment_known_weight_kg"], Decimal("6.50"))
+        self.assertEqual(result["steel_known_weight_kg"], Decimal("2"))
+        self.assertEqual(result["combined_known_weight_kg"], Decimal("8.50"))
+        xlsx = Path(self.temp.name) / "mass.xlsx"
+        reports.export_excel(doc, xlsx, self.metadata)
+        with zipfile.ZipFile(xlsx) as book:
+            workbook = book.read("xl/workbook.xml").decode("utf-8")
+            self.assertIn('name="Mass Summary"', workbook)
+            bom_xml = book.read("xl/worksheets/sheet2.xml").decode("utf-8")
+            self.assertIn("E8*J8", bom_xml)
+            cut_xml = book.read("xl/worksheets/sheet11.xml").decode("utf-8")
+            self.assertIn("L8/K8", cut_xml)
+            self.assertIn("H8*M8", cut_xml)
+            mass_xml = book.read("xl/worksheets/sheet12.xml").decode("utf-8")
+            self.assertIn("B4+D4", mass_xml)
+        try:
+            from bom_reports import _thai_font
+            _thai_font()
+        except RuntimeError:
+            self.skipTest("System has no supported Thai PDF font")
+        pdf = Path(self.temp.name) / "mass.pdf"
+        reports.export_pdf(doc, pdf, self.metadata)
+        import fitz
+        with fitz.open(str(pdf)) as exported:
+            text = " ".join(page.get_text() for page in exported)
+            self.assertIn("TOTAL MASS ROLL-UP", text)
+            self.assertIn("8.500", text)
+            self.assertIn("3.250", text)
 
     def test_explicit_identification_and_traceability_counts(self):
         gaps = reports.report_quality(self.doc["items"])
