@@ -2952,6 +2952,161 @@ class BOMWindow(QMainWindow):
         self._job(work, success, failed, context="github")
 
 
+    def open_mass_details(self, mode="total"):
+        """Show the item-level breakdown behind the clickable mass summary cards."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("รายละเอียดน้ำหนักอุปกรณ์และโครงสร้าง")
+        dialog.resize(1120, 700)
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(12)
+        title = QLabel("รายละเอียดน้ำหนัก / MASS BREAKDOWN")
+        title.setObjectName("pageTitle")
+        layout.addWidget(title)
+
+        equipment_rows = []
+        equipment_total = 0.0
+        equipment_known = 0
+        equipment_missing = 0
+        for item in self.payload.get("items", []):
+            try:
+                qty = float(str(item.get("qty", 1)).replace(",", ""))
+            except (TypeError, ValueError):
+                qty = 0.0
+            raw_weight = item.get("unitWeightKg")
+            try:
+                unit_weight = float(str(raw_weight).replace(",", ""))
+                if not math.isfinite(unit_weight) or unit_weight <= 0:
+                    unit_weight = None
+            except (TypeError, ValueError):
+                unit_weight = None
+            total_weight = qty * unit_weight if unit_weight is not None else None
+            if total_weight is None:
+                equipment_missing += 1
+                status = "ยังไม่ทราบน้ำหนัก"
+                unit_text = total_text = "—"
+            else:
+                equipment_known += 1
+                equipment_total += total_weight
+                status = "มีน้ำหนักแล้ว"
+                unit_text = f"{unit_weight:,.3f}"
+                total_text = f"{total_weight:,.3f}"
+            equipment_rows.append([
+                str(item.get("id", "")),
+                bom_categories.normalize_category(item.get("category")),
+                str(item.get("name", "ไม่ระบุชื่อ")),
+                f"{qty:g}", str(item.get("unit") or "ชิ้น"),
+                unit_text, total_text, status,
+            ])
+
+        frame_rows = []
+        frame_total = 0.0
+        frame_known = 0
+        frame_missing = 0
+        for row in self.payload.get("steel_members", []):
+            try:
+                entry = bom_steel.normalize_member(row)
+                qty = int(entry.get("qty") or 0)
+                total = bom_steel.total_weight_kg(entry)
+                total_value = float(total) if total is not None else None
+                per_piece = total_value / qty if total_value is not None and qty else None
+                length = bom_steel.total_length_m(entry)
+                length_text = f"{float(length):,.3f}" if length > 0 else "—"
+                profile = str(entry.get("profile") or "—")
+                size = str(entry.get("size") or "—")
+                material = str(entry.get("material") or "—")
+                details = " / ".join(x for x in (profile, size, material) if x and x != "—")
+                if total_value is None:
+                    frame_missing += 1
+                    per_text = total_text = "—"
+                    status = "ยังไม่ทราบน้ำหนัก"
+                else:
+                    frame_known += 1
+                    frame_total += total_value
+                    per_text = f"{per_piece:,.3f}"
+                    total_text = f"{total_value:,.3f}"
+                    status = "มีน้ำหนักแล้ว"
+                frame_rows.append([
+                    str(entry.get("id", "")), str(entry.get("member", "")),
+                    details, f"{qty:g}", length_text, per_text, total_text, status,
+                ])
+            except (ValueError, TypeError, bom_steel.SteelDataError):
+                frame_missing += 1
+                frame_rows.append([str(row.get("id", "")), str(row.get("member", "")),
+                                   str(row.get("size", "—")), str(row.get("qty", "")),
+                                   "—", "—", "—", "ตรวจข้อมูล"]) 
+
+        combined = equipment_total + frame_total
+        summary = QLabel(
+            f"อุปกรณ์ BOM: {equipment_total:,.3f} kg ({equipment_known} รายการมีน้ำหนัก, "
+            f"{equipment_missing} รายการยังไม่ทราบ)    |    "
+            f"โครงสร้าง: {frame_total:,.3f} kg ({frame_known} รายการมีน้ำหนัก, "
+            f"{frame_missing} รายการยังไม่ทราบ)    |    "
+            f"รวมที่ทราบ: {combined:,.3f} kg")
+        summary.setObjectName("sectionTitle")
+        summary.setWordWrap(True)
+        layout.addWidget(summary)
+        tabs = QTabWidget()
+
+        def make_table(headers, rows, widths):
+            table = QTableWidget(0, len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+            table.setAlternatingRowColors(True)
+            table.setSortingEnabled(False)
+            for col, width in enumerate(widths):
+                table.setColumnWidth(col, width)
+            table.horizontalHeader().setStretchLastSection(True)
+            table.setRowCount(max(1, len(rows)))
+            if not rows:
+                blank = QTableWidgetItem("ยังไม่มีรายการ")
+                blank.setFlags(blank.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+                table.setItem(0, 0, blank)
+            for row_index, values in enumerate(rows):
+                for col, value in enumerate(values):
+                    cell = QTableWidgetItem(str(value))
+                    if col in (3, 4, 5, 6) and str(value) not in ("—", ""):
+                        cell.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                    table.setItem(row_index, col, cell)
+            return table
+
+        equipment_tab = QWidget()
+        equipment_layout = QVBoxLayout(equipment_tab)
+        equipment_layout.addWidget(QLabel(
+            "น้ำหนักต่อหน่วยคูณจำนวนใน BOM; เครื่องหมาย — หมายถึงยังไม่ได้กรอกน้ำหนัก"))
+        equipment_layout.addWidget(make_table(
+            ["BOM ID", "หมวดหลัก", "อุปกรณ์ / รุ่น", "จำนวน", "หน่วย",
+             "น้ำหนัก/หน่วย (kg)", "น้ำหนักรวม (kg)", "สถานะ"],
+            equipment_rows, [75, 145, 280, 75, 65, 140, 140, 140]))
+        equipment_layout.addWidget(QLabel(
+            f"รวมอุปกรณ์ที่ทราบ: {equipment_total:,.3f} kg · "
+            f"มีน้ำหนัก {equipment_known} รายการ · ยังไม่ทราบ {equipment_missing} รายการ"))
+        tabs.addTab(equipment_tab, "อุปกรณ์ BOM")
+
+        frame_tab = QWidget()
+        frame_layout = QVBoxLayout(frame_tab)
+        frame_layout.addWidget(QLabel(
+            "แสดงเฉพาะน้ำหนักที่บันทึกจริง; ความยาวรวมคำนวณจากจำนวน × ความยาวต่อชิ้น"))
+        frame_layout.addWidget(make_table(
+            ["ID", "ชิ้นส่วนโครงสร้าง", "วัสดุ / หน้าตัด / ขนาด", "จำนวน",
+             "ความยาวรวม (m)", "น้ำหนัก/ชิ้น (kg)", "น้ำหนักรวม (kg)", "สถานะ"],
+            frame_rows, [65, 190, 240, 70, 125, 135, 135, 135]))
+        frame_layout.addWidget(QLabel(
+            f"รวมน้ำหนักโครงสร้างที่ทราบ: {frame_total:,.3f} kg · "
+            f"มีน้ำหนัก {frame_known} รายการ · ยังไม่ทราบ {frame_missing} รายการ"))
+        tabs.addTab(frame_tab, "โครงสร้าง")
+        layout.addWidget(tabs, 1)
+        if mode == "frame":
+            tabs.setCurrentWidget(frame_tab)
+        else:
+            tabs.setCurrentWidget(equipment_tab)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons)
+        dialog.exec()
+
     def open_weight_manager(self):
         """Open a focused weight-only workflow; no stability/tipping calculations."""
         dialog = WeightEntryDialog(self)
