@@ -508,63 +508,129 @@ class RecordDialog(QDialog):
 
 
 class FrameWeightDialog(QDialog):
-    """Simple manual mass entry for frame/structural parts, without tipping math."""
+    """Add/edit a structural part using length-based steel or manual component mass."""
     def __init__(self, owner, values=None):
         super().__init__(owner)
-        values = values or {}
-        self.setWindowTitle("เพิ่มน้ำหนักโครงสร้าง")
-        self.setMinimumWidth(560)
+        values = dict(values or {})
+        self.setWindowTitle("เพิ่ม / แก้ไขชิ้นส่วนโครงสร้าง")
+        self.setMinimumWidth(620)
+        self.resize(700, 720)
         root = QVBoxLayout(self)
         root.setSpacing(12)
         title = QLabel("น้ำหนักโครงสร้าง / FRAME WEIGHT")
         title.setObjectName("pageTitle")
         root.addWidget(title)
         hint = QLabel(
-            "กรอกจำนวนและน้ำหนักต่อชิ้นเพื่อรวมเป็น kg เท่านั้น "
-            "ไม่คำนวณการพลิกคว่ำ ไม่คำนวณความยาวเหล็ก")
+            "เลือกวิธีคำนวณให้ตรงกับชิ้นงาน: เหล็กกล่อง/หน้าตัดใช้ความยาวและ kg/m; "
+            "ชิ้นส่วนอื่นกรอกน้ำหนักต่อชิ้นเอง ระบบจะรวมเป็น kg เท่านั้น "
+            "ไม่คำนวณการพลิกคว่ำ")
         hint.setWordWrap(True)
         hint.setObjectName("hint")
         root.addWidget(hint)
 
-        form = QFormLayout()
-        form.setHorizontalSpacing(14)
-        form.setVerticalSpacing(10)
-        self.member_input = QLineEdit(str(values.get("member") or ""))
-        self.member_input.setPlaceholderText("เช่น โครงรถ, ฐานเครน, ขายึดมอเตอร์")
-        form.addRow("ชื่อชิ้นส่วน *", self.member_input)
+        self.form_layout = QFormLayout()
+        self.form_layout.setHorizontalSpacing(14)
+        self.form_layout.setVerticalSpacing(10)
 
-        self.material_input = QLineEdit(str(values.get("material") or "เหล็ก"))
-        self.material_input.setPlaceholderText("เช่น SS400, SUS304 หรือไม่ระบุ")
-        form.addRow("วัสดุ / เกรด", self.material_input)
+        self.mode_input = QComboBox()
+        for mode, label in bom_steel.WEIGHT_MODE_OPTIONS:
+            self.mode_input.addItem(label, mode)
+        mode = str(values.get("weight_mode") or bom_steel.WEIGHT_MODE_LENGTH)
+        mode_index = self.mode_input.findData(mode)
+        self.mode_input.setCurrentIndex(mode_index if mode_index >= 0 else 0)
+        self.mode_input.setToolTip(
+            "เหล็กกล่อง/หน้าตัด: น้ำหนักรวม = จำนวน × ความยาวต่อชิ้น (m) × kg/m\n"
+            "ชิ้นส่วนอื่น: น้ำหนักรวม = จำนวน × น้ำหนักต่อชิ้น (kg)")
+        self.form_layout.addRow("ประเภทชิ้นส่วน *", self.mode_input)
+
+        self.member_input = QLineEdit(str(values.get("member") or ""))
+        self.member_input.setPlaceholderText("เช่น คานฐานรถ, ฐานเครน, ขายึดมอเตอร์")
+        self.form_layout.addRow("ชื่อชิ้นส่วน *", self.member_input)
+
+        self.material_input = QLineEdit(
+            str(values.get("material") or bom_steel.DEFAULT_MATERIAL))
+        self.material_input.setPlaceholderText("เช่น SS400, SUS304, อะลูมิเนียม 6061")
+        self.form_layout.addRow("วัสดุ / เกรด", self.material_input)
+
+        self.profile_input = QComboBox()
+        self.profile_input.setEditable(True)
+        self.profile_input.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.profile_input.addItems(list(bom_steel.PROFILE_OPTIONS))
+        profile = str(values.get("profile") or bom_steel.PROFILE_OPTIONS[0])
+        if self.profile_input.findText(profile) < 0:
+            self.profile_input.addItem(profile)
+        self.profile_input.setCurrentText(profile)
+        self.form_layout.addRow("ชนิดหน้าตัด", self.profile_input)
 
         self.size_input = QLineEdit(str(values.get("size") or ""))
-        self.size_input.setPlaceholderText("เช่น กล่อง 40×40×2 mm (ไม่บังคับ)")
-        form.addRow("ขนาด / รายละเอียด", self.size_input)
+        self.size_input.setPlaceholderText("เช่น 25×25×2 mm หรือรายละเอียดชิ้นงาน")
+        self.form_layout.addRow("ขนาด / รายละเอียด", self.size_input)
 
         self.qty_input = QLineEdit(str(values.get("qty") or 1))
-        self.qty_input.setPlaceholderText("จำนวนชิ้น เช่น 2")
-        form.addRow("จำนวนชิ้น *", self.qty_input)
+        self.qty_input.setPlaceholderText("จำนวนชิ้น เช่น 4")
+        self.form_layout.addRow("จำนวนชิ้น *", self.qty_input)
 
-        unit_weight = values.get("manual_unit_weight_kg")
-        self.weight_input = QLineEdit("" if unit_weight is None else str(unit_weight))
-        self.weight_input.setPlaceholderText("น้ำหนักของ 1 ชิ้น เช่น 1.250")
-        self.weight_input.setToolTip("กรอกน้ำหนักต่อชิ้น ไม่ใช่น้ำหนักรวม")
-        form.addRow("น้ำหนักต่อชิ้น (kg) *", self.weight_input)
+        self.length_input = QLineEdit(
+            "" if values.get("length_mm") is None else str(values.get("length_mm")))
+        self.length_input.setPlaceholderText("ความยาวชิ้นงาน เช่น 1250")
+        self.form_layout.addRow("ความยาวต่อชิ้น (mm) *", self.length_input)
+
+        self.stock_length_input = QLineEdit(
+            str(values.get("stock_length_m") if values.get("stock_length_m") is not None else 6))
+        self.stock_length_input.setPlaceholderText("เช่น 6")
+        self.stock_length_input.setToolTip(
+            "ใช้ประเมินจำนวนท่อนในแท็บ Cut List; ไม่กระทบสูตรน้ำหนักรวม")
+        self.form_layout.addRow("ความยาวเหล็กมาตรฐาน (m)", self.stock_length_input)
+
+        reference_length = values.get("weight_reference_length_m")
+        reference_weight = values.get("weight_reference_kg")
+        kg_per_m = ""
+        try:
+            if (reference_length is not None and str(reference_length).strip()
+                    and reference_weight is not None and str(reference_weight).strip()):
+                ref_len = float(reference_length)
+                ref_kg = float(reference_weight)
+                if ref_len > 0 and ref_kg > 0:
+                    kg_per_m = f"{ref_kg / ref_len:.6f}".rstrip("0").rstrip(".")
+        except (TypeError, ValueError, ZeroDivisionError):
+            kg_per_m = ""
+        self.kg_per_m_input = QLineEdit(kg_per_m)
+        self.kg_per_m_input.setPlaceholderText("น้ำหนักต่อเมตรจากสเปกจริง เช่น 1.25")
+        self.kg_per_m_input.setToolTip(
+            "กรอกค่า kg/m จากผู้ขายหรือข้อมูลชั่งจริง ไม่ได้เดาจากขนาดหน้าตัด")
+        self.form_layout.addRow("น้ำหนักอ้างอิง (kg/m) *", self.kg_per_m_input)
+
+        manual_weight = values.get("manual_unit_weight_kg")
+        self.manual_weight_input = QLineEdit(
+            "" if manual_weight is None else str(manual_weight))
+        self.manual_weight_input.setPlaceholderText("น้ำหนักของ 1 ชิ้น เช่น 0.850")
+        self.manual_weight_input.setToolTip("กรอกน้ำหนักจริงของหนึ่งชิ้น ไม่ใช่น้ำหนักรวม")
+        self.form_layout.addRow("น้ำหนักต่อชิ้น (kg) *", self.manual_weight_input)
 
         self.link_input = QLineEdit(str(values.get("link") or ""))
         self.link_input.setPlaceholderText("https://... (ไม่บังคับ)")
-        form.addRow("ลิงก์สินค้า / ร้านเหล็ก", self.link_input)
+        self.form_layout.addRow("ลิงก์สินค้า / ร้านค้า", self.link_input)
 
         self.notes_input = QLineEdit(str(values.get("notes") or ""))
         self.notes_input.setPlaceholderText("หมายเหตุ (ไม่บังคับ)")
-        form.addRow("หมายเหตุ", self.notes_input)
-        root.addLayout(form)
+        self.form_layout.addRow("หมายเหตุ", self.notes_input)
+        root.addLayout(self.form_layout)
 
-        self.preview = QLabel("น้ำหนักรวม = จำนวนชิ้น × น้ำหนักต่อชิ้น")
+        self.mode_hint = QLabel()
+        self.mode_hint.setObjectName("hint")
+        self.mode_hint.setWordWrap(True)
+        root.addWidget(self.mode_hint)
+        self.preview = QLabel("น้ำหนักรวมจะแสดงเมื่อกรอกข้อมูลครบ")
         self.preview.setObjectName("sectionTitle")
+        self.preview.setWordWrap(True)
         root.addWidget(self.preview)
-        self.qty_input.textChanged.connect(self.update_preview)
-        self.weight_input.textChanged.connect(self.update_preview)
+
+        self.mode_input.currentIndexChanged.connect(self._update_mode_fields)
+        for field in (self.qty_input, self.length_input, self.kg_per_m_input,
+                      self.manual_weight_input):
+            field.textChanged.connect(self.update_preview)
+        self._last_mode = self.mode_input.currentData()
+        self._update_mode_fields()
         self.update_preview()
 
         buttons = QDialogButtonBox(
@@ -573,26 +639,96 @@ class FrameWeightDialog(QDialog):
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
 
+    def _set_field_visible(self, widget, visible):
+        widget.setVisible(visible)
+        label = self.form_layout.labelForField(widget)
+        if label is not None:
+            label.setVisible(visible)
+
+    def _update_mode_fields(self, *_):
+        current_mode = self.mode_input.currentData()
+        length_mode = current_mode == bom_steel.WEIGHT_MODE_LENGTH
+        if current_mode != getattr(self, "_last_mode", current_mode):
+            if not length_mode:
+                self.profile_input.setCurrentText("ชิ้นส่วนอื่น")
+            elif self.profile_input.currentText() == "ชิ้นส่วนอื่น":
+                self.profile_input.setCurrentText(bom_steel.PROFILE_OPTIONS[0])
+        self._last_mode = current_mode
+        for widget in (self.profile_input, self.length_input,
+                       self.stock_length_input, self.kg_per_m_input):
+            self._set_field_visible(widget, length_mode)
+        self._set_field_visible(self.manual_weight_input, not length_mode)
+        if length_mode:
+            self.mode_hint.setText(
+                "เหล็กกล่อง/หน้าตัด: น้ำหนักรวม (kg) = จำนวนชิ้น × "
+                "(ความยาวต่อชิ้น mm ÷ 1,000) × น้ำหนักต่อเมตร (kg/m). "
+                "ใช้ค่า kg/m จากสเปกจริง")
+        else:
+            self.mode_hint.setText(
+                "ชิ้นส่วนอื่น เช่น แผ่นยึด ขายึด ฐานมอเตอร์ ล้อ หรือชุดอุปกรณ์: "
+                "น้ำหนักรวม (kg) = จำนวนชิ้น × น้ำหนักต่อชิ้น (kg). "
+                "ไม่ต้องกรอกความยาวหรือ kg/m")
+        self.update_preview()
+
+    @staticmethod
+    def _positive_float(widget):
+        value = float(widget.text().replace(",", "").strip())
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("value must be positive")
+        return value
+
     def update_preview(self, *_):
         try:
-            qty = float(self.qty_input.text().strip())
-            weight = float(self.weight_input.text().replace(",", "").strip())
-            if qty > 0 and weight > 0 and math.isfinite(qty) and math.isfinite(weight):
-                self.preview.setText(f"น้ำหนักรวมที่บันทึก: {qty * weight:,.3f} kg")
-                return
+            qty = self._positive_float(self.qty_input)
+            if qty != int(qty):
+                raise ValueError("quantity must be an integer")
+            if self.mode_input.currentData() == bom_steel.WEIGHT_MODE_MANUAL:
+                weight = self._positive_float(self.manual_weight_input)
+                self.preview.setText(
+                    f"น้ำหนักรวมที่บันทึก: {qty * weight:,.3f} kg "
+                    f"({qty:g} ชิ้น × {weight:,.3f} kg/ชิ้น)")
+            else:
+                length_mm = self._positive_float(self.length_input)
+                kg_per_m = self._positive_float(self.kg_per_m_input)
+                total_length = qty * length_mm / 1000.0
+                total_weight = total_length * kg_per_m
+                self.preview.setText(
+                    f"ความยาวรวม: {total_length:,.3f} m  •  "
+                    f"น้ำหนักรวม: {total_weight:,.3f} kg "
+                    f"({qty:g} × {length_mm:g} mm × {kg_per_m:g} kg/m)")
         except (ValueError, TypeError):
-            pass
-        self.preview.setText("น้ำหนักรวม = จำนวนชิ้น × น้ำหนักต่อชิ้น")
+            self.preview.setText("กรอกจำนวนและข้อมูลน้ำหนักที่จำเป็นให้ครบ เพื่อดูยอดรวม (kg)")
 
     def get_values(self):
-        return {
+        mode = self.mode_input.currentData()
+        common = {
+            "weight_mode": mode,
             "member": self.member_input.text().strip(),
             "material": self.material_input.text().strip() or bom_steel.DEFAULT_MATERIAL,
-            "size": self.size_input.text().strip() or "ไม่ระบุขนาด",
+            "size": self.size_input.text().strip(),
             "qty": self.qty_input.text().strip(),
-            "manual_unit_weight_kg": self.weight_input.text().strip(),
             "link": self.link_input.text().strip(),
             "notes": self.notes_input.text().strip(),
+        }
+        if mode == bom_steel.WEIGHT_MODE_MANUAL:
+            return {
+                **common,
+                "profile": "ชิ้นส่วนอื่น",
+                "length_mm": "",
+                "stock_length_m": "",
+                "weight_reference_length_m": "",
+                "weight_reference_kg": "",
+                "manual_unit_weight_kg": self.manual_weight_input.text().strip(),
+            }
+        return {
+            **common,
+            "profile": self.profile_input.currentText().strip(),
+            "length_mm": self.length_input.text().strip(),
+            "stock_length_m": self.stock_length_input.text().strip() or "6",
+            # Store the user-entered kg/m as the weight of a 1 m reference.
+            "weight_reference_length_m": "1",
+            "weight_reference_kg": self.kg_per_m_input.text().strip(),
+            "manual_unit_weight_kg": "",
         }
 
 
