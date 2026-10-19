@@ -1053,4 +1053,21 @@ def export_excel(doc,destination,options=None):
         steel_summary.write_string(7, 0, "ยังไม่มีข้อมูลโครงสร้างเหล็ก", normal)
         steel_summary.print_area("A1:G8")
 
+    # Guard the workbook packager against a malformed cell format. A bad
+    # format must never make the complete Excel export unusable.
+    for worksheet in wb.worksheets():
+        for row_index, row_cells in worksheet.table.items():
+            for col_index, cell in list(row_cells.items()):
+                cell_format = getattr(cell, "format", None)
+                if cell_format is not None and not callable(
+                        getattr(cell_format, "_get_xf_index", None)):
+                    print(
+                        "WARNING: invalid Excel cell format; applying safe fallback: "
+                        f"sheet={worksheet.name!r}, row={row_index + 1}, "
+                        f"column={col_index + 1}, type={type(cell_format).__name__}"
+                    )
+                    if hasattr(cell, "_replace"):
+                        row_cells[col_index] = cell._replace(format=normal)
+                    else:
+                        cell.format = normal
     wb.close()
