@@ -10,8 +10,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from PySide6.QtWidgets import QApplication, QDialog, QTableWidget
+from PySide6.QtWidgets import QApplication, QDialog, QLabel, QTableWidget
 from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 from bom_qt import BOMWindow
 
 
@@ -56,18 +57,18 @@ class MassDetailsAndExportTests(unittest.TestCase):
         self.window.deleteLater()
 
     def test_mass_cards_are_wired_to_details_and_tables_show_unit_and_total_weight(self):
-        self.assertTrue(self.window.mass_equipment_card.receivers(
-            self.window.mass_equipment_card.clicked) > 0)
         dialogs = []
         def fake_exec(dialog):
             dialogs.append(dialog)
             return QDialog.DialogCode.Accepted
+        self.window.show()
+        self.app.processEvents()
         with patch.object(QDialog, "exec", fake_exec):
-            self.window.open_mass_details("equipment")
+            QTest.mouseClick(self.window.mass_equipment_card, Qt.MouseButton.LeftButton)
         self.assertEqual(len(dialogs), 1)
         dialog = dialogs[0]
-        self.assertIn("8.200 kg", dialog.findChild(type(dialog.layout().itemAt(1).widget()), "") .text() if False else
-                      dialog.findChildren(__import__("PySide6.QtWidgets", fromlist=["QLabel"]).QLabel)[1].text())
+        self.assertTrue(any("รวมที่ทราบ: 9.000 kg" in label.text()
+                            for label in dialog.findChildren(QLabel)))
         tables = dialog.findChildren(QTableWidget)
         self.assertEqual(len(tables), 2)
         equipment = tables[0]
