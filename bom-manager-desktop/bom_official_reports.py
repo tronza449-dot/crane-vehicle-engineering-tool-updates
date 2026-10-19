@@ -983,8 +983,8 @@ def export_excel(doc,destination,options=None):
         else float(mass_data["equipment_known_weight_kg"]))
     mass_sheet.write_string(3, 2, "โครงเหล็ก (kg)", label)
     mass_sheet.write_formula(3, 3,
-        '=IF(COUNT(\'Steel Cut List\'!N8:N' + str(max(8, 7 + len(steel_rows))) +
-        ')=0,"",SUM(\'Steel Cut List\'!N8:N' + str(max(8, 7 + len(steel_rows))) + '))',
+        '=IF(COUNT(\'Steel Cut List\'!P8:P' + str(max(8, 7 + len(steel_rows))) +
+        ')=0,"",SUM(\'Steel Cut List\'!P8:P' + str(max(8, 7 + len(steel_rows))) + '))',
         total_mass, "" if mass_data["steel_known_weight_kg"] == 0
         else float(mass_data["steel_known_weight_kg"]))
     mass_sheet.write_string(3, 4, "น้ำหนักรวมที่ทราบ (kg)", label)
