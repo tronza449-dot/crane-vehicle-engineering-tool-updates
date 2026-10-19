@@ -1749,8 +1749,8 @@ class BOMWindow(QMainWindow):
                        qty, item.get("unit", ""), money(price),
                        money(float(qty) * float(price)) if price is not None else "—",
                        item.get("status", ""),
-                       money(unit_weight) if has_unit_weight else "—",
-                       money(line_weight) if line_weight is not None else "—"]
+                       f"{float(unit_weight):,.3f}" if has_unit_weight else "—",
+                       f"{line_weight:,.3f}" if line_weight is not None else "—"]
             for col, val in enumerate(columns):
                 cell = QTableWidgetItem(str(val if val is not None else ""))
                 cell.setData(Qt.ItemDataRole.UserRole, index)
