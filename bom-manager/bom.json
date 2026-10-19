@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T15:14:44+00:00",
+  "updatedAt": "2026-10-19T17:51:41+00:00",
   "currency": "THB",
   "items": [
     {
@@ -480,6 +480,22 @@
       "status": "",
       "supplier": "",
       "link": "https://shopee.co.th/product/1822331990/48761025517?gads_t_sig=gqRjZGVrxHCFomtpsTE0MjUxOnRzc19zZGtfa2V5omt20QACpGFsZ2_SAAAAZKNkZWvAomN0xEAAAAAMaBRvcqdZwgRklGTWoHoxFGhRfNAexxPkhN1n8rcCO5qFEud_-aY2hsGdfUnqCpX0P0Z7lpJy6IP6_Ew8qmNpcGhlcnRleHTEcwAAAAz60CJXaWmKVDuP0ZoF-J6vnVRk-vR0SuwCcHHMJqzxUd64WcGI5Xyu8JpcC2mbxot5KMcSrO4XvjaLYSl-La_40wdeyuSYV6tWksmCKmstQno57joxxylWny5Ri-qQVyWTnKj-H7f3CVwtDFZrTNs&gad_source=1&gad_campaignid=23289813561&gbraid=0AAAAADPpYO2ldFXghGUrsb3ZnZqevLzct&gclid=CjwKCAjw88HWBhA3EiwAo2Zd6Kac3ogHvcu4-VG0ejaZ7gcO6kJNC4XAwN4iJ7LYABz4ndzySRH5BxoCeFoQAvD_BwE",
+      "connection": "",
+      "notes": ""
+    },
+    {
+      "id": "5",
+      "category": "เครื่องกล",
+      "name": "เหล็กกล่องกัลวาไนซ์ 4x2 นิ้ว (100x50 มม.) หนา 2 มม. มอก. ยาว 6 ม.",
+      "partNumber": "",
+      "spec": "",
+      "qty": 1,
+      "unit": "",
+      "unitWeightKg": null,
+      "unitPrice": 650.0,
+      "status": "",
+      "supplier": "",
+      "link": "https://www.onestockhome.com/th/items/61045370/galvanized-gi-rectangular-pipe-4x2-inch-100x50-mm-2-mm-6-m_pre-zinc-gi-pipes_onestockhome?srsltid=AU7gw4WQ41uubRVC7Fc4UHMsX_VbfCOShGwOzmum1WpwvV3Vd9eLrnPX",
       "connection": "",
       "notes": ""
     }
