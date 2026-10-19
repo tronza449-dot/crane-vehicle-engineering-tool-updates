@@ -2251,7 +2251,10 @@ class BOMWindow(QMainWindow):
                 group.get("material", bom_steel.DEFAULT_MATERIAL),
                 group["profile"], group["size"],
                 f'{group["stock_length_m"]:g}' if group.get("stock_length_m") is not None else "—",
-                group["pieces"], bom_steel.format_length(group["total_length_m"]),
+                group["pieces"],
+                ("—" if group.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+                 and not group["total_length_m"] else
+                 bom_steel.format_length(group["total_length_m"])),
                 bom_steel.format_length(group["known_weight_kg"], 3),
                 bom_steel.format_length(group["unknown_weight_length_m"]),
                 bom_steel.format_length(group["length_with_waste_m"]),
