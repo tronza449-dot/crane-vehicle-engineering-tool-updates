@@ -100,7 +100,8 @@ def normalize_member(values):
                      if length_raw is not None and str(length_raw).strip() else None)
         stock_raw = row.get("stock_length_m")
         stock_length = (_positive(stock_raw, "ความยาวเหล็กมาตรฐาน (m)")
-                        if stock_raw is not None and str(stock_raw).strip() else None)
+                        if length_mm is not None and stock_raw is not None and
+                        str(stock_raw).strip() else None)
         if length_mm is not None and stock_length is not None and length_mm > stock_length * 1000:
             raise SteelDataError(
                 "ความยาวชิ้นงานมากกว่าท่อนมาตรฐานที่เลือก "
@@ -238,7 +239,7 @@ def summarize(rows):
     total_unknown_weight_length = Decimal("0")
     for key in sorted(groups, key=lambda x: (
             x[0], x[1].casefold(), x[2].casefold(), x[3].casefold(),
-            x[4].casefold(), x[5] if x[5] is not None else Decimal("0"))):
+            x[4] if x[4] is not None else Decimal("0"))):
         group = groups[key]
         stock_length = group["stock_length_m"]
         if stock_length is not None and group["total_length_m"] > 0:
