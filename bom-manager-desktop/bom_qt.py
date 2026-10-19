@@ -75,7 +75,8 @@ PURCHASE_FIELDS = [
 ]
 STEEL_FIELDS = [
     ("member", "ตำแหน่ง / ชิ้นส่วน"),
-    ("profile", "ชนิดหน้าตัดเหล็ก"),
+    ("material", "วัสดุ / เกรด"),
+    ("profile", "ชนิดหน้าตัด"),
     ("size", "ขนาดหน้าตัด เช่น 25×25×2 mm"),
     ("qty", "จำนวนชิ้น"),
     ("length_mm", "ความยาวต่อชิ้น (mm)"),
@@ -269,6 +270,17 @@ class RecordDialog(QDialog):
                     current = bom_categories.UNCATEGORIZED
                 control.setCurrentText(current)
                 control.setToolTip("เลือกหมวดหลักเท่านั้น: เครื่องกล=โครงสร้าง/ล้อ/เครน; ไฟฟ้ากำลัง=แบตเตอรี่/มอเตอร์/ฟิวส์/สายไฟ; อิเล็กทรอนิกส์/ควบคุม=ESP32/รีเลย์/เซนเซอร์/สัญญาณ")
+            elif key == "material" and "เหล็ก" in title:
+                control = QComboBox()
+                control.setEditable(False)
+                control.addItems(list(bom_steel.MATERIAL_OPTIONS))
+                current = str(val or bom_steel.DEFAULT_MATERIAL)
+                if control.findText(current) < 0:
+                    control.addItem(current)
+                control.setCurrentText(current)
+                control.setToolTip(
+                    "เลือกวัสดุแยกจากรูปหน้าตัด เช่น เหล็กคาร์บอน สแตนเลส 304/316 "
+                    "หรืออะลูมิเนียม หากไม่ทราบเกรดให้ใช้วัสดุเดิม/ไม่ระบุเกรด")
             elif key == "profile" and "เหล็ก" in title:
                 control = QComboBox()
                 control.setEditable(False)
@@ -277,7 +289,9 @@ class RecordDialog(QDialog):
                 if control.findText(current) < 0:
                     control.addItem(current)
                 control.setCurrentText(current)
-                control.setToolTip("เลือกชนิดหน้าตัดหลัก แล้วระบุขนาดจริงในช่องขนาดหน้าตัด")
+                control.setToolTip(
+                    "เลือกหน้าตัด/รูปทรง เช่น กล่องสี่เหลี่ยม กล่องแบน ฉาก ตัวซี ท่อกลม "
+                    "หรือแผ่นโลหะ ส่วนชนิดวัสดุเลือกแยกอีกช่อง")
             elif key == "size" and "เหล็ก" in title:
                 control = QComboBox()
                 control.setEditable(True)
@@ -746,7 +760,7 @@ class BOMWindow(QMainWindow):
         zoom = self.zoom_factor
         self.sidebar_frame.setFixedWidth(round(245 * zoom))
         row_h = round(53 * zoom)
-        header_h = round(49 * zoom)
+        header_h = round(68 * zoom)
         for table in (self.category_table, self.bom_table, self.steel_table,
                       self.steel_summary_table, self.wire_table, self.purchase_table,
                       self.debug_checks, self.debug_events):
@@ -815,6 +829,11 @@ class BOMWindow(QMainWindow):
         table = (ReorderTable(0, len(headers)) if headers and headers[0] == "BOM ID"
                  else QTableWidget(0, len(headers)))
         table.setHorizontalHeaderLabels(headers)
+        table.setWordWrap(True)
+        table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+        table.horizontalHeader().setMinimumHeight(68)
+        table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         table.setAlternatingRowColors(True)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
@@ -1164,23 +1183,23 @@ class BOMWindow(QMainWindow):
         estimate.addWidget(self.steel_estimate_label)
         summary_panel = self._table_panel(body, "สรุปจำนวนเหล็กตามชนิดและขนาด")
         self.steel_summary_table = self._table(
-            ["ชนิดหน้าตัด", "ขนาดหน้าตัด", "ท่อนมาตรฐาน (m)", "จำนวนชิ้น",
-             "ความยาวใช้จริง (m)", "น้ำหนักรวมที่ทราบ (kg)",
-             "ยังไม่ทราบน้ำหนัก (m)", "รวมเผื่อเศษ (m)", "จำนวนท่อนที่ควรเตรียม"], 1)
+            ["วัสดุ / เกรด", "หน้าตัด", "ขนาด", "ท่อนมาตรฐาน\n(m)", "จำนวน\n(ชิ้น)",
+             "ยาวรวม\n(m)", "น้ำหนักที่ทราบ\n(kg)", "ยังไม่ทราบน้ำหนัก\n(m)",
+             "ยาวรวมเผื่อเศษ\n(m)", "จำนวนท่อน\n(ประมาณ)"], 2)
         self.steel_summary_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        for col, width in {0: 155, 1: 135, 2: 115, 3: 75, 4: 120, 5: 145,
-                           6: 145, 7: 120, 8: 155}.items():
+        for col, width in {0: 180, 1: 145, 2: 145, 3: 110, 4: 85, 5: 105,
+                           6: 125, 7: 130, 8: 120, 9: 125}.items():
             self.steel_summary_table.setColumnWidth(col, width)
         summary_panel.addWidget(self.steel_summary_table)
         detail = self._table_panel(body, "รายการตัดเหล็ก / รายชิ้นส่วน")
         self.steel_table = self._table(
-            ["ID", "ตำแหน่ง / ชิ้นส่วน", "ชนิดหน้าตัด", "ขนาดหน้าตัด",
-             "จำนวนชิ้น", "ยาวต่อชิ้น (mm)", "รวมความยาว (m)",
-             "อ้างอิงยาว (m)", "อ้างอิงหนัก (kg)", "น้ำหนัก/เมตร (kg/m)",
-             "น้ำหนักรวม (kg)", "ท่อนมาตรฐาน (m)", "หมายเหตุ"], 1)
-        for col, width in {0: 50, 1: 165, 2: 145, 3: 125, 4: 70,
-                           5: 105, 6: 105, 7: 105, 8: 105, 9: 120,
-                           10: 120, 11: 110, 12: 180}.items():
+            ["ID", "ตำแหน่ง / ชิ้นส่วน", "วัสดุ / เกรด", "หน้าตัด", "ขนาดหน้าตัด",
+             "จำนวน\n(ชิ้น)", "ยาว/ชิ้น\n(mm)", "ยาวรวม\n(m)",
+             "อ้างอิงยาว\n(m)", "อ้างอิงหนัก\n(kg)", "น้ำหนัก/เมตร\n(kg/m)",
+             "น้ำหนักรวม\n(kg)", "ท่อนมาตรฐาน\n(m)", "หมายเหตุ"], 1)
+        for col, width in {0: 55, 1: 165, 2: 185, 3: 135, 4: 135, 5: 75,
+                           6: 100, 7: 100, 8: 100, 9: 100, 10: 110,
+                           11: 100, 12: 105, 13: 170}.items():
             self.steel_table.setColumnWidth(col, width)
         self.steel_table.cellDoubleClicked.connect(lambda *_: self.edit_record("steel_members", True))
         detail.addWidget(self.steel_table)
@@ -1821,9 +1840,10 @@ class BOMWindow(QMainWindow):
                 rate_text = "ตรวจข้อมูล"
                 mass_text = "ตรวจข้อมูล"
             values = [
-                entry.get("id", ""), entry.get("member", ""), entry.get("profile", ""),
-                entry.get("size", ""), entry.get("qty", ""), entry.get("length_mm", ""),
-                total_text, entry.get("weight_reference_length_m") or "",
+                entry.get("id", ""), entry.get("member", ""), entry.get("material", bom_steel.DEFAULT_MATERIAL),
+                entry.get("profile", ""), entry.get("size", ""), entry.get("qty", ""),
+                entry.get("length_mm", ""), total_text,
+                entry.get("weight_reference_length_m") or "",
                 entry.get("weight_reference_kg") or "", rate_text, mass_text,
                 entry.get("stock_length_m", ""), entry.get("notes", ""),
             ]
@@ -1845,6 +1865,7 @@ class BOMWindow(QMainWindow):
         self.steel_summary_table.setRowCount(len(summary["steel_groups"]))
         for index, group in enumerate(summary["steel_groups"]):
             values = [
+                group.get("material", bom_steel.DEFAULT_MATERIAL),
                 group["profile"], group["size"], f'{group["stock_length_m"]:g}',
                 group["pieces"], bom_steel.format_length(group["total_length_m"]),
                 bom_steel.format_length(group["known_weight_kg"], 3),
@@ -2147,6 +2168,7 @@ class BOMWindow(QMainWindow):
             row.setdefault("category", bom_categories.UNCATEGORIZED)
             row.setdefault("qty", 1)
         if kind == "steel_members" and index is None:
+            row.setdefault("material", bom_steel.DEFAULT_MATERIAL)
             row.setdefault("profile", bom_steel.PROFILE_OPTIONS[0])
             row.setdefault("qty", 1)
             row.setdefault("stock_length_m", 6)
