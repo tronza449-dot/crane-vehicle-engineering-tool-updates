@@ -334,7 +334,9 @@ def export_pdf(doc, destination, options=None):
         [("กรอกน้ำหนักเอง" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
           else "คำนวณตามความยาว"),
          g.get("material", bom_steel.DEFAULT_MATERIAL), g["profile"], g["size"],
-         g["pieces"], bom_steel.format_length(g["total_length_m"]),
+         g["pieces"], ("—" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+                       and not g["total_length_m"] else
+                       bom_steel.format_length(g["total_length_m"])),
          stock_label(g.get("stock_length_m")),
          bom_steel.format_length(g["known_weight_kg"], 3),
          g["estimated_stock_bars"]]
@@ -441,7 +443,9 @@ def export_pdf(doc, destination, options=None):
               [[("กรอกน้ำหนักเอง" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
                  else "ตามความยาว"),
                 g.get("profile"), g.get("size"), g["pieces"],
-                bom_steel.format_length(g["total_length_m"]),
+                ("—" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+                 and not g["total_length_m"] else
+                 bom_steel.format_length(g["total_length_m"])),
                 bom_steel.format_length(g["known_weight_kg"], 3),
                 bom_steel.format_length(g["unknown_weight_length_m"])]
                for g in mass["steel_groups"]],
@@ -1078,8 +1082,11 @@ def export_excel(doc,destination,options=None):
                 row, 4, f"=SUMIFS({cut_qty},{criteria})",
                 number, group["pieces"])
             steel_summary.write_formula(
-                row, 5, f"=SUMIFS({cut_length},{criteria})",
-                steel_length_fmt, float(group["total_length_m"]))
+                row, 5,
+                f'=IF(A{excel_row}="กรอกน้ำหนักเอง","",SUMIFS({cut_length},{criteria}))',
+                steel_length_fmt,
+                "" if group.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+                and not group["total_length_m"] else float(group["total_length_m"]))
             if group.get("stock_length_m") is None:
                 steel_summary.write_blank(row, 6, None, steel_length_fmt)
             else:
