@@ -48,7 +48,36 @@ def summarize_bom_and_steel(doc, steel_purchase_unit_price=None, waste_percent=0
             cost = qty * price
             entry["known_cost"] += cost
             known_bom_cost += cost
+    # Equipment mass is entered manually as kg per BOM unit. Never infer a
+    # component mass from its name or price; missing weights remain unknown.
+    equipment_known_weight = Decimal("0")
+    equipment_weighted_items = 0
+    equipment_missing_weight_count = 0
+    equipment_missing_weight_qty = Decimal("0")
+    equipment_weight_rows = []
+    for item in items:
+        qty = _decimal(item.get("qty", 0), "จำนวน BOM")
+        unit_weight = _decimal(item.get("unitWeightKg"), "น้ำหนักต่อหน่วย",
+                               allow_blank=True)
+        if unit_weight is not None and unit_weight <= 0:
+            raise ValueError("น้ำหนักต่อหน่วยต้องมากกว่า 0 kg หรือเว้นว่างหากยังไม่ทราบ")
+        line_weight = None if unit_weight is None else qty * unit_weight
+        if line_weight is None:
+            equipment_missing_weight_count += 1
+            equipment_missing_weight_qty += qty
+        else:
+            equipment_weighted_items += 1
+            equipment_known_weight += line_weight
+        equipment_weight_rows.append({
+            "id": str(item.get("id") or ""),
+            "name": str(item.get("name") or ""),
+            "qty": qty,
+            "unit": str(item.get("unit") or ""),
+            "unit_weight_kg": unit_weight,
+            "total_weight_kg": line_weight,
+        })
     steel = bom_steel.summarize(steel_rows)
+    combined_known_weight = equipment_known_weight + steel["known_weight_kg"]
     waste = _decimal(waste_percent, "เปอร์เซ็นต์เผื่อเศษ")
     if waste > 100:
         raise ValueError("เปอร์เซ็นต์เผื่อเศษต้องไม่เกิน 100")
@@ -72,6 +101,16 @@ def summarize_bom_and_steel(doc, steel_purchase_unit_price=None, waste_percent=0
     return {
         "category_summary": by_category,
         "bom_items": len(items),
+        "equipment_weight_rows": equipment_weight_rows,
+        "equipment_known_weight_kg": equipment_known_weight,
+        "equipment_weighted_items": equipment_weighted_items,
+        "equipment_missing_weight_count": equipment_missing_weight_count,
+        "equipment_missing_weight_qty": equipment_missing_weight_qty,
+        "combined_known_weight_kg": combined_known_weight,
+        "combined_weight_complete": (
+            equipment_missing_weight_count == 0 and
+            steel["unknown_weight_length_m"] == 0
+        ),
         "bom_known_cost": known_bom_cost,
         "bom_missing_prices": missing_prices,
         "steel_groups": groups,
