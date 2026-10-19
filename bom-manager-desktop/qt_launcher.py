@@ -86,7 +86,7 @@ def smoke_test():
              "weight_reference_length_m": "", "weight_reference_kg": "",
              "notes": "ตรวจเกรดก่อนสั่งซื้อ"},
             {"id": "S3", "member": "ขายึด", "material": "อะลูมิเนียม 6061",
-             "profile": "แผ่นโลหะ", "size": "5 mm",
+             "profile": "เหล็กฉาก", "size": "30×30×3 mm",
              "qty": 2, "length_mm": 300, "stock_length_m": 6,
              "weight_reference_length_m": "", "weight_reference_kg": "",
              "notes": "ตัวอย่าง"},
