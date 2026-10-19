@@ -337,8 +337,8 @@ def export_pdf(doc, destination, options=None):
               g["pieces"], bom_steel.format_length(g["total_length_m"]),
               f'{g["stock_length_m"]:g}', g["estimated_stock_bars"]]
              for g in steel_totals["groups"]],
-            [width*.14, width*.14, width*.14, width*.10,
-             width*.14, width*.14, width*.14]),
+            [width*.13, width*.14, width*.14, width*.08,
+             width*.15, width*.16, width*.20]),
         Spacer(1, 8),
         P(f'รวมจำนวนชิ้น: {steel_totals["total_pieces"]:,}  |  '
           f'ความยาวรวม: {bom_steel.format_length(steel_totals["total_length_m"])} m  |  '
