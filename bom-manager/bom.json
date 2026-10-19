@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T15:09:10+00:00",
+  "updatedAt": "2026-10-19T15:12:27+00:00",
   "currency": "THB",
   "items": [
     {
@@ -40,12 +40,13 @@
       "qty": 2,
       "unit": "ตัว",
       "connection": "สายเฟส U/V/W และ Hall แยกต่อมอเตอร์ละชุด | GPIO/จุดต่อ: ต่อกับช่องมอเตอร์ M1/M2 ของ FSESC",
-      "unitPrice": 10000,
+      "unitPrice": 10000.0,
       "link": "https://www.qsmotor.cc/QS205-Single-Shaft-Car-Hub-Motor45H-1500W-V2-Type-p.html",
       "status": "เลือกสเปกแล้ว; สั่ง/ขอใบเสนอราคาจาก QS Motor",
       "notes": "ยืนยันเอกสารรุ่นมอเตอร์และลำดับสาย Hall/เฟส",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "unitWeightKg": 15.0
     },
     {
       "id": "4",
