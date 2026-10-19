@@ -80,6 +80,8 @@ STEEL_FIELDS = [
     ("qty", "จำนวนชิ้น"),
     ("length_mm", "ความยาวต่อชิ้น (mm)"),
     ("stock_length_m", "ความยาวเหล็กมาตรฐาน (m)"),
+    ("weight_reference_length_m", "ความยาวอ้างอิงน้ำหนัก (m)"),
+    ("weight_reference_kg", "น้ำหนักของความยาวอ้างอิง (kg)"),
     ("notes", "หมายเหตุ"),
 ]
 FIELD_SET = {"items": ITEM_FIELDS, "wiring": WIRE_FIELDS,
@@ -333,8 +335,22 @@ class RecordDialog(QDialog):
                     control.setPlaceholderText("ความยาวต่อชิ้น เช่น 750")
                 if key == "stock_length_m":
                     control.setPlaceholderText("เช่น 6 หรือ 12 เมตร")
+                if key == "weight_reference_length_m":
+                    control.setPlaceholderText("เช่น เหล็ก 6 เมตร")
+                    control.setToolTip("กรอกความยาวที่ทราบน้ำหนักของเหล็กขนาดนี้")
+                if key == "weight_reference_kg":
+                    control.setPlaceholderText("เช่น น้ำหนักของเหล็ก 6 เมตร")
+                    control.setToolTip("กรอกน้ำหนักจริงจากสเปกผู้ผลิตหรือการชั่ง ห้ามเดาค่าน้ำหนัก")
             self.widgets[key] = control
             (groups.get(key) if is_bom else form).addRow(QLabel(label), control)
+        if "เหล็ก" in title and "weight_reference_length_m" in self.widgets:
+            hint = QLabel(
+                "น้ำหนักต่อเมตร = น้ำหนักอ้างอิง (kg) ÷ ความยาวอ้างอิง (m)\n"
+                "น้ำหนักรวม = จำนวนชิ้น × ความยาวต่อชิ้น (m) × น้ำหนักต่อเมตร (kg/m)\n"
+                "กรอกสองช่องนี้จากสเปกผู้ผลิตหรือข้อมูลที่ชั่งจริง หากเว้นว่าง ระบบจะไม่นับน้ำหนักส่วนนั้น")
+            hint.setWordWrap(True)
+            hint.setObjectName("hint")
+            form.addRow(hint)
         if "จัดซื้อ" in title and "itemId" in self.widgets:
             self.widgets["itemId"].currentIndexChanged.connect(
                 lambda _: self._fill_purchase_from_bom(parent))
@@ -1105,8 +1121,28 @@ class BOMWindow(QMainWindow):
             "ไม่เปลี่ยน BOM อุปกรณ์เดิม", "caption")
         intro.setWordWrap(True)
         body.addWidget(intro)
+        dashboard = self._panel("Steel Weight Dashboard / ภาพรวมน้ำหนักเหล็ก", body)
+        steel_kpis = QGridLayout()
+        steel_kpis.setHorizontalSpacing(12)
+        steel_kpis.setVerticalSpacing(12)
+        self.steel_member_count_card = Card("รายการเหล็ก", "0", "#1768D2", "▤")
+        self.steel_piece_count_card = Card("จำนวนชิ้นรวม", "0", "#13835C", "▦")
+        self.steel_length_card = Card("ความยาวรวม (m)", "0.000", "#377FB5", "↔")
+        self.steel_weight_card = Card("น้ำหนักที่คำนวณได้ (kg)", "—", "#A46B20", "⚖")
+        self.steel_unknown_weight_card = Card("ความยาวที่ยังไม่ทราบน้ำหนัก (m)", "0.000", "#B74A37", "!")
+        self.steel_member_count_card.setToolTip("จำนวนบรรทัดใน Cut List ไม่ใช่จำนวนชิ้นเหล็ก")
+        self.steel_weight_card.setToolTip("รวมเฉพาะรายการที่กรอกข้อมูลความยาวและน้ำหนักอ้างอิงครบ")
+        self.steel_unknown_weight_card.setToolTip("รายการนี้ยังไม่ถูกรวมในน้ำหนักรวม")
+        for index, card in enumerate((
+            self.steel_member_count_card, self.steel_piece_count_card,
+            self.steel_length_card, self.steel_weight_card,
+            self.steel_unknown_weight_card)):
+            steel_kpis.addWidget(card, index // 3, index % 3)
+        for col in range(3):
+            steel_kpis.setColumnStretch(col, 1)
+        dashboard.addLayout(steel_kpis)
         self.steel_totals_label = self._label("กำลังคำนวณรายการเหล็ก…", "sectionTitle")
-        body.addWidget(self.steel_totals_label)
+        dashboard.addWidget(self.steel_totals_label)
         estimate = self._panel("ประมาณการจัดซื้อเหล็ก (แยกจากงบ BOM)", body)
         form = QGridLayout()
         self.steel_waste_input = QComboBox()
@@ -1129,18 +1165,22 @@ class BOMWindow(QMainWindow):
         summary_panel = self._table_panel(body, "สรุปจำนวนเหล็กตามชนิดและขนาด")
         self.steel_summary_table = self._table(
             ["ชนิดหน้าตัด", "ขนาดหน้าตัด", "ท่อนมาตรฐาน (m)", "จำนวนชิ้น",
-             "ความยาวใช้จริง (m)", "รวมเผื่อเศษ (m)", "จำนวนท่อนที่ควรเตรียม"], 1)
+             "ความยาวใช้จริง (m)", "น้ำหนักรวมที่ทราบ (kg)",
+             "ยังไม่ทราบน้ำหนัก (m)", "รวมเผื่อเศษ (m)", "จำนวนท่อนที่ควรเตรียม"], 1)
         self.steel_summary_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        for col, width in {0: 165, 1: 145, 2: 135, 3: 85, 4: 130, 5: 130, 6: 165}.items():
+        for col, width in {0: 155, 1: 135, 2: 115, 3: 75, 4: 120, 5: 145,
+                           6: 145, 7: 120, 8: 155}.items():
             self.steel_summary_table.setColumnWidth(col, width)
         summary_panel.addWidget(self.steel_summary_table)
         detail = self._table_panel(body, "รายการตัดเหล็ก / รายชิ้นส่วน")
         self.steel_table = self._table(
             ["ID", "ตำแหน่ง / ชิ้นส่วน", "ชนิดหน้าตัด", "ขนาดหน้าตัด",
              "จำนวนชิ้น", "ยาวต่อชิ้น (mm)", "รวมความยาว (m)",
-             "ท่อนมาตรฐาน (m)", "หมายเหตุ"], 1)
-        for col, width in {0: 55, 1: 180, 2: 165, 3: 150, 4: 85,
-                           5: 125, 6: 125, 7: 135, 8: 210}.items():
+             "อ้างอิงยาว (m)", "อ้างอิงหนัก (kg)", "น้ำหนัก/เมตร (kg/m)",
+             "น้ำหนักรวม (kg)", "ท่อนมาตรฐาน (m)", "หมายเหตุ"], 1)
+        for col, width in {0: 50, 1: 165, 2: 145, 3: 125, 4: 70,
+                           5: 105, 6: 105, 7: 105, 8: 105, 9: 120,
+                           10: 120, 11: 110, 12: 180}.items():
             self.steel_table.setColumnWidth(col, width)
         self.steel_table.cellDoubleClicked.connect(lambda *_: self.edit_record("steel_members", True))
         detail.addWidget(self.steel_table)
@@ -1771,13 +1811,21 @@ class BOMWindow(QMainWindow):
                 entry = bom_steel.normalize_member(raw)
                 total_m = bom_steel.total_length_m(entry)
                 total_text = bom_steel.format_length(total_m)
+                rate = bom_steel.weight_per_m(entry)
+                rate_text = bom_steel.format_length(rate, 3) if rate is not None else "—"
+                mass = bom_steel.total_weight_kg(entry)
+                mass_text = bom_steel.format_length(mass, 3) if mass is not None else "—"
             except bom_steel.SteelDataError:
                 entry = raw
                 total_text = "ตรวจข้อมูล"
+                rate_text = "ตรวจข้อมูล"
+                mass_text = "ตรวจข้อมูล"
             values = [
                 entry.get("id", ""), entry.get("member", ""), entry.get("profile", ""),
                 entry.get("size", ""), entry.get("qty", ""), entry.get("length_mm", ""),
-                total_text, entry.get("stock_length_m", ""), entry.get("notes", ""),
+                total_text, entry.get("weight_reference_length_m") or "",
+                entry.get("weight_reference_kg") or "", rate_text, mass_text,
+                entry.get("stock_length_m", ""), entry.get("notes", ""),
             ]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(str(value if value is not None else ""))
@@ -1799,6 +1847,8 @@ class BOMWindow(QMainWindow):
             values = [
                 group["profile"], group["size"], f'{group["stock_length_m"]:g}',
                 group["pieces"], bom_steel.format_length(group["total_length_m"]),
+                bom_steel.format_length(group["known_weight_kg"], 3),
+                bom_steel.format_length(group["unknown_weight_length_m"]),
                 bom_steel.format_length(group["length_with_waste_m"]),
                 group["estimated_bars_with_waste"],
             ]
@@ -1812,9 +1862,19 @@ class BOMWindow(QMainWindow):
             empty.setFlags(empty.flags() & ~Qt.ItemFlag.ItemIsSelectable)
             self.steel_summary_table.setItem(0, 0, empty)
         self.steel_summary_table.clearSelection()
+        self.steel_member_count_card.figure.setText(f'{len(rows):,}')
+        self.steel_piece_count_card.figure.setText(f'{summary["steel_pieces"]:,}')
+        self.steel_length_card.figure.setText(
+            bom_steel.format_length(summary["steel_required_length_m"], 3))
+        self.steel_weight_card.figure.setText(
+            bom_steel.format_length(summary["steel_known_weight_kg"], 3))
+        self.steel_unknown_weight_card.figure.setText(
+            bom_steel.format_length(summary["steel_unknown_weight_length_m"], 3))
         self.steel_totals_label.setText(
             f'จำนวนชิ้น: {summary["steel_pieces"]:,}  •  '
             f'ความยาวใช้จริง: {bom_steel.format_length(summary["steel_required_length_m"])} m  •  '
+            f'น้ำหนักที่คำนวณได้: {bom_steel.format_length(summary["steel_known_weight_kg"], 3)} kg  •  '
+            f'ความยาวที่ยังไม่ทราบน้ำหนัก: {bom_steel.format_length(summary["steel_unknown_weight_length_m"])} m  •  '
             f'ความยาวรวมเผื่อเศษ: {bom_steel.format_length(summary["steel_length_with_waste_m"])} m  •  '
             f'ท่อนที่ควรเตรียม: {summary["steel_stock_bars"]:,} ท่อน')
         if hasattr(self, "steel_estimate_label"):
@@ -2090,6 +2150,8 @@ class BOMWindow(QMainWindow):
             row.setdefault("profile", bom_steel.PROFILE_OPTIONS[0])
             row.setdefault("qty", 1)
             row.setdefault("stock_length_m", 6)
+            row.setdefault("weight_reference_length_m", "")
+            row.setdefault("weight_reference_kg", "")
         title = {
             "items": ("แก้ไขอุปกรณ์" if existing else "เพิ่มอุปกรณ์"),
             "wiring": ("แก้ไขจุดต่อสาย" if existing else "เพิ่มจุดต่อสาย"),
