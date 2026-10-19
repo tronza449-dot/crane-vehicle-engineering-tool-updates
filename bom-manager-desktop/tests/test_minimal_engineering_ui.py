@@ -55,7 +55,7 @@ class MinimalEngineeringTests(unittest.TestCase):
         self.win.category_buttons["ไฟฟ้ากำลัง"].click()
         self.assertEqual(self.win.stack.currentIndex(),1)
         self.assertEqual(self.win.category.currentText(),"ไฟฟ้ากำลัง")
-        self.assertEqual(self.win.bom_table.columnCount(),9)
+        self.assertEqual(self.win.bom_table.columnCount(),11)
         self.assertEqual(self.win.bom_table.rowCount(),2)
         self.assertEqual(self.win.bom_table.item(1,0).text(),"2")
         self.assertEqual(self.win.bom_table.item(1,1).text(),"QS Hub 1500W")
