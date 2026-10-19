@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T21:04:48+00:00",
+  "updatedAt": "2026-10-19T21:05:32+00:00",
   "currency": "THB",
   "items": [
     {
@@ -142,12 +142,13 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "TXD/RXD ฝั่ง ESP32; CANH/CANL ต่อเป็นบัสคู่ | GPIO/จุดต่อ: GPIO16 TX และ GPIO17 RX เป็นการจัดสรรที่เสนอ; ต้องยืนยัน mapping ใน firmware",
-      "unitPrice": 28,
+      "unitPrice": 28.0,
       "link": "https://www.modulemore.com/product/2310/sn65hvd230-can-bus-transceiver-module",
-      "status": "รุ่นเลือกไว้; GPIO ยังเสนอ",
+      "status": "",
       "notes": "ขา TX/RX บนบอร์ด transceiver และตำแหน่ง termination",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "unitWeightKg": null
     },
     {
       "id": "12",
@@ -157,12 +158,13 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "I²C และขา INT/RST หากบอร์ดรองรับ | GPIO/จุดต่อ: SDA 21, SCL 22, RST 26, INT 27 ตามแบบเดิม",
-      "unitPrice": 990,
+      "unitPrice": 990.0,
       "link": "https://www.massmore.shop/products/2141d3bf-9d0f-4837-badf-a36bcda61638",
-      "status": "เลือก breakout รุ่น BNO086; เลือกจาก DigiKey",
+      "status": "",
       "notes": "ยืนยันรุ่น breakout, แรงดันจ่ายและชื่อขาจริง",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "unitWeightKg": null
     },
     {
       "id": "10",
@@ -202,12 +204,13 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "5 V+ (ฝั่งโหลด) → COM1; NO1 → buzzer +; buzzer − → 5 V− | รีเลย์ CH1 ใช้ GPIO25; ปล่อย NC ไว้",
-      "unitPrice": 6,
+      "unitPrice": 6.0,
       "link": "https://www.cybertice.com/product/147/active-buzzer-%E0%B8%A5%E0%B8%B3%E0%B9%82%E0%B8%9E%E0%B8%87%E0%B8%AA%E0%B8%B1%E0%B8%8D%E0%B8%8D%E0%B8%B2%E0%B8%93-5v-tmb12a05-129-5mm?gad_source=1&gad_campaignid=22641276948&gbraid=0AAAAADc4pmM3pVHsr-5vmuY4ZiVxw0FZD&gclid=Cj0KCQjwxKfWBhDkARIsAMKwkNZ-WgnI9-0h9IntqIwW-o5CEMIX2olMm2fuLxRiN_FzmJ3w9oI8L2YaAiA6EALw_wcB",
-      "status": "ตัวเลือกที่คุยไว้",
+      "status": "",
       "notes": "ใช้แหล่ง 5 V ตามสเปก buzzer; ถ้าต้องการแยก optocoupler เต็มรูปแบบ ห้ามรวมขั้วลบฝั่งโหลดกับ logic GND",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "unitWeightKg": null
     },
     {
       "id": "21",
