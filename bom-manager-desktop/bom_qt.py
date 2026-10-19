@@ -1666,8 +1666,9 @@ class BOMWindow(QMainWindow):
         body.setSpacing(14)
 
         intro = QLabel(
-            "หน้านี้ใช้หาน้ำหนักรวมเท่านั้น ไม่คำนวณการพลิกคว่ำ/เสถียรภาพ "
-            "และไม่จำเป็นต้องคำนวณความยาวเหล็ก")
+            "เลือกเพิ่มชิ้นส่วนได้ 2 แบบ: เหล็กกล่อง/หน้าตัดให้กรอกความยาวและน้ำหนักต่อเมตร (kg/m); "
+            "ชิ้นส่วนอื่นให้กรอกน้ำหนักต่อชิ้นเอง ระบบจะรวมเป็นกิโลกรัมเท่านั้น "
+            "ไม่คำนวณการพลิกคว่ำ/เสถียรภาพ")
         intro.setObjectName("hint")
         intro.setWordWrap(True)
         body.addWidget(intro)
@@ -2564,7 +2565,11 @@ class BOMWindow(QMainWindow):
                         unit_mass_text = bom_steel.format_length(
                             float(total_mass) / qty if qty else 0, 3)
                         total_mass_text = bom_steel.format_length(total_mass, 3)
-                    detail = " / ".join(x for x in (
+                    mode_label = ("เหล็กกล่อง/หน้าตัด"
+                                  if entry.get("weight_mode") != bom_steel.WEIGHT_MODE_MANUAL
+                                  else "ชิ้นส่วนอื่น")
+                    detail = " • ".join(x for x in (
+                        mode_label, str(entry.get("profile") or ""),
                         str(entry.get("material") or ""),
                         str(entry.get("size") or "")) if x and x != "ไม่ระบุขนาด")
                     link = str(entry.get("link") or "").strip()
@@ -2965,45 +2970,26 @@ class BOMWindow(QMainWindow):
             link = values["link"]
             if link and not link.lower().startswith(("https://", "http://")):
                 raise bom_core.DataError("ลิงก์สินค้าต้องขึ้นต้นด้วย https:// หรือ http://")
-            qty = bom_core.valid_qty(values["qty"])
-            weight = bom_core.decimal_or_none(values["manual_unit_weight_kg"])
-            if weight is None or weight <= 0:
-                raise bom_core.DataError("น้ำหนักต่อชิ้นต้องมากกว่า 0 kg")
             row = bom_steel.normalize_member({
                 "id": bom_core.next_id(self.payload.setdefault("steel_members", [])),
-                "member": values["member"], "material": values["material"],
-                "profile": "ชิ้นส่วนอื่น", "size": values["size"],
-                "weight_mode": bom_steel.WEIGHT_MODE_MANUAL,
-                "qty": qty, "manual_unit_weight_kg": float(weight),
-                "link": link, "notes": values["notes"],
+                **values,
             })
         except (ValueError, bom_core.DataError, bom_steel.SteelDataError) as exc:
             QMessageBox.warning(self, "ข้อมูลน้ำหนักไม่ถูกต้อง", str(exc))
             return
         self.payload["steel_members"].append(row)
         self.changed()
-        self.set_status(f'เพิ่มชิ้นส่วน "{row["member"]}" · {row["qty"] * row["manual_unit_weight_kg"]:,.3f} kg')
+        total = bom_steel.total_weight_kg(row)
+        total_text = f"{float(total):,.3f} kg" if total is not None else "ยังไม่ทราบน้ำหนัก"
+        mode_text = ("เหล็กกล่อง/หน้าตัด" if row["weight_mode"] == bom_steel.WEIGHT_MODE_LENGTH
+                     else "ชิ้นส่วนอื่น")
+        self.set_status(f'เพิ่ม {mode_text} "{row["member"]}" · น้ำหนักรวม {total_text}')
 
     def edit_frame_weight(self):
         index = self._selected_frame_index()
         if index is None:
             return
         previous = self.payload["steel_members"][index]
-        try:
-            normalized = bom_steel.normalize_member(previous)
-        except bom_steel.SteelDataError:
-            normalized = previous
-        if normalized.get("weight_mode") != bom_steel.WEIGHT_MODE_MANUAL:
-            # Preserve every field in older length-based cut-list records.
-            self.steel_tabs.setCurrentIndex(1)
-            self.steel_table.selectRow(index)
-            self.show_page(2)
-            QMessageBox.information(
-                self, "รายการเดิมแบบ Cut List",
-                "รายการนี้ใช้ข้อมูลความยาวเหล็กเดิม เพื่อไม่ให้ข้อมูลสูญหาย "
-                "จะเปิดแบบแก้ไขขั้นสูงให้")
-            self.edit_record("steel_members", True)
-            return
         dialog = FrameWeightDialog(self, previous)
         self.edit_dialog_active = True
         try:
@@ -3019,26 +3005,21 @@ class BOMWindow(QMainWindow):
             link = values["link"]
             if link and not link.lower().startswith(("https://", "http://")):
                 raise bom_core.DataError("ลิงก์สินค้าต้องขึ้นต้นด้วย https:// หรือ http://")
-            qty = bom_core.valid_qty(values["qty"])
-            weight = bom_core.decimal_or_none(values["manual_unit_weight_kg"])
-            if weight is None or weight <= 0:
-                raise bom_core.DataError("น้ำหนักต่อชิ้นต้องมากกว่า 0 kg")
             updated = bom_steel.normalize_member({
-                **previous, "member": values["member"], "material": values["material"],
-                "profile": "ชิ้นส่วนอื่น", "size": values["size"],
-                "weight_mode": bom_steel.WEIGHT_MODE_MANUAL, "qty": qty,
-                "manual_unit_weight_kg": float(weight), "link": link,
-                "notes": values["notes"], "length_mm": None, "stock_length_m": None,
-                "weight_reference_length_m": None, "weight_reference_kg": None,
+                **previous, **values, "id": previous.get("id"),
             })
         except (ValueError, bom_core.DataError, bom_steel.SteelDataError) as exc:
             QMessageBox.warning(self, "ข้อมูลน้ำหนักไม่ถูกต้อง", str(exc))
             return
         self.payload["steel_members"][index] = updated
         self.changed()
-        self.set_status(f'แก้ไขน้ำหนัก "{updated["member"]}" สำเร็จ')
+        total = bom_steel.total_weight_kg(updated)
+        total_text = f"{float(total):,.3f} kg" if total is not None else "ยังไม่ทราบน้ำหนัก"
+        mode_text = ("เหล็กกล่อง/หน้าตัด" if updated["weight_mode"] == bom_steel.WEIGHT_MODE_LENGTH
+                     else "ชิ้นส่วนอื่น")
+        self.set_status(f'แก้ไข {mode_text} "{updated["member"]}" · น้ำหนักรวม {total_text}')
 
-    def delete_frame_weight(self):
+        def delete_frame_weight(self):
         index = self._selected_frame_index()
         if index is None:
             return
