@@ -518,3 +518,15 @@ The page shows a detailed cut list and a grouped summary by profile, size, and s
 - น้ำหนักที่ไม่ทราบจะแสดงเป็นว่าง/— และไม่นับเป็นศูนย์; หน้าจอจะแจ้งจำนวนรายการที่ยังไม่กรอกน้ำหนัก
 
 **สำคัญ:** น้ำหนักรวมคือผลรวมของรายการที่มีข้อมูลน้ำหนักเท่านั้น ไม่ใช่การรับรองมวลรวมจริงหากยังมีรายการไม่ทราบน้ำหนัก หากโครงเหล็กเดียวกันถูกใส่น้ำหนักไว้ใน BOM และ Steel Cut List พร้อมกัน ต้องเว้นรายการซ้ำเพื่อป้องกันการนับสองครั้ง
+
+
+## v1.10.25 — Two steel/frame weight-entry modes
+
+The **โครงสร้างเหล็ก / Cut List** editor now has a **โหมดน้ำหนัก** selector:
+
+1. **เหล็กกล่อง/หน้าตัด — คำนวณจากความยาว**: enter quantity, cut length, stock-bar length, and a measured/manufacturer weight reference (kg for a known reference length). The app calculates kg/m, total mass, total length, and estimated stock bars.
+2. **ชิ้นส่วนอื่น — กรอกน้ำหนักต่อชิ้นเอง**: for brackets, mounting plates, motor bases, and other components that do not suit a cut-length formula. Enter quantity and actual mass per piece (kg); the app calculates quantity × mass per piece. Length and stock-bar fields are hidden and are not required.
+
+Both modes contribute known component mass to the structure-weight total. Manual-mass items do not add fictitious metres or stock bars. The table and formal PDF/Excel reports show the chosen mode and the kg-per-piece value. Legacy rows without weight_mode continue to use the original length-based calculation.
+
+Use measured data or a supplier specification; the program does not guess mass from profile dimensions. If the same physical part is already included in the BOM equipment-weight register, avoid adding its mass again in the structure list.
