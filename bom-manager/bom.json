@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T15:05:33+00:00",
+  "updatedAt": "2026-10-19T15:09:10+00:00",
   "currency": "THB",
   "items": [
     {
@@ -209,15 +209,18 @@
     {
       "id": "21",
       "category": "อิเล็กทรอนิกส์/ควบคุม",
-      "name": "วงจรวัดแบต/กระแส — โมดูลวัดแรงดัน/กระแสที่รองรับแพ็ก 72 V; รุ่น TBD",
+      "name": "DIYMORE DC 8-100V ความแม่นยําสูง LCD Digital Display แรงดันไฟฟ้าและตัวบ่งชี้ไฟฟ้า Ternary/Lithium Iron/Acid แบตเตอรี่ Universal พร้อมจอแสดงผลอุณหภูมิ",
       "spec": "ให้ ESP32 ประเมินและแสดง % แบตเตอรี่ | ไฟเลี้ยง: ต้องทนแรงดันสูงสุดของแพ็กและแยกสัญญาณอย่างเหมาะสม",
-      "qty": 1,
+      "qty": 2,
       "unit": "ชิ้น",
       "connection": "ส่งข้อมูลเข้า ESP32 หรืออ่านจาก BMS หากมี protocol | GPIO/จุดต่อ: ขา ADC/การสื่อสารยังไม่กำหนด",
-      "unitPrice": null,
-      "link": null,
-      "status": "ต้องเลือกวิธีวัด",
-      "notes": "แนะนำกำหนดวิธีอ่านจาก BMS หรือ sensor ก่อนต่อแพ็กจริง | ยังไม่มีลิงก์ซื้อ: เลือกก่อนว่าจะอ่าน BMS หรือใช้ voltage/current sensor ที่ทน 84 V"
+      "unitPrice": 253.0,
+      "link": "https://shopee.co.th/product/166913933/42059412691?gads_t_sig=gqRjZGVrxHCFomtpsTE0MjUxOnRzc19zZGtfa2V5omt20QACpGFsZ2_SAAAAZKNkZWvAomN0xEAAAAAMaBRvcqdZwgRklGTWoHoxFGhRfNAexxPkhN1n8rcCO5qFEud_-aY2hsGdfUnqCpX0P0Z7lpJy6IP6_Ew8qmNpcGhlcnRleHTEcQAAAAxY_YUjW39K_N_hKVOkWVGMTsfLzMiJakoEYZdtTpRcWhp02Ko9z1iAN5ldjDPfb3nIj6xUCYEC-b2Zhz_FdzbSYOChJ54lhtiM5KsNFLbxwmNBvfzyhG-JIwljg9Jo-iYteIm-pWUftEcdUPqB&gad_source=1&gad_campaignid=23289813561&gbraid=0AAAAADPpYO0ZuEbtMWjzvtxkNQBockWm3&gclid=CjwKCAjw_9bWBhBGEiwAomyTIgbrC0y-65FnIHpoVqejNiG0hOoEStzNQryKItNd8ViIbMTkKa1DqhoCmwAQAvD_BwE",
+      "status": "",
+      "notes": "แนะนำกำหนดวิธีอ่านจาก BMS หรือ sensor ก่อนต่อแพ็กจริง | ยังไม่มีลิงก์ซื้อ: เลือกก่อนว่าจะอ่าน BMS หรือใช้ voltage/current sensor ที่ทน 84 V",
+      "partNumber": "",
+      "unitWeightKg": null,
+      "supplier": ""
     },
     {
       "id": "18",
