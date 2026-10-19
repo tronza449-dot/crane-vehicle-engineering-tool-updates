@@ -86,8 +86,13 @@ class SteelQuantityTests(unittest.TestCase):
 
     def test_excel_has_cut_list_and_summary_formulas(self):
         import bom_official_reports as reports
+        report_rows = [
+            dict(self.rows[0], material="สแตนเลส SUS 304"),
+            dict(self.rows[1], material="เหล็กคาร์บอน (SS400 / ASTM A36)"),
+            dict(self.rows[2], material="อะลูมิเนียม 6061"),
+        ]
         doc = {"schemaVersion": 1, "project": "Steel test", "items": [],
-               "wiring": [], "purchases": [], "steel_members": self.rows}
+               "wiring": [], "purchases": [], "steel_members": report_rows}
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "steel.xlsx"
             reports.export_excel(doc, target, {"author": "Test"})
@@ -98,6 +103,8 @@ class SteelQuantityTests(unittest.TestCase):
                 shared = book.read("xl/sharedStrings.xml").decode("utf-8")
                 self.assertIn("คานยาวฐานรถ", shared)
                 self.assertIn("40×40×2 mm", shared)
+                self.assertIn("สแตนเลส SUS 304", shared)
+                self.assertIn("อะลูมิเนียม 6061", shared)
                 summary_xml = book.read("xl/worksheets/sheet10.xml").decode("utf-8")
                 cut_xml = book.read("xl/worksheets/sheet11.xml").decode("utf-8")
                 self.assertIn("SUMIFS", summary_xml)
@@ -111,8 +118,13 @@ class SteelQuantityTests(unittest.TestCase):
             _thai_font()
         except RuntimeError:
             self.skipTest("System has no supported Thai PDF font")
+        report_rows = [
+            dict(self.rows[0], material="สแตนเลส SUS 304"),
+            dict(self.rows[1], material="เหล็กคาร์บอน (SS400 / ASTM A36)"),
+            dict(self.rows[2], material="อะลูมิเนียม 6061"),
+        ]
         doc = {"schemaVersion": 1, "project": "Steel test", "items": [],
-               "wiring": [], "purchases": [], "steel_members": self.rows}
+               "wiring": [], "purchases": [], "steel_members": report_rows}
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "steel.pdf"
             reports.export_pdf(doc, target, {"author": "Test"})
@@ -122,6 +134,8 @@ class SteelQuantityTests(unittest.TestCase):
             self.assertIn("STEEL CUT LIST", text)
             self.assertIn("คานยาวฐานรถ", text)
             self.assertIn("25×25×2 mm", text)
+            self.assertIn("สแตนเลส SUS 304", text)
+            self.assertIn("อะลูมิเนียม 6061", text)
 
 
 class SteelPageTests(unittest.TestCase):
