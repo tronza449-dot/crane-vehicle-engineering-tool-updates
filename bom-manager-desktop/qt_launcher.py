@@ -60,7 +60,7 @@ def smoke_test():
         assert win.stack.count() == 7, f"page count: {win.stack.count()}"
         assert win.bom_table.columnCount() == 11, (
             f"BOM table columns: {win.bom_table.columnCount()}")
-        assert len(win.cards) == 2, f"dashboard metric cards: {len(win.cards)}"
+        assert len(win.cards) == 6, f"dashboard metric cards: {len(win.cards)}"
         import bom_categories
         assert len(win.category_buttons) == len(bom_categories.CATEGORY_ORDER), (
             f"category buttons: {len(win.category_buttons)}")
