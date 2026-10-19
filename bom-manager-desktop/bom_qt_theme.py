@@ -177,7 +177,7 @@ def apply_theme(app: QApplication, scale=None, font_family=None):
     QHeaderView::section {
         background: #EDF3F9; color: #2D4A64;
         border: none; border-right: 1px solid #E0E8F0;
-        border-bottom: 1px solid #D1DDEA; padding: 12px 9px;
+        border-bottom: 1px solid #D1DDEA; padding: 6px 7px;
         font-size: 14px; font-weight: 700;
     }
     QTableCornerButton::section { background: #EDF3F9; border: 0; }
