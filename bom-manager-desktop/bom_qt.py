@@ -399,9 +399,10 @@ class RecordDialog(QDialog):
             self.steel_mode_hint.setWordWrap(True)
             self.steel_mode_hint.setObjectName("hint")
             form.addRow(self.steel_mode_hint)
+            self._steel_last_mode = self.widgets["weight_mode"].currentData()
+            self._update_steel_mode_fields()
             self.widgets["weight_mode"].currentIndexChanged.connect(
                 self._update_steel_mode_fields)
-            self._update_steel_mode_fields()
         if "จัดซื้อ" in title and "itemId" in self.widgets:
             self.widgets["itemId"].currentIndexChanged.connect(
                 lambda _: self._fill_purchase_from_bom(parent))
@@ -427,7 +428,19 @@ class RecordDialog(QDialog):
         selector = self.widgets.get("weight_mode")
         if not selector or not self.form_layout:
             return
-        manual = selector.currentData() == bom_steel.WEIGHT_MODE_MANUAL
+        current_mode = selector.currentData()
+        previous_mode = getattr(self, "_steel_last_mode", current_mode)
+        profile_widget = self.widgets.get("profile")
+        if profile_widget is not None and current_mode != previous_mode:
+            current_profile = profile_widget.currentText()
+            if (current_mode == bom_steel.WEIGHT_MODE_MANUAL and
+                    current_profile == bom_steel.PROFILE_OPTIONS[0]):
+                profile_widget.setCurrentText("ชิ้นส่วนอื่น")
+            elif (current_mode == bom_steel.WEIGHT_MODE_LENGTH and
+                  current_profile == "ชิ้นส่วนอื่น"):
+                profile_widget.setCurrentText(bom_steel.PROFILE_OPTIONS[0])
+        self._steel_last_mode = current_mode
+        manual = current_mode == bom_steel.WEIGHT_MODE_MANUAL
         length_fields = (
             "length_mm", "stock_length_m",
             "weight_reference_length_m", "weight_reference_kg",
