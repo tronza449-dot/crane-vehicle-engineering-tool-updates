@@ -597,6 +597,10 @@ class WeightEntryDialog(QDialog):
     def _selected_weight_item(self):
         row_index = self.weight_table.currentRow()
         if row_index < 0:
+            selected_rows = self.weight_table.selectionModel().selectedRows()
+            if selected_rows:
+                row_index = selected_rows[0].row()
+        if row_index < 0:
             QMessageBox.information(self, "เลือกรายการ", "กรุณาเลือกอุปกรณ์ในตารางก่อน")
             return None
         cell = self.weight_table.item(row_index, 0)
