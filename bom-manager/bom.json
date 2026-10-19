@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T12:27:18+00:00",
+  "updatedAt": "2026-10-19T13:58:11+00:00",
   "currency": "THB",
   "items": [
     {
@@ -540,13 +540,26 @@
       "id": "4",
       "member": "ที่รอง",
       "material": "สแตนเลส SUS 316",
-      "profile": "อื่น ๆ",
+      "profile": "เแผ่น",
       "size": "960x800x2",
       "qty": 1,
       "length_mm": 800,
       "stock_length_m": 6.0,
       "weight_reference_length_m": null,
       "weight_reference_kg": null,
+      "notes": ""
+    },
+    {
+      "id": "5",
+      "member": "คาน",
+      "material": "กัลวาไนซ์",
+      "profile": "เหล็กกล่องแบน",
+      "size": "100×50×2 mm",
+      "qty": 2,
+      "length_mm": 250,
+      "stock_length_m": 6.0,
+      "weight_reference_length_m": 6.0,
+      "weight_reference_kg": 25.1,
       "notes": ""
     }
   ]
