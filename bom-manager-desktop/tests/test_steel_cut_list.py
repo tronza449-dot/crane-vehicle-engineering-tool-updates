@@ -84,6 +84,26 @@ class SteelQuantityTests(unittest.TestCase):
         self.assertFalse(conflicts)
         self.assertEqual(merged["steel_members"][0]["id"], "1")
 
+    def test_manual_weight_mode_supports_non_tubular_parts_without_length(self):
+        row = {
+            "id": "M1", "member": "ขายึดมอเตอร์", "weight_mode": bom_steel.WEIGHT_MODE_MANUAL,
+            "profile": "ชิ้นส่วนอื่น", "size": "", "qty": 3,
+            "manual_unit_weight_kg": "0.85", "link": "https://example.org/bracket",
+        }
+        normalized = bom_steel.normalize_member(row)
+        self.assertEqual(normalized["size"], "ไม่ระบุขนาด")
+        self.assertIsNone(normalized["length_mm"])
+        self.assertIsNone(normalized["stock_length_m"])
+        self.assertEqual(bom_steel.total_length_m(normalized), 0)
+        self.assertEqual(bom_steel.weight_per_m(normalized), None)
+        self.assertEqual(bom_steel.total_weight_kg(normalized), 2.55)
+        result = bom_steel.summarize([row])
+        self.assertEqual(result["total_pieces"], 3)
+        self.assertEqual(result["total_length_m"], 0)
+        self.assertEqual(result["known_weight_kg"], 2.55)
+        self.assertEqual(result["unknown_weight_length_m"], 0)
+        self.assertEqual(result["estimated_stock_bars"], 0)
+
     def test_excel_has_cut_list_and_summary_formulas(self):
         import bom_official_reports as reports
         report_rows = [
@@ -208,9 +228,9 @@ class SteelPageTests(unittest.TestCase):
         self.win.render_all()
         self.win.show_page(2)
         self.assertEqual(self.win.steel_table.rowCount(), 2)
-        self.assertEqual(self.win.steel_table.columnCount(), 15)
-        self.assertEqual(self.win.steel_table.item(0, 13).text(), "เปิดลิงก์ ↗")
-        self.assertEqual(self.win.steel_table.item(0, 13).toolTip(),
+        self.assertEqual(self.win.steel_table.columnCount(), 17)
+        self.assertEqual(self.win.steel_table.item(0, 15).text(), "เปิดลิงก์ ↗")
+        self.assertEqual(self.win.steel_table.item(0, 15).toolTip(),
                          "https://example.org/steel-square-tube")
         self.assertEqual(self.win.steel_summary_table.rowCount(), 1)
         self.assertIn("5.400 m", self.win.steel_totals_label.text())
