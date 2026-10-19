@@ -11,8 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from PySide6.QtWidgets import QApplication, QDialog, QLabel, QTableWidget
-from PySide6.QtCore import Qt
-from PySide6.QtTest import QTest
 from bom_qt import BOMWindow
 
 
@@ -61,11 +59,11 @@ class MassDetailsAndExportTests(unittest.TestCase):
         def fake_exec(dialog):
             dialogs.append(dialog)
             return QDialog.DialogCode.Accepted
-        self.window.show_page(2)
-        self.window.show()
-        self.app.processEvents()
+        with patch.object(self.window, "open_mass_details") as open_details:
+            self.window.mass_equipment_card.clicked.emit()
+            open_details.assert_called_once_with("equipment")
         with patch.object(QDialog, "exec", fake_exec):
-            QTest.mouseClick(self.window.mass_equipment_card, Qt.MouseButton.LeftButton)
+            self.window.open_mass_details("equipment")
         self.assertEqual(len(dialogs), 1)
         dialog = dialogs[0]
         self.assertTrue(any("รวมที่ทราบ: 9.000 kg" in label.text()
