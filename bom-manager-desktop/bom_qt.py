@@ -507,6 +507,95 @@ class RecordDialog(QDialog):
         return data
 
 
+class FrameWeightDialog(QDialog):
+    """Simple manual mass entry for frame/structural parts, without tipping math."""
+    def __init__(self, owner, values=None):
+        super().__init__(owner)
+        values = values or {}
+        self.setWindowTitle("เพิ่มน้ำหนักโครงสร้าง")
+        self.setMinimumWidth(560)
+        root = QVBoxLayout(self)
+        root.setSpacing(12)
+        title = QLabel("น้ำหนักโครงสร้าง / FRAME WEIGHT")
+        title.setObjectName("pageTitle")
+        root.addWidget(title)
+        hint = QLabel(
+            "กรอกจำนวนและน้ำหนักต่อชิ้นเพื่อรวมเป็น kg เท่านั้น "
+            "ไม่คำนวณการพลิกคว่ำ ไม่คำนวณความยาวเหล็ก")
+        hint.setWordWrap(True)
+        hint.setObjectName("hint")
+        root.addWidget(hint)
+
+        form = QFormLayout()
+        form.setHorizontalSpacing(14)
+        form.setVerticalSpacing(10)
+        self.member_input = QLineEdit(str(values.get("member") or ""))
+        self.member_input.setPlaceholderText("เช่น โครงรถ, ฐานเครน, ขายึดมอเตอร์")
+        form.addRow("ชื่อชิ้นส่วน *", self.member_input)
+
+        self.material_input = QLineEdit(str(values.get("material") or "เหล็ก"))
+        self.material_input.setPlaceholderText("เช่น SS400, SUS304 หรือไม่ระบุ")
+        form.addRow("วัสดุ / เกรด", self.material_input)
+
+        self.size_input = QLineEdit(str(values.get("size") or ""))
+        self.size_input.setPlaceholderText("เช่น กล่อง 40×40×2 mm (ไม่บังคับ)")
+        form.addRow("ขนาด / รายละเอียด", self.size_input)
+
+        self.qty_input = QLineEdit(str(values.get("qty") or 1))
+        self.qty_input.setPlaceholderText("จำนวนชิ้น เช่น 2")
+        form.addRow("จำนวนชิ้น *", self.qty_input)
+
+        unit_weight = values.get("manual_unit_weight_kg")
+        self.weight_input = QLineEdit("" if unit_weight is None else str(unit_weight))
+        self.weight_input.setPlaceholderText("น้ำหนักของ 1 ชิ้น เช่น 1.250")
+        self.weight_input.setToolTip("กรอกน้ำหนักต่อชิ้น ไม่ใช่น้ำหนักรวม")
+        form.addRow("น้ำหนักต่อชิ้น (kg) *", self.weight_input)
+
+        self.link_input = QLineEdit(str(values.get("link") or ""))
+        self.link_input.setPlaceholderText("https://... (ไม่บังคับ)")
+        form.addRow("ลิงก์สินค้า / ร้านเหล็ก", self.link_input)
+
+        self.notes_input = QLineEdit(str(values.get("notes") or ""))
+        self.notes_input.setPlaceholderText("หมายเหตุ (ไม่บังคับ)")
+        form.addRow("หมายเหตุ", self.notes_input)
+        root.addLayout(form)
+
+        self.preview = QLabel("น้ำหนักรวม = จำนวนชิ้น × น้ำหนักต่อชิ้น")
+        self.preview.setObjectName("sectionTitle")
+        root.addWidget(self.preview)
+        self.qty_input.textChanged.connect(self.update_preview)
+        self.weight_input.textChanged.connect(self.update_preview)
+        self.update_preview()
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+
+    def update_preview(self, *_):
+        try:
+            qty = float(self.qty_input.text().strip())
+            weight = float(self.weight_input.text().replace(",", "").strip())
+            if qty > 0 and weight > 0 and math.isfinite(qty) and math.isfinite(weight):
+                self.preview.setText(f"น้ำหนักรวมที่บันทึก: {qty * weight:,.3f} kg")
+                return
+        except (ValueError, TypeError):
+            pass
+        self.preview.setText("น้ำหนักรวม = จำนวนชิ้น × น้ำหนักต่อชิ้น")
+
+    def get_values(self):
+        return {
+            "member": self.member_input.text().strip(),
+            "material": self.material_input.text().strip() or bom_steel.DEFAULT_MATERIAL,
+            "size": self.size_input.text().strip() or "ไม่ระบุขนาด",
+            "qty": self.qty_input.text().strip(),
+            "manual_unit_weight_kg": self.weight_input.text().strip(),
+            "link": self.link_input.text().strip(),
+            "notes": self.notes_input.text().strip(),
+        }
+
+
 class WeightEntryDialog(QDialog):
     """Assign per-unit weights to BOM rows; weighted rows leave the available picker."""
     def __init__(self, owner):
