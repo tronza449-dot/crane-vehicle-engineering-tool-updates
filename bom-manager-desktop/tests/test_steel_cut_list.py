@@ -246,8 +246,9 @@ class SteelPageTests(unittest.TestCase):
         self.assertEqual(self.win.steel_table.rowCount(), 2)
         self.assertEqual(self.win.steel_table.columnCount(), 17)
         self.assertEqual(self.win.steel_table.item(0, 15).text(), "เปิดลิงก์ ↗")
-        self.assertEqual(self.win.steel_table.item(0, 15).toolTip(),
-                         "https://example.org/steel-square-tube")
+        self.assertIn("https://example.org/steel-square-tube",
+                      self.win.steel_table.item(0, 15).toolTip())
+        self.assertIn("ลิงก์สินค้า", self.win.steel_table.item(0, 15).toolTip())
         self.assertEqual(self.win.steel_summary_table.rowCount(), 1)
         self.assertIn("5.400 m", self.win.steel_totals_label.text())
         self.assertIn("1 ท่อน", self.win.steel_totals_label.text())
