@@ -124,7 +124,8 @@ class SteelQuantityTests(unittest.TestCase):
         except RuntimeError:
             self.skipTest("System has no supported Thai PDF font")
         report_rows = [
-            dict(self.rows[0], material="สแตนเลส SUS 304"),
+            dict(self.rows[0], material="สแตนเลส SUS 304",
+                 link="https://example.org/steel-square-tube"),
             dict(self.rows[1], material="เหล็กคาร์บอน (SS400 / ASTM A36)"),
             dict(self.rows[2], material="อะลูมิเนียม 6061"),
         ]
