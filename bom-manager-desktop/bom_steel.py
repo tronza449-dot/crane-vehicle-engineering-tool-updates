@@ -103,6 +103,9 @@ def normalize_member(values):
             float(reference_length) if reference_length is not None else None),
         "weight_reference_kg": (
             float(reference_weight) if reference_weight is not None else None),
+        # Product/supplier URL is a reference field only; it does not affect
+        # cut length, material grouping, or mass calculations.
+        "link": str(row.get("link") or "").strip(),
         "notes": str(row.get("notes") or "").strip(),
     })
     return row
