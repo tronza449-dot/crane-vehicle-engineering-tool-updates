@@ -1956,7 +1956,8 @@ class BOMWindow(QMainWindow):
             f'ยังไม่กรอกน้ำหนัก {equipment_missing_count} รายการ · '
             f'โครงเหล็กยังไม่ทราบน้ำหนัก {bom_steel.format_length(summary["steel_unknown_weight_length_m"])} m. '
             + ("น้ำหนักรวมครบตามรายการที่บันทึก" if summary["combined_weight_complete"]
-               else "ยอดรวมนี้รวมเฉพาะน้ำหนักที่ทราบ ยังไม่ใช่น้ำหนักรวมจริงทั้งหมด"))
+               else "ยอดรวมนี้รวมเฉพาะน้ำหนักที่ทราบ ยังไม่ใช่น้ำหนักรวมจริงทั้งหมด")
+            + " • หากเหล็กชิ้นเดียวกันถูกลงน้ำหนักซ้ำใน BOM และ Cut List ต้องเว้นรายการซ้ำเพื่อไม่ให้นับสองครั้ง")
         self.steel_totals_label.setText(
             f'จำนวนชิ้น: {summary["steel_pieces"]:,}  •  '
             f'ความยาวใช้จริง: {bom_steel.format_length(summary["steel_required_length_m"])} m  •  '
