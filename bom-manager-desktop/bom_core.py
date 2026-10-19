@@ -74,6 +74,9 @@ def ensure_doc(doc):
         seen.add(key)
         valid_qty(item.get("qty"))
         decimal_or_none(item.get("unitPrice"))
+        weight = decimal_or_none(item.get("unitWeightKg"))
+        if weight is not None and weight <= 0:
+            raise DataError("น้ำหนักต่อหน่วยต้องมากกว่า 0 kg หรือเว้นว่างหากยังไม่ทราบ")
     return doc
 
 
@@ -163,6 +166,10 @@ def normalize_dialog_values(values):
     result = dict(values)
     result["qty"] = valid_qty(result.get("qty"))
     result["unitPrice"] = valid_price(result.get("unitPrice"))
+    weight = decimal_or_none(result.get("unitWeightKg"))
+    if weight is not None and weight <= 0:
+        raise DataError("น้ำหนักต่อหน่วยต้องมากกว่า 0 kg หรือเว้นว่างหากยังไม่ทราบ")
+    result["unitWeightKg"] = None if weight is None else float(weight)
     if not str(result.get("name", "")).strip():
         raise DataError("กรุณากรอกชื่ออุปกรณ์")
     return result
