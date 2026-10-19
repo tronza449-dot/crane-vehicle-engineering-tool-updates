@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T10:25:00+00:00",
+  "updatedAt": "2026-10-19T11:48:34+00:00",
   "currency": "THB",
   "items": [
     {
@@ -519,6 +519,18 @@
       "size": "100×50×2 mm",
       "qty": 4,
       "length_mm": 1500,
+      "stock_length_m": 6.0,
+      "weight_reference_length_m": 6.0,
+      "weight_reference_kg": 25.1,
+      "notes": ""
+    },
+    {
+      "id": "3",
+      "member": "คาน",
+      "profile": "เหล็กกล่องแบน",
+      "size": "100×50×2 mm",
+      "qty": 10,
+      "length_mm": 760,
       "stock_length_m": 6.0,
       "weight_reference_length_m": 6.0,
       "weight_reference_kg": 25.1,
