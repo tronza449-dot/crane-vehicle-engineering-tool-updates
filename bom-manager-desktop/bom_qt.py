@@ -1420,9 +1420,10 @@ class BOMWindow(QMainWindow):
         actions.addStretch()
         body.addLayout(actions)
         intro = self._label(
-            "ใช้กับโครงสร้างที่ออกแบบใน SolidWorks: เพิ่มแต่ละขนาดเหล็กแยกบรรทัด "
-            "ใส่จำนวนและความยาวต่อชิ้น ระบบจะรวมเฉพาะเหล็กชนิด/ขนาด/ความยาวท่อนมาตรฐานเดียวกัน "
-            "ไม่เปลี่ยน BOM อุปกรณ์เดิม", "caption")
+            "เพิ่มรายการจากแบบ SolidWorks ได้ 2 โหมด: "
+            "① เหล็กกล่อง/หน้าตัด — ใส่จำนวนและความยาวเพื่อรวมเมตรและประมาณจำนวนท่อน "
+            "② ชิ้นส่วนอื่น — กรอกน้ำหนักต่อชิ้นเอง เช่น แผ่นยึดหรือฐานมอเตอร์ "
+            "ทั้งสองโหมดรวมเป็นน้ำหนักโครงสร้างได้ โดยไม่แก้ BOM อุปกรณ์เดิม", "caption")
         intro.setWordWrap(True)
         body.addWidget(intro)
         mass_panel = self._panel(
@@ -1451,8 +1452,8 @@ class BOMWindow(QMainWindow):
         weight_actions.addWidget(self.mass_weight_count_label, 1)
         mass_panel.addLayout(weight_actions)
         self.mass_rollup_note = self._label(
-            "กรอกน้ำหนักต่อหน่วยในรายการ BOM และกรอกน้ำหนักอ้างอิงในรายการเหล็ก "
-            "เพื่อคำนวณน้ำหนักรวม", "hint")
+            "อุปกรณ์ BOM: กรอกน้ำหนักต่อหน่วย · เหล็กกล่อง: กรอกน้ำหนักอ้างอิง · "
+            "ชิ้นส่วนอื่น: กรอกน้ำหนักต่อชิ้นเอง", "hint")
         self.mass_rollup_note.setWordWrap(True)
         mass_panel.addWidget(self.mass_rollup_note)
         dashboard = self._panel("Steel Weight Dashboard / ภาพรวมน้ำหนักเหล็ก", body)
@@ -1498,23 +1499,24 @@ class BOMWindow(QMainWindow):
         estimate.addWidget(self.steel_estimate_label)
         summary_panel = self._table_panel(body, "สรุปจำนวนเหล็กตามชนิดและขนาด")
         self.steel_summary_table = self._table(
-            ["วัสดุ / เกรด", "หน้าตัด", "ขนาด", "ท่อนมาตรฐาน\n(m)", "จำนวน\n(ชิ้น)",
-             "ยาวรวม\n(m)", "น้ำหนักที่ทราบ\n(kg)", "ยังไม่ทราบน้ำหนัก\n(m)",
-             "ยาวรวมเผื่อเศษ\n(m)", "จำนวนท่อน\n(ประมาณ)"], 2)
+            ["วิธีน้ำหนัก", "วัสดุ / เกรด", "หน้าตัด", "ขนาด", "ท่อนมาตรฐาน\n(m)",
+             "จำนวน\n(ชิ้น)", "ยาวรวม\n(m)", "น้ำหนักที่ทราบ\n(kg)",
+             "ยังไม่ทราบน้ำหนัก\n(m)", "ยาวรวมเผื่อเศษ\n(m)", "จำนวนท่อน\n(ประมาณ)"], 2)
         self.steel_summary_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        for col, width in {0: 180, 1: 145, 2: 145, 3: 110, 4: 85, 5: 105,
-                           6: 125, 7: 130, 8: 120, 9: 125}.items():
+        for col, width in {0: 150, 1: 180, 2: 145, 3: 145, 4: 110, 5: 85,
+                           6: 105, 7: 125, 8: 130, 9: 120, 10: 125}.items():
             self.steel_summary_table.setColumnWidth(col, width)
         summary_panel.addWidget(self.steel_summary_table)
         detail = self._table_panel(body, "รายการตัดเหล็ก / รายชิ้นส่วน")
         self.steel_table = self._table(
-            ["ID", "ตำแหน่ง / ชิ้นส่วน", "วัสดุ / เกรด", "หน้าตัด", "ขนาดหน้าตัด",
-             "จำนวน\n(ชิ้น)", "ยาว/ชิ้น\n(mm)", "ยาวรวม\n(m)",
+            ["ID", "ตำแหน่ง / ชิ้นส่วน", "วิธีน้ำหนัก", "วัสดุ / เกรด", "หน้าตัด",
+             "ขนาดหน้าตัด", "จำนวน\n(ชิ้น)", "ยาว/ชิ้น\n(mm)", "ยาวรวม\n(m)",
              "อ้างอิงยาว\n(m)", "อ้างอิงหนัก\n(kg)", "น้ำหนัก/เมตร\n(kg/m)",
-             "น้ำหนักรวม\n(kg)", "ท่อนมาตรฐาน\n(m)", "ลิงก์สินค้า", "หมายเหตุ"], 1)
-        for col, width in {0: 55, 1: 165, 2: 185, 3: 135, 4: 135, 5: 75,
-                           6: 100, 7: 100, 8: 100, 9: 100, 10: 110,
-                           11: 100, 12: 105, 13: 125, 14: 170}.items():
+             "น้ำหนัก/ชิ้น\n(kg)", "น้ำหนักรวม\n(kg)", "ท่อนมาตรฐาน\n(m)",
+             "ลิงก์สินค้า", "หมายเหตุ"], 1)
+        for col, width in {0: 55, 1: 165, 2: 155, 3: 175, 4: 135, 5: 135,
+                           6: 75, 7: 100, 8: 100, 9: 100, 10: 100, 11: 110,
+                           12: 110, 13: 100, 14: 105, 15: 125, 16: 170}.items():
             self.steel_table.setColumnWidth(col, width)
         self.steel_table.cellDoubleClicked.connect(lambda *_: self.edit_record("steel_members", True))
         detail.addWidget(self.steel_table)
@@ -2181,31 +2183,39 @@ class BOMWindow(QMainWindow):
         for index, raw in enumerate(rows):
             try:
                 entry = bom_steel.normalize_member(raw)
+                mode = entry["weight_mode"]
+                manual = mode == bom_steel.WEIGHT_MODE_MANUAL
                 total_m = bom_steel.total_length_m(entry)
-                total_text = bom_steel.format_length(total_m)
+                total_text = (bom_steel.format_length(total_m)
+                              if entry.get("length_mm") is not None else "—")
                 rate = bom_steel.weight_per_m(entry)
-                rate_text = bom_steel.format_length(rate, 3) if rate is not None else "—"
+                rate_text = (bom_steel.format_length(rate, 3)
+                             if rate is not None else "—")
+                unit_weight = entry.get("manual_unit_weight_kg")
+                unit_weight_text = (bom_steel.format_length(unit_weight, 3)
+                                    if manual and unit_weight is not None else "—")
                 mass = bom_steel.total_weight_kg(entry)
                 mass_text = bom_steel.format_length(mass, 3) if mass is not None else "—"
+                mode_text = "กรอกน้ำหนักเอง" if manual else "ตามความยาว"
             except bom_steel.SteelDataError:
                 entry = raw
-                total_text = "ตรวจข้อมูล"
-                rate_text = "ตรวจข้อมูล"
-                mass_text = "ตรวจข้อมูล"
+                total_text = rate_text = unit_weight_text = mass_text = "ตรวจข้อมูล"
+                mode_text = "ตรวจข้อมูล"
             values = [
-                entry.get("id", ""), entry.get("member", ""), entry.get("material", bom_steel.DEFAULT_MATERIAL),
-                entry.get("profile", ""), entry.get("size", ""), entry.get("qty", ""),
-                entry.get("length_mm", ""), total_text,
-                entry.get("weight_reference_length_m") or "",
-                entry.get("weight_reference_kg") or "", rate_text, mass_text,
-                entry.get("stock_length_m", ""),
+                entry.get("id", ""), entry.get("member", ""), mode_text,
+                entry.get("material", bom_steel.DEFAULT_MATERIAL), entry.get("profile", ""),
+                entry.get("size", ""), entry.get("qty", ""),
+                entry.get("length_mm") if entry.get("length_mm") is not None else "",
+                total_text, entry.get("weight_reference_length_m") or "",
+                entry.get("weight_reference_kg") or "", rate_text, unit_weight_text, mass_text,
+                entry.get("stock_length_m") if entry.get("stock_length_m") is not None else "—",
                 "เปิดลิงก์ ↗" if str(entry.get("link") or "").strip() else "—",
                 entry.get("notes", ""),
             ]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(str(value if value is not None else ""))
                 cell.setData(Qt.ItemDataRole.UserRole, index)
-                if col == 13 and str(entry.get("link") or "").strip():
+                if col == 15 and str(entry.get("link") or "").strip():
                     cell.setToolTip(str(entry["link"]).strip())
                     cell.setForeground(QBrush(QColor("#1768D2")))
                 self.steel_table.setItem(index, col, cell)
@@ -2223,8 +2233,11 @@ class BOMWindow(QMainWindow):
         self.steel_summary_table.setRowCount(len(summary["steel_groups"]))
         for index, group in enumerate(summary["steel_groups"]):
             values = [
+                "กรอกน้ำหนักเอง" if group.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+                else "ตามความยาว",
                 group.get("material", bom_steel.DEFAULT_MATERIAL),
-                group["profile"], group["size"], f'{group["stock_length_m"]:g}',
+                group["profile"], group["size"],
+                f'{group["stock_length_m"]:g}' if group.get("stock_length_m") is not None else "—",
                 group["pieces"], bom_steel.format_length(group["total_length_m"]),
                 bom_steel.format_length(group["known_weight_kg"], 3),
                 bom_steel.format_length(group["unknown_weight_length_m"]),
