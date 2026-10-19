@@ -1008,7 +1008,7 @@ class BOMWindow(QMainWindow):
         labels = [
             "⌂    หน้าหลัก",
             "▤    รายการอุปกรณ์ (BOM)",
-            "▦    โครงสร้างเหล็ก / Cut List",
+            "▦    น้ำหนักรวม / โครงสร้าง",
             "⌁    สายไฟและการเชื่อมต่อ",
             "▣    จัดซื้อและราคา",
             "⇩    รายงาน (PDF / Excel)",
@@ -1513,7 +1513,83 @@ class BOMWindow(QMainWindow):
 
     def _build_steel(self):
         page, body = self._page(
-            "โครงสร้างเหล็ก / Steel Cut List",
+            "น้ำหนักรวมอุปกรณ์และโครงสร้าง",
+            "TOTAL MASS REGISTER  /  บันทึกน้ำหนักจริงที่ทราบและรวมเป็นกิโลกรัม")
+        tabs = QTabWidget()
+        tabs.addTab(self._build_mass_register(), "น้ำหนักรวม")
+        tabs.addTab(self._build_steel_cutlist(), "Cut List (ขั้นสูง)")
+        body.addWidget(tabs, 1)
+        return page
+
+    def _build_mass_register(self):
+        page = QWidget()
+        body = QVBoxLayout(page)
+        body.setContentsMargins(5, 8, 5, 5)
+        body.setSpacing(14)
+
+        intro = QLabel(
+            "หน้านี้ใช้หาน้ำหนักรวมเท่านั้น ไม่คำนวณการพลิกคว่ำ/เสถียรภาพ "
+            "และไม่จำเป็นต้องคำนวณความยาวเหล็ก")
+        intro.setObjectName("hint")
+        intro.setWordWrap(True)
+        body.addWidget(intro)
+
+        mass_panel = self._panel("สรุปน้ำหนัก / TOTAL MASS SUMMARY", body)
+        mass_grid = QGridLayout()
+        mass_grid.setHorizontalSpacing(12)
+        mass_grid.setVerticalSpacing(12)
+        self.mass_equipment_card = Card(
+            "น้ำหนักอุปกรณ์ BOM (kg)", "—", "#1768D2", "⚖")
+        self.mass_frame_card = Card(
+            "น้ำหนักโครงสร้าง (kg)", "—", "#13835C", "▦")
+        self.mass_total_card = Card(
+            "น้ำหนักรวมที่ทราบ (kg)", "—", "#A46B20", "Σ")
+        for col, card in enumerate((
+                self.mass_equipment_card, self.mass_frame_card, self.mass_total_card)):
+            mass_grid.addWidget(card, 0, col)
+            mass_grid.setColumnStretch(col, 1)
+        mass_panel.addLayout(mass_grid)
+
+        weight_actions = QHBoxLayout()
+        weight_actions.addWidget(self._button(
+            "＋ เลือกอุปกรณ์จาก BOM แล้วใส่น้ำหนัก",
+            self.open_weight_manager, "primary"))
+        self.mass_weight_count_label = self._label(
+            "เลือกรายการจาก BOM แล้วกรอกน้ำหนักต่อหน่วย", "caption")
+        self.mass_weight_count_label.setWordWrap(True)
+        weight_actions.addWidget(self.mass_weight_count_label, 1)
+        mass_panel.addLayout(weight_actions)
+        self.mass_rollup_note = self._label(
+            "น้ำหนักรวม = จำนวนใน BOM × น้ำหนักต่อหน่วย + น้ำหนักโครงสร้างที่บันทึก", "hint")
+        self.mass_rollup_note.setWordWrap(True)
+        mass_panel.addWidget(self.mass_rollup_note)
+
+        frame_panel = self._table_panel(body, "น้ำหนักโครงสร้าง / ชิ้นส่วนที่เพิ่มเอง")
+        frame_actions = QHBoxLayout()
+        frame_actions.addWidget(self._button(
+            "＋ เพิ่มชิ้นส่วนโครงสร้าง", self.add_frame_weight, "primary"))
+        frame_actions.addWidget(self._button("แก้ไขน้ำหนัก", self.edit_frame_weight))
+        frame_actions.addWidget(self._button("ลบรายการ", self.delete_frame_weight, "danger"))
+        frame_actions.addWidget(self._button("เปิดลิงก์สินค้า ↗", self.open_selected_frame_link))
+        frame_actions.addStretch()
+        frame_panel.addLayout(frame_actions)
+        self.frame_weight_table = self._table(
+            ["ID", "ชิ้นส่วนโครงสร้าง", "วัสดุ / ขนาด", "จำนวน",
+             "น้ำหนัก/ชิ้น (kg)", "น้ำหนักรวม (kg)", "ลิงก์สินค้า", "หมายเหตุ"], 1)
+        for col, width in {0: 60, 1: 190, 2: 190, 3: 75,
+                           4: 125, 5: 125, 6: 115, 7: 190}.items():
+            self.frame_weight_table.setColumnWidth(col, width)
+        self.frame_weight_table.cellDoubleClicked.connect(
+            lambda *_: self.edit_frame_weight())
+        frame_panel.addWidget(self.frame_weight_table)
+        body.addWidget(self._label(
+            "น้ำหนักที่เว้นว่างจะไม่ถูกเดาและไม่ถูกรวมในยอดรวมที่ทราบ "
+            "เพิ่มลิงก์สินค้า/ร้านเหล็กได้ในแต่ละรายการ", "hint"))
+        return page
+
+    def _build_steel_cutlist(self):
+        page, body = self._page(
+            "รายการตัดเหล็ก (ขั้นสูง) / Steel Cut List",
             "เพิ่มรายการเหล็กแต่ละขนาด แล้วสรุปจำนวนชิ้น ความยาวที่ต้องใช้ และจำนวนท่อนมาตรฐาน")
         actions = QHBoxLayout()
         actions.addWidget(self._button("+ เพิ่มชิ้นส่วนเหล็ก",
@@ -1538,14 +1614,15 @@ class BOMWindow(QMainWindow):
         mass_grid = QGridLayout()
         mass_grid.setHorizontalSpacing(12)
         mass_grid.setVerticalSpacing(12)
-        self.mass_equipment_card = Card(
+        self.cutlist_mass_equipment_card = Card(
             "น้ำหนักอุปกรณ์ BOM (kg)", "—", "#1768D2", "⚖")
-        self.mass_frame_card = Card(
+        self.cutlist_mass_frame_card = Card(
             "น้ำหนักโครงสร้างที่ทราบ (kg)", "—", "#13835C", "▦")
-        self.mass_total_card = Card(
+        self.cutlist_mass_total_card = Card(
             "น้ำหนักรวมที่ทราบ (kg)", "—", "#A46B20", "Σ")
         for col, card in enumerate((
-                self.mass_equipment_card, self.mass_frame_card, self.mass_total_card)):
+                self.cutlist_mass_equipment_card, self.cutlist_mass_frame_card,
+                self.cutlist_mass_total_card)):
             mass_grid.addWidget(card, 0, col)
             mass_grid.setColumnStretch(col, 1)
         mass_panel.addLayout(mass_grid)
@@ -1553,16 +1630,16 @@ class BOMWindow(QMainWindow):
         weight_actions.addWidget(self._button(
             "＋ เลือกอุปกรณ์จาก BOM แล้วใส่น้ำหนัก",
             self.open_weight_manager, "primary"))
-        self.mass_weight_count_label = self._label(
+        self.cutlist_mass_weight_count_label = self._label(
             "บันทึกน้ำหนักต่อหน่วยจาก BOM เพื่อรวมอัตโนมัติ", "caption")
-        self.mass_weight_count_label.setWordWrap(True)
-        weight_actions.addWidget(self.mass_weight_count_label, 1)
+        self.cutlist_mass_weight_count_label.setWordWrap(True)
+        weight_actions.addWidget(self.cutlist_mass_weight_count_label, 1)
         mass_panel.addLayout(weight_actions)
-        self.mass_rollup_note = self._label(
+        self.cutlist_mass_rollup_note = self._label(
             "อุปกรณ์ BOM: กรอกน้ำหนักต่อหน่วย · เหล็กกล่อง: กรอกน้ำหนักอ้างอิง · "
             "ชิ้นส่วนอื่น: กรอกน้ำหนักต่อชิ้นเอง", "hint")
-        self.mass_rollup_note.setWordWrap(True)
-        mass_panel.addWidget(self.mass_rollup_note)
+        self.cutlist_mass_rollup_note.setWordWrap(True)
+        mass_panel.addWidget(self.cutlist_mass_rollup_note)
         dashboard = self._panel("Steel Weight Dashboard / ภาพรวมน้ำหนักเหล็ก", body)
         steel_kpis = QGridLayout()
         steel_kpis.setHorizontalSpacing(12)
