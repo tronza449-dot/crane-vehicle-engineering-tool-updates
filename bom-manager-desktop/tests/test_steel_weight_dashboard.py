@@ -72,6 +72,26 @@ class SteelWeightCalculationTests(unittest.TestCase):
         self.assertEqual(result["steel_unknown_weight_length_m"], Decimal("1.5"))
         self.assertEqual(result["steel_pieces"], 5)
 
+    def test_manual_weight_parts_contribute_to_known_mass_not_stock_length(self):
+        doc = {"items": [], "wiring": [], "purchases": [], "steel_members": [
+            {"id": "M1", "member": "ขายึดมอเตอร์",
+             "weight_mode": bom_steel.WEIGHT_MODE_MANUAL,
+             "profile": "ชิ้นส่วนอื่น", "size": "", "qty": 3,
+             "manual_unit_weight_kg": 0.85},
+            self.row(id="S1", qty=2, length_mm=1000,
+                     weight_reference_length_m=2, weight_reference_kg=4),
+        ]}
+        summary = bom_steel_bom.summarize_bom_and_steel(doc, waste_percent=5)
+        self.assertEqual(summary["steel_known_weight_kg"], Decimal("5.55"))
+        self.assertEqual(summary["steel_required_length_m"], Decimal("2"))
+        self.assertEqual(summary["steel_stock_bars"], 1)
+        self.assertEqual(summary["steel_procurement_length_m"], Decimal("6.0"))
+        manual_group = next(g for g in summary["steel_groups"]
+                            if g["weight_mode"] == bom_steel.WEIGHT_MODE_MANUAL)
+        self.assertEqual(manual_group["known_weight_kg"], Decimal("2.55"))
+        self.assertIsNone(manual_group["stock_length_m"])
+        self.assertEqual(manual_group["estimated_bars_with_waste"], 0)
+
 
 class SteelWeightDashboardTests(unittest.TestCase):
     @classmethod
@@ -130,8 +150,7 @@ class SteelWeightDashboardTests(unittest.TestCase):
         }, self.win)
         selector = dialog.widgets["weight_mode"]
         selector.setCurrentIndex(selector.findData(bom_steel.WEIGHT_MODE_MANUAL))
-        self.assertTrue(dialog.widgets["manual_unit_weight_kg"].isVisible() or
-                        not dialog.widgets["manual_unit_weight_kg"].isHidden())
+        self.assertFalse(dialog.widgets["manual_unit_weight_kg"].isHidden())
         self.assertTrue(dialog.widgets["length_mm"].isHidden())
         self.assertTrue(dialog.widgets["weight_reference_length_m"].isHidden())
         dialog.widgets["manual_unit_weight_kg"].setText("0.85")
