@@ -489,3 +489,18 @@ The desktop app includes a dedicated **โครงสร้างเหล็�
 The page shows a detailed cut list and a grouped summary by profile, size, and stock length. The formal PDF report adds a steel cut-list appendix; the formal Excel workbook adds Steel Summary and Steel Cut List worksheets with formulas for total length and estimated stock bars. The data is saved inside the same shared GitHub BOM document, so the list follows the project across computers.
 
 **Important:** stock-bar counts are estimates based on total length only. They do not optimize the cutting pattern or account for saw kerf, offcuts, overlap/joints, or fabrication waste. Check an actual cutting plan and add a suitable waste allowance before purchasing steel. Dimensions and member lengths must be verified against the SolidWorks model and fabrication drawings.
+
+
+## v1.10.17 — Steel Weight Dashboard / คำนวณน้ำหนักโครงสร้างเหล็ก
+
+ในหน้า **โครงสร้างเหล็ก / Steel Cut List** สามารถบันทึกข้อมูลน้ำหนักจริงของเหล็กแต่ละชนิดและขนาด เพื่อคำนวณน้ำหนักตาม Cut List จาก SolidWorks ได้
+
+- กรอก **ความยาวอ้างอิง (m)** และ **น้ำหนักของความยาวอ้างอิง (kg)** จากสเปกผู้ผลิตหรือข้อมูลชั่งจริง
+- โปรแกรมคำนวณน้ำหนักต่อเมตร: **kg/m = น้ำหนักอ้างอิง (kg) ÷ ความยาวอ้างอิง (m)**
+- โปรแกรมคำนวณน้ำหนักรวม: **kg = จำนวนชิ้น × ความยาวต่อชิ้น (m) × kg/m**
+- Dashboard แสดงจำนวนบรรทัดเหล็ก, จำนวนชิ้น, ความยาวรวม, น้ำหนักรวมที่คำนวณได้ และความยาวที่ยังไม่มีข้อมูลน้ำหนัก
+- ตารางรายละเอียดและตารางสรุปแยกตามชนิด/ขนาดแสดงน้ำหนักรวมและความยาวที่ยังไม่ทราบน้ำหนัก
+- หากไม่ทราบน้ำหนัก สามารถเว้นทั้งสองช่องไว้ได้ และระบบจะไม่นับความยาวส่วนนั้นเข้าในน้ำหนักรวม; หากกรอกเพียงช่องเดียวจะเตือนข้อมูลไม่ครบ
+- น้ำหนักอ้างอิงไม่ถูกเดาจากชื่อหรือขนาดหน้าตัด ต้องใช้ค่าจากผู้ผลิตหรือการชั่งจริง น้ำหนักรวมจึงเป็น **ยอดที่ทราบจากข้อมูลที่กรอก** ไม่ใช่การรับรองน้ำหนักโครงสร้าง
+
+ตัวอย่าง: เหล็ก 6 m หนัก 18 kg → 3 kg/m; ใช้ 4 ชิ้น ยาวชิ้นละ 1.5 m → รวมความยาว 6 m และน้ำหนัก 18 kg.
