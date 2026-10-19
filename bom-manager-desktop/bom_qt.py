@@ -1735,10 +1735,13 @@ class BOMWindow(QMainWindow):
             qty = item.get("qty", 0)
             price = item.get("unitPrice")
             unit_weight = item.get("unitWeightKg")
+            has_unit_weight = (unit_weight is not None and
+                               str(unit_weight).strip() != "")
             try:
                 line_weight = (float(qty) * float(unit_weight)
-                               if unit_weight is not None and str(unit_weight).strip() else None)
+                               if has_unit_weight else None)
             except (TypeError, ValueError):
+                has_unit_weight = False
                 line_weight = None
             columns = [item.get("id", ""), item.get("name", ""),
                        bom_categories.normalize_category(item.get("category")),
@@ -1746,7 +1749,7 @@ class BOMWindow(QMainWindow):
                        qty, item.get("unit", ""), money(price),
                        money(float(qty) * float(price)) if price is not None else "—",
                        item.get("status", ""),
-                       money(unit_weight) if unit_weight is not None else "—",
+                       money(unit_weight) if has_unit_weight else "—",
                        money(line_weight) if line_weight is not None else "—"]
             for col, val in enumerate(columns):
                 cell = QTableWidgetItem(str(val if val is not None else ""))
@@ -1765,7 +1768,7 @@ class BOMWindow(QMainWindow):
                     cell.setFont(category_font)
                 if col in (6, 7) and price is None:
                     cell.setForeground(QBrush(QColor("#A86521")))
-                if col in (9, 10) and (unit_weight is None or line_weight is None):
+                if col in (9, 10) and (not has_unit_weight or line_weight is None):
                     cell.setForeground(QBrush(QColor("#A86521")))
                 if col == 8 and "ยัง" in str(val):
                     cell.setForeground(QBrush(QColor("#A86521")))
