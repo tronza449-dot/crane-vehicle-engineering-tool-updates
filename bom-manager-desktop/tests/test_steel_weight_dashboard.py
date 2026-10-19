@@ -129,7 +129,7 @@ class SteelWeightDashboardTests(unittest.TestCase):
             "stock_length_m": 6, "weight_reference_length_m": 6,
             "weight_reference_kg": 18,
         }, self.win)
-        self.assertFalse(dialog.widgets["material"].isEditable())
+        self.assertTrue(dialog.widgets["material"].isEditable())
         self.assertEqual(dialog.widgets["material"].currentText(),
                          bom_steel.DEFAULT_MATERIAL)
         values = dialog.get_values()
