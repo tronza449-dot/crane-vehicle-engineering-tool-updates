@@ -88,6 +88,8 @@ class SteelQuantityTests(unittest.TestCase):
         row = {
             "id": "M1", "member": "ขายึดมอเตอร์", "weight_mode": bom_steel.WEIGHT_MODE_MANUAL,
             "profile": "ชิ้นส่วนอื่น", "size": "", "qty": 3,
+            "length_mm": 1500, "stock_length_m": 6,
+            "weight_reference_length_m": 6, "weight_reference_kg": 10,
             "manual_unit_weight_kg": "0.85", "link": "https://example.org/bracket",
         }
         normalized = bom_steel.normalize_member(row)
