@@ -2970,6 +2970,10 @@ class BOMWindow(QMainWindow):
             link = values["link"]
             if link and not link.lower().startswith(("https://", "http://")):
                 raise bom_core.DataError("ลิงก์สินค้าต้องขึ้นต้นด้วย https:// หรือ http://")
+            if (values.get("weight_mode") == bom_steel.WEIGHT_MODE_LENGTH
+                    and not str(values.get("weight_reference_kg") or "").strip()):
+                raise bom_core.DataError(
+                    "กรุณากรอกน้ำหนักต่อเมตร (kg/m) จากสเปกจริงของเหล็ก")
             row = bom_steel.normalize_member({
                 "id": bom_core.next_id(self.payload.setdefault("steel_members", [])),
                 **values,
@@ -3005,6 +3009,10 @@ class BOMWindow(QMainWindow):
             link = values["link"]
             if link and not link.lower().startswith(("https://", "http://")):
                 raise bom_core.DataError("ลิงก์สินค้าต้องขึ้นต้นด้วย https:// หรือ http://")
+            if (values.get("weight_mode") == bom_steel.WEIGHT_MODE_LENGTH
+                    and not str(values.get("weight_reference_kg") or "").strip()):
+                raise bom_core.DataError(
+                    "กรุณากรอกน้ำหนักต่อเมตร (kg/m) จากสเปกจริงของเหล็ก")
             updated = bom_steel.normalize_member({
                 **previous, **values, "id": previous.get("id"),
             })
