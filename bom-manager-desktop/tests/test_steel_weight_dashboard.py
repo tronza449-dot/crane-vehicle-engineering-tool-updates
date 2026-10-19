@@ -178,5 +178,27 @@ class SteelWeightDashboardTests(unittest.TestCase):
         dialog.close()
 
 
+    def test_default_tab_is_mass_only_and_structural_form_has_product_link(self):
+        from bom_qt import FrameWeightDialog
+        self.assertEqual(self.win.steel_tabs.currentIndex(), 0)
+        self.assertEqual(self.win.frame_weight_table.columnCount(), 8)
+        dialog = FrameWeightDialog(self.win, {
+            "member": "ฐานเครน", "material": "SS400", "size": "40×40×2 mm",
+            "qty": 2, "manual_unit_weight_kg": 3.75,
+            "link": "https://example.org/steel", "notes": "ชิ้นส่วนโครง",
+        })
+        self.assertEqual(dialog.get_values()["member"], "ฐานเครน")
+        self.assertEqual(dialog.get_values()["qty"], "2")
+        self.assertEqual(dialog.get_values()["manual_unit_weight_kg"], "3.75")
+        self.assertEqual(dialog.get_values()["link"], "https://example.org/steel")
+        values = dialog.get_values()
+        row = bom_steel.normalize_member({
+            "id": "S9", **values, "profile": "ชิ้นส่วนอื่น",
+            "weight_mode": bom_steel.WEIGHT_MODE_MANUAL,
+        })
+        self.assertEqual(bom_steel.total_weight_kg(row), Decimal("7.50"))
+        self.assertEqual(row["link"], "https://example.org/steel")
+        dialog.close()
+
 if __name__ == "__main__":
     unittest.main()
