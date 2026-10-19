@@ -326,44 +326,66 @@ def export_pdf(doc, destination, options=None):
     # Estimated stock bars are length-only lower bounds, not an optimized cut plan.
     steel_rows = doc.get("steel_members", [])
     steel_totals = bom_steel.summarize(steel_rows)
+    mode_label = lambda row: (
+        "กรอกน้ำหนักเอง" if row.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+        else "คำนวณตามความยาว")
+    stock_label = lambda value: "—" if value is None else f"{float(value):g}"
+    steel_summary_rows = [
+        [("กรอกน้ำหนักเอง" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+          else "คำนวณตามความยาว"),
+         g.get("material", bom_steel.DEFAULT_MATERIAL), g["profile"], g["size"],
+         g["pieces"], bom_steel.format_length(g["total_length_m"]),
+         stock_label(g.get("stock_length_m")),
+         bom_steel.format_length(g["known_weight_kg"], 3),
+         g["estimated_stock_bars"]]
+        for g in steel_totals["groups"]
+    ]
     story += [
         PageBreak(),
-        P("ภาคผนวก ง. รายการตัดเหล็กและวัสดุโครงสร้าง / STEEL CUT LIST", section),
-        P("สรุปจำนวนชิ้นและความยาวแยกตามชนิดหน้าตัด ขนาด และความยาวท่อนมาตรฐาน", label),
+        P("ภาคผนวก ง. รายการตัดเหล็กและน้ำหนักชิ้นส่วน / STEEL CUT LIST", section),
+        P("โหมดตามความยาวใช้สำหรับเหล็กกล่อง/หน้าตัด • โหมดกรอกน้ำหนักเองใช้กับแผ่นยึด "
+          "ขายึด ฐานมอเตอร์ และชิ้นส่วนที่ไม่คิดเป็นความยาวท่อนมาตรฐาน", label),
         Spacer(1, 8),
         TABLE(
-            ["วัสดุ / เกรด", "ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น",
-             "ความยาวรวม (m)", "ท่อนมาตรฐาน (m)", "จำนวนท่อน (ประมาณ)"],
-            [[g.get("material", bom_steel.DEFAULT_MATERIAL), g["profile"], g["size"],
-              g["pieces"], bom_steel.format_length(g["total_length_m"]),
-              f'{g["stock_length_m"]:g}', g["estimated_stock_bars"]]
-             for g in steel_totals["groups"]],
-            [width*.13, width*.14, width*.14, width*.08,
-             width*.15, width*.16, width*.20]),
+            ["วิธีน้ำหนัก", "วัสดุ / เกรด", "ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น",
+             "ความยาวรวม (m)", "ท่อนมาตรฐาน (m)", "น้ำหนักที่ทราบ (kg)",
+             "จำนวนท่อน (ประมาณ)"],
+            steel_summary_rows,
+            [width*.105, width*.12, width*.12, width*.12, width*.07,
+             width*.12, width*.11, width*.12, width*.11]),
         Spacer(1, 8),
         P(f'รวมจำนวนชิ้น: {steel_totals["total_pieces"]:,}  |  '
-          f'ความยาวรวม: {bom_steel.format_length(steel_totals["total_length_m"])} m  |  '
+          f'ความยาวที่ระบุ: {bom_steel.format_length(steel_totals["total_length_m"])} m  |  '
+          f'น้ำหนักโครงสร้างที่ทราบ: {bom_steel.format_length(steel_totals["known_weight_kg"], 3)} kg  |  '
           f'ท่อนมาตรฐานที่ประมาณ: {steel_totals["estimated_stock_bars"]:,} ท่อน', label),
         Spacer(1, 12),
-        P("รายละเอียดชิ้นส่วนสำหรับถอดปริมาณเหล็ก", section),
+        P("รายละเอียดชิ้นส่วนสำหรับถอดปริมาณ", section),
         Spacer(1, 6),
         TABLE(
-            ["ID", "ตำแหน่ง / ชิ้นส่วน", "วัสดุ / เกรด", "ชนิดหน้าตัด",
-             "ขนาดหน้าตัด", "จำนวน", "ยาว/ชิ้น (mm)", "รวม (m)",
-             "ท่อนมาตรฐาน (m)", "ลิงก์สินค้า", "หมายเหตุ"],
-            [[r.get("id"), r.get("member"),
+            ["ID", "ตำแหน่ง / ชิ้นส่วน", "วิธีน้ำหนัก", "วัสดุ / เกรด", "ชนิดหน้าตัด",
+             "ขนาด", "จำนวน", "ยาว/ชิ้น (mm)", "รวม (m)", "น้ำหนัก/ชิ้น (kg)",
+             "น้ำหนักรวม (kg)", "ท่อนมาตรฐาน (m)", "ลิงก์สินค้า", "หมายเหตุ"],
+            [[r.get("id"), r.get("member"), mode_label(bom_steel.normalize_member(r)),
               bom_steel.normalize_member(r).get("material", bom_steel.DEFAULT_MATERIAL),
-              r.get("profile"), r.get("size"), r.get("qty"), r.get("length_mm"),
-              bom_steel.format_length(bom_steel.total_length_m(r)),
-              f'{float(r.get("stock_length_m") or 6):g}', r.get("link") or "—",
-              r.get("notes")]
+              r.get("profile"), r.get("size"), r.get("qty"),
+              r.get("length_mm") if r.get("length_mm") is not None else "—",
+              (bom_steel.format_length(bom_steel.total_length_m(r))
+               if bom_steel.normalize_member(r).get("length_mm") is not None else "—"),
+              (bom_steel.format_length(r.get("manual_unit_weight_kg"), 3)
+               if bom_steel.normalize_member(r).get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+               else "—"),
+              ("—" if bom_steel.total_weight_kg(r) is None
+               else bom_steel.format_length(bom_steel.total_weight_kg(r), 3)),
+              stock_label(bom_steel.normalize_member(r).get("stock_length_m")),
+              r.get("link") or "—", r.get("notes")]
              for r in steel_rows],
-            [width*.035, width*.12, width*.095, width*.09, width*.09,
-             width*.045, width*.07, width*.07, width*.07, width*.135, width*.18]),
+            [width*.035, width*.105, width*.085, width*.09, width*.08, width*.075,
+             width*.04, width*.06, width*.06, width*.075, width*.075, width*.06,
+             width*.095, width*.10]),
         Spacer(1, 8),
-        P("ข้อจำกัดการประมาณ: จำนวนท่อนมาตรฐานคำนวณจากความยาวรวมเท่านั้น "
-          "ยังไม่หัก kerf เศษตัด ระยะซ้อน/ต่อ และข้อจำกัดการจัดวางชิ้นตัด "
-          "ต้องตรวจแผนตัดจริงก่อนสั่งซื้อเหล็ก", label),
+        P("ข้อจำกัดการประมาณ: จำนวนท่อนมาตรฐานคำนวณเฉพาะรายการที่มีความยาวและท่อนมาตรฐาน "
+          "ไม่หัก kerf เศษตัด ระยะซ้อน/ต่อ หรือข้อจำกัดการจัดวางชิ้นตัด "
+          "น้ำหนักที่กรอกเองจะคูณจำนวนชิ้นโดยตรงและไม่ถูกรวมเป็นความยาวเหล็ก", label),
     ]
 
     # Combined mass roll-up: only manually supplied equipment weights and
@@ -383,7 +405,8 @@ def export_pdf(doc, destination, options=None):
     story += [
         PageBreak(),
         P("ภาคผนวก จ. สรุปน้ำหนักอุปกรณ์และโครงสร้าง / TOTAL MASS ROLL-UP", section),
-        P("น้ำหนักอุปกรณ์กรอกเองต่อ 1 หน่วย • น้ำหนักเหล็กคำนวณจากความยาวและน้ำหนักอ้างอิงที่กรอกไว้", label),
+        P("น้ำหนักอุปกรณ์กรอกเองต่อ 1 หน่วย • โครงสร้างคำนวณได้ทั้งจากความยาว/น้ำหนักอ้างอิง "
+          "หรือจากน้ำหนักต่อชิ้นที่ผู้ใช้กรอกเอง", label),
         Spacer(1, 8),
         TABLE(["น้ำหนักอุปกรณ์ที่ทราบ (kg)", "น้ำหนักโครงเหล็กที่ทราบ (kg)",
                "น้ำหนักรวมที่ทราบ (kg)"], [[
@@ -405,15 +428,17 @@ def export_pdf(doc, destination, options=None):
               equipment_rows,
               [width*.09, width*.39, width*.16, width*.18, width*.18]),
         Spacer(1, 12),
-        P("ตารางน้ำหนักโครงสร้างเหล็ก", section), Spacer(1, 5),
-        TABLE(["ชิ้นส่วน", "ขนาดหน้าตัด", "จำนวน", "ความยาวรวม (m)",
+        P("ตารางน้ำหนักโครงสร้างเหล็กและชิ้นส่วน", section), Spacer(1, 5),
+        TABLE(["วิธีน้ำหนัก", "ชิ้นส่วน / หน้าตัด", "ขนาด", "จำนวน", "ความยาวรวม (m)",
                "น้ำหนักที่ทราบ (kg)", "ยังไม่ทราบน้ำหนัก (m)"],
-              [[g.get("profile"), g.get("size"), g["pieces"],
+              [[("กรอกน้ำหนักเอง" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+                 else "ตามความยาว"),
+                g.get("profile"), g.get("size"), g["pieces"],
                 bom_steel.format_length(g["total_length_m"]),
                 bom_steel.format_length(g["known_weight_kg"], 3),
                 bom_steel.format_length(g["unknown_weight_length_m"])]
                for g in mass["steel_groups"]],
-              [width*.18, width*.19, width*.10, width*.17, width*.18, width*.18]),
+              [width*.13, width*.17, width*.16, width*.08, width*.15, width*.16, width*.15]),
         Spacer(1, 8),
         P("ข้อควรระวัง: หากมีรายการโครงเหล็กเดียวกันถูกใส่เป็นน้ำหนักอุปกรณ์ใน BOM ด้วย "
           "และอยู่ใน Steel Cut List ด้วย จะถูกนับซ้ำ ต้องเว้นน้ำหนัก BOM ของรายการซ้ำหรือไม่รวมรายการนั้น "
