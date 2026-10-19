@@ -1434,7 +1434,7 @@ class BOMWindow(QMainWindow):
         self.mass_equipment_card = Card(
             "น้ำหนักอุปกรณ์ BOM (kg)", "—", "#1768D2", "⚖")
         self.mass_frame_card = Card(
-            "น้ำหนักโครงเหล็กที่ทราบ (kg)", "—", "#13835C", "▦")
+            "น้ำหนักโครงสร้างที่ทราบ (kg)", "—", "#13835C", "▦")
         self.mass_total_card = Card(
             "น้ำหนักรวมที่ทราบ (kg)", "—", "#A46B20", "Σ")
         for col, card in enumerate((
@@ -1497,7 +1497,7 @@ class BOMWindow(QMainWindow):
         self.steel_estimate_label = self._label("ยังไม่มีข้อมูล", "hint")
         self.steel_estimate_label.setWordWrap(True)
         estimate.addWidget(self.steel_estimate_label)
-        summary_panel = self._table_panel(body, "สรุปจำนวนเหล็กตามชนิดและขนาด")
+        summary_panel = self._table_panel(body, "สรุปจำนวนและน้ำหนักตามชนิดชิ้นส่วน")
         self.steel_summary_table = self._table(
             ["วิธีน้ำหนัก", "วัสดุ / เกรด", "หน้าตัด", "ขนาด", "ท่อนมาตรฐาน\n(m)",
              "จำนวน\n(ชิ้น)", "ยาวรวม\n(m)", "น้ำหนักที่ทราบ\n(kg)",
@@ -1507,7 +1507,7 @@ class BOMWindow(QMainWindow):
                            6: 105, 7: 125, 8: 130, 9: 120, 10: 125}.items():
             self.steel_summary_table.setColumnWidth(col, width)
         summary_panel.addWidget(self.steel_summary_table)
-        detail = self._table_panel(body, "รายการตัดเหล็ก / รายชิ้นส่วน")
+        detail = self._table_panel(body, "รายการโครงสร้าง / รายชิ้นส่วน")
         self.steel_table = self._table(
             ["ID", "ตำแหน่ง / ชิ้นส่วน", "วิธีน้ำหนัก", "วัสดุ / เกรด", "หน้าตัด",
              "ขนาดหน้าตัด", "จำนวน\n(ชิ้น)", "ยาว/ชิ้น\n(mm)", "ยาวรวม\n(m)",
