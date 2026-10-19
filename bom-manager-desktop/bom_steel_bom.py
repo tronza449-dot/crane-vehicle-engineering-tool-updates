@@ -76,6 +76,8 @@ def summarize_bom_and_steel(doc, steel_purchase_unit_price=None, waste_percent=0
         "bom_missing_prices": missing_prices,
         "steel_groups": groups,
         "steel_pieces": steel["total_pieces"],
+        "steel_known_weight_kg": steel["known_weight_kg"],
+        "steel_unknown_weight_length_m": steel["unknown_weight_length_m"],
         "steel_required_length_m": total_required,
         "steel_length_with_waste_m": total_required * (Decimal("1") + waste / Decimal("100")),
         "steel_stock_bars": total_bars,
