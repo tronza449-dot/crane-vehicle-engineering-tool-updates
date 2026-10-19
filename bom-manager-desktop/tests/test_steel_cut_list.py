@@ -42,6 +42,22 @@ class SteelQuantityTests(unittest.TestCase):
         self.assertAlmostEqual(float(groups["40×40×2 mm"]["total_length_m"]), 4.0)
         self.assertEqual(groups["40×40×2 mm"]["estimated_stock_bars"], 1)
 
+    def test_material_is_separate_from_profile_and_does_not_mix_stock_totals(self):
+        carbon = dict(self.rows[0], material="เหล็กคาร์บอน (SS400 / ASTM A36)")
+        stainless = dict(self.rows[1], material="สแตนเลส SUS 304")
+        same_stainless = dict(self.rows[2], material="สแตนเลส SUS 304",
+                              size="25×25×2 mm", qty=1, length_mm=600)
+        result = bom_steel.summarize([carbon, stainless, same_stainless])
+        self.assertEqual(len(result["groups"]), 2)
+        carbon_group = next(g for g in result["groups"]
+                            if g["material"].startswith("เหล็กคาร์บอน"))
+        stainless_group = next(g for g in result["groups"]
+                               if g["material"] == "สแตนเลส SUS 304")
+        self.assertEqual(carbon_group["pieces"], 4)
+        self.assertEqual(stainless_group["pieces"], 3)
+        self.assertEqual(stainless_group["estimated_stock_bars"], 1)
+        self.assertIn("วัสดุเดิม/ไม่ระบุเกรด", bom_steel.normalize_member(self.rows[0])["material"])
+
     def test_invalid_values_are_rejected(self):
         invalid = dict(self.rows[0], length_mm=0)
         with self.assertRaises(bom_steel.SteelDataError):
@@ -86,7 +102,7 @@ class SteelQuantityTests(unittest.TestCase):
                 cut_xml = book.read("xl/worksheets/sheet11.xml").decode("utf-8")
                 self.assertIn("SUMIFS", summary_xml)
                 self.assertIn("ROUNDUP", summary_xml)
-                self.assertIn("E8*F8/1000", cut_xml)
+                self.assertIn("F8*G8/1000", cut_xml)
 
     def test_pdf_contains_steel_cut_list(self):
         import bom_official_reports as reports
@@ -136,6 +152,16 @@ class SteelPageTests(unittest.TestCase):
             "stock_length_m": 6,
         }, self.win)
         self.assertFalse(dialog.widgets["profile"].isEditable())
+        self.assertFalse(dialog.widgets["material"].isEditable())
+        self.assertIn("สแตนเลส SUS 304", [
+            dialog.widgets["material"].itemText(i)
+            for i in range(dialog.widgets["material"].count())])
+        self.assertIn("สแตนเลส SUS 316", [
+            dialog.widgets["material"].itemText(i)
+            for i in range(dialog.widgets["material"].count())])
+        self.assertIn("อะลูมิเนียม 6061", [
+            dialog.widgets["material"].itemText(i)
+            for i in range(dialog.widgets["material"].count())])
         values = bom_steel.normalize_member(dialog.get_values())
         self.assertEqual(values["qty"], 4)
         self.assertAlmostEqual(float(bom_steel.total_length_m(values)), 3.0)
