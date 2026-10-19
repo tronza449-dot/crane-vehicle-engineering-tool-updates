@@ -95,17 +95,11 @@ def normalize_member(values):
     manual_raw = row.get("manual_unit_weight_kg")
     if mode == WEIGHT_MODE_MANUAL:
         manual_weight = _positive(manual_raw, "น้ำหนักต่อชิ้น (kg)")
-        length_raw = row.get("length_mm")
-        length_mm = (_positive(length_raw, "ความยาวต่อชิ้น (mm)")
-                     if length_raw is not None and str(length_raw).strip() else None)
-        stock_raw = row.get("stock_length_m")
-        stock_length = (_positive(stock_raw, "ความยาวเหล็กมาตรฐาน (m)")
-                        if length_mm is not None and stock_raw is not None and
-                        str(stock_raw).strip() else None)
-        if length_mm is not None and stock_length is not None and length_mm > stock_length * 1000:
-            raise SteelDataError(
-                "ความยาวชิ้นงานมากกว่าท่อนมาตรฐานที่เลือก "
-                "ให้ตรวจความยาวหรือเปลี่ยนความยาวท่อนมาตรฐาน")
+        # Ignore any previously entered cut lengths when this mode is selected.
+        # Switching modes must not accidentally count hidden length fields as
+        # steel metres or stock bars.
+        length_mm = None
+        stock_length = None
         row.update({
             "member": member, "material": material, "profile": profile, "size": size,
             "weight_mode": mode, "qty": int(qty),
