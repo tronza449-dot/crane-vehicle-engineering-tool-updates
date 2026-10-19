@@ -55,9 +55,10 @@ class SteelWeightCalculationTests(unittest.TestCase):
         self.assertEqual(result["total_length_m"], Decimal("11.000"))
         self.assertEqual(result["known_weight_kg"], Decimal("28.000"))
         self.assertEqual(result["unknown_weight_length_m"], Decimal("1.5"))
-        self.assertEqual(result["groups"][0]["known_weight_kg"], Decimal("28.000")
-                         if result["groups"][0]["size"] == "25×25×2 mm" else
-                         result["groups"][0]["known_weight_kg"])
+        matching = next(group for group in result["groups"]
+                         if group["size"] == "25×25×2 mm")
+        self.assertEqual(matching["known_weight_kg"], Decimal("28.000"))
+        self.assertEqual(matching["unknown_weight_length_m"], Decimal("1.5"))
 
     def test_combined_bom_steel_summary_exposes_weight_dashboard_values(self):
         doc = {"items": [], "wiring": [], "purchases": [],
