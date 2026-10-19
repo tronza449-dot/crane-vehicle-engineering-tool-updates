@@ -2739,6 +2739,136 @@ class BOMWindow(QMainWindow):
         self.render_steel()
         self._schedule_auto_sync()
 
+    def _selected_frame_index(self, show_message=True):
+        row = self.frame_weight_table.currentRow()
+        cell = self.frame_weight_table.item(row, 0) if row >= 0 else None
+        index = cell.data(Qt.ItemDataRole.UserRole) if cell is not None else None
+        if index is None or not (0 <= int(index) < len(self.payload.get("steel_members", []))):
+            if show_message:
+                QMessageBox.information(
+                    self, "เลือกชิ้นส่วน", "กรุณาเลือกชิ้นส่วนโครงสร้างจากตารางก่อน")
+            return None
+        return int(index)
+
+    def add_frame_weight(self):
+        dialog = FrameWeightDialog(self)
+        self.edit_dialog_active = True
+        try:
+            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        finally:
+            self.edit_dialog_active = False
+        if not accepted:
+            return
+        values = dialog.get_values()
+        try:
+            if not values["member"]:
+                raise bom_core.DataError("กรุณากรอกชื่อชิ้นส่วนโครงสร้าง")
+            link = values["link"]
+            if link and not link.lower().startswith(("https://", "http://")):
+                raise bom_core.DataError("ลิงก์สินค้าต้องขึ้นต้นด้วย https:// หรือ http://")
+            qty = bom_core.valid_qty(values["qty"])
+            weight = bom_core.decimal_or_none(values["manual_unit_weight_kg"])
+            if weight is None or weight <= 0:
+                raise bom_core.DataError("น้ำหนักต่อชิ้นต้องมากกว่า 0 kg")
+            row = bom_steel.normalize_member({
+                "id": bom_core.next_id(self.payload.setdefault("steel_members", [])),
+                "member": values["member"], "material": values["material"],
+                "profile": "ชิ้นส่วนอื่น", "size": values["size"],
+                "weight_mode": bom_steel.WEIGHT_MODE_MANUAL,
+                "qty": qty, "manual_unit_weight_kg": float(weight),
+                "link": link, "notes": values["notes"],
+            })
+        except (ValueError, bom_core.DataError, bom_steel.SteelDataError) as exc:
+            QMessageBox.warning(self, "ข้อมูลน้ำหนักไม่ถูกต้อง", str(exc))
+            return
+        self.payload["steel_members"].append(row)
+        self.changed()
+        self.set_status(f'เพิ่มชิ้นส่วน "{row["member"]}" · {row["qty"] * row["manual_unit_weight_kg"]:,.3f} kg')
+
+    def edit_frame_weight(self):
+        index = self._selected_frame_index()
+        if index is None:
+            return
+        previous = self.payload["steel_members"][index]
+        try:
+            normalized = bom_steel.normalize_member(previous)
+        except bom_steel.SteelDataError:
+            normalized = previous
+        if normalized.get("weight_mode") != bom_steel.WEIGHT_MODE_MANUAL:
+            # Preserve every field in older length-based cut-list records.
+            self.steel_table.selectRow(index)
+            self.show_page(2)
+            QMessageBox.information(
+                self, "รายการเดิมแบบ Cut List",
+                "รายการนี้ใช้ข้อมูลความยาวเหล็กเดิม เพื่อไม่ให้ข้อมูลสูญหาย "
+                "จะเปิดแบบแก้ไขขั้นสูงให้")
+            self.edit_record("steel_members", True)
+            return
+        dialog = FrameWeightDialog(self, previous)
+        self.edit_dialog_active = True
+        try:
+            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        finally:
+            self.edit_dialog_active = False
+        if not accepted:
+            return
+        values = dialog.get_values()
+        try:
+            if not values["member"]:
+                raise bom_core.DataError("กรุณากรอกชื่อชิ้นส่วนโครงสร้าง")
+            link = values["link"]
+            if link and not link.lower().startswith(("https://", "http://")):
+                raise bom_core.DataError("ลิงก์สินค้าต้องขึ้นต้นด้วย https:// หรือ http://")
+            qty = bom_core.valid_qty(values["qty"])
+            weight = bom_core.decimal_or_none(values["manual_unit_weight_kg"])
+            if weight is None or weight <= 0:
+                raise bom_core.DataError("น้ำหนักต่อชิ้นต้องมากกว่า 0 kg")
+            updated = bom_steel.normalize_member({
+                **previous, "member": values["member"], "material": values["material"],
+                "profile": "ชิ้นส่วนอื่น", "size": values["size"],
+                "weight_mode": bom_steel.WEIGHT_MODE_MANUAL, "qty": qty,
+                "manual_unit_weight_kg": float(weight), "link": link,
+                "notes": values["notes"], "length_mm": None, "stock_length_m": None,
+                "weight_reference_length_m": None, "weight_reference_kg": None,
+            })
+        except (ValueError, bom_core.DataError, bom_steel.SteelDataError) as exc:
+            QMessageBox.warning(self, "ข้อมูลน้ำหนักไม่ถูกต้อง", str(exc))
+            return
+        self.payload["steel_members"][index] = updated
+        self.changed()
+        self.set_status(f'แก้ไขน้ำหนัก "{updated["member"]}" สำเร็จ')
+
+    def delete_frame_weight(self):
+        index = self._selected_frame_index()
+        if index is None:
+            return
+        row = self.payload["steel_members"][index]
+        if QMessageBox.question(
+                self, "ยืนยันลบชิ้นส่วน",
+                f'ลบ "{row.get("member", "ชิ้นส่วน")}" ออกจากรายการน้ำหนักหรือไม่?'
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        del self.payload["steel_members"][index]
+        self.changed()
+        self.set_status("ลบชิ้นส่วนโครงสร้างแล้ว")
+
+    def open_selected_frame_link(self):
+        index = self._selected_frame_index()
+        if index is None:
+            return
+        link = str(self.payload["steel_members"][index].get("link") or "").strip()
+        if not link:
+            QMessageBox.information(
+                self, "ยังไม่มีลิงก์สินค้า",
+                "ดับเบิลคลิกแก้ไขรายการแล้วใส่ลิงก์ร้านค้า/สินค้าได้")
+            return
+        if not link.lower().startswith(("https://", "http://")):
+            QMessageBox.warning(self, "ลิงก์ไม่ถูกต้อง",
+                                "ลิงก์สินค้าต้องขึ้นต้นด้วย http:// หรือ https://")
+            return
+        if not webbrowser.open(link):
+            self.set_status("ส่งลิงก์สินค้าให้เบราว์เซอร์แล้ว")
+
     def changed(self):
         self.dirty = True
         self.revision += 1
