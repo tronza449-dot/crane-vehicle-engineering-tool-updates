@@ -272,26 +272,30 @@ class RecordDialog(QDialog):
                 control.setToolTip("เลือกหมวดหลักเท่านั้น: เครื่องกล=โครงสร้าง/ล้อ/เครน; ไฟฟ้ากำลัง=แบตเตอรี่/มอเตอร์/ฟิวส์/สายไฟ; อิเล็กทรอนิกส์/ควบคุม=ESP32/รีเลย์/เซนเซอร์/สัญญาณ")
             elif key == "material" and "เหล็ก" in title:
                 control = QComboBox()
-                control.setEditable(False)
+                control.setEditable(True)
+                control.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
                 control.addItems(list(bom_steel.MATERIAL_OPTIONS))
                 current = str(val or bom_steel.DEFAULT_MATERIAL)
                 if control.findText(current) < 0:
                     control.addItem(current)
                 control.setCurrentText(current)
                 control.setToolTip(
-                    "เลือกวัสดุแยกจากรูปหน้าตัด เช่น เหล็กคาร์บอน สแตนเลส 304/316 "
-                    "หรืออะลูมิเนียม หากไม่ทราบเกรดให้ใช้วัสดุเดิม/ไม่ระบุเกรด")
+                    "เลือกวัสดุจากรายการ หรือพิมพ์วัสดุ/เกรดเองได้ เช่น เหล็ก SCM440, "
+                    "SS400, SUS304 หรืออลูมิเนียม 6061 โดยข้อมูลที่พิมพ์จะถูกบันทึกกับชิ้นงานนี้")
+                control.setPlaceholderText("เลือกหรือพิมพ์วัสดุ/เกรดเอง…")
             elif key == "profile" and "เหล็ก" in title:
                 control = QComboBox()
-                control.setEditable(False)
+                control.setEditable(True)
+                control.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
                 control.addItems(list(bom_steel.PROFILE_OPTIONS))
                 current = str(val or bom_steel.PROFILE_OPTIONS[0])
                 if control.findText(current) < 0:
                     control.addItem(current)
                 control.setCurrentText(current)
                 control.setToolTip(
-                    "เลือกหน้าตัด/รูปทรง เช่น กล่องสี่เหลี่ยม กล่องแบน ฉาก ตัวซี ท่อกลม "
-                    "หรือแผ่นโลหะ ส่วนชนิดวัสดุเลือกแยกอีกช่อง")
+                    "เลือกหน้าตัดมาตรฐาน หรือพิมพ์รูปหน้าตัดเฉพาะเอง เช่น เหล็กตัว Z, "
+                    "ราง U, C-Channel, I-Beam หรือหน้าตัดพิเศษจากแบบ SolidWorks")
+                control.setPlaceholderText("เลือกหรือพิมพ์ชนิดหน้าตัดเอง…")
             elif key == "size" and "เหล็ก" in title:
                 control = QComboBox()
                 control.setEditable(True)
