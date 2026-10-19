@@ -77,6 +77,7 @@ PURCHASE_FIELDS = [
     ("link", "ลิงก์ร้านค้า"), ("notes", "หมายเหตุ"),
 ]
 STEEL_FIELDS = [
+    ("weight_mode", "โหมดน้ำหนัก"),
     ("member", "ตำแหน่ง / ชิ้นส่วน"),
     ("material", "วัสดุ / เกรด"),
     ("profile", "ชนิดหน้าตัด"),
@@ -86,6 +87,7 @@ STEEL_FIELDS = [
     ("stock_length_m", "ความยาวเหล็กมาตรฐาน (m)"),
     ("weight_reference_length_m", "ความยาวอ้างอิงน้ำหนัก (m)"),
     ("weight_reference_kg", "น้ำหนักของความยาวอ้างอิง (kg)"),
+    ("manual_unit_weight_kg", "น้ำหนักต่อชิ้นที่กรอกเอง (kg)"),
     ("link", "ลิงก์สินค้า / ร้านค้าเหล็ก"),
     ("notes", "หมายเหตุ"),
 ]
@@ -263,6 +265,7 @@ class RecordDialog(QDialog):
                 QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
             form.setVerticalSpacing(13)
             form.setHorizontalSpacing(18)
+        self.form_layout = None if is_bom else form
         for key, label in fields:
             val = self.values.get(key)
             if key == "category":
@@ -275,6 +278,17 @@ class RecordDialog(QDialog):
                     current = bom_categories.UNCATEGORIZED
                 control.setCurrentText(current)
                 control.setToolTip("เลือกหมวดหลักเท่านั้น: เครื่องกล=โครงสร้าง/ล้อ/เครน; ไฟฟ้ากำลัง=แบตเตอรี่/มอเตอร์/ฟิวส์/สายไฟ; อิเล็กทรอนิกส์/ควบคุม=ESP32/รีเลย์/เซนเซอร์/สัญญาณ")
+            elif key == "weight_mode" and "เหล็ก" in title:
+                control = QComboBox()
+                control.setEditable(False)
+                for mode, label_text in bom_steel.WEIGHT_MODE_OPTIONS:
+                    control.addItem(label_text, mode)
+                wanted_mode = str(val or bom_steel.WEIGHT_MODE_LENGTH)
+                index = control.findData(wanted_mode)
+                control.setCurrentIndex(index if index >= 0 else 0)
+                control.setToolTip(
+                    "เลือกวิธีคำนวณน้ำหนัก: เหล็กที่วัดจากความยาวใช้ข้อมูล kg/m; "
+                    "ชิ้นส่วนอื่นใช้การกรอกน้ำหนักต่อชิ้นเอง")
             elif key == "material" and "เหล็ก" in title:
                 control = QComboBox()
                 control.setEditable(True)
@@ -369,20 +383,25 @@ class RecordDialog(QDialog):
                 if key == "weight_reference_kg":
                     control.setPlaceholderText("เช่น น้ำหนักของเหล็ก 6 เมตร")
                     control.setToolTip("กรอกน้ำหนักอ้างอิงจริงจากสเปกผู้ผลิตหรือการชั่ง ห้ามเดาค่าน้ำหนัก")
+                if key == "manual_unit_weight_kg":
+                    control.setPlaceholderText("เช่น 0.850 kg ต่อชิ้น")
+                    control.setToolTip(
+                        "กรอกน้ำหนักจริงต่อหนึ่งชิ้นจาก SolidWorks, datasheet หรือการชั่ง "
+                        "ระบบคูณจำนวนชิ้นให้เอง โดยไม่ต้องใช้สูตร kg/m")
                 if key == "link" and "เหล็ก" in title:
                     control.setPlaceholderText("https://...")
                     control.setToolTip(
                         "ใส่ลิงก์หน้าสินค้าหรือร้านค้าที่ซื้อเหล็กขนาดนี้ เพื่ออ้างอิงตอนจัดซื้อ")
             self.widgets[key] = control
             (groups.get(key) if is_bom else form).addRow(QLabel(label), control)
-        if "เหล็ก" in title and "weight_reference_length_m" in self.widgets:
-            hint = QLabel(
-                "น้ำหนักต่อเมตร = น้ำหนักอ้างอิง (kg) ÷ ความยาวอ้างอิง (m)\n"
-                "น้ำหนักรวม = จำนวนชิ้น × ความยาวต่อชิ้น (m) × น้ำหนักต่อเมตร (kg/m)\n"
-                "กรอกสองช่องนี้จากสเปกผู้ผลิตหรือข้อมูลที่ชั่งจริง หากเว้นว่าง ระบบจะไม่นับน้ำหนักส่วนนั้น")
-            hint.setWordWrap(True)
-            hint.setObjectName("hint")
-            form.addRow(hint)
+        if "เหล็ก" in title and "weight_mode" in self.widgets:
+            self.steel_mode_hint = QLabel()
+            self.steel_mode_hint.setWordWrap(True)
+            self.steel_mode_hint.setObjectName("hint")
+            form.addRow(self.steel_mode_hint)
+            self.widgets["weight_mode"].currentIndexChanged.connect(
+                self._update_steel_mode_fields)
+            self._update_steel_mode_fields()
         if "จัดซื้อ" in title and "itemId" in self.widgets:
             self.widgets["itemId"].currentIndexChanged.connect(
                 lambda _: self._fill_purchase_from_bom(parent))
@@ -402,6 +421,40 @@ class RecordDialog(QDialog):
         actions.accepted.connect(self.accept)
         actions.rejected.connect(self.reject)
         outer.addWidget(actions)
+
+    def _update_steel_mode_fields(self, *_):
+        """Show only the inputs required by the selected mass-calculation mode."""
+        selector = self.widgets.get("weight_mode")
+        if not selector or not self.form_layout:
+            return
+        manual = selector.currentData() == bom_steel.WEIGHT_MODE_MANUAL
+        length_fields = (
+            "length_mm", "stock_length_m",
+            "weight_reference_length_m", "weight_reference_kg",
+        )
+        for key in length_fields:
+            widget = self.widgets.get(key)
+            if widget is not None:
+                widget.setVisible(not manual)
+                label = self.form_layout.labelForField(widget)
+                if label is not None:
+                    label.setVisible(not manual)
+        manual_widget = self.widgets.get("manual_unit_weight_kg")
+        if manual_widget is not None:
+            manual_widget.setVisible(manual)
+            label = self.form_layout.labelForField(manual_widget)
+            if label is not None:
+                label.setVisible(manual)
+        if manual:
+            self.steel_mode_hint.setText(
+                "โหมดชิ้นส่วนอื่น: กรอกน้ำหนักจริงต่อ 1 ชิ้น (kg) เช่น แผ่นยึด, "
+                "ขายึด, ฐานมอเตอร์ หรือชิ้นส่วนที่ไม่คิดเป็นความยาวเหล็ก\n"
+                "น้ำหนักรวม = จำนวนชิ้น × น้ำหนักต่อชิ้น · ไม่ต้องกรอกความยาวหรือ kg/m")
+        else:
+            self.steel_mode_hint.setText(
+                "โหมดเหล็กกล่อง/หน้าตัด: กรอกความยาวต่อชิ้นและน้ำหนักอ้างอิงจากสเปกจริง\n"
+                "น้ำหนักต่อเมตร = น้ำหนักอ้างอิง (kg) ÷ ความยาวอ้างอิง (m); "
+                "น้ำหนักรวม = จำนวน × ความยาว (m) × kg/m")
 
     def _fill_purchase_from_bom(self, owner):
         """Copy BOM values into the purchase draft, never editing the BOM row."""
@@ -428,7 +481,7 @@ class RecordDialog(QDialog):
             if isinstance(widget, QPlainTextEdit):
                 val = widget.toPlainText()
             elif isinstance(widget, QComboBox):
-                val = (str(widget.currentData() or "") if key == "itemId"
+                val = (str(widget.currentData() or "") if key in ("itemId", "weight_mode")
                        else widget.currentText())
             else:
                 val = widget.text()
@@ -2508,12 +2561,14 @@ class BOMWindow(QMainWindow):
             row.setdefault("category", bom_categories.UNCATEGORIZED)
             row.setdefault("qty", 1)
         if kind == "steel_members" and index is None:
+            row.setdefault("weight_mode", bom_steel.WEIGHT_MODE_LENGTH)
             row.setdefault("material", bom_steel.DEFAULT_MATERIAL)
             row.setdefault("profile", bom_steel.PROFILE_OPTIONS[0])
             row.setdefault("qty", 1)
             row.setdefault("stock_length_m", 6)
             row.setdefault("weight_reference_length_m", "")
             row.setdefault("weight_reference_kg", "")
+            row.setdefault("manual_unit_weight_kg", "")
         title = {
             "items": ("แก้ไขอุปกรณ์" if existing else "เพิ่มอุปกรณ์"),
             "wiring": ("แก้ไขจุดต่อสาย" if existing else "เพิ่มจุดต่อสาย"),
