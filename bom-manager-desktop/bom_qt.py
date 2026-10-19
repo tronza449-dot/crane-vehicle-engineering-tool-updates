@@ -53,7 +53,9 @@ VERSION = updater.current_version()
 ITEM_FIELDS = [
     ("category", "หมวดอุปกรณ์"), ("name", "อุปกรณ์ / รุ่น"),
     ("partNumber", "Part Number"), ("spec", "รายละเอียด / สเปก"),
-    ("qty", "จำนวน"), ("unit", "หน่วย"), ("unitPrice", "ราคา/หน่วย (บาท)"),
+    ("qty", "จำนวน"), ("unit", "หน่วย"),
+    ("unitWeightKg", "น้ำหนักต่อหน่วย (kg)"),
+    ("unitPrice", "ราคา/หน่วย (บาท)"),
     ("status", "สถานะการเลือก"), ("supplier", "ร้านค้า / ผู้ขาย"),
     ("link", "ลิงก์สินค้า"), ("connection", "การต่อ / GPIO / สื่อสาร"),
     ("notes", "หมายเหตุ"),
@@ -232,7 +234,8 @@ class RecordDialog(QDialog):
         if is_bom:
             self.tabs = QTabWidget()
             for name, keys in (
-                ("ข้อมูลหลัก", ("category", "name", "partNumber", "qty", "unit", "status")),
+                ("ข้อมูลหลัก", ("category", "name", "partNumber", "qty", "unit",
+                                "unitWeightKg", "status")),
                 ("สเปกและการเชื่อมต่อ", ("spec", "connection")),
                 ("ราคาและร้านค้า", ("unitPrice", "supplier", "link")),
                 ("หมายเหตุ", ("notes",)),
@@ -345,6 +348,11 @@ class RecordDialog(QDialog):
                 control = QLineEdit("" if val is None else str(val))
                 if key == "unitPrice":
                     control.setPlaceholderText("เว้นว่างหากยังไม่ทราบราคา")
+                if key == "unitWeightKg":
+                    control.setPlaceholderText("กรอกน้ำหนัก 1 หน่วย เช่น 2.5 kg")
+                    control.setToolTip(
+                        "กรอกน้ำหนักจริงต่อ 1 หน่วยจาก datasheet หรือการชั่ง "
+                        "โปรแกรมจะคูณจำนวนใน BOM ให้อัตโนมัติ; เว้นว่างหากยังไม่ทราบ")
                 if key == "qty":
                     control.setPlaceholderText("จำนวนต้องมากกว่า 0")
                 if key == "size":
@@ -1103,9 +1111,10 @@ class BOMWindow(QMainWindow):
         table_box = self._table_panel(body, "รายการวัสดุและอุปกรณ์")
         self.bom_table = self._table(
             ["BOM ID", "ชื่ออุปกรณ์ / รุ่น", "หมวดระบบ", "Part Number",
-             "จำนวน", "หน่วย", "ราคา/หน่วย (บาท)", "รวม (บาท)", "สถานะ"], 1)
+             "จำนวน", "หน่วย", "ราคา/หน่วย (บาท)", "รวม (บาท)", "สถานะ",
+             "น้ำหนัก/หน่วย (kg)", "น้ำหนักรวม (kg)"], 1)
         for i, w in {0: 84, 2: 170, 3: 140, 4: 74, 5: 65,
-                     6: 132, 7: 135, 8: 160}.items():
+                     6: 132, 7: 135, 8: 160, 9: 135, 10: 130}.items():
             self.bom_table.setColumnWidth(i, w)
         self.bom_table.setToolTip("เลือกแถวแล้วกดแก้ไขรายการ หรือดับเบิลคลิก")
         self.bom_table.cellDoubleClicked.connect(
@@ -1144,6 +1153,27 @@ class BOMWindow(QMainWindow):
             "ไม่เปลี่ยน BOM อุปกรณ์เดิม", "caption")
         intro.setWordWrap(True)
         body.addWidget(intro)
+        mass_panel = self._panel(
+            "น้ำหนักรวมอุปกรณ์และโครงสร้าง / TOTAL MASS ROLL-UP", body)
+        mass_grid = QGridLayout()
+        mass_grid.setHorizontalSpacing(12)
+        mass_grid.setVerticalSpacing(12)
+        self.mass_equipment_card = Card(
+            "น้ำหนักอุปกรณ์ BOM (kg)", "—", "#1768D2", "⚖")
+        self.mass_frame_card = Card(
+            "น้ำหนักโครงเหล็กที่ทราบ (kg)", "—", "#13835C", "▦")
+        self.mass_total_card = Card(
+            "น้ำหนักรวมที่ทราบ (kg)", "—", "#A46B20", "Σ")
+        for col, card in enumerate((
+                self.mass_equipment_card, self.mass_frame_card, self.mass_total_card)):
+            mass_grid.addWidget(card, 0, col)
+            mass_grid.setColumnStretch(col, 1)
+        mass_panel.addLayout(mass_grid)
+        self.mass_rollup_note = self._label(
+            "กรอกน้ำหนักต่อหน่วยในรายการ BOM และกรอกน้ำหนักอ้างอิงในรายการเหล็ก "
+            "เพื่อคำนวณน้ำหนักรวม", "hint")
+        self.mass_rollup_note.setWordWrap(True)
+        mass_panel.addWidget(self.mass_rollup_note)
         dashboard = self._panel("Steel Weight Dashboard / ภาพรวมน้ำหนักเหล็ก", body)
         steel_kpis = QGridLayout()
         steel_kpis.setHorizontalSpacing(12)
@@ -1704,16 +1734,24 @@ class BOMWindow(QMainWindow):
             _, index, item = row
             qty = item.get("qty", 0)
             price = item.get("unitPrice")
+            unit_weight = item.get("unitWeightKg")
+            try:
+                line_weight = (float(qty) * float(unit_weight)
+                               if unit_weight is not None and str(unit_weight).strip() else None)
+            except (TypeError, ValueError):
+                line_weight = None
             columns = [item.get("id", ""), item.get("name", ""),
                        bom_categories.normalize_category(item.get("category")),
                        item.get("partNumber", "") or "—",
                        qty, item.get("unit", ""), money(price),
                        money(float(qty) * float(price)) if price is not None else "—",
-                       item.get("status", "")]
+                       item.get("status", ""),
+                       money(unit_weight) if unit_weight is not None else "—",
+                       money(line_weight) if line_weight is not None else "—"]
             for col, val in enumerate(columns):
                 cell = QTableWidgetItem(str(val if val is not None else ""))
                 cell.setData(Qt.ItemDataRole.UserRole, index)
-                if col in (4, 6, 7):
+                if col in (4, 6, 7, 9, 10):
                     cell.setTextAlignment(Qt.AlignmentFlag.AlignVCenter |
                                           Qt.AlignmentFlag.AlignRight)
                 if col == 2:
@@ -1726,6 +1764,8 @@ class BOMWindow(QMainWindow):
                     category_font.setBold(True)
                     cell.setFont(category_font)
                 if col in (6, 7) and price is None:
+                    cell.setForeground(QBrush(QColor("#A86521")))
+                if col in (9, 10) and (unit_weight is None or line_weight is None):
                     cell.setForeground(QBrush(QColor("#A86521")))
                 if col == 8 and "ยัง" in str(val):
                     cell.setForeground(QBrush(QColor("#A86521")))
@@ -1895,6 +1935,25 @@ class BOMWindow(QMainWindow):
             bom_steel.format_length(summary["steel_known_weight_kg"], 3))
         self.steel_unknown_weight_card.figure.setText(
             bom_steel.format_length(summary["steel_unknown_weight_length_m"], 3))
+        equipment_mass = summary["equipment_known_weight_kg"]
+        steel_mass = summary["steel_known_weight_kg"]
+        equipment_known_count = summary["equipment_weighted_items"]
+        equipment_missing_count = summary["equipment_missing_weight_count"]
+        self.mass_equipment_card.figure.setText(
+            bom_steel.format_length(equipment_mass, 3)
+            if equipment_known_count else "—")
+        self.mass_frame_card.figure.setText(
+            bom_steel.format_length(steel_mass, 3)
+            if steel_mass > 0 else "—")
+        self.mass_total_card.figure.setText(
+            bom_steel.format_length(summary["combined_known_weight_kg"], 3)
+            if equipment_known_count or steel_mass > 0 else "—")
+        self.mass_rollup_note.setText(
+            f'อุปกรณ์มีน้ำหนักกรอกแล้ว {equipment_known_count} รายการ · '
+            f'ยังไม่กรอกน้ำหนัก {equipment_missing_count} รายการ · '
+            f'โครงเหล็กยังไม่ทราบน้ำหนัก {bom_steel.format_length(summary["steel_unknown_weight_length_m"])} m. '
+            + ("น้ำหนักรวมครบตามรายการที่บันทึก" if summary["combined_weight_complete"]
+               else "ยอดรวมนี้รวมเฉพาะน้ำหนักที่ทราบ ยังไม่ใช่น้ำหนักรวมจริงทั้งหมด"))
         self.steel_totals_label.setText(
             f'จำนวนชิ้น: {summary["steel_pieces"]:,}  •  '
             f'ความยาวใช้จริง: {bom_steel.format_length(summary["steel_required_length_m"])} m  •  '
