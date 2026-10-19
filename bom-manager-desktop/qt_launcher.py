@@ -52,15 +52,32 @@ def smoke_test():
     win.show()
     app.processEvents()
     trace("window shown and events processed")
-    assert len(win.nav_buttons) == 7
-    assert win.stack.count() == 7
-    assert win.bom_table.columnCount() == 9
-    assert len(win.cards) == 6
-    import bom_categories
-    assert len(win.category_buttons) == len(bom_categories.CATEGORY_ORDER)
-    assert win.update_btn.parentWidget().objectName() == "topbar"
-    assert win.update_btn.isEnabled()
-    assert win.install_btn.isHidden()  # displayed only when update found
+    # These assertions describe the current Minimal Engineering UI.
+    # Keep them aligned with actual widgets so stale preview checks cannot
+    # hang a windowed EXE behind an unhandled-assertion dialog.
+    try:
+        assert len(win.nav_buttons) == 7, f"navigation buttons: {len(win.nav_buttons)}"
+        assert win.stack.count() == 7, f"page count: {win.stack.count()}"
+        assert win.bom_table.columnCount() == 11, (
+            f"BOM table columns: {win.bom_table.columnCount()}")
+        assert len(win.cards) == 2, f"dashboard metric cards: {len(win.cards)}"
+        import bom_categories
+        assert len(win.category_buttons) == len(bom_categories.CATEGORY_ORDER), (
+            f"category buttons: {len(win.category_buttons)}")
+        assert win.update_btn.parentWidget().objectName() == "topbar", (
+            "update button is not inside topbar")
+        assert win.update_btn.isEnabled(), "update button is disabled"
+        assert win.install_btn.isHidden()  # displayed only when update found
+    except BaseException:
+        import traceback
+        trace("UI assertion failed:")
+        trace(traceback.format_exc())
+        win.dirty = False
+        win.busy = False
+        win.downloading = False
+        win.close()
+        app.quit()
+        return 1
     win.show_page(6)
     trace("debug page shown")
     assert win.debug_checks.rowCount() >= 3
