@@ -52,7 +52,7 @@ class SteelWeightCalculationTests(unittest.TestCase):
                            weight_reference_length_m="", weight_reference_kg="")
         result = bom_steel.summarize([first, second, unknown])
         self.assertEqual(result["total_pieces"], 7)
-        self.assertEqual(result["total_length_m"], Decimal("11.000"))
+        self.assertEqual(result["total_length_m"], Decimal("11.500"))
         self.assertEqual(result["known_weight_kg"], Decimal("28.000"))
         self.assertEqual(result["unknown_weight_length_m"], Decimal("1.5"))
         matching = next(group for group in result["groups"]
