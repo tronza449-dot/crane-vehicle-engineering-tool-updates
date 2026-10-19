@@ -239,6 +239,10 @@ class ReportExportTests(unittest.TestCase):
         from decimal import Decimal
         from bom_steel_bom import summarize_bom_and_steel
         doc = copy.deepcopy(self.doc)
+        # Isolate this example from optional weights already stored in the live BOM.
+        # The expected 6.50 kg is specifically 2 units × 3.25 kg per unit.
+        for item in doc["items"]:
+            item["unitWeightKg"] = None
         doc["items"][0]["qty"] = 2
         doc["items"][0]["unitWeightKg"] = 3.25
         doc["steel_members"] = [{
