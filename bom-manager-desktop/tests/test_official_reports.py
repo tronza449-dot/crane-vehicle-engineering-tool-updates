@@ -311,5 +311,32 @@ class ReportExportTests(unittest.TestCase):
         self.assertEqual(bom_core.metrics(doc)["known_cost"],200)
 
 
+    def test_excel_long_thai_description_gets_tall_wrapped_row(self):
+        doc = {
+            "schemaVersion": 1, "project": "ทดสอบข้อความหลายบรรทัด",
+            "items": [{
+                "id": "LONG-1", "category": "เครื่องกล",
+                "name": ("โครงสร้างเหล็กกล่องสำหรับฐานเครน พร้อมจุดยึดมอเตอร์ "
+                         "และแผ่นรองรับอุปกรณ์ " * 5),
+                "spec": ("รายละเอียดสเปกสำหรับใช้ในรายงานอาจารย์ ต้องอ่านได้ครบทุกบรรทัด "
+                         "โดยไม่ซ้อนกับรายการถัดไป " * 4),
+                "qty": 2, "unit": "ชิ้น", "unitPrice": 100,
+            }],
+            "wiring": [], "purchases": [], "steel_members": [],
+        }
+        file = Path(self.temp.name) / "long-row.xlsx"
+        reports.export_excel(doc, file, self.metadata)
+        with zipfile.ZipFile(file) as book:
+            sheet = ET.fromstring(book.read("xl/worksheets/sheet2.xml"))
+            ns = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+            row = sheet.find(".//x:row[@r='8']", ns)
+            self.assertIsNotNone(row)
+            self.assertTrue(row.attrib.get("customHeight") == "1")
+            self.assertGreaterEqual(float(row.attrib["ht"]), 100.0,
+                                    "Long Thai BOM descriptions must not overlap rows")
+            # Wrapped cells use top alignment so each line remains inside its row.
+            styles = ET.fromstring(book.read("xl/styles.xml"))
+            self.assertIsNotNone(styles.find(".//x:alignment[@wrapText='1']", ns))
+
 if __name__ == "__main__":
     unittest.main()
