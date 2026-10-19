@@ -5,6 +5,24 @@ exclude kerf, unusable offcuts, cutting layout, joints, and fabrication waste.
 """
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 
+# Material is independent of profile/shape: e.g. a square tube may be
+# carbon steel or stainless steel. Unknown legacy entries stay explicitly
+# unspecified rather than being assigned a guessed grade or density.
+DEFAULT_MATERIAL = "วัสดุเดิม/ไม่ระบุเกรด"
+MATERIAL_OPTIONS = (
+    DEFAULT_MATERIAL,
+    "เหล็กคาร์บอน (SS400 / ASTM A36)",
+    "เหล็กชุบสังกะสี",
+    "สแตนเลส SUS 201",
+    "สแตนเลส SUS 304",
+    "สแตนเลส SUS 316",
+    "อะลูมิเนียม 6061",
+    "อะลูมิเนียม 6063",
+    "ทองแดง",
+    "ทองเหลือง",
+    "วัสดุอื่น ๆ",
+)
+
 PROFILE_OPTIONS = (
     "เหล็กกล่องสี่เหลี่ยม",
     "เหล็กกล่องแบน",
@@ -14,6 +32,9 @@ PROFILE_OPTIONS = (
     "เหล็กแบน",
     "ท่อเหล็กกลม",
     "เหล็กเส้น",
+    "เพลากลม",
+    "เพลาสี่เหลี่ยม",
+    "แผ่นโลหะ",
     "อื่น ๆ",
 )
 
@@ -36,6 +57,7 @@ def normalize_member(values):
     """Validate and normalize an editable cut-list row."""
     row = dict(values)
     member = str(row.get("member") or "").strip()
+    material = str(row.get("material") or DEFAULT_MATERIAL).strip()
     profile = str(row.get("profile") or "").strip()
     size = str(row.get("size") or "").strip()
     if not member:
@@ -70,6 +92,7 @@ def normalize_member(values):
             "ให้ตรวจความยาวหรือเปลี่ยนความยาวท่อนมาตรฐาน")
     row.update({
         "member": member,
+        "material": material,
         "profile": profile,
         "size": size,
         "qty": int(qty),
@@ -121,8 +144,10 @@ def summarize(rows):
     total_length = Decimal("0")
     for raw in rows or []:
         row = normalize_member(raw)
-        key = (row["profile"], row["size"], Decimal(str(row["stock_length_m"])))
+        key = (row["material"], row["profile"], row["size"],
+               Decimal(str(row["stock_length_m"])))
         group = groups.setdefault(key, {
+            "material": row["material"],
             "profile": row["profile"], "size": row["size"],
             "stock_length_m": float(row["stock_length_m"]),
             "pieces": 0, "total_length_m": Decimal("0"),
@@ -144,7 +169,8 @@ def summarize(rows):
     total_stock_bars = 0
     total_known_weight = Decimal("0")
     total_unknown_weight_length = Decimal("0")
-    for key in sorted(groups, key=lambda x: (x[0].casefold(), x[1].casefold(), x[2])):
+    for key in sorted(groups, key=lambda x: (
+            x[0].casefold(), x[1].casefold(), x[2].casefold(), x[3])):
         group = groups[key]
         group["estimated_stock_bars"] = int(
             (group["total_length_m"] / Decimal(str(group["stock_length_m"])))
