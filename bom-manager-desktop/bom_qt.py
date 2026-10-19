@@ -3027,7 +3027,7 @@ class BOMWindow(QMainWindow):
                      else "ชิ้นส่วนอื่น")
         self.set_status(f'แก้ไข {mode_text} "{updated["member"]}" · น้ำหนักรวม {total_text}')
 
-        def delete_frame_weight(self):
+    def delete_frame_weight(self):
         index = self._selected_frame_index()
         if index is None:
             return
