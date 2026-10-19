@@ -63,14 +63,20 @@ class MassDetailsAndExportTests(unittest.TestCase):
                             for label in dialog.findChildren(QLabel)))
         tables = dialog.findChildren(QTableWidget)
         self.assertEqual(len(tables), 2)
-        equipment = tables[0]
+        # Qt's child traversal order is not a stable UI contract. Identify each
+        # table by its header instead of assuming findChildren returns tab order.
+        equipment = next(
+            table for table in tables
+            if table.horizontalHeaderItem(0).text() == "BOM ID")
+        frame = next(
+            table for table in tables
+            if table.horizontalHeaderItem(0).text() == "ID")
         self.assertEqual(equipment.rowCount(), 2)
         self.assertEqual(equipment.item(0, 0).text(), "1")
         self.assertEqual(equipment.item(0, 2).text(), "Hub motor")
         self.assertEqual(equipment.item(0, 5).text(), "3.500")
         self.assertEqual(equipment.item(0, 6).text(), "7.000")
         self.assertEqual(equipment.item(1, 7).text(), "ยังไม่ทราบน้ำหนัก")
-        frame = tables[1]
         self.assertEqual(frame.rowCount(), 1)
         self.assertEqual(frame.item(0, 1).text(), "Frame rail")
         self.assertEqual(frame.item(0, 5).text(), "1.000")
