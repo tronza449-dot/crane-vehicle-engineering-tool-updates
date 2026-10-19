@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 import threading
 import webbrowser
 from datetime import datetime, timezone
@@ -1690,6 +1691,12 @@ class BOMWindow(QMainWindow):
             "น้ำหนักโครงสร้าง (kg)", "—", "#13835C", "▦")
         self.mass_total_card = Card(
             "น้ำหนักรวมที่ทราบ (kg)", "—", "#A46B20", "Σ")
+        self.mass_equipment_card.clicked.connect(
+            lambda: self.open_mass_details("equipment"))
+        self.mass_frame_card.clicked.connect(
+            lambda: self.open_mass_details("frame"))
+        self.mass_total_card.clicked.connect(
+            lambda: self.open_mass_details("total"))
         for col, card in enumerate((
                 self.mass_equipment_card, self.mass_frame_card, self.mass_total_card)):
             mass_grid.addWidget(card, 0, col)
@@ -1766,6 +1773,12 @@ class BOMWindow(QMainWindow):
             "น้ำหนักโครงสร้างที่ทราบ (kg)", "—", "#13835C", "▦")
         self.cutlist_mass_total_card = Card(
             "น้ำหนักรวมที่ทราบ (kg)", "—", "#A46B20", "Σ")
+        self.cutlist_mass_equipment_card.clicked.connect(
+            lambda: self.open_mass_details("equipment"))
+        self.cutlist_mass_frame_card.clicked.connect(
+            lambda: self.open_mass_details("frame"))
+        self.cutlist_mass_total_card.clicked.connect(
+            lambda: self.open_mass_details("total"))
         for col, card in enumerate((
                 self.cutlist_mass_equipment_card, self.cutlist_mass_frame_card,
                 self.cutlist_mass_total_card)):
