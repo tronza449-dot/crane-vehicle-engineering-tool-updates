@@ -88,14 +88,22 @@ def summarize_bom_and_steel(doc, steel_purchase_unit_price=None, waste_percent=0
     for group in steel["groups"]:
         length = group["total_length_m"]
         length_with_waste = length * (Decimal("1") + waste / Decimal("100"))
-        stock_length = Decimal(str(group["stock_length_m"]))
-        bars = int((length_with_waste / stock_length).to_integral_value(rounding=ROUND_CEILING))
+        stock_value = group.get("stock_length_m")
+        if stock_value is not None and length_with_waste > 0:
+            stock_length = Decimal(str(stock_value))
+            bars = int((length_with_waste / stock_length).to_integral_value(rounding=ROUND_CEILING))
+            procurement_length = stock_length * bars
+        else:
+            # Manual-mass components have no stock-bar length; their weight is
+            # still included, but they must not inflate steel procurement.
+            bars = 0
+            procurement_length = Decimal("0")
         groups.append({**group, "length_with_waste_m": length_with_waste,
                        "estimated_bars_with_waste": bars,
-                       "procurement_length_m": stock_length * bars})
+                       "procurement_length_m": procurement_length})
         total_required += length
         total_bars += bars
-        total_order_length += stock_length * bars
+        total_order_length += procurement_length
     unit_price = _decimal(steel_purchase_unit_price, "ราคาเหล็กต่อท่อน", allow_blank=True)
     steel_cost = (unit_price * total_bars) if unit_price is not None else None
     return {
