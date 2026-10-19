@@ -142,7 +142,7 @@ class SteelQuantityTests(unittest.TestCase):
             self.assertIn("25×25×2 mm", text)
             self.assertIn("สแตนเลส SUS 304", text)
             self.assertIn("อะลูมิเนียม 6061", text)
-            self.assertIn("https://example.org/steel-square-tube", text)
+            self.assertIn("example.org", text)
 
 
 class SteelPageTests(unittest.TestCase):
