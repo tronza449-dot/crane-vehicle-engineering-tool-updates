@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T17:55:52+00:00",
+  "updatedAt": "2026-10-19T17:59:40+00:00",
   "currency": "THB",
   "items": [
     {
@@ -344,22 +344,6 @@
       "notes": "รุ่นมอเตอร์, แรงดัน, กระแส stall, วิธีเบรก | ยังไม่มีลิงก์ซื้อ: ต้องระบุชนิด/แรงดัน/กระแส stall มอเตอร์หมุนเครนก่อนเลือก driver"
     },
     {
-      "id": "27",
-      "category": "เครื่องกล",
-      "name": "ลูกล้อยางสูบลมสีดำ16นิ้ว ล้อยางลม ขนาดหน้าล้อมีขนาดกว้าง 75มม.",
-      "spec": "ลูกล้อยางสูบลมสีดำ16นิ้ว ล้อยางลม ขนาดหน้าล้อมีขนาดกว้าง 75มม.",
-      "qty": 2,
-      "unit": "ล้อ",
-      "connection": "",
-      "unitPrice": 1340.0,
-      "link": "https://www.happymoveonline.com/product/27031-23624/23741",
-      "status": "สเปกเป้าหมาย",
-      "notes": "ยืนยันขนาดเพลา/ดุมและตำแหน่งติดตั้ง | ยังไม่มีลิงก์ซื้อ: ต้องยืนยันเพลา/ดุมและพิกัดรับน้ำหนัก",
-      "partNumber": "",
-      "supplier": "",
-      "unitWeightKg": null
-    },
-    {
       "id": "28",
       "category": "เครื่องกล",
       "name": "เครน",
@@ -374,6 +358,21 @@
       "partNumber": "",
       "supplier": "",
       "unitWeightKg": 40.0
+    },
+    {
+      "id": "34",
+      "category": "เครื่องกล",
+      "name": "ตะกร้า",
+      "partNumber": "",
+      "spec": "",
+      "qty": 1,
+      "unit": "",
+      "unitPrice": null,
+      "status": "",
+      "supplier": "",
+      "link": "",
+      "connection": "",
+      "notes": ""
     },
     {
       "id": "29",
@@ -441,19 +440,20 @@
       "notes": "เลือกคู่ปลั๊กให้ครบ และยืนยันพิกัดกระแส/การป้องกันน้ำก่อนติดตั้ง"
     },
     {
-      "id": "34",
+      "id": "27",
       "category": "เครื่องกล",
-      "name": "ตะกร้า",
-      "partNumber": "",
-      "spec": "",
-      "qty": 1,
-      "unit": "",
-      "unitPrice": null,
-      "status": "",
-      "supplier": "",
-      "link": "",
+      "name": "ลูกล้อยางสูบลมสีดำ16นิ้ว ล้อยางลม ขนาดหน้าล้อมีขนาดกว้าง 75มม.",
+      "spec": "ลูกล้อยางสูบลมสีดำ16นิ้ว ล้อยางลม ขนาดหน้าล้อมีขนาดกว้าง 75มม.",
+      "qty": 2,
+      "unit": "ล้อ",
       "connection": "",
-      "notes": ""
+      "unitPrice": 1340.0,
+      "link": "https://www.happymoveonline.com/product/27031-23624/23741",
+      "status": "",
+      "notes": "ยืนยันขนาดเพลา/ดุมและตำแหน่งติดตั้ง | ยังไม่มีลิงก์ซื้อ: ต้องยืนยันเพลา/ดุมและพิกัดรับน้ำหนัก",
+      "partNumber": "",
+      "supplier": "",
+      "unitWeightKg": null
     },
     {
       "id": "35",
@@ -499,6 +499,22 @@
       "status": "",
       "supplier": "",
       "link": "https://www.onestockhome.com/th/products/5193323/steel-square-pipe-3x3-inch_steel-tube-3-x-3-inch_onestockhome?srsltid=AU7gw4Xk7odJsz6XmHFHNtZddlmRm0SClxPSEb6Oil-q2iV76qFmAOfv&item_id=41979096",
+      "connection": "",
+      "notes": ""
+    },
+    {
+      "id": "26",
+      "category": "เครื่องกล",
+      "name": "สแตนเลสที่รอง SUS 316 960x800x2",
+      "partNumber": "",
+      "spec": "",
+      "qty": 1,
+      "unit": "1",
+      "unitWeightKg": 12.26,
+      "unitPrice": 3200.0,
+      "status": "ราคาและน้ำหนักประเมิน",
+      "supplier": "",
+      "link": "",
       "connection": "",
       "notes": ""
     }
