@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T15:12:27+00:00",
+  "updatedAt": "2026-10-19T15:14:44+00:00",
   "currency": "THB",
   "items": [
     {
@@ -56,12 +56,13 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "",
-      "unitPrice": 9790,
+      "unitPrice": 9790.0,
       "link": "https://shopee.co.th/product/87064891/28334623559?d_id=93012&uls_trackid=56tgsgto00kl&utm_content=368eUZgWHFCqzVsKc4pKJwLZCm6P",
       "status": "แนวทางเลือกแล้ว",
       "notes": "ความจุ Ah, กระแสต่อเนื่อง/พีก, รูปแบบแพ็ก และผู้ขาย | ยังไม่มีลิงก์ซื้อ: ต้องกำหนด Ah, discharge current และแพ็ก/ผู้ผลิตก่อน",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "unitWeightKg": 15.0
     },
     {
       "id": "6",
@@ -289,12 +290,13 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "ควบคุมขึ้น/ลงด้วยรีเลย์/คอนแทคเตอร์กลับขั้วหรือชุดควบคุมจากร้าน | GPIO/จุดต่อ: แยกจากการขับรถ; ยังไม่กำหนด GPIO",
-      "unitPrice": 0,
+      "unitPrice": 0.0,
       "link": "",
       "status": "สเปกร้านยังไม่พอระบุรุ่น",
       "notes": "กระแสใช้งาน/กระแสติดขัด, remote, duty cycle, เบรก | ยังไม่มีลิงก์ซื้อ: ร้านยังไม่ระบุรุ่น/กระแส stall/duty cycle ของวินช์ 12 V 1400 W",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "unitWeightKg": 10.0
     },
     {
       "id": "23",
@@ -378,12 +380,13 @@
       "qty": 1,
       "unit": "ชุด",
       "connection": "ติดตั้งบนโครงรถ; ต้องตรวจเสถียรภาพและพิกัดยก | GPIO/จุดต่อ: ลิมิตหมุนเป็น GPIO34/35 ข้อเสนอ",
-      "unitPrice": 6790,
+      "unitPrice": 6790.0,
       "link": "",
-      "status": "แบบยังไม่สรุป",
+      "status": "",
       "notes": "น้ำหนักเครน พิกัดยก ระยะเอื้อม และจุดยึด | สั่งทำตามแบบ; ต้องกำหนดพิกัดยกและระยะเอื้อมก่อนทำแบบ",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "unitWeightKg": 40.0
     },
     {
       "id": "29",
