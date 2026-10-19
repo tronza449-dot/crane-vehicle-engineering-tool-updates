@@ -876,7 +876,7 @@ def export_excel(doc,destination,options=None):
         row = 7 + idx
         excel_row = row + 1
         rate = bom_steel.weight_per_m(item)
-        total_mass = bom_steel.total_weight_kg(item)
+        steel_line_mass = bom_steel.total_weight_kg(item)
         values = [item.get("id"), item.get("member"), item.get("material"),
                   item.get("profile"), item.get("size"), item.get("qty"),
                   item.get("length_mm"), None, item.get("stock_length_m"), item.get("notes"),
@@ -898,7 +898,7 @@ def export_excel(doc,destination,options=None):
                 steel_cut.write_formula(
                     row, col,
                     f'=IF(AND(H{excel_row}<>"",M{excel_row}<>""),H{excel_row}*M{excel_row},"")',
-                    mass_number, "" if total_mass is None else float(total_mass))
+                    mass_number, "" if steel_line_mass is None else float(steel_line_mass))
             elif col in (5, 6, 8, 10, 11):
                 if value is None or value == "":
                     steel_cut.write_blank(row, col, None,
