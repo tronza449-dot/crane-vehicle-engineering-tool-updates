@@ -111,6 +111,10 @@ class SteelQuantityTests(unittest.TestCase):
                  link="https://example.org/steel-square-tube"),
             dict(self.rows[1], material="เหล็กคาร์บอน (SS400 / ASTM A36)"),
             dict(self.rows[2], material="อะลูมิเนียม 6061"),
+            {"id": "S4", "member": "ขายึดมอเตอร์", "weight_mode": bom_steel.WEIGHT_MODE_MANUAL,
+             "material": "วัสดุอื่น ๆ", "profile": "ชิ้นส่วนอื่น", "size": "",
+             "qty": 2, "manual_unit_weight_kg": 0.85,
+             "link": "https://example.org/bracket"},
         ]
         doc = {"schemaVersion": 1, "project": "Steel test", "items": [],
                "wiring": [], "purchases": [], "steel_members": report_rows}
@@ -124,6 +128,8 @@ class SteelQuantityTests(unittest.TestCase):
                 shared = book.read("xl/sharedStrings.xml").decode("utf-8")
                 self.assertIn("คานยาวฐานรถ", shared)
                 self.assertIn("40×40×2 mm", shared)
+                self.assertIn("ขายึดมอเตอร์", shared)
+                self.assertIn("น้ำหนัก/ชิ้น (kg)", shared)
                 self.assertIn("สแตนเลส SUS 304", shared)
                 self.assertIn("อะลูมิเนียม 6061", shared)
                 self.assertIn("เปิดลิงก์สินค้า", shared)
@@ -134,7 +140,8 @@ class SteelQuantityTests(unittest.TestCase):
                 cut_xml = book.read("xl/worksheets/sheet11.xml").decode("utf-8")
                 self.assertIn("SUMIFS", summary_xml)
                 self.assertIn("ROUNDUP", summary_xml)
-                self.assertIn("F8*G8/1000", cut_xml)
+                self.assertIn("G8*H8/1000", cut_xml)
+                self.assertIn("G11*O11", cut_xml)
 
     def test_pdf_contains_steel_cut_list(self):
         import bom_official_reports as reports
@@ -148,6 +155,10 @@ class SteelQuantityTests(unittest.TestCase):
                  link="https://example.org/steel-square-tube"),
             dict(self.rows[1], material="เหล็กคาร์บอน (SS400 / ASTM A36)"),
             dict(self.rows[2], material="อะลูมิเนียม 6061"),
+            {"id": "S4", "member": "ขายึดมอเตอร์", "weight_mode": bom_steel.WEIGHT_MODE_MANUAL,
+             "material": "วัสดุอื่น ๆ", "profile": "ชิ้นส่วนอื่น", "size": "",
+             "qty": 2, "manual_unit_weight_kg": 0.85,
+             "link": "https://example.org/bracket"},
         ]
         doc = {"schemaVersion": 1, "project": "Steel test", "items": [],
                "wiring": [], "purchases": [], "steel_members": report_rows}
@@ -162,6 +173,8 @@ class SteelQuantityTests(unittest.TestCase):
             self.assertIn("25×25×2 mm", text)
             self.assertIn("สแตนเลส SUS 304", text)
             self.assertIn("อะลูมิเนียม 6061", text)
+            self.assertIn("ขายึดมอเตอร์", text)
+            self.assertIn("0.850", text)
             self.assertIn("example.org", text)
 
 
