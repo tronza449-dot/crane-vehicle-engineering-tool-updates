@@ -106,6 +106,12 @@ class MassRollupTests(unittest.TestCase):
         self.assertTrue(hasattr(window, "mass_equipment_card"))
         self.assertTrue(hasattr(window, "mass_frame_card"))
         self.assertTrue(hasattr(window, "mass_total_card"))
+        window.payload = sample_doc()
+        window.render_all()
+        self.assertEqual(window.mass_equipment_card.figure.text(), "8.200")
+        self.assertEqual(window.mass_frame_card.figure.text(), "2.000")
+        self.assertEqual(window.mass_total_card.figure.text(), "10.200")
+        self.assertIn("ยังไม่กรอกน้ำหนัก 1 รายการ", window.mass_rollup_note.text())
         app.processEvents()
 
 
