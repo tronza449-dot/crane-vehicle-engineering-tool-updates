@@ -370,6 +370,17 @@ def export_pdf(doc, destination, options=None):
             item.get("notes"),
         ]
 
+    steel_reference_rows = []
+    for raw in steel_rows:
+        link = str(raw.get("link") or "").strip()
+        if not link:
+            continue
+        domain = (urlsplit(link).netloc
+                  if link.lower().startswith(("https://", "http://")) else link)
+        steel_reference_rows.append([
+            raw.get("id", "—"), raw.get("member", "—"), domain or "—"
+        ])
+
     story += [
         PageBreak(),
         P("ภาคผนวก ง. รายการตัดเหล็กและน้ำหนักชิ้นส่วน / STEEL CUT LIST", section),
@@ -399,6 +410,12 @@ def export_pdf(doc, destination, options=None):
             [width*.035, width*.11, width*.08, width*.085, width*.08, width*.07,
              width*.04, width*.055, width*.055, width*.07, width*.07, width*.055,
              width*.075, width*.12]),
+        Spacer(1, 8),
+        P("แหล่งอ้างอิงสินค้า / PRODUCT REFERENCES", section),
+        Spacer(1, 5),
+        TABLE(["ID", "ชิ้นส่วน", "โดเมนสินค้า / แหล่งอ้างอิง"],
+              steel_reference_rows,
+              [width*.08, width*.30, width*.62]),
         Spacer(1, 8),
         P("ข้อจำกัดการประมาณ: จำนวนท่อนมาตรฐานคำนวณเฉพาะรายการที่มีความยาวและท่อนมาตรฐาน "
           "ไม่หัก kerf เศษตัด ระยะซ้อน/ต่อ หรือข้อจำกัดการจัดวางชิ้นตัด "
