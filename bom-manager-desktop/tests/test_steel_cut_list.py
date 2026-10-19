@@ -165,8 +165,17 @@ class SteelPageTests(unittest.TestCase):
             "size": "25×25×2 mm", "qty": 4, "length_mm": 750,
             "stock_length_m": 6,
         }, self.win)
-        self.assertFalse(dialog.widgets["profile"].isEditable())
-        self.assertFalse(dialog.widgets["material"].isEditable())
+        self.assertTrue(dialog.widgets["profile"].isEditable())
+        self.assertTrue(dialog.widgets["material"].isEditable())
+        dialog.widgets["material"].setEditText("เหล็ก SCM440 custom")
+        dialog.widgets["profile"].setEditText("หน้าตัด Z-Channel custom")
+        custom = bom_steel.normalize_member(dialog.get_values())
+        self.assertEqual(custom["material"], "เหล็ก SCM440 custom")
+        self.assertEqual(custom["profile"], "หน้าตัด Z-Channel custom")
+        # Custom entries must survive validation and become part of the saved row.
+        self.assertEqual(custom["size"], "25×25×2 mm")
+        dialog.widgets["material"].setCurrentText("วัสดุเดิม/ไม่ระบุเกรด")
+        dialog.widgets["profile"].setCurrentText("เหล็กกล่องสี่เหลี่ยม")
         self.assertIn("สแตนเลส SUS 304", [
             dialog.widgets["material"].itemText(i)
             for i in range(dialog.widgets["material"].count())])
