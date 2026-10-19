@@ -84,8 +84,11 @@ class BOMWeightManagerTests(unittest.TestCase):
                                 for i in range(self.dialog.item_combo.count())])
         row = next(i for i in range(self.dialog.weight_table.rowCount())
                    if self.dialog.weight_table.item(i, 0).text() == "103")
+        self.dialog.weight_table.setCurrentCell(row, 0)
         self.dialog.weight_table.selectRow(row)
-        with patch("bom_qt.QInputDialog.getDouble", return_value=(3.0, True)):
+        with patch("bom_qt.QMessageBox.information",
+                   side_effect=AssertionError("Unexpected no-selection dialog")), \
+             patch("bom_qt.QInputDialog.getDouble", return_value=(3.0, True)):
             self.dialog.edit_selected_weight()
         controller = next(x for x in self.window.payload["items"] if x["id"] == "103")
         self.assertEqual(controller["unitWeightKg"], 3.0)
@@ -95,8 +98,11 @@ class BOMWeightManagerTests(unittest.TestCase):
     def test_clearing_weight_returns_item_to_available_picker(self):
         row = next(i for i in range(self.dialog.weight_table.rowCount())
                    if self.dialog.weight_table.item(i, 0).text() == "103")
+        self.dialog.weight_table.setCurrentCell(row, 0)
         self.dialog.weight_table.selectRow(row)
-        with patch("bom_qt.QMessageBox.question", return_value=__import__(
+        with patch("bom_qt.QMessageBox.information",
+                   side_effect=AssertionError("Unexpected no-selection dialog")), \
+             patch("bom_qt.QMessageBox.question", return_value=__import__(
                 "PySide6.QtWidgets", fromlist=["QMessageBox"]).QMessageBox.StandardButton.Yes):
             self.dialog.clear_selected_weight()
         controller = next(x for x in self.window.payload["items"] if x["id"] == "103")
