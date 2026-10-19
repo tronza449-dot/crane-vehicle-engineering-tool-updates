@@ -3961,6 +3961,45 @@ class BOMWindow(QMainWindow):
             return None
         return dialog.values()
 
+    def _export_safely(self, export_function, destination, options=None):
+        """Export to a temporary file first; if the target is locked, save a copy."""
+        target = Path(destination)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix="." + target.stem + "_", suffix=target.suffix,
+            dir=str(target.parent))
+        os.close(descriptor)
+        temporary = Path(temporary_name)
+        try:
+            temporary.unlink(missing_ok=True)
+            if options is None:
+                export_function(self.payload, temporary)
+            else:
+                export_function(self.payload, temporary, options)
+            try:
+                os.replace(temporary, target)
+                return target
+            except PermissionError:
+                # Excel/PDF viewers often lock the previous export. Keep it and
+                # write a numbered sibling instead of failing or deleting user data.
+                for number in range(1, 100):
+                    alternative = target.with_name(
+                        f"{target.stem}_{number}{target.suffix}")
+                    if alternative.exists():
+                        continue
+                    try:
+                        os.replace(temporary, alternative)
+                        return alternative
+                    except FileExistsError:
+                        continue
+                raise PermissionError(
+                    f"ไม่สามารถเขียนทับ {target.name} และหาชื่อไฟล์สำรองไม่ได้")
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+
     def export_report_pair(self):
         options = self._report_options()
         if options is None:
@@ -3970,16 +4009,22 @@ class BOMWindow(QMainWindow):
             return
         base = Path(folder) / ("Engineering_BOM_Report_v" + VERSION)
         try:
-            bom_official_reports.export_pdf(self.payload, base.with_suffix(".pdf"), options)
-            bom_official_reports.export_excel(self.payload, base.with_suffix(".xlsx"), options)
+            pdf_path = self._export_safely(
+                bom_official_reports.export_pdf, base.with_suffix(".pdf"), options)
+            excel_path = self._export_safely(
+                bom_official_reports.export_excel, base.with_suffix(".xlsx"), options)
             self.debugger.event("INFO", "export", "OFFICIAL_PAIR_EXPORTED",
                                 "บันทึกรายงาน PDF และ Excel แล้ว")
             self.set_status("ส่งออกรายงานทางการครบทั้ง PDF และ Excel")
-            QMessageBox.information(self, "ส่งออกรายงานสำเร็จ",
-                                    "สร้าง PDF และ Excel ในโฟลเดอร์ที่เลือกแล้ว")
+            QMessageBox.information(
+                self, "ส่งออกรายงานสำเร็จ",
+                "สร้างรายงานแล้ว:\nPDF: " + str(pdf_path) + "\nExcel: " + str(excel_path) +
+                "\n\nหากไฟล์เดิมเปิดอยู่ ระบบจะบันทึกเป็นชื่อ _1, _2 แทน")
         except Exception as exc:
             self.debugger.exception("export", "OFFICIAL_PAIR_FAILED", exc)
-            self._message_error("ส่งออกรายงานไม่สำเร็จ กรุณาตรวจ Debug Report")
+            self._message_error(
+                "ส่งออกรายงานไม่สำเร็จ: " + str(exc) +
+                "\nปิดไฟล์ Excel/PDF ที่เปิดค้าง แล้วลองบันทึกในโฟลเดอร์ที่เขียนได้")
 
     def export(self, kind):
         formats = {
@@ -4004,18 +4049,21 @@ class BOMWindow(QMainWindow):
         if not path:
             return
         try:
-            if kind in ("xlsx","pdf"):
-                func(self.payload, path, options)
+            if kind in ("xlsx", "pdf"):
+                actual_path = self._export_safely(func, path, options)
             else:
-                func(self.payload, path)
+                actual_path = self._export_safely(func, path)
             self.debugger.event("INFO", "export", "EXPORT_OK",
                                 f"ส่งออกรายงานประเภท {kind} สำเร็จ")
-            self.set_status("ส่งออกสำเร็จ: " + path)
-            QMessageBox.information(self, "ส่งออกสำเร็จ",
-                                    "บันทึกไฟล์แล้ว:\n" + path)
+            self.set_status("ส่งออกสำเร็จ: " + str(actual_path))
+            QMessageBox.information(
+                self, "ส่งออกสำเร็จ", "บันทึกไฟล์แล้ว:\n" + str(actual_path) +
+                "\n\nหากไฟล์เดิมเปิดอยู่ ระบบจะบันทึกเป็นชื่อสำรองให้อัตโนมัติ")
         except Exception as exc:
             self.debugger.exception("export", "EXPORT_FAILED", exc)
-            self._message_error(f"ส่งออก {kind} ไม่สำเร็จ: {type(exc).__name__}")
+            self._message_error(
+                f"ส่งออก {kind} ไม่สำเร็จ: {exc}\n"
+                "ตรวจว่าปลายทางเป็นโฟลเดอร์ที่เขียนได้ และปิดไฟล์ที่เปิดค้าง")
 
 
     def import_backup(self):
