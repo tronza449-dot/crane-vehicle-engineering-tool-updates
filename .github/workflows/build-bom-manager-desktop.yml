@@ -122,7 +122,7 @@ jobs:
           if (!(Test-Path "output\ReadableBOMPreview.png")) {
             throw "Readability zoom screenshot was not generated"
           }
-          if (!(Test-Path "output\SteelCutListPreview.png")) {
+          if (!(Test-Path "output\TotalMassRegisterPreview.png")) {
             throw "Readable Steel Cut List preview was not generated"
           }
 
@@ -155,7 +155,7 @@ jobs:
             bom-manager-desktop/output/MinimalReportsPreview.png
             bom-manager-desktop/output/DebugReportPreview.png
             bom-manager-desktop/output/ReadableBOMPreview.png
-            bom-manager-desktop/output/SteelCutListPreview.png
+            bom-manager-desktop/output/TotalMassRegisterPreview.png
             bom-manager-desktop/output/EngineeringBOM_Example.pdf
             bom-manager-desktop/output/EngineeringBOM_Example.xlsx
             bom-manager-desktop/output/EngineeringBOM_Cover.png
@@ -180,7 +180,7 @@ jobs:
           $reportPreview="bom-manager-desktop/output/MinimalReportsPreview.png"
           $debugPreview="bom-manager-desktop/output/DebugReportPreview.png"
           $readablePreview="bom-manager-desktop/output/ReadableBOMPreview.png"
-          $steelPreview="bom-manager-desktop/output/SteelCutListPreview.png"
+          $steelPreview="bom-manager-desktop/output/TotalMassRegisterPreview.png"
           $pdf="bom-manager-desktop/output/EngineeringBOM_Example.pdf"
           $excel="bom-manager-desktop/output/EngineeringBOM_Example.xlsx"
           $cover="bom-manager-desktop/output/EngineeringBOM_Cover.png"
