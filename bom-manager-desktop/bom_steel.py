@@ -51,10 +51,14 @@ def normalize_member(values):
     stock_length_m = _positive(row.get("stock_length_m") or 6, "ความยาวเหล็กมาตรฐาน (m)")
     reference_length_raw = row.get("weight_reference_length_m")
     reference_weight_raw = row.get("weight_reference_kg")
-    if str(reference_length_raw or "").strip() and str(reference_weight_raw or "").strip():
+    has_reference_length = (reference_length_raw is not None and
+                            str(reference_length_raw).strip() != "")
+    has_reference_weight = (reference_weight_raw is not None and
+                            str(reference_weight_raw).strip() != "")
+    if has_reference_length and has_reference_weight:
         reference_length = _positive(reference_length_raw, "ความยาวอ้างอิงน้ำหนัก (m)")
         reference_weight = _positive(reference_weight_raw, "น้ำหนักอ้างอิง (kg)")
-    elif str(reference_length_raw or "").strip() or str(reference_weight_raw or "").strip():
+    elif has_reference_length or has_reference_weight:
         raise SteelDataError(
             "การคำนวณน้ำหนักต้องกรอกทั้งความยาวอ้างอิง (m) และน้ำหนักของความยาวนั้น (kg)")
     else:
