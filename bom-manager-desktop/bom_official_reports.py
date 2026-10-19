@@ -939,7 +939,7 @@ def export_excel(doc,destination,options=None):
         total_mass, "" if not (mass_data["equipment_weighted_items"] or
                                mass_data["steel_known_weight_kg"])
         else float(mass_data["combined_known_weight_kg"]))
-    mass_sheet.merge_range(4, 0, 4, 7,
+    mass_sheet.merge_range(5, 0, 5, 7,
         "รวมเฉพาะน้ำหนักที่กรอกไว้ • น้ำหนักที่ไม่ทราบจะแสดงว่างและไม่ถูกเดา", notice)
     for idx, item in enumerate(items):
         row = 7 + idx
