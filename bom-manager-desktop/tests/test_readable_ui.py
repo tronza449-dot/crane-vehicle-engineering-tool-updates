@@ -46,7 +46,7 @@ class ReadabilityTests(unittest.TestCase):
         self.assertGreaterEqual(self.window.bom_table.verticalHeader().defaultSectionSize(), 60)
         self.assertGreaterEqual(self.window.bom_table.horizontalHeader().height(), 65)
         self.assertTrue(self.window.steel_table.wordWrap())
-        self.assertEqual(self.window.steel_table.columnCount(), 15)
+        self.assertEqual(self.window.steel_table.columnCount(), 17)
         self.assertIn("\n", self.window.steel_table.horizontalHeaderItem(5).text())
         from PySide6.QtGui import QFont
         self.assertEqual(theme.current_font(), "Tahoma")
