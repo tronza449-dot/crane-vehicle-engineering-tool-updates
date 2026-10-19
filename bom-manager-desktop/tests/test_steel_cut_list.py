@@ -87,7 +87,8 @@ class SteelQuantityTests(unittest.TestCase):
     def test_excel_has_cut_list_and_summary_formulas(self):
         import bom_official_reports as reports
         report_rows = [
-            dict(self.rows[0], material="สแตนเลส SUS 304"),
+            dict(self.rows[0], material="สแตนเลส SUS 304",
+                 link="https://example.org/steel-square-tube"),
             dict(self.rows[1], material="เหล็กคาร์บอน (SS400 / ASTM A36)"),
             dict(self.rows[2], material="อะลูมิเนียม 6061"),
         ]
@@ -105,6 +106,10 @@ class SteelQuantityTests(unittest.TestCase):
                 self.assertIn("40×40×2 mm", shared)
                 self.assertIn("สแตนเลส SUS 304", shared)
                 self.assertIn("อะลูมิเนียม 6061", shared)
+                self.assertIn("เปิดลิงก์สินค้า", shared)
+                link_rels = book.read(
+                    "xl/worksheets/_rels/sheet11.xml.rels").decode("utf-8")
+                self.assertIn("https://example.org/steel-square-tube", link_rels)
                 summary_xml = book.read("xl/worksheets/sheet10.xml").decode("utf-8")
                 cut_xml = book.read("xl/worksheets/sheet11.xml").decode("utf-8")
                 self.assertIn("SUMIFS", summary_xml)
@@ -136,6 +141,7 @@ class SteelQuantityTests(unittest.TestCase):
             self.assertIn("25×25×2 mm", text)
             self.assertIn("สแตนเลส SUS 304", text)
             self.assertIn("อะลูมิเนียม 6061", text)
+            self.assertIn("https://example.org/steel-square-tube", text)
 
 
 class SteelPageTests(unittest.TestCase):
@@ -163,7 +169,7 @@ class SteelPageTests(unittest.TestCase):
         dialog = RecordDialog("เพิ่มชิ้นส่วนโครงสร้างเหล็ก", STEEL_FIELDS, {
             "member": "คานยาวฐานรถ", "profile": "เหล็กกล่องสี่เหลี่ยม",
             "size": "25×25×2 mm", "qty": 4, "length_mm": 750,
-            "stock_length_m": 6,
+            "stock_length_m": 6, "link": "https://example.org/steel-square-tube",
         }, self.win)
         self.assertTrue(dialog.widgets["profile"].isEditable())
         self.assertTrue(dialog.widgets["material"].isEditable())
@@ -174,6 +180,9 @@ class SteelPageTests(unittest.TestCase):
         self.assertEqual(custom["profile"], "หน้าตัด Z-Channel custom")
         # Custom entries must survive validation and become part of the saved row.
         self.assertEqual(custom["size"], "25×25×2 mm")
+        self.assertEqual(custom["link"], "https://example.org/steel-square-tube")
+        self.assertEqual(dialog.widgets["link"].text(),
+                         "https://example.org/steel-square-tube")
         dialog.widgets["material"].setCurrentText("วัสดุเดิม/ไม่ระบุเกรด")
         dialog.widgets["profile"].setCurrentText("เหล็กกล่องสี่เหลี่ยม")
         self.assertIn("สแตนเลส SUS 304", [
@@ -198,6 +207,10 @@ class SteelPageTests(unittest.TestCase):
         self.win.render_all()
         self.win.show_page(2)
         self.assertEqual(self.win.steel_table.rowCount(), 2)
+        self.assertEqual(self.win.steel_table.columnCount(), 15)
+        self.assertEqual(self.win.steel_table.item(0, 13).text(), "เปิดลิงก์ ↗")
+        self.assertEqual(self.win.steel_table.item(0, 13).toolTip(),
+                         "https://example.org/steel-square-tube")
         self.assertEqual(self.win.steel_summary_table.rowCount(), 1)
         self.assertIn("5.400 m", self.win.steel_totals_label.text())
         self.assertIn("1 ท่อน", self.win.steel_totals_label.text())
