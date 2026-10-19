@@ -563,6 +563,11 @@ def export_excel(doc,destination,options=None):
     number=fmt(num_format="#,##0.##",align="center",border=1,border_color=EXCEL_LINE)
     money=fmt(num_format="#,##0.00;[Red](#,##0.00)",align="right",
               border=1,border_color=EXCEL_LINE)
+    mass_number=fmt(num_format="#,##0.000",align="right",
+                    border=1,border_color=EXCEL_LINE)
+    total_mass=fmt(bold=True,bg_color=EXCEL_PALE,font_color=EXCEL_NAVY,
+                   num_format="#,##0.000",align="right",
+                   border=1,border_color=EXCEL_LINE)
     total_money=fmt(bold=True,bg_color=EXCEL_PALE,font_color=EXCEL_NAVY,
                     num_format="#,##0.00;[Red](#,##0.00)",align="right",
                     border=1,border_color=EXCEL_LINE)
@@ -593,6 +598,7 @@ def export_excel(doc,destination,options=None):
                 "Completeness":"ตรวจความครบถ้วนของข้อมูล / COMPLETENESS REVIEW",
                 "Steel Summary":"สรุปปริมาณเหล็กตามหน้าตัด / STEEL SUMMARY",
                 "Steel Cut List":"รายการตัดเหล็ก / STEEL CUT LIST",
+                "Mass Summary":"สรุปน้ำหนักรวมอุปกรณ์และโครงสร้าง / TOTAL MASS ROLL-UP",
             }
             w.merge_range(4,0,4,len(widths)-1,
                           section_titles.get(name,name+" / ENGINEERING DOCUMENT"),bar)
@@ -651,9 +657,10 @@ def export_excel(doc,destination,options=None):
         "และยอดรวมยังไม่ใช่งบประมาณสุดท้าย "
         "ไม่รวมค่าจัดส่ง ภาษี และค่าแรงที่ไม่ได้บันทึก",notice)
     summary.print_area("A1:D38")
-    bom=sheet("BOM",[11,27,25,46,11,11,20,21,26],
+    bom=sheet("BOM",[11,27,25,46,11,11,20,21,26,19,19],
         ["BOM ID","ระบบ / หมวด","Part Number","อุปกรณ์ / รุ่น","จำนวน","หน่วย",
-         "ราคา/หน่วย (บาท)","รวม (บาท)","สถานะ"],True)
+         "ราคา/หน่วย (บาท)","รวม (บาท)","สถานะ","น้ำหนัก/หน่วย (kg)",
+         "น้ำหนักรวม (kg)"],True)
     details=sheet("Specification",[12,29,50,68,27,36,54],
         ["ID","หมวด","อุปกรณ์ / รุ่น","สเปกทางเทคนิค",
          "Part No.","ร้านค้า / ผู้ขาย","ข้อมูลเพิ่มเติม / ลิงก์"],True)
@@ -663,8 +670,10 @@ def export_excel(doc,destination,options=None):
         category=bom_categories.normalize_category(item.get("category"))
         qty=price(item.get("qty")) or 0
         amount=price(item.get("unitPrice"))
+        unit_weight=price(item.get("unitWeightKg"))
         entries=[item.get("id"),category,item.get("partNumber"),item.get("name"),
-                 qty,item.get("unit"),amount,None,item.get("status")]
+                 qty,item.get("unit"),amount,None,item.get("status"),
+                 unit_weight,None]
         first_in_group = category != previous_category
         row_fmt = category_start_formats.get(category, normal) if first_in_group else category_row_formats.get(category, normal)
         num_fmt = category_start_number_formats.get(category, number) if first_in_group else category_number_formats.get(category, number)
@@ -674,10 +683,15 @@ def export_excel(doc,destination,options=None):
                 bom.write_formula(row,col,'=IF(G'+str(erow)+'="","",E'+
                                   str(erow)+'*G'+str(erow)+')',money_fmt,
                                   "" if amount is None else float(qty*amount))
+            elif col==10:
+                bom.write_formula(row,col,'=IF(J'+str(erow)+'="","",E'+
+                                  str(erow)+'*J'+str(erow)+')',mass_number,
+                                  "" if unit_weight is None else float(qty*unit_weight))
             elif val is None:
-                bom.write_blank(row,col,None,row_fmt)
-            elif col in (4,6):
-                bom.write_number(row,col,float(val),num_fmt if col==4 else money_fmt)
+                bom.write_blank(row,col,None,mass_number if col==9 else row_fmt)
+            elif col in (4,6,9):
+                bom.write_number(row,col,float(val),
+                                 num_fmt if col==4 else money_fmt if col==6 else mass_number)
             else:
                 bom.write_string(row,col,str(val),
                                  category_formats.get(category,row_fmt) if col==1 else row_fmt)
@@ -692,7 +706,7 @@ def export_excel(doc,destination,options=None):
                                  alternate if idx%2 else normal)
         details.set_row(row,61)
     if count:
-        bom.autofilter(6,0,6+count,8)
+        bom.autofilter(6,0,6+count,10)
         details.autofilter(6,0,6+count,6)
         bom.conditional_format(7,6,6+count,6,
                                {"type":"blanks","format":notice})
@@ -704,7 +718,7 @@ def export_excel(doc,destination,options=None):
     bom.write_formula(total_row,7,total_formula,
                       total_money,float(stats["known_cost"]))
     bom.set_row(total_row,30)
-    bom.print_area(0,0,total_row,8)
+    bom.print_area(0,0,total_row,10)
     details.print_area(0,0,max(7,6+count),6)
     wiring=sheet("Wiring",[11,32,32,22,20,28,37,25],
         ["ID","ต้นทาง","ปลายทาง","สัญญาณ","แรงดัน",
