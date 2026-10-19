@@ -6,6 +6,7 @@ SHA256 verified updater. Qt widgets are real/editable, not a screenshot.
 import base64
 import copy
 import json
+import math
 import os
 import shutil
 import subprocess
