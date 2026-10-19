@@ -22,7 +22,7 @@ def smoke_test():
 
     def trace(stage):
         with trace_path.open("a", encoding="utf-8") as stream:
-            stream.write(stage + "\\n")
+            stream.write(stage + "\n")
             stream.flush()
 
     trace("start")
