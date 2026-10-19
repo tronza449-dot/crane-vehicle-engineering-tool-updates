@@ -61,6 +61,7 @@ class MassDetailsAndExportTests(unittest.TestCase):
         def fake_exec(dialog):
             dialogs.append(dialog)
             return QDialog.DialogCode.Accepted
+        self.window.show_page(2)
         self.window.show()
         self.app.processEvents()
         with patch.object(QDialog, "exec", fake_exec):
