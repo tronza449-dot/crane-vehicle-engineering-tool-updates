@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -48,15 +49,15 @@ class MassRollupTests(unittest.TestCase):
         result = bom_steel_bom.summarize_bom_and_steel(doc)
 
         # Motors: 2 * 3.5 = 7 kg; controller: 1 * 1.2 = 1.2 kg.
-        self.assertEqual(result["equipment_known_weight_kg"], 8.2)
+        self.assertEqual(result["equipment_known_weight_kg"], Decimal("8.2"))
         self.assertEqual(result["equipment_weighted_items"], 2)
         self.assertEqual(result["equipment_missing_weight_count"], 1)
         self.assertEqual(result["equipment_missing_weight_qty"], 1)
 
         # Two 0.5 m rails, with 12 kg per 6 m => 2 kg/m, total 2 kg.
         self.assertEqual(result["steel_known_weight_kg"], 2)
-        self.assertEqual(result["steel_unknown_weight_length_m"], 0.7)
-        self.assertEqual(result["combined_known_weight_kg"], 10.2)
+        self.assertEqual(result["steel_unknown_weight_length_m"], Decimal("0.7"))
+        self.assertEqual(result["combined_known_weight_kg"], Decimal("10.2"))
         self.assertFalse(result["combined_weight_complete"])
 
     def test_blank_weight_remains_unknown_not_zero(self):
@@ -65,7 +66,7 @@ class MassRollupTests(unittest.TestCase):
         battery = next(x for x in result["equipment_weight_rows"] if x["id"] == "3")
         self.assertIsNone(battery["unit_weight_kg"])
         self.assertIsNone(battery["total_weight_kg"])
-        self.assertEqual(result["equipment_known_weight_kg"], 8.2)
+        self.assertEqual(result["equipment_known_weight_kg"], Decimal("8.2"))
 
     def test_manual_weight_must_be_positive_when_supplied(self):
         for value in ("0", "-1", "not-a-number"):
