@@ -924,15 +924,21 @@ def export_excel(doc,destination,options=None):
          "น้ำหนักต่อหน่วย / เมตร (kg)", "น้ำหนักรวม (kg)", "หมายเหตุ"], True)
     mass_sheet.write_string(3, 0, "อุปกรณ์ BOM (kg)", label)
     mass_sheet.write_formula(3, 1,
-        "=SUM(BOM!K8:K" + str(max(8, 7 + count)) + ")",
-        total_mass, float(mass_data["equipment_known_weight_kg"]))
+        '=IF(COUNT(BOM!K8:K' + str(max(8, 7 + count)) + ')=0,"",SUM(BOM!K8:K' +
+        str(max(8, 7 + count)) + '))',
+        total_mass, "" if mass_data["equipment_weighted_items"] == 0
+        else float(mass_data["equipment_known_weight_kg"]))
     mass_sheet.write_string(3, 2, "โครงเหล็ก (kg)", label)
     mass_sheet.write_formula(3, 3,
-        "=SUM('Steel Cut List'!N8:N" + str(max(8, 7 + len(steel_rows))) + ")",
-        total_mass, float(mass_data["steel_known_weight_kg"]))
+        '=IF(COUNT(\'Steel Cut List\'!N8:N' + str(max(8, 7 + len(steel_rows))) +
+        ')=0,"",SUM(\'Steel Cut List\'!N8:N' + str(max(8, 7 + len(steel_rows))) + '))',
+        total_mass, "" if mass_data["steel_known_weight_kg"] == 0
+        else float(mass_data["steel_known_weight_kg"]))
     mass_sheet.write_string(3, 4, "น้ำหนักรวมที่ทราบ (kg)", label)
-    mass_sheet.write_formula(3, 5, "=B4+D4", total_mass,
-                             float(mass_data["combined_known_weight_kg"]))
+    mass_sheet.write_formula(3, 5, '=IF(COUNT(B4,D4)=0,"",SUM(B4,D4))',
+        total_mass, "" if not (mass_data["equipment_weighted_items"] or
+                               mass_data["steel_known_weight_kg"])
+        else float(mass_data["combined_known_weight_kg"]))
     mass_sheet.merge_range(4, 0, 4, 7,
         "รวมเฉพาะน้ำหนักที่กรอกไว้ • น้ำหนักที่ไม่ทราบจะแสดงว่างและไม่ถูกเดา", notice)
     for idx, item in enumerate(items):
