@@ -116,10 +116,10 @@ class SteelWeightDashboardTests(unittest.TestCase):
         self.assertEqual(self.win.steel_weight_card.figure.text(), "18.000")
         self.assertEqual(self.win.steel_unknown_weight_card.figure.text(), "1.000")
         self.assertIn("18.000 kg", self.win.steel_totals_label.text())
-        self.assertEqual(self.win.steel_table.columnCount(), 13)
-        self.assertEqual(self.win.steel_table.item(0, 9).text(), "3.000")
-        self.assertEqual(self.win.steel_table.item(0, 10).text(), "18.000")
-        self.assertEqual(self.win.steel_table.item(1, 10).text(), "—")
+        self.assertEqual(self.win.steel_table.columnCount(), 14)
+        self.assertEqual(self.win.steel_table.item(0, 10).text(), "3.000")
+        self.assertEqual(self.win.steel_table.item(0, 11).text(), "18.000")
+        self.assertEqual(self.win.steel_table.item(1, 11).text(), "—")
 
     def test_steel_editor_has_reference_length_and_weight_fields(self):
         from bom_qt import RecordDialog, STEEL_FIELDS
@@ -129,6 +129,9 @@ class SteelWeightDashboardTests(unittest.TestCase):
             "stock_length_m": 6, "weight_reference_length_m": 6,
             "weight_reference_kg": 18,
         }, self.win)
+        self.assertFalse(dialog.widgets["material"].isEditable())
+        self.assertEqual(dialog.widgets["material"].currentText(),
+                         bom_steel.DEFAULT_MATERIAL)
         values = dialog.get_values()
         self.assertEqual(values["weight_reference_length_m"], "6")
         self.assertEqual(values["weight_reference_kg"], "18")
