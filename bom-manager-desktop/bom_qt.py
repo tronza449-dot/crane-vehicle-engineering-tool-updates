@@ -2406,6 +2406,51 @@ class BOMWindow(QMainWindow):
                 self.steel_table.setItem(index, col, cell)
         self.steel_table.clearSelection()
 
+        # Simple mass-only table shown on the first tab. The older cut list is
+        # preserved as an optional advanced tab, not the default workflow.
+        if hasattr(self, "frame_weight_table"):
+            self.frame_weight_table.setRowCount(len(rows) if rows else 1)
+            if not rows:
+                empty = QTableWidgetItem("ยังไม่มีชิ้นส่วนโครงสร้าง · กด “เพิ่มชิ้นส่วนโครงสร้าง”")
+                empty.setFlags(empty.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+                self.frame_weight_table.setItem(0, 0, empty)
+            for index, raw in enumerate(rows):
+                try:
+                    entry = bom_steel.normalize_member(raw)
+                    qty = float(entry.get("qty") or 0)
+                    total_mass = bom_steel.total_weight_kg(entry)
+                    if total_mass is None:
+                        unit_mass_text = "—"
+                        total_mass_text = "ยังไม่ทราบ"
+                    else:
+                        unit_mass_text = bom_steel.format_length(
+                            float(total_mass) / qty if qty else 0, 3)
+                        total_mass_text = bom_steel.format_length(total_mass, 3)
+                    detail = " / ".join(x for x in (
+                        str(entry.get("material") or ""),
+                        str(entry.get("size") or "")) if x and x != "ไม่ระบุขนาด")
+                    link = str(entry.get("link") or "").strip()
+                    values = [
+                        entry.get("id", ""), entry.get("member", ""), detail or "—",
+                        f"{qty:g}", unit_mass_text, total_mass_text,
+                        "เปิดลิงก์ ↗" if link else "—", entry.get("notes", ""),
+                    ]
+                except (ValueError, bom_steel.SteelDataError):
+                    entry = raw
+                    link = str(entry.get("link") or "").strip()
+                    values = [entry.get("id", ""), entry.get("member", ""),
+                              entry.get("size", "—"), entry.get("qty", ""),
+                              "ตรวจข้อมูล", "ตรวจข้อมูล", "เปิดลิงก์ ↗" if link else "—",
+                              entry.get("notes", "")]
+                for col, value in enumerate(values):
+                    cell = QTableWidgetItem(str(value if value is not None else ""))
+                    cell.setData(Qt.ItemDataRole.UserRole, index)
+                    if col == 6 and link:
+                        cell.setToolTip("ลิงก์สินค้า: " + link)
+                        cell.setForeground(QBrush(QColor("#36A8FF")))
+                    self.frame_weight_table.setItem(index, col, cell)
+            self.frame_weight_table.clearSelection()
+
         import bom_steel_bom
         try:
             waste = self.steel_waste_input.currentData() if hasattr(self, "steel_waste_input") else 5
@@ -2454,26 +2499,42 @@ class BOMWindow(QMainWindow):
         steel_mass = summary["steel_known_weight_kg"]
         equipment_known_count = summary["equipment_weighted_items"]
         equipment_missing_count = summary["equipment_missing_weight_count"]
+        progress_text = (
+            f"อุปกรณ์มีน้ำหนักแล้ว {equipment_known_count} / "
+            f"{len(self.payload.get('items', []))} รายการ · "
+            f"ยังเหลือ {equipment_missing_count} รายการ")
         if hasattr(self, "mass_weight_count_label"):
-            self.mass_weight_count_label.setText(
-                f"กรอกน้ำหนักแล้ว {equipment_known_count} / {len(self.payload.get('items', []))} รายการ "
-                f"• ยังเหลือ {equipment_missing_count} รายการ")
+            self.mass_weight_count_label.setText(progress_text)
+        if hasattr(self, "cutlist_mass_weight_count_label"):
+            self.cutlist_mass_weight_count_label.setText(progress_text)
         self.mass_equipment_card.figure.setText(
             bom_steel.format_length(equipment_mass, 3)
             if equipment_known_count else "—")
         self.mass_frame_card.figure.setText(
             bom_steel.format_length(steel_mass, 3)
             if steel_mass > 0 else "—")
-        self.mass_total_card.figure.setText(
-            bom_steel.format_length(summary["combined_known_weight_kg"], 3)
-            if equipment_known_count or steel_mass > 0 else "—")
+        total_mass_text = (bom_steel.format_length(summary["combined_known_weight_kg"], 3)
+                           if equipment_known_count or steel_mass > 0 else "—")
+        self.mass_total_card.figure.setText(total_mass_text)
         self.mass_rollup_note.setText(
-            f'อุปกรณ์มีน้ำหนักกรอกแล้ว {equipment_known_count} รายการ · '
-            f'ยังไม่กรอกน้ำหนัก {equipment_missing_count} รายการ · '
-            f'โครงเหล็กยังไม่ทราบน้ำหนัก {bom_steel.format_length(summary["steel_unknown_weight_length_m"])} m. '
-            + ("น้ำหนักรวมครบตามรายการที่บันทึก" if summary["combined_weight_complete"]
-               else "ยอดรวมนี้รวมเฉพาะน้ำหนักที่ทราบ ยังไม่ใช่น้ำหนักรวมจริงทั้งหมด")
-            + " • หากเหล็กชิ้นเดียวกันถูกลงน้ำหนักซ้ำใน BOM และ Cut List ต้องเว้นรายการซ้ำเพื่อไม่ให้นับสองครั้ง")
+            f"น้ำหนักรวมที่ทราบ {total_mass_text} kg · "
+            f"อุปกรณ์ยังไม่กรอก {equipment_missing_count} รายการ · "
+            "น้ำหนักที่ยังไม่ทราบจะไม่ถูกเดาและไม่ถูกรวม")
+        if hasattr(self, "cutlist_mass_equipment_card"):
+            self.cutlist_mass_equipment_card.figure.setText(
+                bom_steel.format_length(equipment_mass, 3) if equipment_known_count else "—")
+            self.cutlist_mass_frame_card.figure.setText(
+                bom_steel.format_length(steel_mass, 3) if steel_mass > 0 else "—")
+            self.cutlist_mass_total_card.figure.setText(total_mass_text)
+        if hasattr(self, "cutlist_mass_rollup_note"):
+            self.cutlist_mass_rollup_note.setText(
+                f'อุปกรณ์มีน้ำหนักกรอกแล้ว {equipment_known_count} รายการ · '
+                f'ยังไม่กรอกน้ำหนัก {equipment_missing_count} รายการ · '
+                f'โครงเหล็กยังไม่ทราบน้ำหนัก '
+                f'{bom_steel.format_length(summary["steel_unknown_weight_length_m"])} m. '
+                + ("น้ำหนักรวมครบตามรายการที่บันทึก" if summary["combined_weight_complete"]
+                   else "ยอดรวมนี้รวมเฉพาะน้ำหนักที่ทราบ ยังไม่ใช่น้ำหนักรวมจริงทั้งหมด")
+                + " • หากชิ้นส่วนเดียวกันถูกลงน้ำหนักซ้ำใน BOM และ Cut List ต้องเว้นรายการซ้ำ")
         self.steel_totals_label.setText(
             f'จำนวนชิ้น: {summary["steel_pieces"]:,}  •  '
             f'ความยาวใช้จริง: {bom_steel.format_length(summary["steel_required_length_m"])} m  •  '
