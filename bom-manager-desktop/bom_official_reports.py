@@ -350,15 +350,16 @@ def export_pdf(doc, destination, options=None):
         TABLE(
             ["ID", "ตำแหน่ง / ชิ้นส่วน", "วัสดุ / เกรด", "ชนิดหน้าตัด",
              "ขนาดหน้าตัด", "จำนวน", "ยาว/ชิ้น (mm)", "รวม (m)",
-             "ท่อนมาตรฐาน (m)", "หมายเหตุ"],
+             "ท่อนมาตรฐาน (m)", "ลิงก์สินค้า", "หมายเหตุ"],
             [[r.get("id"), r.get("member"),
               bom_steel.normalize_member(r).get("material", bom_steel.DEFAULT_MATERIAL),
               r.get("profile"), r.get("size"), r.get("qty"), r.get("length_mm"),
               bom_steel.format_length(bom_steel.total_length_m(r)),
-              f'{float(r.get("stock_length_m") or 6):g}', r.get("notes")]
+              f'{float(r.get("stock_length_m") or 6):g}', r.get("link") or "—",
+              r.get("notes")]
              for r in steel_rows],
-            [width*.04, width*.13, width*.11, width*.10, width*.10,
-             width*.05, width*.08, width*.08, width*.08, width*.23]),
+            [width*.035, width*.12, width*.095, width*.09, width*.09,
+             width*.045, width*.07, width*.07, width*.07, width*.135, width*.18]),
         Spacer(1, 8),
         P("ข้อจำกัดการประมาณ: จำนวนท่อนมาตรฐานคำนวณจากความยาวรวมเท่านั้น "
           "ยังไม่หัก kerf เศษตัด ระยะซ้อน/ต่อ และข้อจำกัดการจัดวางชิ้นตัด "
@@ -859,11 +860,11 @@ def export_excel(doc,destination,options=None):
         ["วัสดุ / เกรด", "ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น",
          "ความยาวรวม (m)", "ท่อนมาตรฐาน (m)", "จำนวนท่อน (ประมาณ)"], True)
     steel_cut = sheet("Steel Cut List", [10, 32, 23, 25, 28, 14, 20, 18, 22, 44,
-                                         20, 20, 20, 20],
+                                         20, 20, 20, 20, 24],
         ["ID", "ตำแหน่ง / ชิ้นส่วน", "วัสดุ / เกรด", "ชนิดหน้าตัด",
          "ขนาดหน้าตัด", "จำนวนชิ้น", "ยาว/ชิ้น (mm)", "รวมความยาว (m)",
          "ท่อนมาตรฐาน (m)", "หมายเหตุ", "อ้างอิงยาว (m)", "อ้างอิงหนัก (kg)",
-         "น้ำหนัก/เมตร (kg/m)", "น้ำหนักรวม (kg)"], True)
+         "น้ำหนัก/เมตร (kg/m)", "น้ำหนักรวม (kg)", "ลิงก์สินค้า"], True)
     steel_summary.merge_range(
         5, 0, 5, 6,
         "จำนวนท่อนเป็นค่าประมาณจากความยาวรวม ไม่หัก kerf/เศษตัด/ระยะซ้อน "
@@ -871,6 +872,8 @@ def export_excel(doc,destination,options=None):
     steel_summary.set_row(5, 32)
     steel_length_fmt = fmt(num_format="#,##0.000", align="right",
                            border=1, border_color=EXCEL_LINE)
+    steel_link_fmt = fmt(font_color=EXCEL_BLUE, underline=1, text_wrap=True,
+                         border=1, border_color=EXCEL_LINE)
     for idx, raw in enumerate(steel_rows):
         item = bom_steel.normalize_member(raw)
         row = 7 + idx
@@ -881,10 +884,17 @@ def export_excel(doc,destination,options=None):
                   item.get("profile"), item.get("size"), item.get("qty"),
                   item.get("length_mm"), None, item.get("stock_length_m"), item.get("notes"),
                   item.get("weight_reference_length_m"), item.get("weight_reference_kg"),
-                  None, None]
+                  None, None, item.get("link")]
         rowfmt = alternate if idx % 2 else normal
         for col, value in enumerate(values):
-            if col == 7:
+            if col == 14:
+                link = str(value or "").strip()
+                if link.lower().startswith(("https://", "http://")):
+                    steel_cut.write_url(row, col, link, steel_link_fmt,
+                                        string="เปิดลิงก์สินค้า")
+                else:
+                    steel_cut.write_string(row, col, link, rowfmt)
+            elif col == 7:
                 length = float(bom_steel.total_length_m(item))
                 steel_cut.write_formula(
                     row, col, f"=F{excel_row}*G{excel_row}/1000",
@@ -912,8 +922,8 @@ def export_excel(doc,destination,options=None):
         steel_cut.set_row(row, 43)
     cut_last_excel = max(8, 7 + len(steel_rows))
     if steel_rows:
-        steel_cut.autofilter(6, 0, 6 + len(steel_rows), 9)
-    steel_cut.print_area(0, 0, max(7, 6 + len(steel_rows)), 13)
+        steel_cut.autofilter(6, 0, 6 + len(steel_rows), 14)
+    steel_cut.print_area(0, 0, max(7, 6 + len(steel_rows)), 14)
 
     # Combined mass roll-up worksheet. BOM and cut-list sources remain the
     # editable inputs; this sheet summarizes only weights that are known.
