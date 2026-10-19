@@ -5,6 +5,8 @@ All report cover metadata is editable and does not imply institutional approval.
 """
 from datetime import datetime
 from xml.sax.saxutils import escape
+import math
+import unicodedata
 from urllib.parse import urlsplit
 import bom_core
 import bom_categories
@@ -556,8 +558,10 @@ def export_excel(doc,destination,options=None):
     head=fmt(bold=True,font_color="white",bg_color=EXCEL_NAVY,
              align="center",text_wrap=True,font_size=13,border=1,border_color=EXCEL_BLUE,
              valign="vcenter")
-    normal=fmt(text_wrap=True,border=1,border_color=EXCEL_LINE)
-    alternate=fmt(text_wrap=True,bg_color=EXCEL_ROW_ALT,border=1,border_color=EXCEL_LINE)
+    # Wrapped Thai text starts at the top; row heights are estimated per row.
+    normal=fmt(text_wrap=True,valign="top",border=1,border_color=EXCEL_LINE)
+    alternate=fmt(text_wrap=True,valign="top",bg_color=EXCEL_ROW_ALT,
+                   border=1,border_color=EXCEL_LINE)
     # Keep category styling consistent with the PDF and the agreed prototype:
     # navy table headers, pale-blue category bands, dark navy labels.
     category_colors={
@@ -568,16 +572,17 @@ def export_excel(doc,destination,options=None):
     }
     category_formats={
         cat:fmt(bold=True,bg_color=palette[1],font_color=palette[2],
-                border=1,border_color=EXCEL_LINE)
+                valign="top",text_wrap=True,border=1,border_color=EXCEL_LINE)
         for cat,palette in category_colors.items()
     }
     category_row_formats={
-        cat:fmt(bg_color=palette[0],text_wrap=True,border=1,border_color=EXCEL_LINE)
+        cat:fmt(bg_color=palette[0],text_wrap=True,valign="top",
+                border=1,border_color=EXCEL_LINE)
         for cat,palette in category_colors.items()
     }
     category_start_formats={
-        cat:fmt(bg_color=palette[0],text_wrap=True,border=1,border_color=EXCEL_LINE,
-                top=2,top_color=EXCEL_NAVY)
+        cat:fmt(bg_color=palette[0],text_wrap=True,valign="top",
+                border=1,border_color=EXCEL_LINE,top=2,top_color=EXCEL_NAVY)
         for cat,palette in category_colors.items()
     }
     category_number_formats={
@@ -646,8 +651,31 @@ def export_excel(doc,destination,options=None):
             w.merge_range(4,0,4,len(widths)-1,
                           section_titles.get(name,name+" / ENGINEERING DOCUMENT"),bar)
             for i,h in enumerate(headers):w.write(6,i,h,head)
-            w.set_row(6,35);w.freeze_panes(7,2);w.repeat_rows(0,6)
+            # Multi-line Thai/English column titles need room to wrap.
+            w.set_row(6,48);w.freeze_panes(7,2);w.repeat_rows(0,6)
         return w
+
+    def fitted_row_height(values, widths, minimum=34, line_height=20, padding=10):
+        """Estimate wrapped Excel row height for mixed Thai/English text."""
+        max_lines = 1
+        for col, value in enumerate(values):
+            if value is None:
+                continue
+            width = max(5.0, float(widths[col]) if col < len(widths) else 12.0)
+            capacity = max(4.0, width * 0.76)
+            parts = str(value).splitlines() or [""]
+            lines = 0
+            for part in parts:
+                display_width = sum(
+                    0.0 if unicodedata.combining(ch) else
+                    2.0 if unicodedata.east_asian_width(ch) in ("F", "W") else 1.0
+                    for ch in part)
+                lines += max(1, int(math.ceil(display_width / capacity)))
+            max_lines = max(max_lines, lines)
+        # Stay below Excel's 409 pt row-height limit, while giving long notes
+        # enough room instead of forcing them into the old fixed 34–43 pt rows.
+        return min(360, max(minimum, max_lines * line_height + padding))
+
     count=len(items)
     start=8;end=7+count
     startend=lambda letter: "BOM!$"+letter+"$"+str(start)+":$"+letter+"$"+str(max(start,end))
@@ -738,7 +766,8 @@ def export_excel(doc,destination,options=None):
             else:
                 bom.write_string(row,col,str(val),
                                  category_formats.get(category,row_fmt) if col==1 else row_fmt)
-        bom.set_row(row,43)
+        bom.set_row(row, fitted_row_height(
+            entries, [11,27,25,46,11,11,20,21,26,19,19], minimum=42))
         previous_category = category
         extra="\n".join(str(item.get(k)) for k in ("link","connection","notes")
                         if item.get(k))
@@ -747,7 +776,8 @@ def export_excel(doc,destination,options=None):
         for col,val in enumerate(values):
             details.write_string(row,col,"" if val is None else str(val),
                                  alternate if idx%2 else normal)
-        details.set_row(row,61)
+        details.set_row(row, fitted_row_height(
+            values, [12,29,50,68,27,36,54], minimum=46))
     if count:
         bom.autofilter(6,0,6+count,10)
         details.autofilter(6,0,6+count,6)
@@ -771,7 +801,10 @@ def export_excel(doc,destination,options=None):
                                   "cable","protection","status")):
             wiring.write_string(n,col,str(item.get(key) or ""),
                                 alternate if n%2 else normal)
-        wiring.set_row(n,43)
+        wiring.set_row(n, fitted_row_height(
+            [item.get(k) for k in ("id","from","to","signal","voltage",
+                                   "cable","protection","status")],
+            [11,32,32,22,20,28,37,25], minimum=42))
     wiring.print_area(0,0,max(7,6+len(doc.get("wiring",[]))),7)
     buy=sheet("Purchasing",[11,13,46,34,14,21,21,23],
         ["ID","BOM ID","รายการ","ผู้ขาย","จำนวน",
@@ -790,7 +823,10 @@ def export_excel(doc,destination,options=None):
                 if val is None:buy.write_blank(n,col,None,normal)
                 else:buy.write_number(n,col,float(val),number if col==4 else money)
             else:buy.write_string(n,col,str(item.get(key) or ""),normal)
-        buy.set_row(n,43)
+        buy.set_row(n, fitted_row_height(
+            [item.get(k) for k in ("id","itemId","description","supplier",
+                                   "qty","unitPrice","lineTotal","status")],
+            [11,13,46,34,14,21,21,23], minimum=42))
     buy.print_area(0,0,max(7,6+len(orders)),7)
     notes=sheet("Notes",[35,98])
     notes.merge_range("A5:B5","คำแนะนำการใช้รายงาน",bar)
@@ -827,7 +863,8 @@ def export_excel(doc,destination,options=None):
                     sources.write_string(row,col,value,alternate if idx%2 else normal)
             else:
                 sources.write_string(row,col,value,alternate if idx%2 else normal)
-        sources.set_row(row,54)
+        sources.set_row(row, fitted_row_height(
+            values, [12,44,25,29,52,36,56], minimum=44))
     if count:
         sources.autofilter(6,0,6+count,6)
     sources.print_area(0,0,max(7,6+count),6)
@@ -968,7 +1005,9 @@ def export_excel(doc,destination,options=None):
                     steel_cut.write_number(row, col, float(value), fmt_value)
             else:
                 steel_cut.write_string(row, col, "" if value is None else str(value), rowfmt)
-        steel_cut.set_row(row, 43)
+        steel_cut.set_row(row, fitted_row_height(
+            values, [10,32,20,23,25,28,14,20,18,22,44,20,20,20,22,20,44],
+            minimum=42))
     cut_last_excel = max(8, 7 + len(steel_rows))
     if steel_rows:
         steel_cut.autofilter(6, 0, 6 + len(steel_rows), 16)
@@ -1024,7 +1063,8 @@ def export_excel(doc,destination,options=None):
             else:
                 mass_sheet.write_string(row, col, str(value),
                                          alternate if idx % 2 else normal)
-        mass_sheet.set_row(row, 34)
+        mass_sheet.set_row(row, fitted_row_height(
+            values, [20,12,42,13,13,22,22,29], minimum=36))
     steel_header_row = 7 + len(items) + 2
     mass_sheet.merge_range(steel_header_row, 0, steel_header_row, 7,
                            "รายการโครงสร้างเหล็ก / STEEL FRAME", bar)
@@ -1100,7 +1140,11 @@ def export_excel(doc,destination,options=None):
             steel_summary.write_formula(
                 row, 7, f"=IF(G{excel_row}>0,ROUNDUP(F{excel_row}/G{excel_row},0),0)",
                 number, group["estimated_stock_bars"])
-            steel_summary.set_row(row, 32)
+            steel_summary.set_row(row, fitted_row_height(
+                [mode_text, group["material"], group["profile"], group["size"],
+                 group["pieces"], group["total_length_m"], group.get("stock_length_m"),
+                 group["estimated_stock_bars"]],
+                [18,23,28,29,16,22,22,24], minimum=36))
         steel_summary.autofilter(6, 0, 6 + len(steel_totals["groups"]), 7)
         steel_total_row = 7 + len(steel_totals["groups"])
         steel_summary.merge_range(steel_total_row, 0, steel_total_row, 3,
