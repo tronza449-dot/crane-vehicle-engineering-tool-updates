@@ -722,7 +722,7 @@ def export_excel(doc,destination,options=None):
     ],30):
         summary.write(row,0,cat,category_formats[cat])
         summary.merge_range(row,1,row,3,description,normal)
-        summary.set_row(row,34)
+        summary.set_row(row, fitted_row_height([cat, description], [34, 73], minimum=40))
     summary.merge_range("A36:D38",
         "หมายเหตุ: รายการที่ไม่ทราบราคาไม่ถูกถือว่ามีราคา 0 บาท "
         "และยอดรวมยังไม่ใช่งบประมาณสุดท้าย "
@@ -839,7 +839,7 @@ def export_excel(doc,destination,options=None):
         ("แหล่งข้อมูล","ใช้ข้อมูล ณ วันที่ส่งออก ไม่รวม GitHub Token")
     ],7):
         notes.write(row,0,labeltext,label);notes.write(row,1,text,normal)
-        notes.set_row(row,40)
+        notes.set_row(row, fitted_row_height([labeltext, text], [35, 98], minimum=40))
     notes.print_area("A1:B15")
 
     # Traceability is distinct from a formal manufacturer P/N.
