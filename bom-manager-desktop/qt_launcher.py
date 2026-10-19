@@ -123,7 +123,7 @@ def smoke_test():
         snapshot("MinimalBOMPreview.png")
         trace("BOM screenshot saved")
         win.show_page(2)
-        snapshot("SteelCutListPreview.png")
+        snapshot("TotalMassRegisterPreview.png")
         trace("steel Cut List screenshot saved")
         win.show_page(5)
         snapshot("MinimalReportsPreview.png")
