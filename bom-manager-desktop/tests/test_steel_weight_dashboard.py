@@ -92,7 +92,7 @@ class SteelWeightDashboardTests(unittest.TestCase):
                 {"id": "1", "member": "คาน", "profile": "เหล็กกล่องสี่เหลี่ยม",
                  "size": "25×25×2 mm", "qty": 4, "length_mm": 1500,
                  "stock_length_m": 6, "weight_reference_length_m": 6,
-                 "weight_reference_kg": 18},
+                 "weight_reference_kg": 18, "link": ""},
                 {"id": "2", "member": "ค้ำ", "profile": "เหล็กกล่องสี่เหลี่ยม",
                  "size": "25×25×2 mm", "qty": 1, "length_mm": 1000,
                  "stock_length_m": 6, "weight_reference_length_m": "",
@@ -116,8 +116,9 @@ class SteelWeightDashboardTests(unittest.TestCase):
         self.assertEqual(self.win.steel_weight_card.figure.text(), "18.000")
         self.assertEqual(self.win.steel_unknown_weight_card.figure.text(), "1.000")
         self.assertIn("18.000 kg", self.win.steel_totals_label.text())
-        self.assertEqual(self.win.steel_table.columnCount(), 14)
+        self.assertEqual(self.win.steel_table.columnCount(), 15)
         self.assertEqual(self.win.steel_table.item(0, 10).text(), "3.000")
+        self.assertEqual(self.win.steel_table.item(0, 13).text(), "—")
         self.assertEqual(self.win.steel_table.item(0, 11).text(), "18.000")
         self.assertEqual(self.win.steel_table.item(1, 11).text(), "—")
 
