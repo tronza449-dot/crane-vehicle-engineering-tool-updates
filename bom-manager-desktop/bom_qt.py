@@ -364,6 +364,11 @@ class RecordDialog(QDialog):
                 control = QLineEdit("" if val is None else str(val))
                 if key == "unitPrice":
                     control.setPlaceholderText("เว้นว่างหากยังไม่ทราบราคา")
+                if key == "link" and "เหล็ก" in title:
+                    control.setPlaceholderText("วางลิงก์ร้านค้า/หน้าสินค้า เช่น https://...")
+                    control.setToolTip(
+                        "ลิงก์ซื้อเหล็กหรือหน้าสเปกสินค้าสำหรับชิ้นส่วนโครงสร้างนี้ "
+                        "บันทึกแล้วใช้ปุ่ม 'เปิดลิงก์สินค้า' เพื่อเปิดหน้าเว็บได้")
                 if key == "unitWeightKg":
                     control.setPlaceholderText("กรอกน้ำหนัก 1 หน่วย เช่น 2.5 kg")
                     control.setToolTip(
@@ -2229,7 +2234,8 @@ class BOMWindow(QMainWindow):
                 cell = QTableWidgetItem(str(value if value is not None else ""))
                 cell.setData(Qt.ItemDataRole.UserRole, index)
                 if col == 15 and str(entry.get("link") or "").strip():
-                    cell.setToolTip(str(entry["link"]).strip())
+                    cell.setToolTip("ลิงก์สินค้า: " + str(entry["link"]).strip()
+                                    + "\nกดปุ่ม 'เปิดลิงก์สินค้า' เพื่อเปิด")
                     cell.setForeground(QBrush(QColor("#1768D2")))
                 self.steel_table.setItem(index, col, cell)
         self.steel_table.clearSelection()
@@ -2619,6 +2625,11 @@ class BOMWindow(QMainWindow):
             if kind == "items":
                 values = bom_core.normalize_dialog_values(values)
             elif kind == "steel_members":
+                link = str(values.get("link") or "").strip()
+                if link and not link.lower().startswith(("https://", "http://")):
+                    raise bom_core.DataError(
+                        "ลิงก์สินค้าโครงเหล็กต้องขึ้นต้นด้วย https:// หรือ http://")
+                values["link"] = link
                 values = bom_steel.normalize_member(values)
             elif kind == "wiring":
                 if not values["from"] or not values["to"]:
