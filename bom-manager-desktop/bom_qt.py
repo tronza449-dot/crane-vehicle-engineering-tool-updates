@@ -340,7 +340,7 @@ class RecordDialog(QDialog):
                     control.setToolTip("กรอกความยาวที่ทราบน้ำหนักของเหล็กขนาดนี้")
                 if key == "weight_reference_kg":
                     control.setPlaceholderText("เช่น น้ำหนักของเหล็ก 6 เมตร")
-                    control.setToolTip("กรอกน้ำหนักจริงจากสเปกผู้ผลิตหรือการชั่ง ห้ามเดาค่าน้ำหนัก")
+                    control.setToolTip("กรอกน้ำหนักอ้างอิงจริงจากสเปกผู้ผลิตหรือการชั่ง ห้ามเดาค่าน้ำหนัก")
             self.widgets[key] = control
             (groups.get(key) if is_bom else form).addRow(QLabel(label), control)
         if "เหล็ก" in title and "weight_reference_length_m" in self.widgets:
