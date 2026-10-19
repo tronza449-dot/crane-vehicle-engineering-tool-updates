@@ -379,9 +379,9 @@ def export_pdf(doc, destination, options=None):
               stock_label(bom_steel.normalize_member(r).get("stock_length_m")),
               r.get("link") or "—", r.get("notes")]
              for r in steel_rows],
-            [width*.035, width*.105, width*.085, width*.09, width*.08, width*.075,
-             width*.04, width*.06, width*.06, width*.075, width*.075, width*.06,
-             width*.095, width*.10]),
+            [width*.035, width*.11, width*.08, width*.085, width*.08, width*.07,
+             width*.04, width*.055, width*.055, width*.07, width*.07, width*.055,
+             width*.075, width*.12]),
         Spacer(1, 8),
         P("ข้อจำกัดการประมาณ: จำนวนท่อนมาตรฐานคำนวณเฉพาะรายการที่มีความยาวและท่อนมาตรฐาน "
           "ไม่หัก kerf เศษตัด ระยะซ้อน/ต่อ หรือข้อจำกัดการจัดวางชิ้นตัด "
