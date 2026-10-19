@@ -202,7 +202,7 @@ class SteelPageTests(unittest.TestCase):
     def test_steel_page_and_editor_calculate_metres(self):
         from bom_qt import RecordDialog, STEEL_FIELDS
         self.assertEqual(self.win.stack.count(), 7)
-        self.assertEqual(self.win.nav_buttons[2].text(), "▦    โครงสร้างเหล็ก / Cut List")
+        self.assertEqual(self.win.nav_buttons[2].text(), "▦    น้ำหนักรวม / โครงสร้าง")
         dialog = RecordDialog("เพิ่มชิ้นส่วนโครงสร้างเหล็ก", STEEL_FIELDS, {
             "member": "คานยาวฐานรถ", "profile": "เหล็กกล่องสี่เหลี่ยม",
             "size": "25×25×2 mm", "qty": 4, "length_mm": 750,
