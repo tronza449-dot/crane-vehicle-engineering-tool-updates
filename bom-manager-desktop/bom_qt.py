@@ -2957,7 +2957,12 @@ class BOMWindow(QMainWindow):
 
 
     def open_mass_details(self, mode="total"):
-        """Show the item-level breakdown behind the clickable mass summary cards."""
+        """Display the item-level breakdown behind the clickable mass summary cards."""
+        dialog = self._build_mass_details_dialog(mode)
+        dialog.exec()
+
+    def _build_mass_details_dialog(self, mode="total"):
+        """Build a testable detail dialog without starting a nested event loop."""
         dialog = QDialog(self)
         dialog.setWindowTitle("รายละเอียดน้ำหนักอุปกรณ์และโครงสร้าง")
         dialog.resize(1120, 700)
@@ -3109,7 +3114,7 @@ class BOMWindow(QMainWindow):
         buttons.rejected.connect(dialog.reject)
         buttons.accepted.connect(dialog.accept)
         layout.addWidget(buttons)
-        dialog.exec()
+        return dialog
 
     def open_weight_manager(self):
         """Open a focused weight-only workflow; no stability/tipping calculations."""
