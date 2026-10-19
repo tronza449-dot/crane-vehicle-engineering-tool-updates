@@ -994,7 +994,6 @@ def export_excel(doc,destination,options=None):
                                          alternate if idx % 2 else normal)
         mass_sheet.set_row(row, 34)
     mass_last = max(subhead_row + len(steel_rows), 7 + len(items))
-    mass_sheet.autofilter(6, 0, mass_last, 7)
     mass_sheet.print_area(0, 0, mass_last, 7)
 
     if steel_totals["groups"]:
