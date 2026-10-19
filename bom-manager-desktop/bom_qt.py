@@ -212,6 +212,10 @@ class Card(QFrame):
         self.figure.setObjectName("kpiValue")
         self.figure.setStyleSheet(f"color: {tint};")
         box.addWidget(self.figure)
+        # Let mouse clicks on text/icons bubble to the card, so its click action
+        # works regardless of whether the user clicks the number or the label.
+        for child in self.findChildren(QLabel):
+            child.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
