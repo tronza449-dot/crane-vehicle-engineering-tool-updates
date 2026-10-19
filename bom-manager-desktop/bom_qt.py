@@ -86,6 +86,7 @@ STEEL_FIELDS = [
     ("stock_length_m", "ความยาวเหล็กมาตรฐาน (m)"),
     ("weight_reference_length_m", "ความยาวอ้างอิงน้ำหนัก (m)"),
     ("weight_reference_kg", "น้ำหนักของความยาวอ้างอิง (kg)"),
+    ("link", "ลิงก์สินค้า / ร้านค้าเหล็ก"),
     ("notes", "หมายเหตุ"),
 ]
 FIELD_SET = {"items": ITEM_FIELDS, "wiring": WIRE_FIELDS,
@@ -368,6 +369,10 @@ class RecordDialog(QDialog):
                 if key == "weight_reference_kg":
                     control.setPlaceholderText("เช่น น้ำหนักของเหล็ก 6 เมตร")
                     control.setToolTip("กรอกน้ำหนักอ้างอิงจริงจากสเปกผู้ผลิตหรือการชั่ง ห้ามเดาค่าน้ำหนัก")
+                if key == "link" and "เหล็ก" in title:
+                    control.setPlaceholderText("https://...")
+                    control.setToolTip(
+                        "ใส่ลิงก์หน้าสินค้าหรือร้านค้าที่ซื้อเหล็กขนาดนี้ เพื่ออ้างอิงตอนจัดซื้อ")
             self.widgets[key] = control
             (groups.get(key) if is_bom else form).addRow(QLabel(label), control)
         if "เหล็ก" in title and "weight_reference_length_m" in self.widgets:
@@ -1357,6 +1362,8 @@ class BOMWindow(QMainWindow):
                                        lambda: self.edit_record("steel_members", True)))
         actions.addWidget(self._button("ลบรายการ",
                                        lambda: self.delete_record("steel_members"), "danger"))
+        actions.addWidget(self._button("เปิดลิงก์สินค้า ↗",
+                                       self.open_selected_steel_link))
         actions.addStretch()
         body.addLayout(actions)
         intro = self._label(
@@ -1451,10 +1458,10 @@ class BOMWindow(QMainWindow):
             ["ID", "ตำแหน่ง / ชิ้นส่วน", "วัสดุ / เกรด", "หน้าตัด", "ขนาดหน้าตัด",
              "จำนวน\n(ชิ้น)", "ยาว/ชิ้น\n(mm)", "ยาวรวม\n(m)",
              "อ้างอิงยาว\n(m)", "อ้างอิงหนัก\n(kg)", "น้ำหนัก/เมตร\n(kg/m)",
-             "น้ำหนักรวม\n(kg)", "ท่อนมาตรฐาน\n(m)", "หมายเหตุ"], 1)
+             "น้ำหนักรวม\n(kg)", "ท่อนมาตรฐาน\n(m)", "ลิงก์สินค้า", "หมายเหตุ"], 1)
         for col, width in {0: 55, 1: 165, 2: 185, 3: 135, 4: 135, 5: 75,
                            6: 100, 7: 100, 8: 100, 9: 100, 10: 110,
-                           11: 100, 12: 105, 13: 170}.items():
+                           11: 100, 12: 105, 13: 125, 14: 170}.items():
             self.steel_table.setColumnWidth(col, width)
         self.steel_table.cellDoubleClicked.connect(lambda *_: self.edit_record("steel_members", True))
         detail.addWidget(self.steel_table)
@@ -2090,6 +2097,31 @@ class BOMWindow(QMainWindow):
         self.changed()
         self.set_status("ย้อนลำดับอุปกรณ์แล้ว • จะซิงก์ GitHub อัตโนมัติ")
 
+    def open_selected_steel_link(self):
+        """Open the selected steel member's product/supplier reference URL."""
+        row = self.steel_table.currentRow()
+        cell = self.steel_table.item(row, 0) if row >= 0 else None
+        index = cell.data(Qt.ItemDataRole.UserRole) if cell is not None else None
+        members = self.payload.get("steel_members", [])
+        if index is None or not (0 <= int(index) < len(members)):
+            QMessageBox.information(
+                self, "เลือกรายการเหล็ก",
+                "กรุณาเลือกแถวชิ้นส่วนเหล็กที่ต้องการเปิดลิงก์ก่อน")
+            return
+        link = str(members[int(index)].get("link") or "").strip()
+        if not link:
+            QMessageBox.information(
+                self, "ยังไม่มีลิงก์สินค้า",
+                "รายการนี้ยังไม่มีลิงก์สินค้า/ร้านค้า ให้กดแก้ไขรายการแล้วใส่ลิงก์ก่อน")
+            return
+        if not link.lower().startswith(("https://", "http://")):
+            QMessageBox.warning(
+                self, "รูปแบบลิงก์ไม่ถูกต้อง",
+                "ลิงก์สินค้าต้องขึ้นต้นด้วย http:// หรือ https://")
+            return
+        if not webbrowser.open(link):
+            self.set_status("ส่งลิงก์สินค้าให้เบราว์เซอร์แล้ว หากไม่เปิดให้ตรวจสอบโปรแกรมเบราว์เซอร์")
+
     def render_steel(self):
         rows = self.payload.get("steel_members", [])
         self.steel_table.setRowCount(len(rows))
@@ -2113,11 +2145,16 @@ class BOMWindow(QMainWindow):
                 entry.get("length_mm", ""), total_text,
                 entry.get("weight_reference_length_m") or "",
                 entry.get("weight_reference_kg") or "", rate_text, mass_text,
-                entry.get("stock_length_m", ""), entry.get("notes", ""),
+                entry.get("stock_length_m", ""),
+                "เปิดลิงก์ ↗" if str(entry.get("link") or "").strip() else "—",
+                entry.get("notes", ""),
             ]
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(str(value if value is not None else ""))
                 cell.setData(Qt.ItemDataRole.UserRole, index)
+                if col == 13 and str(entry.get("link") or "").strip():
+                    cell.setToolTip(str(entry["link"]).strip())
+                    cell.setForeground(QBrush(QColor("#1768D2")))
                 self.steel_table.setItem(index, col, cell)
         self.steel_table.clearSelection()
 
