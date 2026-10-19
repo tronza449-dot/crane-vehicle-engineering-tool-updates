@@ -72,6 +72,28 @@ def smoke_test():
         folder = Path("output")
         folder.mkdir(parents=True, exist_ok=True)
 
+        # Dedicated Cut List preview uses representative materials to verify
+        # wrapped headers and the material/shape distinction in the real EXE.
+        win.payload["steel_members"] = [
+            {"id": "S1", "member": "เสาโครง", "material": "เหล็กคาร์บอน (SS400 / ASTM A36)",
+             "profile": "เหล็กกล่องสี่เหลี่ยม", "size": "50×50×2 mm",
+             "qty": 4, "length_mm": 1000, "stock_length_m": 6,
+             "weight_reference_length_m": "", "weight_reference_kg": "",
+             "notes": "ตัวอย่างจากแบบ"},
+            {"id": "S2", "member": "คานฐาน", "material": "สแตนเลส SUS 304",
+             "profile": "เหล็กกล่องแบน", "size": "50×25×2 mm",
+             "qty": 6, "length_mm": 1250, "stock_length_m": 6,
+             "weight_reference_length_m": "", "weight_reference_kg": "",
+             "notes": "ตรวจเกรดก่อนสั่งซื้อ"},
+            {"id": "S3", "member": "ขายึด", "material": "อะลูมิเนียม 6061",
+             "profile": "แผ่นโลหะ", "size": "5 mm",
+             "qty": 2, "length_mm": 300, "stock_length_m": 6,
+             "weight_reference_length_m": "", "weight_reference_kg": "",
+             "notes": "ตัวอย่าง"},
+        ]
+        win.render_all()
+        app.processEvents()
+
         def snapshot(name):
             app.processEvents()
             if not win.grab().save(str(folder / name), "PNG"):
@@ -83,6 +105,9 @@ def smoke_test():
         win.show_page(1)
         snapshot("MinimalBOMPreview.png")
         trace("BOM screenshot saved")
+        win.show_page(2)
+        snapshot("SteelCutListPreview.png")
+        trace("steel Cut List screenshot saved")
         win.show_page(5)
         snapshot("MinimalReportsPreview.png")
         trace("reports screenshot saved")
