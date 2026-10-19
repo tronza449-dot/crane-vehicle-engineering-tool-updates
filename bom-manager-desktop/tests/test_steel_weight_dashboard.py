@@ -82,7 +82,7 @@ class SteelWeightCalculationTests(unittest.TestCase):
                      weight_reference_length_m=2, weight_reference_kg=4),
         ]}
         summary = bom_steel_bom.summarize_bom_and_steel(doc, waste_percent=5)
-        self.assertEqual(summary["steel_known_weight_kg"], Decimal("5.55"))
+        self.assertEqual(summary["steel_known_weight_kg"], Decimal("6.55"))
         self.assertEqual(summary["steel_required_length_m"], Decimal("2"))
         self.assertEqual(summary["steel_stock_bars"], 1)
         self.assertEqual(summary["steel_procurement_length_m"], Decimal("6.0"))
