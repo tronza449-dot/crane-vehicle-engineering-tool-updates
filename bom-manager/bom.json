@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T21:05:32+00:00",
+  "updatedAt": "2026-10-19T21:05:41+00:00",
   "currency": "THB",
   "items": [
     {
@@ -266,12 +266,13 @@
       "qty": 1,
       "unit": "ชิ้น",
       "connection": "ESP32 บนรถส่ง telemetry ไป ESP32-S3; วิธีส่งยังไม่เลือก | GPIO/จุดต่อ: ไม่ใช้ GPIO ของ ESP32 รถโดยตรง",
-      "unitPrice": 2590,
+      "unitPrice": 2590.0,
       "link": "https://www.smartfarmdiys.com/product/1564/waveshare-esp32-s3-7-0-%E0%B8%99%E0%B8%B4%E0%B9%89%E0%B8%A7-1024x600-lcd-development-board-esp32-%E0%B8%88%E0%B8%AD%E0%B9%81%E0%B8%AA%E0%B8%94%E0%B8%87%E0%B8%9C%E0%B8%A5%E0%B8%AB%E0%B8%99%E0%B9%89%E0%B8%B2%E0%B8%88%E0%B8%AD%E0%B8%AA%E0%B8%B1%E0%B8%A1%E0%B8%9C%E0%B8%B1%E0%B8%AA-lvgl-gui-%E0%B8%AA%E0%B9%8D%E0%B8%B2%E0%B8%AB%E0%B8%A3",
-      "status": "รุ่นระบุชัด; ยังเป็นตัวเลือก",
+      "status": "",
       "notes": "บอร์ดมี ESP32-S3 ในตัว; ต้องกำหนดวิธีส่งข้อมูลและทดสอบการเชื่อมต่อก่อนซื้อ",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "unitWeightKg": null
     },
     {
       "id": "13",
