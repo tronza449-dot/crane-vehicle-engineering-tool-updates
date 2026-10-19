@@ -1516,6 +1516,7 @@ class BOMWindow(QMainWindow):
             "น้ำหนักรวมอุปกรณ์และโครงสร้าง",
             "TOTAL MASS REGISTER  /  บันทึกน้ำหนักจริงที่ทราบและรวมเป็นกิโลกรัม")
         tabs = QTabWidget()
+        self.steel_tabs = tabs
         tabs.addTab(self._build_mass_register(), "น้ำหนักรวม")
         tabs.addTab(self._build_steel_cutlist(), "Cut List (ขั้นสูง)")
         body.addWidget(tabs, 1)
@@ -2518,7 +2519,7 @@ class BOMWindow(QMainWindow):
         self.mass_total_card.figure.setText(total_mass_text)
         self.mass_rollup_note.setText(
             f"น้ำหนักรวมที่ทราบ {total_mass_text} kg · "
-            f"อุปกรณ์ยังไม่กรอก {equipment_missing_count} รายการ · "
+            f"อุปกรณ์ยังไม่กรอกน้ำหนัก {equipment_missing_count} รายการ · "
             "น้ำหนักที่ยังไม่ทราบจะไม่ถูกเดาและไม่ถูกรวม")
         if hasattr(self, "cutlist_mass_equipment_card"):
             self.cutlist_mass_equipment_card.figure.setText(
@@ -2857,6 +2858,7 @@ class BOMWindow(QMainWindow):
             normalized = previous
         if normalized.get("weight_mode") != bom_steel.WEIGHT_MODE_MANUAL:
             # Preserve every field in older length-based cut-list records.
+            self.steel_tabs.setCurrentIndex(1)
             self.steel_table.selectRow(index)
             self.show_page(2)
             QMessageBox.information(
