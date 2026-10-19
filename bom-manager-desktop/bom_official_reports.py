@@ -8,6 +8,7 @@ from xml.sax.saxutils import escape
 import bom_core
 import bom_categories
 import bom_steel
+import bom_steel_bom
 
 # One restrained palette shared by PDF and Excel to match the formal
 # academic prototype: navy headings, blue accents, pale-blue table bands.
@@ -362,6 +363,60 @@ def export_pdf(doc, destination, options=None):
         P("ข้อจำกัดการประมาณ: จำนวนท่อนมาตรฐานคำนวณจากความยาวรวมเท่านั้น "
           "ยังไม่หัก kerf เศษตัด ระยะซ้อน/ต่อ และข้อจำกัดการจัดวางชิ้นตัด "
           "ต้องตรวจแผนตัดจริงก่อนสั่งซื้อเหล็ก", label),
+    ]
+
+    # Combined mass roll-up: only manually supplied equipment weights and
+    # steel weights with a complete reference measurement are counted.
+    mass = bom_steel_bom.summarize_bom_and_steel(doc)
+    equipment_rows = []
+    for item in sorted_items(doc):
+        qty = price(item.get("qty")) or 0
+        unit_weight = price(item.get("unitWeightKg"))
+        line_weight = qty * unit_weight if unit_weight is not None else None
+        equipment_rows.append([
+            item.get("id"), item.get("name"),
+            f'{qty:g} {item.get("unit") or ""}'.strip(),
+            "—" if unit_weight is None else f"{unit_weight:,.3f}",
+            "—" if line_weight is None else f"{line_weight:,.3f}",
+        ])
+    story += [
+        PageBreak(),
+        P("ภาคผนวก จ. สรุปน้ำหนักอุปกรณ์และโครงสร้าง / TOTAL MASS ROLL-UP", section),
+        P("น้ำหนักอุปกรณ์กรอกเองต่อ 1 หน่วย • น้ำหนักเหล็กคำนวณจากความยาวและน้ำหนักอ้างอิงที่กรอกไว้", label),
+        Spacer(1, 8),
+        TABLE(["น้ำหนักอุปกรณ์ที่ทราบ (kg)", "น้ำหนักโครงเหล็กที่ทราบ (kg)",
+               "น้ำหนักรวมที่ทราบ (kg)"], [[
+            f'{mass["equipment_known_weight_kg"]:,.3f}' if mass["equipment_weighted_items"] else "—",
+            f'{mass["steel_known_weight_kg"]:,.3f}' if mass["steel_known_weight_kg"] else "—",
+            f'{mass["combined_known_weight_kg"]:,.3f}' if
+            (mass["equipment_weighted_items"] or mass["steel_known_weight_kg"]) else "—",
+        ]], [width/3, width/3, width/3]),
+        Spacer(1, 7),
+        P(f'อุปกรณ์ยังไม่กรอกน้ำหนัก {mass["equipment_missing_weight_count"]} รายการ '
+          f'({mass["equipment_missing_weight_qty"]:g} หน่วย) • '
+          f'โครงเหล็กยังไม่ทราบน้ำหนัก {bom_steel.format_length(mass["steel_unknown_weight_length_m"])} m. '
+          + ("กรอกน้ำหนักครบตามรายการที่บันทึก" if mass["combined_weight_complete"]
+             else "น้ำหนักรวมเป็นเฉพาะส่วนที่ทราบ ยังไม่ใช่น้ำหนักจริงครบทุกชิ้น"), label),
+        Spacer(1, 12),
+        P("ตารางน้ำหนักอุปกรณ์จาก BOM", section), Spacer(1, 5),
+        TABLE(["BOM ID", "อุปกรณ์ / รุ่น", "จำนวน / หน่วย",
+               "น้ำหนัก/หน่วย (kg)", "น้ำหนักรวม (kg)"],
+              equipment_rows,
+              [width*.09, width*.39, width*.16, width*.18, width*.18]),
+        Spacer(1, 12),
+        P("ตารางน้ำหนักโครงสร้างเหล็ก", section), Spacer(1, 5),
+        TABLE(["ชิ้นส่วน", "ขนาดหน้าตัด", "จำนวน", "ความยาวรวม (m)",
+               "น้ำหนักที่ทราบ (kg)", "ยังไม่ทราบน้ำหนัก (m)"],
+              [[g.get("profile"), g.get("size"), g["pieces"],
+                bom_steel.format_length(g["total_length_m"]),
+                bom_steel.format_length(g["known_weight_kg"], 3),
+                bom_steel.format_length(g["unknown_weight_length_m"])]
+               for g in mass["steel_groups"]],
+              [width*.18, width*.19, width*.10, width*.17, width*.18, width*.18]),
+        Spacer(1, 8),
+        P("ข้อควรระวัง: หากมีรายการโครงเหล็กเดียวกันถูกใส่เป็นน้ำหนักอุปกรณ์ใน BOM ด้วย "
+          "และอยู่ใน Steel Cut List ด้วย จะถูกนับซ้ำ ต้องเว้นน้ำหนัก BOM ของรายการซ้ำหรือไม่รวมรายการนั้น "
+          "น้ำหนักที่ยังไม่กรอกจะไม่ถูกเดาและไม่ถูกรวมในผลรวม", label),
     ]
 
     # Dedicated sign-off page: leave actual signature/date spaces for a printed
