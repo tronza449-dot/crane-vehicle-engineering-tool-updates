@@ -98,11 +98,11 @@ class SteelQuantityTests(unittest.TestCase):
         self.assertIsNone(normalized["stock_length_m"])
         self.assertEqual(bom_steel.total_length_m(normalized), 0)
         self.assertEqual(bom_steel.weight_per_m(normalized), None)
-        self.assertEqual(bom_steel.total_weight_kg(normalized), 2.55)
+        self.assertEqual(bom_steel.total_weight_kg(normalized), __import__("decimal").Decimal("2.55"))
         result = bom_steel.summarize([row])
         self.assertEqual(result["total_pieces"], 3)
         self.assertEqual(result["total_length_m"], 0)
-        self.assertEqual(result["known_weight_kg"], 2.55)
+        self.assertEqual(result["known_weight_kg"], __import__("decimal").Decimal("2.55"))
         self.assertEqual(result["unknown_weight_length_m"], 0)
         self.assertEqual(result["estimated_stock_bars"], 0)
 
