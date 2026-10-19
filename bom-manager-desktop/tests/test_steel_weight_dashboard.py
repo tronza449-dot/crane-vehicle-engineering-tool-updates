@@ -116,11 +116,30 @@ class SteelWeightDashboardTests(unittest.TestCase):
         self.assertEqual(self.win.steel_weight_card.figure.text(), "18.000")
         self.assertEqual(self.win.steel_unknown_weight_card.figure.text(), "1.000")
         self.assertIn("18.000 kg", self.win.steel_totals_label.text())
-        self.assertEqual(self.win.steel_table.columnCount(), 15)
-        self.assertEqual(self.win.steel_table.item(0, 10).text(), "3.000")
-        self.assertEqual(self.win.steel_table.item(0, 13).text(), "—")
-        self.assertEqual(self.win.steel_table.item(0, 11).text(), "18.000")
-        self.assertEqual(self.win.steel_table.item(1, 11).text(), "—")
+        self.assertEqual(self.win.steel_table.columnCount(), 17)
+        self.assertEqual(self.win.steel_table.item(0, 11).text(), "3.000")
+        self.assertEqual(self.win.steel_table.item(0, 15).text(), "—")
+        self.assertEqual(self.win.steel_table.item(0, 13).text(), "18.000")
+        self.assertEqual(self.win.steel_table.item(1, 13).text(), "—")
+
+    def test_editor_switches_to_manual_weight_for_other_parts(self):
+        from bom_qt import RecordDialog, STEEL_FIELDS
+        dialog = RecordDialog("เพิ่มชิ้นส่วนโครงสร้างเหล็ก", STEEL_FIELDS, {
+            "member": "ขายึดมอเตอร์", "profile": "ชิ้นส่วนอื่น", "size": "",
+            "qty": 3, "weight_mode": bom_steel.WEIGHT_MODE_LENGTH,
+        }, self.win)
+        selector = dialog.widgets["weight_mode"]
+        selector.setCurrentIndex(selector.findData(bom_steel.WEIGHT_MODE_MANUAL))
+        self.assertTrue(dialog.widgets["manual_unit_weight_kg"].isVisible() or
+                        not dialog.widgets["manual_unit_weight_kg"].isHidden())
+        self.assertTrue(dialog.widgets["length_mm"].isHidden())
+        self.assertTrue(dialog.widgets["weight_reference_length_m"].isHidden())
+        dialog.widgets["manual_unit_weight_kg"].setText("0.85")
+        values = bom_steel.normalize_member(dialog.get_values())
+        self.assertEqual(values["weight_mode"], bom_steel.WEIGHT_MODE_MANUAL)
+        self.assertIsNone(values["length_mm"])
+        self.assertEqual(bom_steel.total_weight_kg(values), Decimal("2.55"))
+        dialog.close()
 
     def test_steel_editor_has_reference_length_and_weight_fields(self):
         from bom_qt import RecordDialog, STEEL_FIELDS
