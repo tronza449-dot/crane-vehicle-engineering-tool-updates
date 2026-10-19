@@ -858,10 +858,12 @@ def export_excel(doc,destination,options=None):
     steel_summary = sheet("Steel Summary", [23, 28, 29, 16, 22, 22, 24],
         ["วัสดุ / เกรด", "ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น",
          "ความยาวรวม (m)", "ท่อนมาตรฐาน (m)", "จำนวนท่อน (ประมาณ)"], True)
-    steel_cut = sheet("Steel Cut List", [10, 32, 23, 25, 28, 14, 20, 18, 22, 44],
+    steel_cut = sheet("Steel Cut List", [10, 32, 23, 25, 28, 14, 20, 18, 22, 44,
+                                         20, 20, 20, 20],
         ["ID", "ตำแหน่ง / ชิ้นส่วน", "วัสดุ / เกรด", "ชนิดหน้าตัด",
          "ขนาดหน้าตัด", "จำนวนชิ้น", "ยาว/ชิ้น (mm)", "รวมความยาว (m)",
-         "ท่อนมาตรฐาน (m)", "หมายเหตุ"], True)
+         "ท่อนมาตรฐาน (m)", "หมายเหตุ", "อ้างอิงยาว (m)", "อ้างอิงหนัก (kg)",
+         "น้ำหนัก/เมตร (kg/m)", "น้ำหนักรวม (kg)"], True)
     steel_summary.merge_range(
         5, 0, 5, 6,
         "จำนวนท่อนเป็นค่าประมาณจากความยาวรวม ไม่หัก kerf/เศษตัด/ระยะซ้อน "
@@ -873,9 +875,13 @@ def export_excel(doc,destination,options=None):
         item = bom_steel.normalize_member(raw)
         row = 7 + idx
         excel_row = row + 1
+        rate = bom_steel.weight_per_m(item)
+        total_mass = bom_steel.total_weight_kg(item)
         values = [item.get("id"), item.get("member"), item.get("material"),
                   item.get("profile"), item.get("size"), item.get("qty"),
-                  item.get("length_mm"), None, item.get("stock_length_m"), item.get("notes")]
+                  item.get("length_mm"), None, item.get("stock_length_m"), item.get("notes"),
+                  item.get("weight_reference_length_m"), item.get("weight_reference_kg"),
+                  None, None]
         rowfmt = alternate if idx % 2 else normal
         for col, value in enumerate(values):
             if col == 7:
@@ -883,19 +889,113 @@ def export_excel(doc,destination,options=None):
                 steel_cut.write_formula(
                     row, col, f"=F{excel_row}*G{excel_row}/1000",
                     steel_length_fmt, length)
-            elif col in (5, 6, 8):
-                if value is None:
-                    steel_cut.write_blank(row, col, None, rowfmt)
+            elif col == 12:
+                steel_cut.write_formula(
+                    row, col,
+                    f'=IF(AND(K{excel_row}<>"",L{excel_row}<>""),L{excel_row}/K{excel_row},"")',
+                    mass_number, "" if rate is None else float(rate))
+            elif col == 13:
+                steel_cut.write_formula(
+                    row, col,
+                    f'=IF(AND(H{excel_row}<>"",M{excel_row}<>""),H{excel_row}*M{excel_row},"")',
+                    mass_number, "" if total_mass is None else float(total_mass))
+            elif col in (5, 6, 8, 10, 11):
+                if value is None or value == "":
+                    steel_cut.write_blank(row, col, None,
+                                          mass_number if col in (10, 11) else rowfmt)
                 else:
-                    steel_cut.write_number(row, col, float(value),
-                                           number if col == 4 else steel_length_fmt)
+                    fmt_value = (number if col == 5 else
+                                 mass_number if col in (10, 11) else steel_length_fmt)
+                    steel_cut.write_number(row, col, float(value), fmt_value)
             else:
                 steel_cut.write_string(row, col, "" if value is None else str(value), rowfmt)
         steel_cut.set_row(row, 43)
     cut_last_excel = max(8, 7 + len(steel_rows))
     if steel_rows:
         steel_cut.autofilter(6, 0, 6 + len(steel_rows), 9)
-    steel_cut.print_area(0, 0, max(7, 6 + len(steel_rows)), 9)
+    steel_cut.print_area(0, 0, max(7, 6 + len(steel_rows)), 13)
+
+    # Combined mass roll-up worksheet. BOM and cut-list sources remain the
+    # editable inputs; this sheet summarizes only weights that are known.
+    mass_data = bom_steel_bom.summarize_bom_and_steel(doc)
+    mass_sheet = sheet("Mass Summary",
+        [20, 12, 42, 13, 13, 22, 22, 29],
+        ["ประเภท", "ID", "อุปกรณ์ / ชิ้นส่วน", "จำนวน", "หน่วย",
+         "น้ำหนักต่อหน่วย / เมตร (kg)", "น้ำหนักรวม (kg)", "หมายเหตุ"], True)
+    mass_sheet.write_string(3, 0, "อุปกรณ์ BOM (kg)", label)
+    mass_sheet.write_formula(3, 1,
+        "=SUM(BOM!K8:K" + str(max(8, 7 + count)) + ")",
+        total_mass, float(mass_data["equipment_known_weight_kg"]))
+    mass_sheet.write_string(3, 2, "โครงเหล็ก (kg)", label)
+    mass_sheet.write_formula(3, 3,
+        "=SUM('Steel Cut List'!N8:N" + str(max(8, 7 + len(steel_rows))) + ")",
+        total_mass, float(mass_data["steel_known_weight_kg"]))
+    mass_sheet.write_string(3, 4, "น้ำหนักรวมที่ทราบ (kg)", label)
+    mass_sheet.write_formula(3, 5, "=B4+D4", total_mass,
+                             float(mass_data["combined_known_weight_kg"]))
+    mass_sheet.merge_range(4, 0, 4, 7,
+        "รวมเฉพาะน้ำหนักที่กรอกไว้ • น้ำหนักที่ไม่ทราบจะแสดงว่างและไม่ถูกเดา", notice)
+    for idx, item in enumerate(items):
+        row = 7 + idx
+        excel_row = row + 1
+        qty = price(item.get("qty")) or 0
+        unit_weight = price(item.get("unitWeightKg"))
+        line_weight = None if unit_weight is None else qty * unit_weight
+        values = ["อุปกรณ์ BOM", item.get("id"), item.get("name"), qty,
+                  item.get("unit") or "", unit_weight, None,
+                  "ยังไม่ทราบน้ำหนัก" if unit_weight is None else ""]
+        for col, value in enumerate(values):
+            if col == 6:
+                mass_sheet.write_formula(
+                    row, col, f'=IF(F{excel_row}="","",D{excel_row}*F{excel_row})',
+                    mass_number, "" if line_weight is None else float(line_weight))
+            elif value is None or value == "":
+                mass_sheet.write_blank(row, col, None,
+                                       mass_number if col in (3, 5) else normal)
+            elif col == 3:
+                mass_sheet.write_number(row, col, float(value), number)
+            elif col == 5:
+                mass_sheet.write_number(row, col, float(value), mass_number)
+            else:
+                mass_sheet.write_string(row, col, str(value),
+                                         alternate if idx % 2 else normal)
+        mass_sheet.set_row(row, 34)
+    steel_header_row = 7 + len(items) + 2
+    mass_sheet.merge_range(steel_header_row, 0, steel_header_row, 7,
+                           "รายการโครงสร้างเหล็ก / STEEL FRAME", bar)
+    subhead_row = steel_header_row + 1
+    for col, heading in enumerate(["ประเภท", "ID", "อุปกรณ์ / ชิ้นส่วน", "จำนวน", "หน่วย",
+                                   "น้ำหนักต่อหน่วย / เมตร (kg)", "น้ำหนักรวม (kg)", "หมายเหตุ"]):
+        mass_sheet.write(subhead_row, col, heading, head)
+    for idx, raw in enumerate(steel_rows):
+        item = bom_steel.normalize_member(raw)
+        rate = bom_steel.weight_per_m(item)
+        line_weight = bom_steel.total_weight_kg(item)
+        row = subhead_row + 1 + idx
+        source_excel_row = 8 + idx
+        values = ["โครงเหล็ก", item.get("id"), item.get("member"), item.get("qty"),
+                  "ชิ้น", rate, None,
+                  "ยังไม่ทราบน้ำหนัก" if rate is None else ""]
+        for col, value in enumerate(values):
+            if col == 6:
+                formula = f'=IF(\'Steel Cut List\'!N{source_excel_row}="","",\'Steel Cut List\'!N{source_excel_row})'
+                mass_sheet.write_formula(
+                    row, col, formula, mass_number,
+                    "" if line_weight is None else float(line_weight))
+            elif value is None or value == "":
+                mass_sheet.write_blank(row, col, None,
+                                       mass_number if col == 5 else normal)
+            elif col == 3:
+                mass_sheet.write_number(row, col, float(value), number)
+            elif col == 5:
+                mass_sheet.write_number(row, col, float(value), mass_number)
+            else:
+                mass_sheet.write_string(row, col, str(value),
+                                         alternate if idx % 2 else normal)
+        mass_sheet.set_row(row, 34)
+    mass_last = max(subhead_row + len(steel_rows), 7 + len(items))
+    mass_sheet.autofilter(6, 0, mass_last, 7)
+    mass_sheet.print_area(0, 0, mass_last, 7)
 
     if steel_totals["groups"]:
         for idx, group in enumerate(steel_totals["groups"]):
