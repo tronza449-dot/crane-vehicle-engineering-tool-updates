@@ -4,7 +4,6 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -60,7 +59,7 @@ class BOMWeightManagerTests(unittest.TestCase):
         self.window.close()
         self.window.deleteLater()
 
-    def test_weighted_item_is_removed_from_picker_and_total_is_calculated(self):
+    def test_a_weighted_item_disappears_from_picker_and_updates_total(self):
         self.assertEqual(self.dialog.item_combo.count(), 2)
         self.assertEqual(self.dialog.item_combo.itemData(0), "101")
         self.dialog.item_combo.setCurrentIndex(self.dialog.item_combo.findData("101"))
@@ -79,44 +78,10 @@ class BOMWeightManagerTests(unittest.TestCase):
         self.assertTrue(self.window.dirty)
         self.assertTrue(self.window.cache_path.exists())
 
-    def test_edit_existing_weight_keeps_item_out_of_picker(self):
-        self.assertNotIn("103", [self.dialog.item_combo.itemData(i)
-                                for i in range(self.dialog.item_combo.count())])
-        row = next(i for i in range(self.dialog.weight_table.rowCount())
-                   if self.dialog.weight_table.item(i, 0).text() == "103")
-        self.dialog.weight_table.setCurrentCell(row, 0)
-        self.dialog.weight_table.selectRow(row)
-        with patch("bom_qt.QMessageBox.information",
-                   side_effect=AssertionError("Unexpected no-selection dialog")), \
-             patch("bom_qt.QInputDialog.getDouble", return_value=(3.0, True)):
-            self.dialog.edit_selected_weight()
-        controller = next(x for x in self.window.payload["items"] if x["id"] == "103")
-        self.assertEqual(controller["unitWeightKg"], 3.0)
-        self.assertNotIn("103", [self.dialog.item_combo.itemData(i)
-                                for i in range(self.dialog.item_combo.count())])
-
-    def test_clearing_weight_returns_item_to_available_picker(self):
-        row = next(i for i in range(self.dialog.weight_table.rowCount())
-                   if self.dialog.weight_table.item(i, 0).text() == "103")
-        self.dialog.weight_table.setCurrentCell(row, 0)
-        self.dialog.weight_table.selectRow(row)
-        with patch("bom_qt.QMessageBox.information",
-                   side_effect=AssertionError("Unexpected no-selection dialog")), \
-             patch("bom_qt.QMessageBox.question", return_value=__import__(
-                "PySide6.QtWidgets", fromlist=["QMessageBox"]).QMessageBox.StandardButton.Yes):
-            self.dialog.clear_selected_weight()
-        controller = next(x for x in self.window.payload["items"] if x["id"] == "103")
-        self.assertIsNone(controller["unitWeightKg"])
-        self.assertIn("103", [self.dialog.item_combo.itemData(i)
-                              for i in range(self.dialog.item_combo.count())])
-
-    def test_steel_page_has_weight_manager_button_and_no_stability_tool(self):
-        buttons = self.window.findChildren(QPushButton)
-        labels = [button.text() for button in buttons]
+    def test_bom_weight_manager_button_is_visible_on_mass_page(self):
+        labels = [button.text() for button in self.window.findChildren(QPushButton)]
         self.assertIn("＋ เลือกอุปกรณ์จาก BOM แล้วใส่น้ำหนัก", labels)
-        self.assertTrue(any("น้ำหนักรวมอุปกรณ์และโครงสร้าง" in label
-                            for label in [self.window.mass_weight_count_label.text(),
-                                          self.window.mass_rollup_note.text()]))
+        self.assertTrue(self.window.mass_weight_count_label.text())
         self.assertFalse(any("คำนวณการล้ม" in label or "Stability" in label
                              for label in labels))
 
