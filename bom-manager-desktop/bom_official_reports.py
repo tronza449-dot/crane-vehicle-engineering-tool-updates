@@ -835,21 +835,23 @@ def export_excel(doc,destination,options=None):
             steel_summary.write_string(row, 0, group["material"], alternate if idx % 2 else normal)
             steel_summary.write_string(row, 1, group["profile"], alternate if idx % 2 else normal)
             steel_summary.write_string(row, 2, group["size"], alternate if idx % 2 else normal)
+            cut_qty = "'Steel Cut List'!$F$8:$F$" + str(cut_last_excel)
+            cut_material = "'Steel Cut List'!$C$8:$C$" + str(cut_last_excel)
+            cut_profile = "'Steel Cut List'!$D$8:$D$" + str(cut_last_excel)
+            cut_size = "'Steel Cut List'!$E$8:$E$" + str(cut_last_excel)
+            cut_length = "'Steel Cut List'!$H$8:$H$" + str(cut_last_excel)
+            cut_stock = "'Steel Cut List'!$I$8:$I$" + str(cut_last_excel)
             steel_summary.write_formula(
                 row, 3,
-                f"=SUMIFS('Steel Cut List'!$F$8:$F$${"${cut_last_excel}"},"
-                f"'Steel Cut List'!$C$8:$C$${"${cut_last_excel}"},A{excel_row},"
-                f"'Steel Cut List'!$D$8:$D$${"${cut_last_excel}"},B{excel_row},"
-                f"'Steel Cut List'!$E$8:$E$${"${cut_last_excel}"},C{excel_row},"
-                f"'Steel Cut List'!$I$8:$I$${"${cut_last_excel}"},F{excel_row})",
+                f"=SUMIFS({cut_qty},{cut_material},A{excel_row},"
+                f"{cut_profile},B{excel_row},{cut_size},C{excel_row},"
+                f"{cut_stock},F{excel_row})",
                 number, group["pieces"])
             steel_summary.write_formula(
                 row, 4,
-                f"=SUMIFS('Steel Cut List'!$H$8:$H$${"${cut_last_excel}"},"
-                f"'Steel Cut List'!$C$8:$C$${"${cut_last_excel}"},A{excel_row},"
-                f"'Steel Cut List'!$D$8:$D$${"${cut_last_excel}"},B{excel_row},"
-                f"'Steel Cut List'!$E$8:$E$${"${cut_last_excel}"},C{excel_row},"
-                f"'Steel Cut List'!$I$8:$I$${"${cut_last_excel}"},F{excel_row})",
+                f"=SUMIFS({cut_length},{cut_material},A{excel_row},"
+                f"{cut_profile},B{excel_row},{cut_size},C{excel_row},"
+                f"{cut_stock},F{excel_row})",
                 steel_length_fmt, float(group["total_length_m"]))
             steel_summary.write_number(row, 5, group["stock_length_m"], steel_length_fmt)
             steel_summary.write_formula(
