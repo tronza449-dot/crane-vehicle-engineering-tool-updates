@@ -430,6 +430,213 @@ class RecordDialog(QDialog):
         return data
 
 
+class WeightEntryDialog(QDialog):
+    """Assign per-unit weights to BOM rows; weighted rows leave the available picker."""
+    def __init__(self, owner):
+        super().__init__(owner)
+        self.owner = owner
+        self.setWindowTitle("บันทึกน้ำหนักอุปกรณ์จาก BOM")
+        self.setMinimumSize(820, 640)
+        self.resize(980, 720)
+        root = QVBoxLayout(self)
+        root.setSpacing(12)
+        title = QLabel("น้ำหนักอุปกรณ์ / BOM WEIGHT REGISTER")
+        title.setObjectName("pageTitle")
+        root.addWidget(title)
+        help_text = QLabel(
+            "เลือกอุปกรณ์ที่ยังไม่ได้ใส่น้ำหนัก แล้วกรอกน้ำหนักต่อ 1 หน่วย (kg) "
+            "โปรแกรมจะคูณจำนวนจาก BOM ให้อัตโนมัติ เมื่อบันทึกแล้วรายการนั้นจะหายจากตัวเลือก "
+            "เพื่อป้องกันการกรอกซ้ำ")
+        help_text.setWordWrap(True)
+        help_text.setObjectName("hint")
+        root.addWidget(help_text)
+
+        form = QGridLayout()
+        form.setHorizontalSpacing(12)
+        form.setVerticalSpacing(10)
+        form.addWidget(QLabel("อุปกรณ์ที่ยังไม่มีน้ำหนัก"), 0, 0)
+        self.item_combo = QComboBox()
+        self.item_combo.setMinimumWidth(400)
+        self.item_combo.currentIndexChanged.connect(self._update_selected_item)
+        form.addWidget(self.item_combo, 0, 1, 1, 3)
+        form.addWidget(QLabel("น้ำหนักต่อหน่วย (kg)"), 1, 0)
+        self.weight_input = QLineEdit()
+        self.weight_input.setPlaceholderText("กรอกตัวเลข เช่น 2.500")
+        self.weight_input.setToolTip("น้ำหนักของอุปกรณ์หนึ่งชิ้น ไม่ใช่น้ำหนักรวมทุกชิ้น")
+        form.addWidget(self.weight_input, 1, 1)
+        self.item_info = QLabel("เลือกอุปกรณ์เพื่อดูจำนวนและหน่วย")
+        self.item_info.setWordWrap(True)
+        form.addWidget(self.item_info, 1, 2, 1, 2)
+        self.save_weight_btn = QPushButton("บันทึกน้ำหนัก")
+        self.save_weight_btn.setObjectName("primary")
+        self.save_weight_btn.clicked.connect(self.save_weight)
+        form.addWidget(self.save_weight_btn, 2, 1)
+        root.addLayout(form)
+
+        root.addWidget(QLabel("อุปกรณ์ที่บันทึกน้ำหนักแล้ว"))
+        self.weight_table = QTableWidget(0, 5)
+        self.weight_table.setHorizontalHeaderLabels(
+            ["BOM ID", "อุปกรณ์", "จำนวน", "น้ำหนัก/หน่วย (kg)", "น้ำหนักรวม (kg)"])
+        self.weight_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.weight_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.weight_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.weight_table.setAlternatingRowColors(True)
+        self.weight_table.setColumnWidth(0, 80)
+        self.weight_table.setColumnWidth(1, 360)
+        self.weight_table.setColumnWidth(2, 90)
+        self.weight_table.setColumnWidth(3, 160)
+        self.weight_table.setColumnWidth(4, 160)
+        self.weight_table.horizontalHeader().setStretchLastSection(True)
+        root.addWidget(self.weight_table, 1)
+
+        actions = QHBoxLayout()
+        self.edit_weight_btn = QPushButton("แก้ไขน้ำหนักที่เลือก")
+        self.edit_weight_btn.clicked.connect(self.edit_selected_weight)
+        actions.addWidget(self.edit_weight_btn)
+        self.clear_weight_btn = QPushButton("ล้างน้ำหนักที่เลือก")
+        self.clear_weight_btn.clicked.connect(self.clear_selected_weight)
+        actions.addWidget(self.clear_weight_btn)
+        actions.addStretch()
+        close_btn = QPushButton("ปิด")
+        close_btn.clicked.connect(self.accept)
+        actions.addWidget(close_btn)
+        root.addLayout(actions)
+        self.refresh()
+
+    @staticmethod
+    def _has_weight(item):
+        value = item.get("unitWeightKg")
+        if value is None or str(value).strip() == "":
+            return False
+        try:
+            return float(value) > 0
+        except (TypeError, ValueError):
+            return False
+
+    @staticmethod
+    def _number(value):
+        try:
+            result = float(str(value).replace(",", "").strip())
+        except (TypeError, ValueError):
+            return None
+        return result if result > 0 and math.isfinite(result) else None
+
+    def _find_item(self, item_id):
+        return next((row for row in self.owner.payload.get("items", [])
+                     if str(row.get("id")) == str(item_id)), None)
+
+    def refresh(self):
+        selected_id = self.item_combo.currentData() if self.item_combo.count() else None
+        self.item_combo.blockSignals(True)
+        self.item_combo.clear()
+        available = [row for row in self.owner.payload.get("items", [])
+                     if not self._has_weight(row)]
+        if not available:
+            self.item_combo.addItem("กรอกน้ำหนักครบทุกอุปกรณ์แล้ว", None)
+        else:
+            for row in available:
+                item_id = str(row.get("id") or "")
+                label = (f'BOM {item_id}  |  {row.get("name") or "ไม่ระบุชื่อ"}'
+                         f'  •  จำนวน {row.get("qty", 1)} {row.get("unit") or ""}')
+                self.item_combo.addItem(label, item_id)
+            old_index = self.item_combo.findData(selected_id)
+            if old_index >= 0:
+                self.item_combo.setCurrentIndex(old_index)
+        self.item_combo.blockSignals(False)
+        self._update_selected_item()
+
+        weighted = [row for row in self.owner.payload.get("items", [])
+                    if self._has_weight(row)]
+        self.weight_table.setRowCount(len(weighted))
+        for index, row in enumerate(weighted):
+            qty = float(row.get("qty") or 0)
+            weight = float(row.get("unitWeightKg"))
+            values = [
+                row.get("id", ""), row.get("name", ""), f"{qty:g}",
+                f"{weight:,.3f}", f"{qty * weight:,.3f}",
+            ]
+            for column, value in enumerate(values):
+                cell = QTableWidgetItem(str(value))
+                cell.setData(Qt.ItemDataRole.UserRole, str(row.get("id") or ""))
+                self.weight_table.setItem(index, column, cell)
+        self.edit_weight_btn.setEnabled(bool(weighted))
+        self.clear_weight_btn.setEnabled(bool(weighted))
+
+    def _update_selected_item(self, *_):
+        item_id = self.item_combo.currentData()
+        item = self._find_item(item_id) if item_id is not None else None
+        available = item is not None and not self._has_weight(item)
+        self.save_weight_btn.setEnabled(available)
+        if not available:
+            self.item_info.setText("ไม่มีรายการให้เลือก หรือรายการนี้มีน้ำหนักแล้ว")
+            return
+        self.item_info.setText(
+            f'จำนวนใน BOM: {item.get("qty", 1)} {item.get("unit") or ""} '
+            "• น้ำหนักรวม = จำนวน × น้ำหนักต่อหน่วย")
+        self.weight_input.clear()
+
+    def save_weight(self):
+        item_id = self.item_combo.currentData()
+        item = self._find_item(item_id) if item_id is not None else None
+        if item is None or self._has_weight(item):
+            QMessageBox.information(self, "เลือกรายการ", "กรุณาเลือกอุปกรณ์ที่ยังไม่มีน้ำหนัก")
+            self.refresh()
+            return
+        weight = self._number(self.weight_input.text())
+        if weight is None:
+            QMessageBox.warning(self, "น้ำหนักไม่ถูกต้อง",
+                                "กรุณากรอกน้ำหนักต่อหน่วยเป็นตัวเลขที่มากกว่า 0 kg")
+            return
+        item["unitWeightKg"] = round(weight, 6)
+        self.owner.changed()
+        self.refresh()
+        self.owner.set_status(
+            f'บันทึกน้ำหนัก BOM ID {item_id} แล้ว · รายการนี้ถูกนำออกจากตัวเลือก')
+    
+    def _selected_weight_item(self):
+        row_index = self.weight_table.currentRow()
+        if row_index < 0:
+            QMessageBox.information(self, "เลือกรายการ", "กรุณาเลือกอุปกรณ์ในตารางก่อน")
+            return None
+        cell = self.weight_table.item(row_index, 0)
+        item_id = cell.data(Qt.ItemDataRole.UserRole) if cell else None
+        item = self._find_item(item_id) if item_id is not None else None
+        if item is None:
+            QMessageBox.warning(self, "ไม่พบรายการ", "ไม่พบ BOM ID นี้ในรายการปัจจุบัน")
+            self.refresh()
+            return None
+        return item
+
+    def edit_selected_weight(self):
+        item = self._selected_weight_item()
+        if item is None:
+            return
+        old = float(item["unitWeightKg"])
+        value, ok = QInputDialog.getDouble(
+            self, "แก้ไขน้ำหนักต่อหน่วย",
+            f'น้ำหนักต่อหน่วยของ BOM {item.get("id")} • {item.get("name")}',
+            old, 0.001, 1000000.0, 3)
+        if not ok:
+            return
+        item["unitWeightKg"] = round(value, 6)
+        self.owner.changed()
+        self.refresh()
+        self.owner.set_status(f'แก้ไขน้ำหนัก BOM ID {item.get("id")} แล้ว')
+
+    def clear_selected_weight(self):
+        item = self._selected_weight_item()
+        if item is None:
+            return
+        if QMessageBox.question(
+                self, "ยืนยันล้างน้ำหนัก",
+                f'ล้างน้ำหนักของ BOM {item.get("id")} • {item.get("name")} หรือไม่?\\n'
+                "รายการจะกลับไปอยู่ในตัวเลือกสำหรับกรอกน้ำหนัก") != QMessageBox.StandardButton.Yes:
+            return
+        item["unitWeightKg"] = None
+        self.owner.changed()
+        self.refresh()
+        self.owner.set_status(f'ล้างน้ำหนัก BOM ID {item.get("id")} แล้ว')
+
 class ReportOptionsDialog(QDialog):
     """Simple report metadata form; saved in app settings, not in BOM JSON."""
     FIELDS = (
@@ -1169,6 +1376,15 @@ class BOMWindow(QMainWindow):
             mass_grid.addWidget(card, 0, col)
             mass_grid.setColumnStretch(col, 1)
         mass_panel.addLayout(mass_grid)
+        weight_actions = QHBoxLayout()
+        weight_actions.addWidget(self._button(
+            "＋ เลือกอุปกรณ์จาก BOM แล้วใส่น้ำหนัก",
+            self.open_weight_manager, "primary"))
+        self.mass_weight_count_label = self._label(
+            "บันทึกน้ำหนักต่อหน่วยจาก BOM เพื่อรวมอัตโนมัติ", "caption")
+        self.mass_weight_count_label.setWordWrap(True)
+        weight_actions.addWidget(self.mass_weight_count_label, 1)
+        mass_panel.addLayout(weight_actions)
         self.mass_rollup_note = self._label(
             "กรอกน้ำหนักต่อหน่วยในรายการ BOM และกรอกน้ำหนักอ้างอิงในรายการเหล็ก "
             "เพื่อคำนวณน้ำหนักรวม", "hint")
@@ -1942,6 +2158,10 @@ class BOMWindow(QMainWindow):
         steel_mass = summary["steel_known_weight_kg"]
         equipment_known_count = summary["equipment_weighted_items"]
         equipment_missing_count = summary["equipment_missing_weight_count"]
+        if hasattr(self, "mass_weight_count_label"):
+            self.mass_weight_count_label.setText(
+                f"กรอกน้ำหนักแล้ว {equipment_known_count} / {len(self.payload.get('items', []))} รายการ "
+                f"• ยังเหลือ {equipment_missing_count} รายการ")
         self.mass_equipment_card.figure.setText(
             bom_steel.format_length(equipment_mass, 3)
             if equipment_known_count else "—")
@@ -2211,6 +2431,17 @@ class BOMWindow(QMainWindow):
                                 "ตรวจสอบข้อมูลใหม่จาก GitHub ไม่สำเร็จ")
         self._job(work, success, failed, context="github")
 
+
+    def open_weight_manager(self):
+        """Open a focused weight-only workflow; no stability/tipping calculations."""
+        dialog = WeightEntryDialog(self)
+        self.edit_dialog_active = True
+        try:
+            dialog.exec()
+        finally:
+            self.edit_dialog_active = False
+        self.render_steel()
+        self._schedule_auto_sync()
 
     def changed(self):
         self.dirty = True
