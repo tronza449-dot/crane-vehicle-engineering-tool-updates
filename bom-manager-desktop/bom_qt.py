@@ -396,7 +396,8 @@ class RecordDialog(QDialog):
                 if key == "link" and "เหล็ก" in title:
                     control.setPlaceholderText("https://...")
                     control.setToolTip(
-                        "ใส่ลิงก์หน้าสินค้าหรือร้านค้าที่ซื้อเหล็กขนาดนี้ เพื่ออ้างอิงตอนจัดซื้อ")
+                        "ลิงก์สินค้า: ใส่ลิงก์หน้าสินค้าหรือร้านค้าที่ซื้อเหล็กขนาดนี้ "
+                        "เพื่ออ้างอิงตอนจัดซื้อ")
             self.widgets[key] = control
             (groups.get(key) if is_bom else form).addRow(QLabel(label), control)
         if "เหล็ก" in title and "weight_mode" in self.widgets:
@@ -535,7 +536,13 @@ class FrameWeightDialog(QDialog):
         self.mode_input = QComboBox()
         for mode, label in bom_steel.WEIGHT_MODE_OPTIONS:
             self.mode_input.addItem(label, mode)
-        mode = str(values.get("weight_mode") or bom_steel.WEIGHT_MODE_LENGTH)
+        # Preserve the old mass-register default for new manual entries.
+        # Existing cut-list rows with a length remain length-based.
+        default_mode = (bom_steel.WEIGHT_MODE_LENGTH
+                        if values.get("length_mm") not in (None, "") or
+                        values.get("weight_reference_length_m") not in (None, "")
+                        else bom_steel.WEIGHT_MODE_MANUAL)
+        mode = str(values.get("weight_mode") or default_mode)
         mode_index = self.mode_input.findData(mode)
         self.mode_input.setCurrentIndex(mode_index if mode_index >= 0 else 0)
         self.mode_input.setToolTip(
