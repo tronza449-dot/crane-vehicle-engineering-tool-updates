@@ -266,7 +266,7 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("E8*J8", bom_xml)
             cut_xml = book.read("xl/worksheets/sheet11.xml").decode("utf-8")
             self.assertIn("M8/L8", cut_xml)
-            self.assertIn("H8*M8", cut_xml)
+            self.assertIn("I8*N8", cut_xml)
             mass_xml = book.read("xl/worksheets/sheet12.xml").decode("utf-8")
             self.assertIn("SUM(B4,D4)", mass_xml)
         try:
