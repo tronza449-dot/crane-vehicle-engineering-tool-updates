@@ -340,6 +340,26 @@ def export_pdf(doc, destination, options=None):
          g["estimated_stock_bars"]]
         for g in steel_totals["groups"]
     ]
+    def steel_detail_values(raw):
+        item = bom_steel.normalize_member(raw)
+        manual = item.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+        length_display = (
+            bom_steel.format_length(bom_steel.total_length_m(item))
+            if item.get("length_mm") is not None else "—")
+        mass = bom_steel.total_weight_kg(item)
+        return [
+            item.get("id"), item.get("member"), mode_label(item),
+            item.get("material", bom_steel.DEFAULT_MATERIAL), item.get("profile"),
+            item.get("size"), item.get("qty"),
+            item.get("length_mm") if item.get("length_mm") is not None else "—",
+            length_display,
+            (bom_steel.format_length(item.get("manual_unit_weight_kg"), 3)
+             if manual else "—"),
+            ("—" if mass is None else bom_steel.format_length(mass, 3)),
+            stock_label(item.get("stock_length_m")), item.get("link") or "—",
+            item.get("notes"),
+        ]
+
     story += [
         PageBreak(),
         P("ภาคผนวก ง. รายการตัดเหล็กและน้ำหนักชิ้นส่วน / STEEL CUT LIST", section),
@@ -365,20 +385,7 @@ def export_pdf(doc, destination, options=None):
             ["ID", "ตำแหน่ง / ชิ้นส่วน", "วิธีน้ำหนัก", "วัสดุ / เกรด", "ชนิดหน้าตัด",
              "ขนาด", "จำนวน", "ยาว/ชิ้น (mm)", "รวม (m)", "น้ำหนัก/ชิ้น (kg)",
              "น้ำหนักรวม (kg)", "ท่อนมาตรฐาน (m)", "ลิงก์สินค้า", "หมายเหตุ"],
-            [[r.get("id"), r.get("member"), mode_label(bom_steel.normalize_member(r)),
-              bom_steel.normalize_member(r).get("material", bom_steel.DEFAULT_MATERIAL),
-              r.get("profile"), r.get("size"), r.get("qty"),
-              r.get("length_mm") if r.get("length_mm") is not None else "—",
-              (bom_steel.format_length(bom_steel.total_length_m(r))
-               if bom_steel.normalize_member(r).get("length_mm") is not None else "—"),
-              (bom_steel.format_length(r.get("manual_unit_weight_kg"), 3)
-               if bom_steel.normalize_member(r).get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
-               else "—"),
-              ("—" if bom_steel.total_weight_kg(r) is None
-               else bom_steel.format_length(bom_steel.total_weight_kg(r), 3)),
-              stock_label(bom_steel.normalize_member(r).get("stock_length_m")),
-              r.get("link") or "—", r.get("notes")]
-             for r in steel_rows],
+            [steel_detail_values(r) for r in steel_rows],
             [width*.035, width*.11, width*.08, width*.085, width*.08, width*.07,
              width*.04, width*.055, width*.055, width*.07, width*.07, width*.055,
              width*.075, width*.12]),
