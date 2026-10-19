@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from decimal import Decimal
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -98,7 +99,7 @@ class SteelQuantityTests(unittest.TestCase):
         self.assertIsNone(normalized["stock_length_m"])
         self.assertEqual(bom_steel.total_length_m(normalized), 0)
         self.assertEqual(bom_steel.weight_per_m(normalized), None)
-        self.assertEqual(bom_steel.total_weight_kg(normalized), __import__("decimal").Decimal("2.55"))
+        self.assertEqual(bom_steel.total_weight_kg(normalized), Decimal("2.55"))
         result = bom_steel.summarize([row])
         self.assertEqual(result["total_pieces"], 3)
         self.assertEqual(result["total_length_m"], 0)
