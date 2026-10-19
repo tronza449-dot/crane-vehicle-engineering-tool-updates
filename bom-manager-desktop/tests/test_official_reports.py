@@ -262,7 +262,7 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("L8/K8", cut_xml)
             self.assertIn("H8*M8", cut_xml)
             mass_xml = book.read("xl/worksheets/sheet12.xml").decode("utf-8")
-            self.assertIn("B4+D4", mass_xml)
+            self.assertIn("SUM(B4,D4)", mass_xml)
         try:
             from bom_reports import _thai_font
             _thai_font()
