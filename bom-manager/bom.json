@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-18T16:02:00+00:00",
+  "updatedAt": "2026-10-19T10:20:00+00:00",
   "currency": "THB",
   "items": [
     {
@@ -498,5 +498,19 @@
       "notes": ""
     }
   ],
-  "wiring": []
+  "wiring": [],
+  "steel_members": [
+    {
+      "id": "1",
+      "member": "เสา",
+      "profile": "เหล็กกล่องสี่เหลี่ยม",
+      "size": "75×75×4 mm",
+      "qty": 6,
+      "length_mm": 500,
+      "stock_length_m": 6.0,
+      "weight_reference_length_m": 6.0,
+      "weight_reference_kg": 48.0,
+      "notes": ""
+    }
+  ]
 }
