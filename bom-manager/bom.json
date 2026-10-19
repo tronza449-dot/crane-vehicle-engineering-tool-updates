@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-19T17:51:41+00:00",
+  "updatedAt": "2026-10-19T17:55:52+00:00",
   "currency": "THB",
   "items": [
     {
@@ -344,19 +344,6 @@
       "notes": "รุ่นมอเตอร์, แรงดัน, กระแส stall, วิธีเบรก | ยังไม่มีลิงก์ซื้อ: ต้องระบุชนิด/แรงดัน/กระแส stall มอเตอร์หมุนเครนก่อนเลือก driver"
     },
     {
-      "id": "26",
-      "category": "เครื่องกล",
-      "name": "โครงรถ — กรอบเป้าหมายประมาณ 1500 × 1000 mm; เหล็กกล่อง",
-      "spec": "รองรับแบตเตอรี่ ชุดขับและเครน | ไฟเลี้ยง: ไม่เกี่ยวกับไฟเลี้ยง",
-      "qty": 1,
-      "unit": "ชุด",
-      "connection": "ยึด hub motor และล้อรองรับตามแบบกล | GPIO/จุดต่อ: ไม่มี GPIO",
-      "unitPrice": null,
-      "link": null,
-      "status": "แบบโครงยังพัฒนา",
-      "notes": "ขนาด/ความหนา/เกรดเหล็กและจุดยึดจริง | สั่งทำตามแบบ; ไม่ใช่อุปกรณ์สำเร็จรูป"
-    },
-    {
       "id": "27",
       "category": "เครื่องกล",
       "name": "ลูกล้อยางสูบลมสีดำ16นิ้ว ล้อยางลม ขนาดหน้าล้อมีขนาดกว้าง 75มม.",
@@ -489,13 +476,29 @@
       "name": "เหล็กกล่องกัลวาไนซ์ 4x2 นิ้ว (100x50 มม.) หนา 2 มม. มอก. ยาว 6 ม.",
       "partNumber": "",
       "spec": "",
-      "qty": 1,
+      "qty": 3,
       "unit": "",
       "unitWeightKg": null,
       "unitPrice": 650.0,
       "status": "",
       "supplier": "",
       "link": "https://www.onestockhome.com/th/items/61045370/galvanized-gi-rectangular-pipe-4x2-inch-100x50-mm-2-mm-6-m_pre-zinc-gi-pipes_onestockhome?srsltid=AU7gw4WQ41uubRVC7Fc4UHMsX_VbfCOShGwOzmum1WpwvV3Vd9eLrnPX",
+      "connection": "",
+      "notes": ""
+    },
+    {
+      "id": "14",
+      "category": "เครื่องกล",
+      "name": "เหล็กกล่อง 3x3 นิ้ว (75x75 มม.) หนา 4 มม. มอก. ยาว 6 ม.",
+      "partNumber": "",
+      "spec": "",
+      "qty": 1,
+      "unit": "",
+      "unitWeightKg": null,
+      "unitPrice": 1221.0,
+      "status": "",
+      "supplier": "",
+      "link": "https://www.onestockhome.com/th/products/5193323/steel-square-pipe-3x3-inch_steel-tube-3-x-3-inch_onestockhome?srsltid=AU7gw4Xk7odJsz6XmHFHNtZddlmRm0SClxPSEb6Oil-q2iV76qFmAOfv&item_id=41979096",
       "connection": "",
       "notes": ""
     }
