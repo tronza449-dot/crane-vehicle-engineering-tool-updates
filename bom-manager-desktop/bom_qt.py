@@ -1151,7 +1151,8 @@ class BOMWindow(QMainWindow):
         row_h = round(53 * zoom)
         header_h = round(68 * zoom)
         for table in (self.category_table, self.bom_table, self.steel_table,
-                      self.steel_summary_table, self.wire_table, self.purchase_table,
+                      self.steel_summary_table, self.frame_weight_table,
+                      self.wire_table, self.purchase_table,
                       self.debug_checks, self.debug_events):
             table.verticalHeader().setDefaultSectionSize(row_h)
             table.horizontalHeader().setFixedHeight(header_h)
