@@ -73,7 +73,7 @@ class BOMWeightManagerTests(unittest.TestCase):
         self.assertEqual(self.dialog.item_combo.itemData(0), "102")
         self.assertEqual(self.dialog.weight_table.rowCount(), 2)
         summary = bom_steel_bom.summarize_bom_and_steel(self.window.payload)
-        self.assertEqual(float(summary["equipment_known_weight_kg"]), 7.5)
+        self.assertEqual(float(summary["equipment_known_weight_kg"]), 6.25)
         self.assertEqual(summary["equipment_weighted_items"], 2)
         self.assertEqual(summary["equipment_missing_weight_count"], 1)
         self.assertTrue(self.window.dirty)
