@@ -5,6 +5,7 @@ All report cover metadata is editable and does not imply institutional approval.
 """
 from datetime import datetime
 from xml.sax.saxutils import escape
+from urllib.parse import urlsplit
 import bom_core
 import bom_categories
 import bom_steel
@@ -349,6 +350,11 @@ def export_pdf(doc, destination, options=None):
             bom_steel.format_length(bom_steel.total_length_m(item))
             if item.get("length_mm") is not None else "—")
         mass = bom_steel.total_weight_kg(item)
+        link = str(item.get("link") or "").strip()
+        # Keep a printable domain in the narrow PDF table; the Excel workbook
+        # retains the complete clickable URL for procurement follow-up.
+        link_display = (urlsplit(link).netloc
+                        if link.lower().startswith(("https://", "http://")) else link)
         return [
             item.get("id"), item.get("member"), mode_label(item),
             item.get("material", bom_steel.DEFAULT_MATERIAL), item.get("profile"),
@@ -358,7 +364,7 @@ def export_pdf(doc, destination, options=None):
             (bom_steel.format_length(item.get("manual_unit_weight_kg"), 3)
              if manual else "—"),
             ("—" if mass is None else bom_steel.format_length(mass, 3)),
-            stock_label(item.get("stock_length_m")), item.get("link") or "—",
+            stock_label(item.get("stock_length_m")), link_display or "—",
             item.get("notes"),
         ]
 
