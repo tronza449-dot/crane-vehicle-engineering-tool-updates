@@ -1,14 +1,14 @@
 """Draft Purchase Order PDF for a single supplier and PO reference."""
 from decimal import Decimal
-from xml.sax.saxutils import escape
 
 
 def export_po_pdf(doc, orders, filename, vat_percent=7.0):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, LongTable, TableStyle
+    from reportlab.platypus import SimpleDocTemplate, Spacer, LongTable, TableStyle
     from bom_reports import _thai_font
+    import bom_thai_text
     if not orders:
         raise ValueError("ยังไม่มีรายการจัดซื้อให้ส่งออก")
     if any(o.get("status") == "ยกเลิก" for o in orders):
@@ -25,7 +25,7 @@ def export_po_pdf(doc, orders, filename, vat_percent=7.0):
     small = ParagraphStyle("po-small", parent=body, fontSize=8.5, leading=13)
     bold = ParagraphStyle("po-bold", parent=body, fontSize=12, leading=18)
     def p(txt, style=body):
-        return Paragraph(escape(str(txt or "—")).replace("\n", "<br/>"), style)
+        return bom_thai_text.paragraph(txt or "—", style)
     flow = [p("PURCHASE ORDER / ใบสั่งซื้อ (DRAFT)", bold), Spacer(1, 9)]
     supplier = next(iter(suppliers)) or "ยังไม่ระบุผู้ขาย"
     first = orders[0]

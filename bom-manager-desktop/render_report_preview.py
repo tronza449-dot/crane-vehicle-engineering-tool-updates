@@ -6,8 +6,8 @@ FOLDER = Path(__file__).resolve().parent / "output"
 SOURCE = FOLDER / "EngineeringBOM_Example.pdf"
 with fitz.open(str(SOURCE)) as pdf:
     assert len(pdf) >= 7, f"Unexpectedly short formal report ({len(pdf)} pages)"
-    assert all(abs(page.rect.width - 841.89) < 2 and abs(page.rect.height - 595.28) < 2
-               for page in pdf), "Report pages must all use landscape A4"
+    assert all(sorted((round(page.rect.width), round(page.rect.height))) == [595, 842]
+               for page in pdf), "Report pages must all use A4 (portrait or landscape)"
     cover_text = pdf[0].get_text()
     assert "รายงานรายการวัสดุและอุปกรณ์" in cover_text, "PDF cover title is missing"
     assert "สรุปข้อมูลและงบประมาณ" in cover_text, "PDF cover budget summary is missing"

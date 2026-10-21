@@ -114,12 +114,20 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("ผู้จัดทำ / PREPARED BY", shared)
             self.assertIn("ผู้ตรวจสอบ / REVIEWED BY", shared)
             self.assertIn("18/10/2026", shared)
-            self.assertIn(f"SUM(H8:H{7 + len(self.doc['items'])})", detail)
+            # Row 8 is the first category band, so the first item is row 9.
+            # Each category adds a band row and a SUBTOTAL row; the grand
+            # total uses SUBTOTAL so category subtotals are not counted twice.
+            categories = len(reports.category_stats(self.doc["items"]))
+            last_row = 7 + len(self.doc["items"]) + 2 * categories
+            self.assertIn(f"SUBTOTAL(9,H8:H{last_row})", detail)
+            self.assertIn("SUBTOTAL(9,BOM!$H$8:$H$" + str(last_row), summary)
             self.assertIn("COUNTA", summary)
-            self.assertIn("IF(G8", detail)
-            self.assertIn("E8*G8", detail)
-            self.assertIn("IF(J8", detail)
-            self.assertIn("E8*J8", detail)
+            self.assertIn("IF(G9", detail)
+            self.assertIn("E9*G9", detail)
+            self.assertIn("IF(J9", detail)
+            self.assertIn("E9*J9", detail)
+            self.assertIn("หมวดหลัก: เครื่องกล", shared)
+            self.assertIn("รวมหมวด เครื่องกล", shared)
             mass_sheet = xlsx.read("xl/worksheets/sheet12.xml").decode("utf-8")
             self.assertIn("SUM(BOM!K8:K", mass_sheet)
             self.assertIn("Steel Cut List", mass_sheet)
@@ -135,8 +143,15 @@ class ReportExportTests(unittest.TestCase):
             ns={"x":"http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
             formula_cells = [c for c in root.findall(".//x:c",ns)
                              if c.find("x:f",ns) is not None]
-            self.assertEqual(len(formula_cells), 2 * len(self.doc["items"]) + 1)
-            # Each BOM row has price and mass formulas, plus the price grand total.
+            self.assertEqual(len(formula_cells),
+                             2 * len(self.doc["items"]) + categories + 1)
+            # Each BOM row has price and mass formulas, plus one subtotal per
+            # category and the price grand total.
+            # Cached formula values must never be the text "None": Excel then
+            # reports the workbook as damaged and repairs it.
+            for part in names:
+                if part.startswith("xl/worksheets/sheet"):
+                    self.assertNotIn("<v>None</v>", xlsx.read(part).decode("utf-8"), part)
             blank_inputs = sum(reports.price(x.get("unitPrice")) is None
                                for x in self.doc["items"])
             self.assertGreater(blank_inputs,0)
@@ -149,34 +164,26 @@ class ReportExportTests(unittest.TestCase):
             self.assertIn("pageSetup", approval)
             self.assertIn("printOptions", approval)
 
-    def test_pdf_and_excel_use_deliberately_distinct_formal_designs(self):
-        # PDF is the academic report (navy / blue); Excel is a worksheet-first
-        # working document (deep teal / mist grey). They must not look identical.
-        self.assertEqual(reports.NAVY, "#18324F")
-        self.assertEqual(reports.BLUE, "#3F789E")
-        self.assertEqual(reports.GREY, "#5E6B78")
-        self.assertEqual(reports.PALE, "#EEF3F7")
-        self.assertEqual(reports.CATEGORY_FILL, "#E7F0F6")
-        self.assertEqual(reports.ROW_ALT, "#F7F9FB")
-        self.assertEqual(reports.EXCEL_NAVY, "#123B4A")
-        self.assertEqual(reports.EXCEL_BLUE, "#087E8B")
-        self.assertEqual(reports.EXCEL_CATEGORY_FILL, "#DDEFF1")
-        self.assertEqual(reports.EXCEL_FONT, "TH Sarabun New")
-        self.assertNotEqual(reports.NAVY, reports.EXCEL_NAVY)
-        self.assertNotEqual(reports.CATEGORY_FILL, reports.EXCEL_CATEGORY_FILL)
+    def test_excel_uses_design_a_black_and_white_print_style(self):
+        # Design A (chosen by the user): black ink, light-grey header and
+        # group bands, Tahoma, A4 paper. No colour fills from older designs.
+        self.assertEqual(reports.INK, "#000000")
+        self.assertEqual(reports.HEAD_FILL, "#E6E6E6")
+        self.assertEqual(reports.BAND_FILL, "#F2F2F2")
+        self.assertEqual(reports.EXCEL_FONT, "Tahoma")
         file = Path(self.temp.name) / "palette.xlsx"
         reports.export_excel(self.doc, file, self.metadata)
         with zipfile.ZipFile(file) as xlsx:
             styles = xlsx.read("xl/styles.xml").decode("utf-8").upper()
-            self.assertIn("FF123B4A", styles)   # Excel teal title/table headers
-            self.assertIn("FF087E8B", styles)   # section accent bands
-            self.assertIn("FFDDEFF1", styles)   # category row shading
-            self.assertIn("FFF5F9F9", styles)   # quiet alternating rows
-            self.assertIn("TH SARABUN NEW", styles)  # Thai academic typeface
-            # PDF-only navy-blue palette must not be used as Excel's main palette.
-            self.assertNotIn("FF18324F", styles)
-            self.assertNotIn("FFE7F0F6", styles)
-            self.assertNotIn("FFF7F9FB", styles)
+            self.assertIn("FFE6E6E6", styles)   # table header fill
+            self.assertIn("FFF2F2F2", styles)   # category band fill
+            self.assertIn("TAHOMA", styles)
+            for old_colour in ("FF123B4A", "FF087E8B", "FFDDEFF1", "FF18324F"):
+                self.assertNotIn(old_colour, styles)
+            for part in xlsx.namelist():
+                if part.startswith("xl/worksheets/sheet"):
+                    sheet = xlsx.read(part).decode("utf-8")
+                    self.assertIn('paperSize="9"', sheet, part)  # A4 everywhere
 
     def test_formal_pdf_sections_and_metadata(self):
         from bom_reports import _thai_font
@@ -191,6 +198,10 @@ class ReportExportTests(unittest.TestCase):
         import fitz
         with fitz.open(str(pdf)) as exported:
             self.assertGreaterEqual(len(exported), 7)
+            # A4 throughout: portrait main report, landscape appendices.
+            sizes = {(round(page.rect.width), round(page.rect.height)) for page in exported}
+            self.assertEqual(sizes, {(595, 842), (842, 595)})
+            self.assertIn("หน้า 1 / " + str(len(exported)), exported[0].get_text())
             # The revised PDF must be white-paper friendly: no solid navy cover
             # panel or full-width dark running header on interior pages.
             cover_pix = exported[0].get_pixmap(matrix=fitz.Matrix(1, 1), alpha=False)
@@ -263,7 +274,7 @@ class ReportExportTests(unittest.TestCase):
             workbook = book.read("xl/workbook.xml").decode("utf-8")
             self.assertIn('name="Mass Summary"', workbook)
             bom_xml = book.read("xl/worksheets/sheet2.xml").decode("utf-8")
-            self.assertIn("E8*J8", bom_xml)
+            self.assertIn("E9*J9", bom_xml)  # row 8 is the category band
             cut_xml = book.read("xl/worksheets/sheet11.xml").decode("utf-8")
             self.assertIn("M8/L8", cut_xml)
             self.assertIn("I8*N8", cut_xml)
@@ -329,7 +340,7 @@ class ReportExportTests(unittest.TestCase):
         with zipfile.ZipFile(file) as book:
             sheet = ET.fromstring(book.read("xl/worksheets/sheet2.xml"))
             ns = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-            row = sheet.find(".//x:row[@r='8']", ns)
+            row = sheet.find(".//x:row[@r='9']", ns)  # row 8 is the category band
             self.assertIsNotNone(row)
             self.assertTrue(row.attrib.get("customHeight") == "1")
             self.assertGreaterEqual(float(row.attrib["ht"]), 100.0,

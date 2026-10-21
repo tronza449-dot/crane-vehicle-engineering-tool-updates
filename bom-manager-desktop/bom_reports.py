@@ -158,29 +158,10 @@ def export_excel(doc, destination):
 
 
 def _thai_font():
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    # Prefer TH Sarabun New for Thai academic reports. Embed it in the PDF
-    # so the recipient does not need the font installed. Fall back to Tahoma
-    # on clean Windows installations and to available Thai fonts on Linux.
-    paths = [
-        r"C:\Windows\Fonts\THSarabunNew.ttf",
-        r"C:\Windows\Fonts\TH Sarabun New.ttf",
-        r"C:\Windows\Fonts\tahoma.ttf",
-        r"C:\Windows\Fonts\LeelawUI.ttf",
-        r"C:\Windows\Fonts\LeelawadeeUI.ttf",
-        "/usr/share/fonts/truetype/thai-tlwg/THSarabunNew.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
-        "/usr/share/fonts/truetype/thai-tlwg/Garuda.ttf",
-    ]
-    for font in paths:
-        if os.path.isfile(font):
-            try:
-                pdfmetrics.registerFont(TTFont("CVBOMThai", font))
-                return "CVBOMThai"
-            except Exception:
-                pass
-    raise RuntimeError("ไม่พบฟอนต์ไทยสำหรับ PDF (เช่น Tahoma ที่ติดตั้งใน Windows)")
+    # Embedded in the PDF so the recipient does not need the font installed.
+    # See bom_thai_text for font order and Thai shaping/wrapping.
+    import bom_thai_text
+    return bom_thai_text.register_fonts()[0]
 
 
 def export_pdf(doc, destination):
@@ -190,11 +171,14 @@ def export_pdf(doc, destination):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, LongTable, TableStyle
-    from xml.sax.saxutils import escape
+    import bom_thai_text
+
+    def Paragraph(text, style):  # Thai-safe wrapping and shaping
+        return bom_thai_text.paragraph(text, style)
 
     font = _thai_font()
     style = ParagraphStyle("CVBOM", fontName=font, fontSize=8.3, leading=13,
-                           alignment=TA_LEFT, wordWrap="CJK")
+                           alignment=TA_LEFT)
     header = ParagraphStyle("CVBOMHeader", parent=style, fontSize=9,
                             textColor=colors.white, leading=14)
     title = ParagraphStyle("CVBOMTitle", parent=style, fontSize=18,
@@ -204,12 +188,12 @@ def export_pdf(doc, destination):
                                 rightMargin=31, leftMargin=31,
                                 topMargin=34, bottomMargin=34)
     story = [Paragraph("CRANE VEHICLE — BOM MANAGER", title),
-             Paragraph(f"โครงการ: {escape(str(doc.get('project','')))} | "
+             Paragraph(f"โครงการ: {doc.get('project','')} | "
                        f"ส่งออกเมื่อ {datetime.now().strftime('%d/%m/%Y %H:%M')}", style),
              Spacer(1, 13)]
 
     def p(value):
-        return Paragraph(escape(str(value if value is not None else "—")).replace("\n", "<br/>"), style)
+        return Paragraph("—" if value is None else value, style)
 
     def table_section(title_text, headings, rows, widths):
         story.append(Paragraph(title_text, title))
@@ -263,8 +247,8 @@ def export_pdf(doc, destination):
     def footer(canvas, document):
         canvas.setFont(font, 7.5)
         canvas.setFillColor(colors.HexColor("#526579"))
-        canvas.drawString(31, 18, "BOM Manager — Engineering draft / ไม่ใช่เอกสารอนุมัติทางไฟฟ้า")
-        canvas.drawRightString(landscape(A4)[0]-31, 18, f"หน้า {document.page}")
+        bom_thai_text.draw_string(canvas, 31, 18, "BOM Manager — Engineering draft / ไม่ใช่เอกสารอนุมัติทางไฟฟ้า")
+        bom_thai_text.draw_string(canvas, landscape(A4)[0]-31, 18, f"หน้า {document.page}", "right")
     doc_pdf.build(story, onFirstPage=footer, onLaterPages=footer)
 
 

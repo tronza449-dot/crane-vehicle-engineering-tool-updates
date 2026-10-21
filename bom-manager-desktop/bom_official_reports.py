@@ -1,10 +1,10 @@
 """Formal engineering BOM PDF / Excel, independent of legacy exports.
 
+Design A: formal black-and-white engineering report for university submission.
 Only figures with known prices contribute to budget totals. Blank means unknown.
 All report cover metadata is editable and does not imply institutional approval.
 """
 from datetime import datetime
-from xml.sax.saxutils import escape
 import math
 import unicodedata
 from urllib.parse import urlsplit
@@ -13,28 +13,22 @@ import bom_categories
 import bom_steel
 import bom_steel_bom
 
-# One restrained palette shared by PDF and Excel to match the formal
-# academic prototype: navy headings, blue accents, pale-blue table bands.
-# Category identity is communicated by labels and grouping, not rainbow fills.
-NAVY="#18324F"
-BLUE="#3F789E"
-GREY="#5E6B78"
-PALE="#EEF3F7"
-LINE="#D1DCE5"
-ROW_ALT="#F7F9FB"
-CATEGORY_FILL="#E7F0F6"
+# Design A palette, shared by PDF and Excel: black ink on white paper with
+# light-grey header and group bands so printed copies stay crisp in B/W.
+INK = "#000000"
+HEAD_FILL = "#E6E6E6"
+BAND_FILL = "#F2F2F2"
+NOTE_INK = "#404040"
+MISSING_FILL = "#EDEDED"
+# Excel renders Thai itself; Tahoma is present on every Windows PC.
+EXCEL_FONT = "Tahoma"
 
-# Excel intentionally has its own worksheet-first palette (teal / mist grey).
-# PDF remains navy-blue and report-like; the two outputs must not look like
-# the same template recolored.
-EXCEL_NAVY="#123B4A"
-EXCEL_BLUE="#087E8B"
-EXCEL_GREY="#5C6F73"
-EXCEL_PALE="#E6F3F4"
-EXCEL_LINE="#C7D9DC"
-EXCEL_ROW_ALT="#F5F9F9"
-EXCEL_CATEGORY_FILL="#DDEFF1"
-EXCEL_FONT="TH Sarabun New"
+CATEGORY_DEFINITIONS = {
+    "เครื่องกล": "โครงรถ โครงสร้าง ล้อ เครน และตะกร้า",
+    "ไฟฟ้ากำลัง": "แบตเตอรี่ มอเตอร์ VESC/ไดรเวอร์ ฟิวส์ คอนแทคเตอร์ สายกำลัง และ DC-DC",
+    "อิเล็กทรอนิกส์/ควบคุม": "ESP32 เซนเซอร์ CAN รีโมต RC จอ และวงจรสัญญาณ/ควบคุม",
+    "อื่น ๆ": "รายการที่ยังไม่จัดเข้าหมวดหลัก",
+}
 
 
 def metadata(doc, values=None):
@@ -88,255 +82,296 @@ def report_quality(items):
     }
 
 
+def _quantity_text(value):
+    value = price(value) or 0
+    return f"{value:,.0f}" if value == value.to_integral_value() else f"{value:,.2f}"
+
+
+def _money_text(value):
+    return "–" if value is None else f"{value:,.2f}"
+
+
+def _numbered_canvas(decorate):
+    """Canvas class that prints 'หน้า x / y' by buffering pages until save."""
+    from reportlab.pdfgen.canvas import Canvas
+
+    class NumberedCanvas(Canvas):
+        def __init__(self, *args, **kwargs):
+            Canvas.__init__(self, *args, **kwargs)
+            self._pages = []
+
+        def showPage(self):
+            self._pages.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            total = len(self._pages)
+            for state in self._pages:
+                self.__dict__.update(state)
+                decorate(self, self._pageNumber, total)
+                Canvas.showPage(self)
+            Canvas.save(self)
+
+    return NumberedCanvas
+
+
 def export_pdf(doc, destination, options=None):
-    """Landscape A4 academic report with cover, category BOM and appendices."""
+    """A4 formal black-and-white engineering report (design A).
+
+    Portrait pages hold document control, summaries, the master BOM and the
+    sign-off; wide appendices use landscape pages. Every table repeats its
+    header row on each page, and Thai text is shaped and wrapped by word.
+    """
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle
-    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    PageBreak, LongTable, TableStyle)
-    from bom_reports import _thai_font
+    from reportlab.platypus import (BaseDocTemplate, Frame, KeepTogether, LongTable,
+                                    NextPageTemplate, PageBreak, PageTemplate,
+                                    Spacer, TableStyle)
+    import bom_thai_text
     bom_core.ensure_doc(doc)
     m=metadata(doc,options)
     stats=bom_core.metrics(doc)
-    categories=category_stats(doc["items"])
     items=sorted_items(doc)
+    categories=category_stats(items)
     quality=report_quality(items)
-    font=_thai_font()
-    navy=colors.HexColor(NAVY)
-    line=colors.HexColor(LINE)
-    page=landscape(A4)
-    width=page[0]-64
-    body=ParagraphStyle("body",fontName=font,fontSize=10,leading=15,
-                        textColor=colors.HexColor("#23394D"),wordWrap="CJK",
-                        splitLongWords=True)
-    small=ParagraphStyle("small",parent=body,fontSize=9,leading=13)
-    label=ParagraphStyle("label",parent=body,fontSize=9.5,leading=14,
-                         textColor=colors.HexColor(GREY))
-    title=ParagraphStyle("title",parent=body,fontSize=21,leading=31,
-                         textColor=navy)
-    section=ParagraphStyle("section",parent=body,fontSize=15,leading=24,
-                           textColor=navy)
-    white=ParagraphStyle("white",parent=body,fontSize=9,leading=13,
-                         textColor=colors.white,alignment=TA_CENTER)
-    centered=ParagraphStyle("centered",parent=body,alignment=TA_CENTER)
-    numeric=ParagraphStyle("numeric",parent=body,alignment=TA_RIGHT)
-    def P(text,sty=body):
-        return Paragraph(escape(str(text if text is not None else "—")).replace("\n","<br/>"),sty)
-    def TABLE(headings, rows, widths, category_col=None):
-        """Formal table with a clear repeated column header on every page."""
-        numeric_cols={i for i,h in enumerate(headings)
-                      if any(word in h.casefold() for word in
-                             ("จำนวน","ราคา","รวม","ยอด","ไม่มีราคา"))}
-        center_cols={i for i,h in enumerate(headings)
-                     if h.strip().casefold() in ("id","bom id","ลำดับ","สถานะ")}
-        data=[[P(h,white) for h in headings]]
-        body_rows=rows or [["ยังไม่มีข้อมูล"]+[""]*(len(headings)-1)]
-        data += [[P(value, numeric if col in numeric_cols else
-                    centered if col in center_cols else body)
-                  for col,value in enumerate(row)] for row in body_rows]
-        t=LongTable(data,colWidths=widths,repeatRows=1,hAlign="LEFT",splitByRow=1)
+    regular, bold = bom_thai_text.register_fonts()
+    ink=colors.HexColor(INK)
+    head_fill=colors.HexColor(HEAD_FILL)
+    band_fill=colors.HexColor(BAND_FILL)
+    portrait_size=A4
+    landscape_size=landscape(A4)
+    margin=50
+    width=portrait_size[0]-2*margin
+    wide=landscape_size[0]-2*margin
+
+    body=ParagraphStyle("a-body",fontName=regular,fontSize=9,leading=13.5,textColor=ink)
+    strong=ParagraphStyle("a-strong",parent=body,fontName=bold)
+    numeric=ParagraphStyle("a-numeric",parent=body,alignment=TA_RIGHT)
+    numeric_strong=ParagraphStyle("a-numeric-strong",parent=strong,alignment=TA_RIGHT)
+    centered=ParagraphStyle("a-centered",parent=body,alignment=TA_CENTER)
+    heading=ParagraphStyle("a-heading",parent=strong,alignment=TA_CENTER)
+    caption=ParagraphStyle("a-caption",parent=strong,fontSize=10,leading=15,
+                           spaceBefore=6,spaceAfter=5)
+    section=ParagraphStyle("a-section",parent=strong,fontSize=12,leading=18,spaceAfter=4)
+    note=ParagraphStyle("a-note",parent=body,fontSize=8,leading=12,
+                        textColor=colors.HexColor(NOTE_INK))
+    title=ParagraphStyle("a-title",parent=strong,fontSize=18,leading=27,alignment=TA_CENTER)
+    subtitle=ParagraphStyle("a-subtitle",parent=body,fontSize=10,leading=15,alignment=TA_CENTER)
+    kicker=ParagraphStyle("a-kicker",parent=note,alignment=TA_CENTER)
+
+    def P(text,style=body):
+        return bom_thai_text.paragraph("—" if text is None else str(text),style)
+
+    def TABLE(headings,rows,widths,numeric_cols=(),center_cols=(),kinds=None):
+        """Grid table. kinds maps a row index to ("band",) for a full-width
+        group label or ("total", last_label_col, grand) for a total row."""
+        kinds=dict(kinds or {})
+        if not rows:
+            rows=[["ยังไม่มีข้อมูล"]+[""]*(len(headings)-1)]
+            kinds={0:("empty",)}
+        data=[[P(h,heading) for h in headings]]
         commands=[
-            ("BACKGROUND",(0,0),(-1,0),navy),
-            ("ROWBACKGROUNDS",(0,1),(-1,-1),
-             [colors.white,colors.HexColor(ROW_ALT)]),
-            ("BOX",(0,0),(-1,-1),.65,line),
-            ("INNERGRID",(0,0),(-1,-1),.35,line),
+            ("GRID",(0,0),(-1,-1),0.4,ink),
+            ("LINEBELOW",(0,0),(-1,0),1.0,ink),
+            ("BACKGROUND",(0,0),(-1,0),head_fill),
             ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-            ("LEFTPADDING",(0,0),(-1,-1),6),
-            ("RIGHTPADDING",(0,0),(-1,-1),6),
-            ("TOPPADDING",(0,0),(-1,-1),5),
-            ("BOTTOMPADDING",(0,0),(-1,-1),5),
+            ("LEFTPADDING",(0,0),(-1,-1),4),
+            ("RIGHTPADDING",(0,0),(-1,-1),4),
+            ("TOPPADDING",(0,0),(-1,-1),3),
+            ("BOTTOMPADDING",(0,0),(-1,-1),4),
         ]
-        if category_col is not None and rows:
-            # Use the same subtle blue for all engineering categories.
-            # Section titles and table borders provide the hierarchy.
-            fills={category: colors.HexColor(CATEGORY_FILL)
-                   for category in ("เครื่องกล", "ไฟฟ้ากำลัง",
-                                    "อิเล็กทรอนิกส์/ควบคุม", "อื่น ๆ")}
-            previous=None
-            for row_index,row in enumerate(rows,1):
-                category=str(row[category_col])
-                commands.append(("BACKGROUND",(category_col,row_index),
-                                 (category_col,row_index),fills.get(category,colors.white)))
-                if category != previous:
-                    commands.append(("LINEABOVE",(0,row_index),(-1,row_index),1.1,navy))
-                    previous=category
-        t.setStyle(TableStyle(commands))
-        return t
-    # PDF style 1: a clear document cover with a solid navy title panel.
-    # This is deliberately a different composition from the Excel workbook.
-    # Academic cover: white paper, dark ink, one muted-blue accent.
-    # Large solid-color blocks are avoided so the report prints cleanly in B/W.
-    cover_kicker=ParagraphStyle("cover_kicker",parent=body,fontSize=9,
-        leading=14,textColor=colors.HexColor(BLUE))
-    cover_title=ParagraphStyle("cover_title",parent=body,fontSize=22,
-        leading=31,textColor=navy)
-    cover_subtitle=ParagraphStyle("cover_subtitle",parent=body,fontSize=10,
-        leading=16,textColor=colors.HexColor(GREY))
-    cover=LongTable([
-        [P("ENGINEERING DESIGN DOCUMENT",cover_kicker)],
-        [P("รายงานรายการวัสดุและอุปกรณ์",cover_title)],
-        [P("BILL OF MATERIALS (BOM)  |  CRANE VEHICLE",cover_subtitle)],
-    ],colWidths=[width],hAlign="LEFT")
-    cover.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.65,colors.HexColor(LINE)),
-        ("LINEBEFORE",(0,0),(0,-1),4,colors.HexColor(BLUE)),
-        ("LINEBELOW",(0,0),(-1,0),0.6,colors.HexColor(LINE)),
-        ("LINEBELOW",(0,-1),(-1,-1),2.2,colors.HexColor(BLUE)),
-        ("LEFTPADDING",(0,0),(-1,-1),18),
-        ("RIGHTPADDING",(0,0),(-1,-1),18),
-        ("TOPPADDING",(0,0),(-1,0),14),
-        ("BOTTOMPADDING",(0,0),(-1,0),6),
-        ("TOPPADDING",(0,1),(-1,1),5),
-        ("BOTTOMPADDING",(0,1),(-1,1),5),
-        ("TOPPADDING",(0,2),(-1,2),4),
-        ("BOTTOMPADDING",(0,2),(-1,2),15),
-    ]))
-    story=[cover,Spacer(1,18),
-           P("DOCUMENT CONTROL / ข้อมูลควบคุมเอกสาร",section),
-           Spacer(1,8)]
-    rows=[
-        ["โครงการ",m["project"]],
-        ["ผู้จัดทำ",m["author"]],
-        ["สถาบัน / หน่วยงาน",m["institution"]],
-        ["ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา",m["advisor"]],
-        ["เลขที่เอกสาร",m["document_no"]],
-        ["Revision / วันที่",f'{m["revision"]}  /  {m["date"]}'],
-        ["สถานะเอกสาร", "DRAFT / ใช้ประกอบรายงานการออกแบบ ไม่ใช่เอกสารอนุมัติการผลิต"],
-        ["รูปแบบอ้างอิง", "ประยุกต์แนวทาง Parts List ของ ISO 7573; ไม่ใช่การรับรองมาตรฐาน"],
+        for index,row in enumerate(rows):
+            r=index+1
+            kind=kinds.get(index,("row",))
+            if kind[0] in ("band","empty"):
+                data.append([P(row[0],strong if kind[0]=="band" else body)]+
+                            [""]*(len(headings)-1))
+                commands.append(("SPAN",(0,r),(-1,r)))
+                if kind[0]=="band":
+                    commands.append(("BACKGROUND",(0,r),(-1,r),band_fill))
+            elif kind[0]=="total":
+                last_label=kind[1]
+                data.append([P(row[0],numeric_strong)]+[""]*last_label+
+                            [P(v,numeric_strong) if v not in (None,"") else ""
+                             for v in row[last_label+1:]])
+                commands.append(("SPAN",(0,r),(last_label,r)))
+                if kind[2]:
+                    commands += [("LINEABOVE",(0,r),(-1,r),1.2,ink),
+                                 ("LINEBELOW",(0,r),(-1,r),1.2,ink)]
+            else:
+                data.append([P(value,numeric if col in numeric_cols else
+                               centered if col in center_cols else body)
+                             for col,value in enumerate(row)])
+        table=LongTable(data,colWidths=widths,repeatRows=1,hAlign="LEFT")
+        table.setStyle(TableStyle(commands))
+        return table
+
+    def numbered(caption_text,table,note_text=None):
+        parts=[P(caption_text,caption),table]
+        if note_text:
+            parts += [Spacer(1,3),P(note_text,note)]
+        return parts
+
+    # ── Page 1: title, document control and summaries (portrait) ──
+    story=[P("ENGINEERING DESIGN DOCUMENT",kicker),
+           P("รายงานรายการวัสดุและอุปกรณ์",title),
+           P("BILL OF MATERIALS (BOM)",subtitle),Spacer(1,12),
+           P("ข้อมูลควบคุมเอกสาร / DOCUMENT CONTROL",section)]
+    control_rows=[
+        ("โครงการ",m["project"],"เลขที่เอกสาร",m["document_no"]),
+        ("ผู้จัดทำ",m["author"],"วันที่จัดทำ",m["date"]),
+        ("ผู้ตรวจสอบ / อาจารย์ที่ปรึกษา",m["advisor"],"ฉบับแก้ไข",m["revision"]),
     ]
-    meta=LongTable([[P(a,label),P(b)] for a,b in rows],colWidths=[150,width-150])
-    meta.setStyle(TableStyle([
-        ("BACKGROUND",(0,0),(0,-1),colors.HexColor(PALE)),
-        ("BACKGROUND",(1,0),(1,-1),colors.white),
-        ("LINEBELOW",(0,0),(-1,-1),.45,line),
-        ("LINEAFTER",(0,0),(0,-1),.6,line),
-        ("TOPPADDING",(0,0),(-1,-1),6),
-        ("BOTTOMPADDING",(0,0),(-1,-1),6),
-        ("LEFTPADDING",(0,0),(-1,-1),12),
-        ("RIGHTPADDING",(0,0),(-1,-1),12),
-    ]))
-    story += [meta,Spacer(1,18),P("สรุปข้อมูลและงบประมาณ",section),Spacer(1,7)]
-    story.append(TABLE(["จำนวนรายการ","มีราคาแล้ว","ยังไม่มีราคา","ยอดรวมที่ทราบราคา (บาท)"],[
-        [stats["items"],stats["priced"],stats["missing"],
-         f'{stats["known_cost"]:,.2f}']],
-        [width*.20,width*.20,width*.20,width*.40]))
-    story += [Spacer(1,9),P(
-        "หมายเหตุ: ราคาไม่ทราบจะแสดงเป็น — ไม่ถือว่าราคาเท่ากับศูนย์ "
-        "ยอดรวมยังไม่รวมรายการที่ไม่มีราคา รวมทั้งค่าขนส่ง ภาษี และค่าแรงที่ยังไม่บันทึก",label),
-        PageBreak(),P("ตรวจความครบถ้วนและสรุปตามหมวดวิศวกรรม",section),Spacer(1,6),
-        P("ตรวจข้อมูลที่ยังขาดก่อนนำรายการไปจัดซื้อหรือใช้เป็นเอกสารอ้างอิง",label),
-        Spacer(1,5),
+    spanning_rows=[
+        ("สถาบัน / หน่วยงาน",m["institution"]),
+        ("สถานะเอกสาร","DRAFT / ใช้ประกอบรายงานการออกแบบ ไม่ใช่เอกสารอนุมัติการผลิต"),
+        ("รูปแบบอ้างอิง","ประยุกต์แนวทาง Parts List ของ ISO 7573; ไม่ใช่การรับรองมาตรฐาน"),
+    ]
+    control=LongTable(
+        [[P(a,strong),P(b),P(c,strong),P(d)] for a,b,c,d in control_rows]+
+        [[P(a,strong),P(b),"",""] for a,b in spanning_rows],
+        colWidths=[150,width-150-72-90,72,90],hAlign="LEFT")
+    control_style=[("GRID",(0,0),(-1,-1),0.5,ink),
+                   ("BACKGROUND",(0,0),(0,-1),band_fill),
+                   ("BACKGROUND",(2,0),(2,len(control_rows)-1),band_fill),
+                   ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+                   ("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),4)]
+    for r in range(len(control_rows),len(control_rows)+len(spanning_rows)):
+        control_style.append(("SPAN",(1,r),(3,r)))
+    control.setStyle(TableStyle(control_style))
+    story += [control,Spacer(1,8)]
+
+    story += numbered(
+        "ตารางที่ 1  สรุปข้อมูลและงบประมาณ",
+        TABLE(["จำนวนรายการ","มีราคาแล้ว","ยังไม่มีราคา","ยอดรวมที่ทราบราคา (บาท)"],
+              [[stats["items"],stats["priced"],stats["missing"],
+                _money_text(stats["known_cost"])]],
+              [width*.2,width*.2,width*.2,width*.4],numeric_cols=(3,),center_cols=(0,1,2)),
+        "หมายเหตุ: ราคาที่ยังไม่ทราบแสดงเป็น “–” ไม่ถือว่าเท่ากับศูนย์ ยอดรวมยังไม่รวมรายการ"
+        "ที่ไม่มีราคา ค่าขนส่ง ภาษี และค่าแรงที่ยังไม่บันทึก")
+
+    known_total=sum(x[3] for x in categories)
+    category_rows=[[i,c,CATEGORY_DEFINITIONS.get(c,""),n,missing,_money_text(amount),
+                    "–" if not known_total else f"{amount/known_total*100:,.1f}%"]
+                   for i,(c,n,missing,amount) in enumerate(categories,1)]
+    category_rows.append(["รวม","","",stats["items"],stats["missing"],
+                          _money_text(known_total),"100.0%" if known_total else "–"])
+    story += numbered(
+        "ตารางที่ 2  สรุปค่าใช้จ่ายตามหมวดหลัก / CATEGORY DEFINITIONS",
+        TABLE(["ลำดับ","หมวดหลัก","ขอบเขตของหมวด","รายการ","ไม่มีราคา",
+               "ยอดรวม (บาท)","สัดส่วน"],category_rows,
+              [34,92,width-34-92-46-50-72-48,46,50,72,48],
+              numeric_cols=(5,6),center_cols=(0,3,4),
+              kinds={len(category_rows)-1:("total",2,True)}))
+    story += numbered(
+        "ตารางที่ 3  ความครบถ้วนของข้อมูล",
         TABLE(["ไม่มี Part No.","ยังไม่ระบุผู้ขาย","ไม่มีแหล่งอ้างอิง","ยังไม่ทราบราคา"],
               [[quality["part_number_missing"],quality["supplier_missing"],
                 quality["reference_missing"],quality["price_missing"]]],
-              [width*.25,width*.25,width*.25,width*.25]),
-        Spacer(1,14),P("รายการแยกตามระบบวิศวกรรม / CATEGORY DEFINITIONS",section),Spacer(1,6)]
-    category_definitions = {
-        "เครื่องกล": "โครงรถ โครงสร้าง ล้อ เครน และตะกร้า",
-        "ไฟฟ้ากำลัง": "แบตเตอรี่ มอเตอร์ VESC/ไดรเวอร์ ฟิวส์ คอนแทคเตอร์ สายกำลัง และ DC-DC",
-        "อิเล็กทรอนิกส์/ควบคุม": "ESP32 เซนเซอร์ CAN รีโมต RC จอ และวงจรสัญญาณ/ควบคุม",
-        "อื่น ๆ": "รายการที่ยังไม่จัดเข้าหมวดหลัก",
-    }
+              [width/4]*4,center_cols=(0,1,2,3)),
+        "ตรวจข้อมูลที่ยังขาดก่อนนำรายการไปจัดซื้อหรือใช้เป็นเอกสารอ้างอิง")
+
+    # ── Master BOM register: one continuous table grouped by category ──
+    bom_rows=[]
+    kinds={}
+    number=1
+    for category,count,_missing,subtotal in categories:
+        kinds[len(bom_rows)]=("band",)
+        bom_rows.append([f"หมวดหลัก: {category}  ({count} รายการ)"])
+        for item in items:
+            if bom_categories.normalize_category(item.get("category")) != category:
+                continue
+            unit_price=price(item.get("unitPrice"))
+            qty=price(item.get("qty")) or 0
+            bom_rows.append([number,item.get("id"),item.get("name",""),
+                             _quantity_text(qty),item.get("unit") or "–",
+                             _money_text(unit_price),
+                             _money_text(None if unit_price is None else qty*unit_price)])
+            number+=1
+        kinds[len(bom_rows)]=("total",5,False)
+        bom_rows.append([f"รวมหมวด {category}","","","","","",_money_text(subtotal)])
+    kinds[len(bom_rows)]=("total",5,True)
+    bom_rows.append(["รวมทั้งสิ้น (เฉพาะรายการที่ทราบราคา)","","","","","",
+                     _money_text(stats["known_cost"])])
+    story += [PageBreak()]
+    story += numbered(
+        "ตารางที่ 4  ทะเบียนรายการวัสดุและอุปกรณ์ / MASTER BOM REGISTER",
+        TABLE(["ลำดับ","BOM ID","รายการ / รุ่น","จำนวน","หน่วย",
+               "ราคา/หน่วย (บาท)","ราคารวม (บาท)"],bom_rows,
+              [34,44,width-34-44-42-40-68-74,42,40,68,74],
+              numeric_cols=(3,5,6),center_cols=(0,1,4),kinds=kinds),
+        "หมายเหตุ: BOM ID เป็นรหัสรายการภายในโครงการ • Part No. สเปก ผู้ขาย และสถานะ"
+        "อยู่ในภาคผนวก ก • “–” ในช่องราคา หมายถึงยังไม่ทราบราคา ไม่ใช่ศูนย์บาท")
+
+    # ── Appendices on landscape pages ──
+    story += [NextPageTemplate("landscape"),PageBreak(),
+              P("ภาคผนวก ก  สเปกและแหล่งอ้างอิงอุปกรณ์",section),
+              P("Part Number (ถ้ามี) เป็นรหัสผู้ผลิต ส่วน BOM ID เป็นรหัสรายการในโครงการ",note),
+              Spacer(1,6)]
+    def source_text(link):
+        # Print the domain only; the Excel workbook keeps the full clickable URL.
+        link=str(link or "").strip()
+        if link.lower().startswith(("https://","http://")):
+            return urlsplit(link).netloc or link
+        return link or "ยังไม่ระบุ"
+
     story.append(TABLE(
-       ["หมวดหลัก","ขอบเขตของหมวด","รายการ","ไม่มีราคา","ยอดรวมที่ทราบ (บาท)"],
-       [[c,category_definitions.get(c,""),n,missing,f"{amount:,.2f}"]
-        for c,n,missing,amount in categories],
-       [width*.21,width*.35,width*.12,width*.12,width*.20]))
-    story.append(PageBreak())
-    story += [
-        P("ทะเบียนรายการวัสดุและอุปกรณ์ / MASTER BOM REGISTER", section),
-        P("รายการทั้งหมดเรียงตามหมวดหลัก • ตารางหลักแสดงเฉพาะข้อมูลสำคัญเพื่อให้อ่านง่าย "
-          "รายละเอียด Part Number และสเปกอยู่ในภาคผนวก", label),
-        Spacer(1, 8),
-    ]
-    # Separate tables by engineering discipline instead of making users scan
-    # a mixed, deeply-columned register. Every table repeats its column header.
-    row_number = 1
-    for category_index, (category, count, _missing, subtotal) in enumerate(categories):
-        if category_index:
-            story.append(PageBreak())
-        category_items = [item for item in items
-                          if bom_categories.normalize_category(item.get("category")) == category]
-        master_rows = []
-        for item in category_items:
-            unitprice = price(item.get("unitPrice"))
-            qty = price(item.get("qty")) or 0
-            master_rows.append([
-                row_number, item.get("id"), item.get("name", ""),
-                f'{item.get("qty", "")} {item.get("unit") or ""}'.strip(),
-                "—" if unitprice is None else f"{unitprice:,.2f}",
-                "—" if unitprice is None else f"{qty * unitprice:,.2f}",
-                item.get("status") or "—",
-            ])
-            row_number += 1
-        story.append(P(f"หมวดหลัก: {category}  |  {count} รายการ", section))
-        story.append(Spacer(1, 4))
-        # Category is repeated on every row as well as in the section heading,
-        # so a page break never leaves a reader guessing which group is shown.
-        categorized_rows = [[category] + row for row in master_rows]
-        story.append(TABLE(
-            ["หมวดหลัก", "ลำดับ", "BOM ID", "อุปกรณ์ / รุ่น", "จำนวน / หน่วย",
-             "ราคา/หน่วย (บาท)", "รวม (บาท)", "สถานะ"],
-            categorized_rows, [90, 36, 56, 245, 75, 90, 90, width - 682],
-            category_col=0))
-        story.append(Spacer(1, 3))
-        story.append(P(
-            f"รวมหมวด {category}: {subtotal:,.2f} บาท "
-            "(รวมเฉพาะรายการที่ทราบราคา)", label))
-        story.append(Spacer(1, 12))
-    story += [
-        Spacer(1, 4),
-        P("หมายเหตุ: BOM ID ใช้อ้างอิงรายการภายในโครงการ • Part No. เป็นรหัสจากผู้ผลิต "
-          "เมื่อมีข้อมูล • ช่องราคา — หมายถึงยังไม่ทราบราคา ไม่ใช่ศูนย์บาท", label),
-        PageBreak(),
-    ]
-    story += [P("ภาคผนวก ก. สเปกและแหล่งอ้างอิงอุปกรณ์",section),
-              P("Part Number (ถ้ามี) เป็นรหัสผู้ผลิต ส่วน BOM ID เป็นรหัสรายการในโครงการ "
-                "• ไฟฟ้ากำลัง: แบตเตอรี่ มอเตอร์ ฟิวส์ คอนแทคเตอร์ และสายจ่ายกำลัง • อิเล็กทรอนิกส์/ควบคุม: ESP32, เซนเซอร์, CAN และวงจรสัญญาณ",label),
-              Spacer(1,8)]
-    story.append(TABLE(["BOM ID","ชื่ออุปกรณ์ / รุ่น","สเปก / รายละเอียดที่บันทึก",
-                        "ผู้ขาย / แหล่งอ้างอิง"],[
-        [item.get("id"),item.get("name"),item.get("spec"),
-         ("ผู้ขาย: "+str(item.get("supplier") or "ยังไม่ระบุ")+"\n"+
-          "ที่มา: "+str(item.get("link") or "ยังไม่ระบุ"))]
-        for item in items],[46,201,260,width-507]))
-    story.append(PageBreak())
-    story += [P("ภาคผนวก ข. ตารางการเดินสาย (Wiring Schedule)",section),
-              P("ข้อมูลเบื้องต้น ต้องตรวจสอบแรงดัน กระแส ฟิวส์ และ pinout ก่อนต่อวงจรจริง",label),
-              Spacer(1,9)]
-    story.append(TABLE(["ID","ต้นทาง","ปลายทาง","สัญญาณ / แรงดัน",
-                        "ชนิดสาย","การป้องกัน","สถานะ"],[
-        [w.get("id"),w.get("from"),w.get("to"),
-         f'{w.get("signal","")}\n{w.get("voltage","")}',
-         w.get("cable"),w.get("protection"),w.get("status")]
-        for w in doc.get("wiring",[])],[38,135,135,115,105,115,width-643]))
-    story.append(PageBreak())
-    story += [P("ภาคผนวก ค. รายการจัดซื้อ (Purchasing)",section),Spacer(1,9)]
-    story.append(TABLE(["ID","BOM ID","รายการ","ผู้ขาย","จำนวน","รวม (บาท)","สถานะ"],[
-        [o.get("id"),o.get("itemId"),o.get("description"),o.get("supplier"),
-         o.get("qty"),"—" if price(o.get("unitPrice")) is None
-         else f'{(price(o.get("qty")) or 0)*price(o.get("unitPrice")):,.2f}',
-         o.get("status")] for o in doc.get("purchases",[])],
-        [38,50,228,140,60,113,width-629]))
-    story += [Spacer(1,15),P(
-        "เอกสารจัดทำจากข้อมูล BOM ณ วันที่ส่งออก ใช้เพื่อประกอบรายงานออกแบบ "
-        "ไม่ใช่ใบสั่งซื้อหรือเอกสารที่ผ่านการอนุมัติ",label)]
+        ["BOM ID","อุปกรณ์ / รุ่น","Part No.","สเปก / รายละเอียด","สถานะการเลือก",
+         "ผู้ขาย / แหล่งอ้างอิง"],
+        [[item.get("id"),item.get("name"),item.get("partNumber") or "–",
+          item.get("spec") or "–",item.get("status") or "–",
+          "ผู้ขาย: "+str(item.get("supplier") or "ยังไม่ระบุ")+"\n"+
+          "ที่มา: "+source_text(item.get("link"))] for item in items],
+        [46,160,72,236,108,wide-622],center_cols=(0,)))
+
+    story += [PageBreak(),P("ภาคผนวก ข  ตารางการเดินสาย (Wiring Schedule)",section),
+              P("ข้อมูลเบื้องต้น ต้องตรวจสอบแรงดัน กระแส ฟิวส์ และ pinout ก่อนต่อวงจรจริง",note),
+              Spacer(1,6)]
+    story.append(TABLE(
+        ["ID","ต้นทาง","ปลายทาง","สัญญาณ / แรงดัน","ชนิดสาย","การป้องกัน","สถานะ"],
+        [[w.get("id"),w.get("from"),w.get("to"),
+          f'{w.get("signal","")}\n{w.get("voltage","")}'.strip(),
+          w.get("cable"),w.get("protection"),w.get("status")]
+         for w in doc.get("wiring",[])],
+        [36,150,150,110,100,110,wide-656],center_cols=(0,)))
+
+    purchase_rows=[]
+    for order in doc.get("purchases",[]):
+        unit_price=price(order.get("unitPrice"))
+        qty=price(order.get("qty")) or 0
+        purchase_rows.append([order.get("id"),order.get("itemId"),order.get("description"),
+                              order.get("supplier") or "–",_quantity_text(qty),
+                              _money_text(unit_price),
+                              _money_text(None if unit_price is None else qty*unit_price),
+                              order.get("status")])
+    purchase_kinds={}
+    if purchase_rows:
+        purchase_kinds[len(purchase_rows)]=("total",5,True)
+        purchase_rows.append(["รวมยอดจัดซื้อที่ทราบราคา","","","","","",
+                              _money_text(stats["purchase_total"]),""])
+    story += [Spacer(1,14),P("ภาคผนวก ค  รายการจัดซื้อ (Purchasing)",section),Spacer(1,4),
+              TABLE(["ID","BOM ID","รายการ","ผู้ขาย","จำนวน","ราคา/หน่วย (บาท)",
+                     "รวม (บาท)","สถานะ"],purchase_rows,
+                    [36,50,wide-36-50-130-50-80-84-90,130,50,80,84,90],
+                    numeric_cols=(4,5,6),center_cols=(0,1,7),kinds=purchase_kinds),
+              Spacer(1,4),
+              P("เอกสารจัดทำจากข้อมูล BOM ณ วันที่ส่งออก ใช้เพื่อประกอบรายงานออกแบบ "
+                "ไม่ใช่ใบสั่งซื้อหรือเอกสารที่ผ่านการอนุมัติ",note)]
 
     # Structural-steel cut list is part of the same shared engineering document.
     # Estimated stock bars are length-only lower bounds, not an optimized cut plan.
     steel_rows = doc.get("steel_members", [])
     steel_totals = bom_steel.summarize(steel_rows)
-    mode_label = lambda row: (
-        "กรอกน้ำหนักเอง" if row.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
-        else "คำนวณตามความยาว")
     stock_label = lambda value: "—" if value is None else f"{float(value):g}"
+
+    def mode_text(row):
+        return ("กรอกน้ำหนักเอง" if row.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
+                else "ตามความยาว")
+
     steel_summary_rows = [
-        [("กรอกน้ำหนักเอง" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
-          else "คำนวณตามความยาว"),
-         g.get("material", bom_steel.DEFAULT_MATERIAL), g["profile"], g["size"],
+        [mode_text(g), g.get("material", bom_steel.DEFAULT_MATERIAL), g["profile"], g["size"],
          g["pieces"], ("—" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
                        and not g["total_length_m"] else
                        bom_steel.format_length(g["total_length_m"])),
@@ -345,6 +380,7 @@ def export_pdf(doc, destination, options=None):
          g["estimated_stock_bars"]]
         for g in steel_totals["groups"]
     ]
+
     def steel_detail_values(raw):
         item = bom_steel.normalize_member(raw)
         manual = item.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
@@ -358,7 +394,7 @@ def export_pdf(doc, destination, options=None):
         link_display = (urlsplit(link).netloc
                         if link.lower().startswith(("https://", "http://")) else link)
         return [
-            item.get("id"), item.get("member"), mode_label(item),
+            item.get("id"), item.get("member"), mode_text(item),
             item.get("material", bom_steel.DEFAULT_MATERIAL), item.get("profile"),
             item.get("size"), item.get("qty"),
             item.get("length_mm") if item.get("length_mm") is not None else "—",
@@ -377,56 +413,49 @@ def export_pdf(doc, destination, options=None):
             continue
         domain = (urlsplit(link).netloc
                   if link.lower().startswith(("https://", "http://")) else link)
-        steel_reference_rows.append([
-            raw.get("id", "—"), raw.get("member", "—"), domain or "—"
-        ])
+        steel_reference_rows.append([raw.get("id", "—"), raw.get("member", "—"), domain or "—"])
 
     story += [
         PageBreak(),
-        P("ภาคผนวก ง. รายการตัดเหล็กและน้ำหนักชิ้นส่วน / STEEL CUT LIST", section),
+        P("ภาคผนวก ง  รายการตัดเหล็กและน้ำหนักชิ้นส่วน / STEEL CUT LIST", section),
         P("โหมดตามความยาวใช้สำหรับเหล็กกล่อง/หน้าตัด • โหมดกรอกน้ำหนักเองใช้กับแผ่นยึด "
-          "ขายึด ฐานมอเตอร์ และชิ้นส่วนที่ไม่คิดเป็นความยาวท่อนมาตรฐาน", label),
-        Spacer(1, 8),
-        TABLE(
-            ["วิธีน้ำหนัก", "วัสดุ / เกรด", "ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น",
-             "ความยาวรวม (m)", "ท่อนมาตรฐาน (m)", "น้ำหนักที่ทราบ (kg)",
-             "จำนวนท่อน (ประมาณ)"],
-            steel_summary_rows,
-            [width*.105, width*.12, width*.12, width*.12, width*.07,
-             width*.12, width*.11, width*.12, width*.11]),
-        Spacer(1, 8),
+          "ขายึด ฐานมอเตอร์ และชิ้นส่วนที่ไม่คิดเป็นความยาวท่อนมาตรฐาน", note),
+        Spacer(1, 6),
+        TABLE(["วิธีน้ำหนัก", "วัสดุ / เกรด", "ชนิดหน้าตัด", "ขนาดหน้าตัด", "จำนวนชิ้น",
+               "ความยาวรวม (m)", "ท่อนมาตรฐาน (m)", "น้ำหนักที่ทราบ (kg)",
+               "จำนวนท่อน (ประมาณ)"],
+              steel_summary_rows,
+              [wide*.105, wide*.12, wide*.12, wide*.12, wide*.07,
+               wide*.12, wide*.11, wide*.12, wide*.115],
+              numeric_cols=(4, 5, 6, 7, 8)),
+        Spacer(1, 4),
         P(f'รวมจำนวนชิ้น: {steel_totals["total_pieces"]:,}  |  '
           f'ความยาวที่ระบุ: {bom_steel.format_length(steel_totals["total_length_m"])} m  |  '
           f'น้ำหนักโครงสร้างที่ทราบ: {bom_steel.format_length(steel_totals["known_weight_kg"], 3)} kg  |  '
-          f'ท่อนมาตรฐานที่ประมาณ: {steel_totals["estimated_stock_bars"]:,} ท่อน', label),
-        Spacer(1, 12),
-        P("รายละเอียดชิ้นส่วนสำหรับถอดปริมาณ", section),
-        Spacer(1, 6),
-        TABLE(
-            ["ID", "ตำแหน่ง / ชิ้นส่วน", "วิธีน้ำหนัก", "วัสดุ / เกรด", "ชนิดหน้าตัด",
-             "ขนาด", "จำนวน", "ยาว/ชิ้น (mm)", "รวม (m)", "น้ำหนัก/ชิ้น (kg)",
-             "น้ำหนักรวม (kg)", "ท่อนมาตรฐาน (m)", "ลิงก์สินค้า", "หมายเหตุ"],
-            [steel_detail_values(r) for r in steel_rows],
-            [width*.035, width*.11, width*.08, width*.085, width*.08, width*.07,
-             width*.04, width*.055, width*.055, width*.07, width*.07, width*.055,
-             width*.075, width*.12]),
-        Spacer(1, 8),
-        P("แหล่งอ้างอิงสินค้า / PRODUCT REFERENCES", section),
-        Spacer(1, 5),
-        TABLE(["ID", "ชิ้นส่วน", "โดเมนสินค้า / แหล่งอ้างอิง"],
-              steel_reference_rows,
-              [width*.08, width*.30, width*.62]),
-        Spacer(1, 8),
+          f'ท่อนมาตรฐานที่ประมาณ: {steel_totals["estimated_stock_bars"]:,} ท่อน', note),
+        P("รายละเอียดชิ้นส่วนสำหรับถอดปริมาณ", caption),
+        TABLE(["ID", "ตำแหน่ง / ชิ้นส่วน", "วิธีน้ำหนัก", "วัสดุ / เกรด", "ชนิดหน้าตัด",
+               "ขนาด", "จำนวน", "ยาว/ชิ้น (mm)", "รวม (m)", "น้ำหนัก/ชิ้น (kg)",
+               "น้ำหนักรวม (kg)", "ท่อนมาตรฐาน (m)", "ลิงก์สินค้า", "หมายเหตุ"],
+              [steel_detail_values(r) for r in steel_rows],
+              [wide*.035, wide*.105, wide*.075, wide*.085, wide*.08, wide*.07,
+               wide*.055, wide*.06, wide*.055, wide*.07, wide*.07, wide*.065,
+               wide*.075, wide*.08],
+              numeric_cols=(6, 7, 8, 9, 10, 11), center_cols=(0,)),
+        P("แหล่งอ้างอิงสินค้า / PRODUCT REFERENCES", caption),
+        TABLE(["ID", "ชิ้นส่วน", "โดเมนสินค้า / แหล่งอ้างอิง"], steel_reference_rows,
+              [wide*.08, wide*.30, wide*.62], center_cols=(0,)),
+        Spacer(1, 4),
         P("ข้อจำกัดการประมาณ: จำนวนท่อนมาตรฐานคำนวณเฉพาะรายการที่มีความยาวและท่อนมาตรฐาน "
           "ไม่หัก kerf เศษตัด ระยะซ้อน/ต่อ หรือข้อจำกัดการจัดวางชิ้นตัด "
-          "น้ำหนักที่กรอกเองจะคูณจำนวนชิ้นโดยตรงและไม่ถูกรวมเป็นความยาวเหล็ก", label),
+          "น้ำหนักที่กรอกเองจะคูณจำนวนชิ้นโดยตรงและไม่ถูกรวมเป็นความยาวเหล็ก", note),
     ]
 
     # Combined mass roll-up: only manually supplied equipment weights and
     # steel weights with a complete reference measurement are counted.
     mass = bom_steel_bom.summarize_bom_and_steel(doc)
     equipment_rows = []
-    for item in sorted_items(doc):
+    for item in items:
         qty = price(item.get("qty")) or 0
         unit_weight = price(item.get("unitWeightKg"))
         line_weight = qty * unit_weight if unit_weight is not None else None
@@ -438,113 +467,111 @@ def export_pdf(doc, destination, options=None):
         ])
     story += [
         PageBreak(),
-        P("ภาคผนวก จ. สรุปน้ำหนักอุปกรณ์และโครงสร้าง / TOTAL MASS ROLL-UP", section),
+        P("ภาคผนวก จ  สรุปน้ำหนักอุปกรณ์และโครงสร้าง / TOTAL MASS ROLL-UP", section),
         P("น้ำหนักอุปกรณ์กรอกเองต่อ 1 หน่วย • โครงสร้างคำนวณได้ทั้งจากความยาว/น้ำหนักอ้างอิง "
-          "หรือจากน้ำหนักต่อชิ้นที่ผู้ใช้กรอกเอง", label),
-        Spacer(1, 8),
+          "หรือจากน้ำหนักต่อชิ้นที่ผู้ใช้กรอกเอง", note),
+        Spacer(1, 6),
         TABLE(["น้ำหนักอุปกรณ์ที่ทราบ (kg)", "น้ำหนักโครงเหล็กที่ทราบ (kg)",
                "น้ำหนักรวมที่ทราบ (kg)"], [[
             f'{mass["equipment_known_weight_kg"]:,.3f}' if mass["equipment_weighted_items"] else "—",
             f'{mass["steel_known_weight_kg"]:,.3f}' if mass["steel_known_weight_kg"] else "—",
             f'{mass["combined_known_weight_kg"]:,.3f}' if
             (mass["equipment_weighted_items"] or mass["steel_known_weight_kg"]) else "—",
-        ]], [width/3, width/3, width/3]),
-        Spacer(1, 7),
+        ]], [wide/3, wide/3, wide/3], numeric_cols=(0, 1, 2)),
+        Spacer(1, 4),
         P(f'อุปกรณ์ยังไม่กรอกน้ำหนัก {mass["equipment_missing_weight_count"]} รายการ '
           f'({mass["equipment_missing_weight_qty"]:g} หน่วย) • '
-          f'โครงเหล็กยังไม่ทราบน้ำหนัก {bom_steel.format_length(mass["steel_unknown_weight_length_m"])} m. '
+          f'โครงเหล็กยังไม่ทราบน้ำหนัก {bom_steel.format_length(mass["steel_unknown_weight_length_m"])} m • '
           + ("กรอกน้ำหนักครบตามรายการที่บันทึก" if mass["combined_weight_complete"]
-             else "น้ำหนักรวมเป็นเฉพาะส่วนที่ทราบ ยังไม่ใช่น้ำหนักจริงครบทุกชิ้น"), label),
-        Spacer(1, 12),
-        P("ตารางน้ำหนักอุปกรณ์จาก BOM", section), Spacer(1, 5),
+             else "น้ำหนักรวมเป็นเฉพาะส่วนที่ทราบ ยังไม่ใช่น้ำหนักจริงครบทุกชิ้น"), note),
+        P("ตารางน้ำหนักอุปกรณ์จาก BOM", caption),
         TABLE(["BOM ID", "อุปกรณ์ / รุ่น", "จำนวน / หน่วย",
                "น้ำหนัก/หน่วย (kg)", "น้ำหนักรวม (kg)"],
               equipment_rows,
-              [width*.09, width*.39, width*.16, width*.18, width*.18]),
-        Spacer(1, 12),
-        P("ตารางน้ำหนักโครงสร้างเหล็กและชิ้นส่วน", section), Spacer(1, 5),
+              [wide*.09, wide*.43, wide*.14, wide*.17, wide*.17],
+              numeric_cols=(3, 4), center_cols=(0, 2)),
+        P("ตารางน้ำหนักโครงสร้างเหล็กและชิ้นส่วน", caption),
         TABLE(["วิธีน้ำหนัก", "ชิ้นส่วน / หน้าตัด", "ขนาด", "จำนวน", "ความยาวรวม (m)",
                "น้ำหนักที่ทราบ (kg)", "ยังไม่ทราบน้ำหนัก (m)"],
-              [[("กรอกน้ำหนักเอง" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
-                 else "ตามความยาว"),
-                g.get("profile"), g.get("size"), g["pieces"],
+              [[mode_text(g), g.get("profile"), g.get("size"), g["pieces"],
                 ("—" if g.get("weight_mode") == bom_steel.WEIGHT_MODE_MANUAL
                  and not g["total_length_m"] else
                  bom_steel.format_length(g["total_length_m"])),
                 bom_steel.format_length(g["known_weight_kg"], 3),
                 bom_steel.format_length(g["unknown_weight_length_m"])]
                for g in mass["steel_groups"]],
-              [width*.13, width*.17, width*.16, width*.08, width*.15, width*.16, width*.15]),
-        Spacer(1, 8),
-        P("ข้อควรระวัง: หากมีรายการโครงเหล็กเดียวกันถูกใส่เป็นน้ำหนักอุปกรณ์ใน BOM ด้วย "
-          "และอยู่ใน Steel Cut List ด้วย จะถูกนับซ้ำ ต้องเว้นน้ำหนัก BOM ของรายการซ้ำหรือไม่รวมรายการนั้น "
-          "น้ำหนักที่ยังไม่กรอกจะไม่ถูกเดาและไม่ถูกรวมในผลรวม", label),
+              [wide*.13, wide*.19, wide*.16, wide*.08, wide*.14, wide*.15, wide*.15],
+              numeric_cols=(3, 4, 5, 6)),
+        Spacer(1, 4),
+        P("ข้อควรระวัง: หากรายการโครงเหล็กเดียวกันถูกใส่น้ำหนักทั้งใน BOM และใน Steel Cut List "
+          "จะถูกนับซ้ำ น้ำหนักที่ยังไม่กรอกจะไม่ถูกเดาและไม่ถูกรวมในผลรวม", note),
     ]
 
-    # Dedicated sign-off page: leave actual signature/date spaces for a printed
-    # academic submission. Names come from report options; no approval is implied.
-    story += [
-        PageBreak(),
-        P("การจัดทำและตรวจสอบเอกสาร / PREPARED & REVIEWED",section),
-        P("ลงนามหลังจากตรวจสอบรายการอุปกรณ์ จำนวน ราคาอ้างอิง และความครบถ้วนแล้ว",label),
-        Spacer(1,14),
-    ]
+    # Sign-off page leaves real signature/date space for a printed academic
+    # submission. Names come from report options; no approval is implied.
     signoff = LongTable([
-        [P("ผู้จัดทำ / PREPARED BY",white),
-         P("ผู้ตรวจสอบ / REVIEWED BY",white)],
-        [P("ชื่อ-สกุล: "+m["author"]),
-         P("ชื่อ-สกุล: "+m["advisor"])],
+        [P("ผู้จัดทำ / PREPARED BY",heading), P("ผู้ตรวจสอบ / REVIEWED BY",heading)],
+        [P("ชื่อ-สกุล: "+m["author"]), P("ชื่อ-สกุล: "+m["advisor"])],
         [P("ลายมือชื่อ: ........................................................"),
          P("ลายมือชื่อ: ........................................................")],
         [P("วันที่: ........../........../.........."),
          P("วันที่: ........../........../..........")],
     ], colWidths=[width*.5,width*.5], hAlign="LEFT")
     signoff.setStyle(TableStyle([
-        ("BACKGROUND",(0,0),(-1,0),navy),
-        ("BACKGROUND",(0,1),(-1,-1),colors.HexColor(PALE)),
-        ("BOX",(0,0),(-1,-1),.65,line),
-        ("INNERGRID",(0,0),(-1,-1),.4,line),
+        ("GRID",(0,0),(-1,-1),0.5,ink),
+        ("BACKGROUND",(0,0),(-1,0),head_fill),
+        ("LINEBELOW",(0,0),(-1,0),1.0,ink),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-        ("LEFTPADDING",(0,0),(-1,-1),13),
-        ("RIGHTPADDING",(0,0),(-1,-1),13),
-        ("TOPPADDING",(0,0),(-1,-1),14),
-        ("BOTTOMPADDING",(0,0),(-1,-1),14),
+        ("LEFTPADDING",(0,0),(-1,-1),12),
+        ("RIGHTPADDING",(0,0),(-1,-1),12),
+        ("TOPPADDING",(0,1),(-1,-1),14),
+        ("BOTTOMPADDING",(0,1),(-1,-1),14),
     ]))
     story += [
-        signoff, Spacer(1,18),
+        NextPageTemplate("portrait"),PageBreak(),
+        P("การจัดทำและตรวจสอบเอกสาร / PREPARED & REVIEWED",section),
+        P("ลงนามหลังจากตรวจสอบรายการอุปกรณ์ จำนวน ราคาอ้างอิง และความครบถ้วนแล้ว",note),
+        Spacer(1,12),KeepTogether([signoff]),Spacer(1,14),
         P("สถานะเอกสาร: DRAFT • หน้าลงนามนี้เป็นช่องสำหรับตรวจทานในรายงานการศึกษา "
-          "ไม่ใช่การรับรองความปลอดภัยหรือการอนุมัติให้ผลิต",label),
+          "ไม่ใช่การรับรองความปลอดภัยหรือการอนุมัติให้ผลิต",note),
     ]
-    template=SimpleDocTemplate(str(destination),pagesize=page,
-        leftMargin=32,rightMargin=32,topMargin=60,bottomMargin=46,
-        title="Engineering Bill of Materials",author=m["author"],
-        subject=m["project"])
-    def decoration(canvas,page_doc):
+
+    def decorate(canvas,number,total):
+        page_width,page_height=canvas._pagesize
         canvas.saveState()
-        # Print-friendly running header: white paper, a fine steel-blue rule,
-        # and restrained dark text instead of a full-width dark banner.
-        canvas.setStrokeColor(colors.HexColor(BLUE))
-        canvas.setLineWidth(1.1 if page_doc.page == 1 else 0.8)
-        canvas.line(32,page[1]-25,page[0]-32,page[1]-25)
-        if page_doc.page > 1:
-            canvas.setFillColor(navy)
-            canvas.setFont(font,9)
-            canvas.drawString(32,page[1]-20,
-                             "ENGINEERING BOM  /  DRAFT")
-            canvas.setFillColor(colors.HexColor(GREY))
-            canvas.setFont(font,8)
-            canvas.drawRightString(page[0]-32,page[1]-20,
-                                   m["document_no"][:44])
-        canvas.setStrokeColor(line)
-        canvas.setLineWidth(0.6)
-        canvas.line(32,34,page[0]-32,34)
-        canvas.setFillColor(colors.HexColor(GREY))
-        canvas.setFont(font,8)
-        canvas.drawString(32,21,
-            f'Rev. {m["revision"]}  |  {m["date"]}  |  รายงานประกอบการออกแบบ')
-        canvas.drawRightString(page[0]-32,21,f"หน้า {page_doc.page}")
+        canvas.setFillColor(ink)
+        canvas.setStrokeColor(ink)
+        canvas.setFont(bold,9)
+        bom_thai_text.draw_string(canvas,margin,page_height-34,
+                                  "รายงานรายการวัสดุและอุปกรณ์ (Bill of Materials)")
+        canvas.setFont(regular,8.5)
+        bom_thai_text.draw_string(
+            canvas,page_width-margin,page_height-34,
+            f'เลขที่เอกสาร {m["document_no"][:40]}  |  ฉบับแก้ไข {m["revision"][:12]}',"right")
+        canvas.setLineWidth(0.8)
+        canvas.line(margin,page_height-40,page_width-margin,page_height-40)
+        canvas.setLineWidth(0.5)
+        canvas.line(margin,40,page_width-margin,40)
+        bom_thai_text.draw_string(canvas,margin,28,
+                                  f'โครงการ: {m["project"][:70]}  |  วันที่จัดทำ {m["date"]}')
+        bom_thai_text.draw_string(canvas,page_width-margin,28,
+                                  f"หน้า {number} / {total}","right")
         canvas.restoreState()
-    template.build(story,onFirstPage=decoration,onLaterPages=decoration)
+
+    def frame(size,name):
+        return Frame(margin,50,size[0]-2*margin,size[1]-50-56,id=name,
+                     leftPadding=0,rightPadding=0,topPadding=0,bottomPadding=0)
+
+    template=BaseDocTemplate(
+        str(destination),pagesize=portrait_size,
+        title="Engineering Bill of Materials",author=m["author"],subject=m["project"],
+        pageTemplates=[
+            PageTemplate(id="portrait",frames=[frame(portrait_size,"portrait")],
+                         pagesize=portrait_size),
+            PageTemplate(id="landscape",frames=[frame(landscape_size,"landscape")],
+                         pagesize=landscape_size),
+        ])
+    template.build(story,canvasmaker=_numbered_canvas(decorate))
 
 
 def export_excel(doc,destination,options=None):
@@ -561,98 +588,58 @@ def export_excel(doc,destination,options=None):
                        "author":m["author"],"subject":m["project"],
                        "comments":"Unknown prices are intentionally blank."})
     def fmt(**kwargs):
-        return wb.add_format({"font_name":EXCEL_FONT,"font_size":14,
-                              "font_color":"#21384E","valign":"vcenter",**kwargs})
-    # Excel style 2: deep teal worksheet bands and mist-grey rows, retained as
-    # a distinct formal workbook design. Use the Thai academic font TH Sarabun New.
-    # PDF uses the same preferred Thai font with its separate navy-blue design.
-    title=fmt(bold=True,font_size=22,font_color="white",bg_color=EXCEL_NAVY,
-              valign="vcenter",bottom=4,bottom_color=EXCEL_BLUE)
-    subtitle=fmt(font_size=13,font_color=EXCEL_GREY,bg_color=EXCEL_PALE,
-                 valign="vcenter")
-    bar=fmt(bold=True,font_color="white",bg_color=EXCEL_BLUE,font_size=15,
-            bottom=2,bottom_color=EXCEL_NAVY)
-    head=fmt(bold=True,font_color="white",bg_color=EXCEL_NAVY,
-             align="center",text_wrap=True,font_size=13,border=1,border_color=EXCEL_BLUE,
-             valign="vcenter")
-    # Wrapped Thai text starts at the top; row heights are estimated per row.
-    normal=fmt(text_wrap=True,valign="top",border=1,border_color=EXCEL_LINE)
-    alternate=fmt(text_wrap=True,valign="top",bg_color=EXCEL_ROW_ALT,
-                   border=1,border_color=EXCEL_LINE)
-    # Keep category styling consistent with the PDF and the agreed prototype:
-    # navy table headers, pale-blue category bands, dark navy labels.
-    category_colors={
-        "เครื่องกล":(EXCEL_ROW_ALT,EXCEL_CATEGORY_FILL,EXCEL_NAVY),
-        "ไฟฟ้ากำลัง":(EXCEL_ROW_ALT,EXCEL_CATEGORY_FILL,EXCEL_NAVY),
-        "อิเล็กทรอนิกส์/ควบคุม":(EXCEL_ROW_ALT,EXCEL_CATEGORY_FILL,EXCEL_NAVY),
-        "อื่น ๆ":(EXCEL_ROW_ALT,EXCEL_CATEGORY_FILL,EXCEL_NAVY),
-    }
-    category_formats={
-        cat:fmt(bold=True,bg_color=palette[1],font_color=palette[2],
-                valign="top",text_wrap=True,border=1,border_color=EXCEL_LINE)
-        for cat,palette in category_colors.items()
-    }
-    category_row_formats={
-        cat:fmt(bg_color=palette[0],text_wrap=True,valign="top",
-                border=1,border_color=EXCEL_LINE)
-        for cat,palette in category_colors.items()
-    }
-    category_start_formats={
-        cat:fmt(bg_color=palette[0],text_wrap=True,valign="top",
-                border=1,border_color=EXCEL_LINE,top=2,top_color=EXCEL_NAVY)
-        for cat,palette in category_colors.items()
-    }
-    category_number_formats={
-        cat:fmt(bg_color=palette[0],num_format="#,##0.##",align="center",
-                border=1,border_color=EXCEL_LINE)
-        for cat,palette in category_colors.items()
-    }
-    category_money_formats={
-        cat:fmt(bg_color=palette[0],num_format="#,##0.00;[Red](#,##0.00)",
-                align="right",border=1,border_color=EXCEL_LINE)
-        for cat,palette in category_colors.items()
-    }
-    category_start_number_formats={
-        cat:fmt(bg_color=palette[0],num_format="#,##0.##",align="center",
-                border=1,border_color=EXCEL_LINE,top=2,top_color=EXCEL_NAVY)
-        for cat,palette in category_colors.items()
-    }
-    category_start_money_formats={
-        cat:fmt(bg_color=palette[0],num_format="#,##0.00;[Red](#,##0.00)",
-                align="right",border=1,border_color=EXCEL_LINE,top=2,top_color=EXCEL_NAVY)
-        for cat,palette in category_colors.items()
-    }
-    label=fmt(bold=True,font_color=EXCEL_NAVY)
-    total_fmt=fmt(bold=True,bg_color=EXCEL_PALE,font_color=EXCEL_NAVY,
-                  border=1,border_color=EXCEL_LINE)
-    number=fmt(num_format="#,##0.##",align="center",border=1,border_color=EXCEL_LINE)
-    money=fmt(num_format="#,##0.00;[Red](#,##0.00)",align="right",
-              border=1,border_color=EXCEL_LINE)
+        return wb.add_format({"font_name":EXCEL_FONT,"font_size":10,
+                              "font_color":INK,"valign":"vcenter",**kwargs})
+    # Design A: black text, thin black grid, light-grey header and group bands.
+    # Prints cleanly in black and white on A4.
+    title=fmt(bold=True,font_size=14,align="center",bottom=2)
+    subtitle=fmt(font_color=NOTE_INK,align="center",text_wrap=True)
+    bar=fmt(bold=True,font_size=11,bg_color=BAND_FILL,border=1,border_color=INK)
+    head=fmt(bold=True,bg_color=HEAD_FILL,align="center",text_wrap=True,
+             border=1,border_color=INK,bottom=2)
+    # Wrapped text is centred vertically like the numbers; row heights are
+    # estimated per row.
+    normal=fmt(text_wrap=True,border=1,border_color=INK)
+    alternate=normal
+    band=fmt(bold=True,bg_color=BAND_FILL,border=1,border_color=INK)
+    label=fmt(bold=True)
+    total_fmt=fmt(bold=True,align="right",border=1,border_color=INK)
+    # General shows 35 and 2.5 without the trailing "35." of #,##0.##
+    number=fmt(num_format="General",align="center",border=1,border_color=INK)
+    money=fmt(num_format="#,##0.00;-#,##0.00",align="right",
+              border=1,border_color=INK)
     mass_number=fmt(num_format="#,##0.000",align="right",
-                    border=1,border_color=EXCEL_LINE)
-    total_mass=fmt(bold=True,bg_color=EXCEL_PALE,font_color=EXCEL_NAVY,
-                   num_format="#,##0.000",align="right",
-                   border=1,border_color=EXCEL_LINE)
-    total_money=fmt(bold=True,bg_color=EXCEL_PALE,font_color=EXCEL_NAVY,
-                    num_format="#,##0.00;[Red](#,##0.00)",align="right",
-                    border=1,border_color=EXCEL_LINE)
-    notice=fmt(font_color="#805000",bg_color="#FFF8E8",text_wrap=True)
+                    border=1,border_color=INK)
+    total_mass=fmt(bold=True,num_format="#,##0.000",align="right",
+                   border=1,border_color=INK)
+    total_money=fmt(bold=True,num_format="#,##0.00;-#,##0.00",align="right",
+                    border=1,border_color=INK)
+    grand_label=fmt(bold=True,align="right",border=1,border_color=INK,top=6,bottom=6)
+    grand_money=fmt(bold=True,num_format="#,##0.00;-#,##0.00",align="right",
+                    border=1,border_color=INK,top=6,bottom=6)
+    notice=fmt(italic=True,font_color=NOTE_INK,text_wrap=True,valign="top")
+    missing_price=wb.add_format({"bg_color":MISSING_FILL})
     def sheet(name,widths,headers=None,wide=False):
         w=wb.add_worksheet(name)
         w.hide_gridlines(2)
-        w.set_tab_color(EXCEL_BLUE if name in ("BOM","Summary") else EXCEL_NAVY)
-        w.set_landscape();w.set_paper(8 if wide else 9)
+        w.set_paper(9)  # A4; wide registers print landscape
+        if wide:
+            w.set_landscape()
         w.fit_to_pages(1,0);w.center_horizontally()
-        w.set_margins(.34,.34,.55,.55)
-        w.set_header("&C&BENGINEERING BOM | "+m["document_no"])
-        w.set_footer("&LRev. "+m["revision"]+" | Engineering Draft&RPage &P / &N")
-        for n,width in enumerate(widths):w.set_column(n,n,width)
+        w.set_margins(.4,.4,.6,.6)
+        w.set_header("&L&8"+m["project"].replace("&","&&")+
+                     "&R&8เลขที่เอกสาร "+m["document_no"].replace("&","&&")+
+                     " | ฉบับแก้ไข "+m["revision"].replace("&","&&"))
+        w.set_footer("&L&8รายงานรายการวัสดุและอุปกรณ์ (DRAFT)&R&8หน้า &P / &N")
+        # Widths were tuned for TH Sarabun 14; Tahoma 10 needs about 72%.
+        for n,width in enumerate(widths):w.set_column(n,n,round(width*.72,1))
         w.merge_range(0,0,1,len(widths)-1,
                       "รายงานรายการวัสดุและอุปกรณ์ / ENGINEERING BOM",title)
         w.merge_range(2,0,2,len(widths)-1,
-            "โครงการ: "+m["project"]+"  |  No: "+m["document_no"]+
-            "  |  Rev: "+m["revision"]+"  |  "+m["date"],subtitle)
-        w.set_row(0,25);w.set_row(1,20);w.set_row(2,24)
+            "โครงการ: "+m["project"]+"  |  เลขที่เอกสาร: "+m["document_no"]+
+            "  |  ฉบับแก้ไข: "+m["revision"]+"  |  วันที่จัดทำ: "+m["date"],subtitle)
+        # Narrow portrait sheets need two lines for the project subtitle.
+        w.set_row(0,18);w.set_row(1,12);w.set_row(2,18 if wide else 30)
         if headers:
             section_titles={
                 "BOM":"ทะเบียนรายการวัสดุและอุปกรณ์ / MASTER BOM REGISTER",
@@ -669,17 +656,19 @@ def export_excel(doc,destination,options=None):
                           section_titles.get(name,name+" / ENGINEERING DOCUMENT"),bar)
             for i,h in enumerate(headers):w.write(6,i,h,head)
             # Multi-line Thai/English column titles need room to wrap.
-            w.set_row(6,48);w.freeze_panes(7,2);w.repeat_rows(0,6)
+            w.set_row(6,32);w.freeze_panes(7,2);w.repeat_rows(6)
         return w
 
-    def fitted_row_height(values, widths, minimum=34, line_height=20, padding=10):
+    def fitted_row_height(values, widths, minimum=18, line_height=14, padding=6):
         """Estimate wrapped Excel row height for mixed Thai/English text."""
         max_lines = 1
         for col, value in enumerate(values):
             if value is None:
                 continue
             width = max(5.0, float(widths[col]) if col < len(widths) else 12.0)
-            capacity = max(4.0, width * 0.76)
+            # Conservative: Excel wraps URLs at / and - leaving short lines,
+            # and clipped text is worse than a little white space.
+            capacity = max(4.0, width * 0.66)
             parts = str(value).splitlines() or [""]
             lines = 0
             for part in parts:
@@ -694,7 +683,10 @@ def export_excel(doc,destination,options=None):
         return min(360, max(minimum, max_lines * line_height + padding))
 
     count=len(items)
-    start=8;end=7+count
+    # BOM sheet rows: one band row and one subtotal row per category around
+    # the items. Ranges below span all of them; band/subtotal rows leave the
+    # category, name and price columns empty, so COUNTIF/SUMIF skip them.
+    start=8;end=7+count+2*len(categories)
     startend=lambda letter: "BOM!$"+letter+"$"+str(start)+":$"+letter+"$"+str(max(start,end))
     summary=sheet("Summary",[34,24,25,24])
     summary.merge_range("A5:D5","ข้อมูลเอกสาร / Document information",bar)
@@ -715,8 +707,9 @@ def export_excel(doc,destination,options=None):
     summary.write_formula(17,1,"=COUNTA("+startend("D")+")",number,count)
     summary.write_formula(18,1,"=COUNT("+startend("G")+")",number,stats["priced"])
     summary.write_formula(19,1,"=B18-B19",number,stats["missing"])
-    summary.write_formula(20,1,"=SUM("+startend("H")+")",money,stats["known_cost"])
-    summary.write_formula(21,1,"=SUM(Purchasing!G8:G5000)",
+    # SUBTOTAL ignores the per-category SUBTOTAL rows inside the range.
+    summary.write_formula(20,1,"=SUBTOTAL(9,"+startend("H")+")",money,stats["known_cost"])
+    summary.write_formula(21,1,"=SUBTOTAL(9,Purchasing!G8:G5000)",
                           money,stats["purchase_total"])
     summary.merge_range("A24:D24","ภาพรวมตามหมวดวิศวกรรม",bar)
     for c,h in enumerate(["หมวดระบบ","จำนวน","ไม่มีราคา","ยอดที่ทราบ (บาท)"]):
@@ -732,14 +725,11 @@ def export_excel(doc,destination,options=None):
                               ","+startend("H")+")",money,amount)
         summary.set_row(row,28)
     summary.merge_range("A30:D30","ขอบเขตของหมวดหลัก / CATEGORY DEFINITIONS",bar)
-    for row,(cat,description) in enumerate([
-        ("เครื่องกล","โครงรถ โครงสร้าง ล้อ เครน และตะกร้า"),
-        ("ไฟฟ้ากำลัง","แบตเตอรี่ มอเตอร์ VESC/ไดรเวอร์ ฟิวส์ คอนแทคเตอร์ สายกำลัง และ DC-DC"),
-        ("อิเล็กทรอนิกส์/ควบคุม","ESP32 เซนเซอร์ CAN รีโมต RC จอ และวงจรสัญญาณ/ควบคุม"),
-    ],30):
-        summary.write(row,0,cat,category_formats[cat])
+    for row,cat in enumerate(bom_categories.CATEGORY_ORDER,30):
+        description=CATEGORY_DEFINITIONS[cat]
+        summary.write(row,0,cat,band)
         summary.merge_range(row,1,row,3,description,normal)
-        summary.set_row(row, fitted_row_height([cat, description], [34, 73], minimum=40))
+        summary.set_row(row, fitted_row_height([cat, description], [34, 73], minimum=20))
     summary.merge_range("A36:D38",
         "หมายเหตุ: รายการที่ไม่ทราบราคาไม่ถูกถือว่ามีราคา 0 บาท "
         "และยอดรวมยังไม่ใช่งบประมาณสุดท้าย "
@@ -752,63 +742,84 @@ def export_excel(doc,destination,options=None):
     details=sheet("Specification",[12,29,50,68,27,36,54],
         ["ID","หมวด","อุปกรณ์ / รุ่น","สเปกทางเทคนิค",
          "Part No.","ร้านค้า / ผู้ขาย","ข้อมูลเพิ่มเติม / ลิงก์"],True)
-    previous_category = None
+    bom_widths=[11,27,25,46,11,11,20,21,26,19,19]
+    row=7
+    for category,category_count,_missing,subtotal in categories:
+        # Group band: label in column A only, so the importer (which needs a
+        # name in column D) and the COUNTIF/SUMIF ranges ignore it.
+        bom.merge_range(row,0,row,10,
+                        f"หมวดหลัก: {category}  ({category_count} รายการ)",band)
+        bom.set_row(row,20)
+        row+=1
+        first=row
+        for item in items:
+            if bom_categories.normalize_category(item.get("category")) != category:
+                continue
+            erow=row+1
+            qty=price(item.get("qty")) or 0
+            amount=price(item.get("unitPrice"))
+            unit_weight=price(item.get("unitWeightKg"))
+            entries=[item.get("id"),category,item.get("partNumber"),item.get("name"),
+                     qty,item.get("unit"),amount,None,item.get("status"),
+                     unit_weight,None]
+            for col,val in enumerate(entries):
+                if col==7:
+                    bom.write_formula(row,col,'=IF(G'+str(erow)+'="","",E'+
+                                      str(erow)+'*G'+str(erow)+')',money,
+                                      "" if amount is None else float(qty*amount))
+                elif col==10:
+                    bom.write_formula(row,col,'=IF(J'+str(erow)+'="","",E'+
+                                      str(erow)+'*J'+str(erow)+')',mass_number,
+                                      "" if unit_weight is None else float(qty*unit_weight))
+                elif val is None:
+                    bom.write_blank(row,col,None,mass_number if col==9 else
+                                    money if col==6 else normal)
+                elif col in (4,6,9):
+                    bom.write_number(row,col,float(val),
+                                     number if col==4 else money if col==6 else mass_number)
+                else:
+                    bom.write_string(row,col,str(val),normal)
+            bom.set_row(row, fitted_row_height(entries, bom_widths, minimum=20))
+            row+=1
+        bom.merge_range(row,0,row,6,f"รวมหมวด {category}",total_fmt)
+        bom.write_formula(row,7,f"=SUBTOTAL(9,H{first+1}:H{row})",total_money,subtotal)
+        for col in (8,9,10):
+            bom.write_blank(row,col,None,normal)
+        bom.set_row(row,20)
+        row+=1
+    total_row=row
+    bom.merge_range(total_row,0,total_row,6,
+                    "รวมทั้งสิ้น (เฉพาะรายการที่ทราบราคา)",grand_label)
+    total_formula=f"=SUBTOTAL(9,H8:H{total_row})" if count else "=0"
+    bom.write_formula(total_row,7,total_formula,
+                      grand_money,float(stats["known_cost"]))
+    for col in (8,9,10):
+        bom.write_blank(total_row,col,None,grand_label)
+    bom.set_row(total_row,22)
+    bom.write_string(total_row+2,0,
+        "หมายเหตุ: ช่องราคาสีเทา = ยังไม่ทราบราคา (ไม่ใช่ 0 บาท) • ราคารวมและยอดรวมคำนวณด้วยสูตร "
+        "แก้จำนวนหรือราคาแล้วยอดจะเปลี่ยนเอง",notice)
+    if count:
+        bom.autofilter(6,0,total_row-1,10)
+        # Shade unknown prices on item rows only (column D holds the name).
+        bom.conditional_format(7,6,total_row-1,6,
+                               {"type":"formula","criteria":'=AND($D8<>"",$G8="")',
+                                "format":missing_price})
+    bom.print_area(0,0,total_row+2,10)
+
     for idx,item in enumerate(items):
-        row=7+idx;erow=row+1
+        row=7+idx
         category=bom_categories.normalize_category(item.get("category"))
-        qty=price(item.get("qty")) or 0
-        amount=price(item.get("unitPrice"))
-        unit_weight=price(item.get("unitWeightKg"))
-        entries=[item.get("id"),category,item.get("partNumber"),item.get("name"),
-                 qty,item.get("unit"),amount,None,item.get("status"),
-                 unit_weight,None]
-        first_in_group = category != previous_category
-        row_fmt = category_start_formats.get(category, normal) if first_in_group else category_row_formats.get(category, normal)
-        num_fmt = category_start_number_formats.get(category, number) if first_in_group else category_number_formats.get(category, number)
-        money_fmt = category_start_money_formats.get(category, money) if first_in_group else category_money_formats.get(category, money)
-        for col,val in enumerate(entries):
-            if col==7:
-                bom.write_formula(row,col,'=IF(G'+str(erow)+'="","",E'+
-                                  str(erow)+'*G'+str(erow)+')',money_fmt,
-                                  "" if amount is None else float(qty*amount))
-            elif col==10:
-                bom.write_formula(row,col,'=IF(J'+str(erow)+'="","",E'+
-                                  str(erow)+'*J'+str(erow)+')',mass_number,
-                                  "" if unit_weight is None else float(qty*unit_weight))
-            elif val is None:
-                bom.write_blank(row,col,None,mass_number if col==9 else row_fmt)
-            elif col in (4,6,9):
-                bom.write_number(row,col,float(val),
-                                 num_fmt if col==4 else money_fmt if col==6 else mass_number)
-            else:
-                bom.write_string(row,col,str(val),
-                                 category_formats.get(category,row_fmt) if col==1 else row_fmt)
-        bom.set_row(row, fitted_row_height(
-            entries, [11,27,25,46,11,11,20,21,26,19,19], minimum=42))
-        previous_category = category
         extra="\n".join(str(item.get(k)) for k in ("link","connection","notes")
                         if item.get(k))
         values=[item.get("id"),category,item.get("name"),item.get("spec"),
                 item.get("partNumber"),item.get("supplier"),extra]
         for col,val in enumerate(values):
-            details.write_string(row,col,"" if val is None else str(val),
-                                 alternate if idx%2 else normal)
+            details.write_string(row,col,"" if val is None else str(val),normal)
         details.set_row(row, fitted_row_height(
-            values, [12,29,50,68,27,36,54], minimum=46))
+            values, [12,29,50,68,27,36,54], minimum=20))
     if count:
-        bom.autofilter(6,0,6+count,10)
         details.autofilter(6,0,6+count,6)
-        bom.conditional_format(7,6,6+count,6,
-                               {"type":"blanks","format":notice})
-    total_row=7+count
-    bom.merge_range(total_row,0,total_row,6,
-                    "รวมมูลค่ารายการที่ทราบราคา (บาท)",total_fmt)
-    last_data_excel_row=count+7
-    total_formula=("=SUM(H8:H"+str(last_data_excel_row)+")") if count else "=0"
-    bom.write_formula(total_row,7,total_formula,
-                      total_money,float(stats["known_cost"]))
-    bom.set_row(total_row,30)
-    bom.print_area(0,0,total_row,10)
     details.print_area(0,0,max(7,6+count),6)
     wiring=sheet("Wiring",[11,32,32,22,20,28,37,25],
         ["ID","ต้นทาง","ปลายทาง","สัญญาณ","แรงดัน",
@@ -821,7 +832,7 @@ def export_excel(doc,destination,options=None):
         wiring.set_row(n, fitted_row_height(
             [item.get(k) for k in ("id","from","to","signal","voltage",
                                    "cable","protection","status")],
-            [11,32,32,22,20,28,37,25], minimum=42))
+            [11,32,32,22,20,28,37,25], minimum=20))
     wiring.print_area(0,0,max(7,6+len(doc.get("wiring",[]))),7)
     buy=sheet("Purchasing",[11,13,46,34,14,21,21,23],
         ["ID","BOM ID","รายการ","ผู้ขาย","จำนวน",
@@ -832,31 +843,40 @@ def export_excel(doc,destination,options=None):
         for col,key in enumerate(("id","itemId","description","supplier",
                                   "qty","unitPrice","lineTotal","status")):
             if col==6:
+                # Cached value must be "" (not None) or Excel repairs the sheet.
                 buy.write_formula(n,col,'=IF(F'+str(r)+'="","",E'+str(r)+'*F'+
                                   str(r)+')',money,
-                                  None if amount is None else float(qty*amount))
+                                  "" if amount is None else float(qty*amount))
             elif col in (4,5):
                 val=qty if col==4 else amount
-                if val is None:buy.write_blank(n,col,None,normal)
+                if val is None:buy.write_blank(n,col,None,money if col==5 else normal)
                 else:buy.write_number(n,col,float(val),number if col==4 else money)
             else:buy.write_string(n,col,str(item.get(key) or ""),normal)
         buy.set_row(n, fitted_row_height(
             [item.get(k) for k in ("id","itemId","description","supplier",
                                    "qty","unitPrice","lineTotal","status")],
-            [11,13,46,34,14,21,21,23], minimum=42))
-    buy.print_area(0,0,max(7,6+len(orders)),7)
+            [11,13,46,34,14,21,21,23], minimum=20))
+    buy_total=7+len(orders)
+    if orders:
+        buy.autofilter(6,0,buy_total-1,7)
+        buy.merge_range(buy_total,0,buy_total,5,"รวมยอดจัดซื้อที่ทราบราคา (บาท)",grand_label)
+        buy.write_formula(buy_total,6,f"=SUBTOTAL(9,G8:G{buy_total})",grand_money,
+                          float(stats["purchase_total"]))
+        buy.write_blank(buy_total,7,None,grand_label)
+    buy.print_area(0,0,max(7,buy_total),7)
     notes=sheet("Notes",[35,98])
     notes.merge_range("A5:B5","คำแนะนำการใช้รายงาน",bar)
     for row,(labeltext,text) in enumerate([
         ("ประเภทเอกสาร","เอกสารประกอบรายงานออกแบบ ไม่ใช่เอกสารที่อนุมัติให้ผลิต"),
         ("ราคาที่ยังไม่มี","ช่องราคาว่าง = ยังไม่ทราบ ไม่ใช่ศูนย์บาท"),
         ("สูตรคำนวณ","ยอดรวมในชีต BOM และ Purchasing ใช้สูตร Excel"),
-        ("การพิมพ์","Summary หน้า A4 แนวนอน, BOM/Specification/Wiring/Purchasing หน้า A3 แนวนอน"),
+        ("การพิมพ์","กระดาษ A4 ทุกชีต: Summary/Notes/Completeness/Approval แนวตั้ง, "
+                    "ตารางกว้าง (BOM, Specification, Wiring, Purchasing, เหล็ก, น้ำหนัก) แนวนอน"),
         ("ความปลอดภัยไฟฟ้า","Wiring เป็นข้อมูลเบื้องต้น ต้องตรวจคู่มือผู้ผลิตก่อนติดตั้งจริง"),
         ("แหล่งข้อมูล","ใช้ข้อมูล ณ วันที่ส่งออก ไม่รวม GitHub Token")
     ],7):
         notes.write(row,0,labeltext,label);notes.write(row,1,text,normal)
-        notes.set_row(row, fitted_row_height([labeltext, text], [35, 98], minimum=40))
+        notes.set_row(row, fitted_row_height([labeltext, text], [35, 98], minimum=20))
     notes.print_area("A1:B15")
 
     # Traceability is distinct from a formal manufacturer P/N.
@@ -864,8 +884,8 @@ def export_excel(doc,destination,options=None):
     sources=sheet("References",[12,44,25,29,52,36,56],
         ["BOM ID","อุปกรณ์ / รุ่น","Part Number","ผู้ขาย","ลิงก์แหล่งข้อมูล",
          "สถานะการเลือก","หมายเหตุการอ้างอิง"],True)
-    sourcefmt=fmt(font_color=EXCEL_BLUE,underline=True,text_wrap=True,
-                   border=1,border_color=EXCEL_LINE)
+    sourcefmt=fmt(underline=True,text_wrap=True,
+                   border=1,border_color=INK)
     for idx,item in enumerate(items):
         row=7+idx
         values=[item.get("id"),item.get("name"),item.get("partNumber"),
@@ -881,7 +901,7 @@ def export_excel(doc,destination,options=None):
             else:
                 sources.write_string(row,col,value,alternate if idx%2 else normal)
         sources.set_row(row, fitted_row_height(
-            values, [12,44,25,29,52,36,56], minimum=44))
+            values, [12,44,25,29,52,36,56], minimum=20))
     if count:
         sources.autofilter(6,0,6+count,6)
     sources.print_area(0,0,max(7,6+count),6)
@@ -929,7 +949,7 @@ def export_excel(doc,destination,options=None):
     approval.merge_range("C8:D8", "ชื่อ-สกุล: " + m["advisor"], normal)
     approval.merge_range("A10:B10", "ลายมือชื่อ / Signature", label)
     approval.merge_range("C10:D10", "ลายมือชื่อ / Signature", label)
-    signature_line = fmt(bottom=1, bottom_color=EXCEL_GREY)
+    signature_line = fmt(bottom=1, bottom_color=INK)
     approval.merge_range("A11:B11", " ", signature_line)
     approval.merge_range("C11:D11", " ", signature_line)
     approval.merge_range("A12:B12", "วันที่ / Date: ........../........../..........", normal)
@@ -968,9 +988,9 @@ def export_excel(doc,destination,options=None):
         "ส่วนชิ้นส่วนโหมดกรอกน้ำหนักเองจะรวม kg โดยไม่ถูกนับเป็นท่อนเหล็ก", notice)
     steel_summary.set_row(5, 32)
     steel_length_fmt = fmt(num_format="#,##0.000", align="right",
-                           border=1, border_color=EXCEL_LINE)
-    steel_link_fmt = fmt(font_color=EXCEL_BLUE, underline=1, text_wrap=True,
-                         border=1, border_color=EXCEL_LINE)
+                           border=1, border_color=INK)
+    steel_link_fmt = fmt(underline=1, text_wrap=True,
+                         border=1, border_color=INK)
     for idx, raw in enumerate(steel_rows):
         item = bom_steel.normalize_member(raw)
         row = 7 + idx
@@ -1024,7 +1044,7 @@ def export_excel(doc,destination,options=None):
                 steel_cut.write_string(row, col, "" if value is None else str(value), rowfmt)
         steel_cut.set_row(row, fitted_row_height(
             values, [10,32,20,23,25,28,14,20,18,22,44,20,20,20,22,20,44],
-            minimum=42))
+            minimum=20))
     cut_last_excel = max(8, 7 + len(steel_rows))
     if steel_rows:
         steel_cut.autofilter(6, 0, 6 + len(steel_rows), 16)
@@ -1039,8 +1059,8 @@ def export_excel(doc,destination,options=None):
          "น้ำหนักอ้างอิง (kg/ชิ้น หรือ kg/m)", "น้ำหนักรวม (kg)", "หมายเหตุ"], True)
     mass_sheet.write_string(3, 0, "อุปกรณ์ BOM (kg)", label)
     mass_sheet.write_formula(3, 1,
-        '=IF(COUNT(BOM!K8:K' + str(max(8, 7 + count)) + ')=0,"",SUM(BOM!K8:K' +
-        str(max(8, 7 + count)) + '))',
+        '=IF(COUNT(BOM!K8:K' + str(max(8, end)) + ')=0,"",SUM(BOM!K8:K' +
+        str(max(8, end)) + '))',
         total_mass, "" if mass_data["equipment_weighted_items"] == 0
         else float(mass_data["equipment_known_weight_kg"]))
     mass_sheet.write_string(3, 2, "โครงเหล็ก (kg)", label)
@@ -1081,7 +1101,7 @@ def export_excel(doc,destination,options=None):
                 mass_sheet.write_string(row, col, str(value),
                                          alternate if idx % 2 else normal)
         mass_sheet.set_row(row, fitted_row_height(
-            values, [20,12,42,13,13,22,22,29], minimum=36))
+            values, [20,12,42,13,13,22,22,29], minimum=20))
     steel_header_row = 7 + len(items) + 2
     mass_sheet.merge_range(steel_header_row, 0, steel_header_row, 7,
                            "รายการโครงสร้างเหล็ก / STEEL FRAME", bar)
@@ -1117,7 +1137,7 @@ def export_excel(doc,destination,options=None):
             else:
                 mass_sheet.write_string(row, col, str(value),
                                          alternate if idx % 2 else normal)
-        mass_sheet.set_row(row, 34)
+        mass_sheet.set_row(row, 20)
     mass_last = max(subhead_row + len(steel_rows), 7 + len(items))
     mass_sheet.print_area(0, 0, mass_last, 7)
 
@@ -1161,7 +1181,7 @@ def export_excel(doc,destination,options=None):
                 [mode_text, group["material"], group["profile"], group["size"],
                  group["pieces"], group["total_length_m"], group.get("stock_length_m"),
                  group["estimated_stock_bars"]],
-                [18,23,28,29,16,22,22,24], minimum=36))
+                [18,23,28,29,16,22,22,24], minimum=20))
         steel_summary.autofilter(6, 0, 6 + len(steel_totals["groups"]), 7)
         steel_total_row = 7 + len(steel_totals["groups"])
         steel_summary.merge_range(steel_total_row, 0, steel_total_row, 3,

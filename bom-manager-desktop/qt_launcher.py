@@ -152,6 +152,21 @@ def smoke_test():
         trace("readability screenshot saved")
         win.font_scale_selector.setCurrentIndex(1)
         win.show_page(0)
+    # The packaged EXE must keep Thai PDF shaping and word breaking; a missing
+    # bundled module silently falls back to broken tone marks otherwise.
+    import bom_official_reports
+    import bom_thai_text
+    report_folder = Path("output")
+    report_folder.mkdir(parents=True, exist_ok=True)
+    bom_official_reports.export_pdf(win.payload, report_folder / "PackagedReport.pdf")
+    trace(f"packaged report exported: shaping={bom_thai_text.shaping_available()} "
+          f"words={bom_thai_text.word_engine()}")
+    if not bom_thai_text.shaping_available() or bom_thai_text.word_engine() != "pythainlp":
+        trace("Thai PDF text support is missing from the packaged EXE")
+        win.dirty = False
+        win.close()
+        app.quit()
+        return 1
     # A preview test must never prompt to save test-only edits.
     win.dirty = False
     win.busy = False
