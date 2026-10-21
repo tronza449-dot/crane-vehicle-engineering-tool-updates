@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-21T18:04:09+00:00",
+  "updatedAt": "2026-10-21T20:09:06+00:00",
   "currency": "THB",
   "items": [
     {
@@ -75,7 +75,7 @@
       "unitPrice": null,
       "link": null,
       "status": "ตัวเลือกที่เลือก",
-      "notes": "เปลี่ยนจากฟิวส์หลักเป็นเบรกเกอร์ DC 2P 63A ตาม อ้างอิง schematic rev 3 (KiCad); ต่อตามขั้ว +/− ที่ระบุบนเบรกเกอร์; ตั้งลิมิตกระแสแบตใน VESC Tool ~50A"
+      "notes": "มอเตอร์ 2×1500 W ÷ 72 V ≈ 42 A (ลิมิตแบต VESC 50 A) × 1.25 = 52.5 A ≤ 63 A ≤ สาย 10 mm² (~65–75 A); ใช้เบรกเกอร์เพราะเป็นสวิตช์ตัดไฟหลักตอนซ่อม/จอดด้วย; ต่อตามขั้ว +/− บนตัว; ≥250 V DC; ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md"
     },
     {
       "id": "7",
@@ -402,7 +402,7 @@
       "unitPrice": null,
       "link": "https://www.c-hamtec.com/category/67/%E0%B8%9F%E0%B8%B4%E0%B8%A7%E0%B8%AA%E0%B9%8C%E0%B9%81%E0%B8%A5%E0%B8%B0-fuse-tap",
       "status": "ค่าเริ่มต้นชั่วคราว",
-      "notes": "หน้า category มี Mini Fuse หลายค่า รวม 2 A; เลือก Mini 2 A. ถ้าขาดตอนเปิดไฟ ให้ตรวจ inrush และเลือกค่าตามคู่มือ/สาย ไม่เพิ่มค่าโดยเดา"
+      "notes": "ไฟเตือน 10 W ÷ 12 V = 0.83 A × 1.25 = 1.04 A → 2 A (เผื่อกระแสตอนเปิดไฟ); สาย 18 AWG ทนได้ ~7 A; 12 V ใช้ฟิวส์รถยนต์ได้; ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md"
     },
     {
       "id": "31",
@@ -529,7 +529,7 @@
       "spec": "จ่ายไฟคอยล์คอนแทคเตอร์ผ่านปุ่ม E-stop | ไฟเลี้ยง: 72 V (เต็ม 84 V)",
       "qty": 1,
       "unit": "ชิ้น",
-      "connection": "ต่อหลังเบรกเกอร์ ก่อนคอนแทคเตอร์ ผ่านฟิวส์ 2A (F1) → ปุ่ม E-stop NC → คอยล์ A1; A2 → GND | GPIO/จุดต่อ: ไม่ใช้ GPIO",
+      "connection": "ต่อหลังเบรกเกอร์ ก่อนคอนแทคเตอร์ ผ่านฟิวส์ 1A T (F1) → ปุ่ม E-stop NC → คอยล์ A1; A2 → GND | GPIO/จุดต่อ: ไม่ใช้ GPIO",
       "unitPrice": null,
       "link": "",
       "status": "ต้องเลือกอุปกรณ์",
@@ -637,15 +637,15 @@
     {
       "id": "43",
       "category": "ไฟฟ้ากำลัง",
-      "name": "ฟิวส์ DC ขาเข้า DC-DC (พิกัด DC ≥100 V) พร้อมกระบอกฟิวส์",
-      "spec": "ป้องกันขาเข้า DC-DC แต่ละตัว: F1 2A (Coil DC-DC), F2 3A (5V), F3 3A (12V), F5 5A (ไฟเลี้ยงเครน)",
-      "qty": 4,
+      "name": "ฟิวส์เซรามิก 10×38 mm DC ขาดช้า (T) ≥100 V DC พร้อมกระบอก — F1 1A, F2 1A, F3 2A",
+      "spec": "F1 Coil DC-DC: 0.29 A×1.25=0.37 A → 1 A | F2 DC-DC 5V (15 W): 15÷(0.85×60)=0.29 A×1.25=0.37 A → 1 A | F3 DC-DC 12V (36 W): 36÷(0.85×60)=0.71 A×1.25=0.88 A → 2 A",
+      "qty": 3,
       "unit": "ชุด",
-      "connection": "อนุกรมที่ขาเข้า VIN+ ของ DC-DC แต่ละตัว | GPIO/จุดต่อ: ไม่ใช้ GPIO",
+      "connection": "อนุกรมที่ขาเข้า VIN+ ของ DC-DC แต่ละตัว (F1 ก่อนคอนแทคเตอร์, F2/F3 หลังคอนแทคเตอร์) | GPIO/จุดต่อ: ไม่ใช้ GPIO",
       "unitPrice": null,
       "link": "",
-      "status": "ต้องเลือกอุปกรณ์",
-      "notes": "ฟิวส์ต้องมีพิกัดแรงดัน DC สูงกว่า 84 V; เพิ่มตาม อ้างอิง schematic rev 3 (KiCad)",
+      "status": "คำนวณแล้ว",
+      "notes": "สมมติฐาน: แบตต่ำสุด 60 V, DC-DC η 85%, เลือก ≥1.25×กระแสใช้งาน และ ≤ กระแสที่สายทนได้; ใช้ฟิวส์เพราะกระแสต่ำและขาดเฉพาะตอนโมดูลลัดวงจร; ขาดช้าเพื่อทนกระแสกระชากตอนคอนแทคเตอร์ต่อ; ห้ามใช้ฟิวส์รถยนต์ 32 V; F1 ยืนยันอีกครั้งเมื่อรู้วัตต์คอยล์คอนแทคเตอร์; ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md",
       "partNumber": "",
       "supplier": "",
       "unitWeightKg": null
@@ -653,15 +653,15 @@
     {
       "id": "44",
       "category": "ไฟฟ้ากำลัง",
-      "name": "ฟิวส์ ANL/MIDI ~150A พร้อมกระบอก (ระบบวินช์ 12V)",
-      "spec": "ป้องกันสายแบตวินช์",
+      "name": "ฟิวส์ ANL 150A พร้อมฐาน (F4, ระบบวินช์ 12V)",
+      "spec": "วินช์เต็มโหลด ~117 A × 1.25 = 146 A → 150 A ANL (ขาดช้า) | สายต้องเป็น 35 mm² (25 mm² ทนได้แค่ ~120–140 A)",
       "qty": 1,
       "unit": "ชุด",
       "connection": "ใกล้ขั้ว + ของแบต LiFePO4 → สวิตช์ตัดแบต → วินช์ | GPIO/จุดต่อ: ไม่ใช้ GPIO",
       "unitPrice": null,
       "link": "",
-      "status": "ต้องเลือกอุปกรณ์",
-      "notes": "ค่าฟิวส์สุดท้ายเลือกตามกระแสวินช์และขนาดสาย; เพิ่มตาม อ้างอิง schematic rev 3 (KiCad)",
+      "status": "คำนวณแล้ว",
+      "notes": "ใช้ฟิวส์ไม่ใช้เบรกเกอร์ เพราะ LiFePO4 จ่ายกระแสลัดวงจรได้หลายพันแอมป์; ถ้าขาดบ่อยให้หาสาเหตุ stall ห้ามเพิ่มขนาด; BMS ต้องจ่ายต่อเนื่อง ≥120 A; ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md",
       "partNumber": "",
       "supplier": "",
       "unitWeightKg": null
@@ -710,6 +710,22 @@
       "link": "",
       "status": "ต้องเลือกอุปกรณ์",
       "notes": "เพิ่มตาม อ้างอิง schematic rev 3 (KiCad)",
+      "partNumber": "",
+      "supplier": "",
+      "unitWeightKg": null
+    },
+    {
+      "id": "48",
+      "category": "ไฟฟ้ากำลัง",
+      "name": "เบรกเกอร์ DC 1 ขั้ว C-curve แบบโซลาร์ ≥100 V DC (CB2 ไฟเลี้ยงเครน)",
+      "spec": "ขนาด = 1.25 × กระแสต่อเนื่องขาเข้าไดรเวอร์เครน แล้วปัดขึ้นเป็นขนาดมาตรฐาน และต้อง ≤ ที่สายทนได้",
+      "qty": 1,
+      "unit": "ชิ้น",
+      "connection": "อนุกรมระหว่าง +72V_SW กับไฟเลี้ยงเครน (U12) | GPIO/จุดต่อ: ไม่ใช้ GPIO",
+      "unitPrice": null,
+      "link": "",
+      "status": "รอเลือกมอเตอร์เครน",
+      "notes": "ใช้เบรกเกอร์เพราะมอเตอร์เครนอาจติดขัดหรือชนปลายทางจนตัดบ่อย รีเซ็ตได้; ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md",
       "partNumber": "",
       "supplier": "",
       "unitWeightKg": null
@@ -1013,7 +1029,7 @@
       "signal": "+5V",
       "voltage": "5 V",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ขาเข้า 3A (F2)",
+      "protection": "ฟิวส์ขาเข้า 1A T (F2)",
       "status": "รอตรวจสอบ",
       "notes": "บัส +5V จ่าย ESP32, ตัวรับ RC, รีเลย์ VCC, ไดรเวอร์ VCC, จอ, R3/R4; อ้างอิง schematic rev 3 (KiCad)"
     },
@@ -1026,7 +1042,7 @@
       "signal": "+5V",
       "voltage": "5 V",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ขาเข้า 3A (F2)",
+      "protection": "ฟิวส์ขาเข้า 1A T (F2)",
       "status": "รอตรวจสอบ",
       "notes": "อ้างอิง schematic rev 3 (KiCad)"
     },
@@ -1039,7 +1055,7 @@
       "signal": "+5V",
       "voltage": "5 V",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ขาเข้า 3A (F2)",
+      "protection": "ฟิวส์ขาเข้า 1A T (F2)",
       "status": "รอตรวจสอบ",
       "notes": "อ้างอิง schematic rev 3 (KiCad)"
     },
@@ -1052,7 +1068,7 @@
       "signal": "+5V",
       "voltage": "5 V",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ขาเข้า 3A (F2)",
+      "protection": "ฟิวส์ขาเข้า 1A T (F2)",
       "status": "รอตรวจสอบ",
       "notes": "ข้อมูลส่งทาง ESP-NOW ไม่มีสายข้อมูล; อ้างอิง schematic rev 3 (KiCad)"
     },
@@ -1065,7 +1081,7 @@
       "signal": "เสียงเตือน",
       "voltage": "5 V",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ขาเข้า 3A (F2)",
+      "protection": "ฟิวส์ขาเข้า 1A T (F2)",
       "status": "รอตรวจสอบ",
       "notes": "buzzer เป็นรุ่น 5V ห้ามใช้ +12V; ขั้วลบ buzzer → GND; อ้างอิง schematic rev 3 (KiCad)"
     },
@@ -1156,9 +1172,9 @@
       "signal": "+72V_SW",
       "voltage": "72 V",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ DC 3A (F2), 3A (F3), 5A (F5)",
+      "protection": "ฟิวส์ DC 1A T (F2), 2A T (F3), เบรกเกอร์ CB2 (เครน)",
       "status": "รอตรวจสอบ",
-      "notes": "ฟิวส์ต้องพิกัด DC ≥100 V; อ้างอิง schematic rev 3 (KiCad)"
+      "notes": "ฟิวส์ต้องพิกัด DC ≥100 V; อ้างอิง schematic rev 3 (KiCad); ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md"
     },
     {
       "id": "33",
@@ -1169,7 +1185,7 @@
       "signal": "ไฟคอยล์",
       "voltage": "72 V",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ DC 2A (F1)",
+      "protection": "ฟิวส์ DC 1A T (F1)",
       "status": "รอตรวจสอบ",
       "notes": "แยกก่อนคอนแทคเตอร์ จึงยังมีไฟเมื่อกด E-stop; อ้างอิง schematic rev 3 (KiCad)"
     },
@@ -1182,7 +1198,7 @@
       "signal": "คอยล์คอนแทคเตอร์",
       "voltage": "12 V",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ DC 2A (F1) ด้านขาเข้า",
+      "protection": "ฟิวส์ DC 1A T (F1) ด้านขาเข้า",
       "status": "รอตรวจสอบ",
       "notes": "กด E-stop → คอยล์ไม่มีไฟ → คอนแทคเตอร์ตัด; A2 → GND; 1N4007 คร่อมคอยล์; อ้างอิง schematic rev 3 (KiCad)"
     },
@@ -1234,7 +1250,7 @@
       "signal": "CRANE_V+",
       "voltage": "รอเลือกรุ่น",
       "cable": "0.5–0.75 mm² (20–18 AWG)",
-      "protection": "ฟิวส์ DC 5A (F5)",
+      "protection": "เบรกเกอร์ DC C-curve CB2 (ขนาดรอเลือกรุ่น)",
       "status": "รอตรวจสอบ",
       "notes": "ต่อ 72V ตรงได้เฉพาะไดรเวอร์ที่รับ 72V ได้ ไม่งั้นต้องมี DC-DC; อ้างอิง schematic rev 3 (KiCad)"
     },
@@ -1259,7 +1275,7 @@
       "toItemId": "44",
       "signal": "W12+",
       "voltage": "12.8 V",
-      "cable": "25–35 mm²",
+      "cable": "35 mm²",
       "protection": "ฟิวส์ ANL ~150A ใกล้ขั้วแบต",
       "status": "รอตรวจสอบ",
       "notes": "ระบบวินช์แยกจาก 72V; อ้างอิง schematic rev 3 (KiCad)"
@@ -1272,7 +1288,7 @@
       "toItemId": "45",
       "signal": "W12",
       "voltage": "12.8 V",
-      "cable": "25–35 mm²",
+      "cable": "35 mm²",
       "protection": "ฟิวส์ ANL ~150A",
       "status": "รอตรวจสอบ",
       "notes": "อ้างอิง schematic rev 3 (KiCad)"
@@ -1285,7 +1301,7 @@
       "toItemId": "22",
       "signal": "W12_SW",
       "voltage": "12.8 V",
-      "cable": "25–35 mm²",
+      "cable": "35 mm²",
       "protection": "ฟิวส์ ANL ~150A",
       "status": "รอตรวจสอบ",
       "notes": "วินช์กินกระแสเต็มโหลด ~117A ตรวจ BMS ให้จ่ายต่อเนื่องได้; อ้างอิง schematic rev 3 (KiCad)"
@@ -1298,7 +1314,7 @@
       "toItemId": "23",
       "signal": "GND_WINCH",
       "voltage": "0 V",
-      "cable": "25–35 mm²",
+      "cable": "35 mm²",
       "protection": "ฟิวส์ ANL ~150A",
       "status": "รอตรวจสอบ",
       "notes": "ห้ามต่อกับ GND ของระบบ 72V; อ้างอิง schematic rev 3 (KiCad)"
