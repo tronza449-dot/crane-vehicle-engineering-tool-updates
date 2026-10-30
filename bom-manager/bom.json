@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-30T20:06:13+00:00",
+  "updatedAt": "2026-10-30T20:18:32+00:00",
   "currency": "THB",
   "items": [
     {
@@ -308,22 +308,6 @@
       "unitWeightKg": null
     },
     {
-      "id": "85",
-      "category": "เครื่องกล",
-      "name": "แผ่นยางรองแบต หนา 3 มม. (230×196 + 229×138)",
-      "spec": "ยางดำ/EPDM ทนน้ำมัน",
-      "qty": 2,
-      "unit": "ชิ้น",
-      "connection": "ใต้ BT1 และ BT2 บนถาด",
-      "unitPrice": 150,
-      "link": "https://www.lazada.co.th/products/epdm-1-i4345324889.html",
-      "status": "ต้องเลือกร้าน",
-      "notes": "ตัดจากยางแผ่น 3 มม. ร้านยางอุตสาหกรรม หรือแผ่นยางปูพื้นรถ; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: BTR03_Rubber_Mat_230x196; BTR04_Rubber_Mat_229x138] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; ตัดจากแผ่น EPDM 3 มม. 26 ต.ค. 2026 (Claude)",
-      "partNumber": "BTR03/04",
-      "supplier": "",
-      "unitWeightKg": null
-    },
-    {
       "id": "72",
       "category": "เครื่องกล",
       "name": "แผ่นอลูมิเนียมระบายความร้อน VESC 120×115×5 มม. + แผ่นนำความร้อน",
@@ -510,7 +494,7 @@
       "unitPrice": 10000.0,
       "link": "https://www.qsmotor.cc/QS205-Single-Shaft-Car-Hub-Motor45H-1500W-V2-Type-p.html",
       "status": "เลือกสเปกแล้ว; สั่ง/ขอใบเสนอราคาจาก QS Motor",
-      "notes": "ยืนยันเอกสารรุ่นมอเตอร์และลำดับสาย Hall/เฟส | [SolidWorks: Nut_M24x1.5_t8; QS10_Rim_Motor_Shell; QS10_Shaft_D35_D28key_M24x1p5; Tyre_3.00-10_OD406] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude)",
+      "notes": "ยืนยันเอกสารรุ่นมอเตอร์และลำดับสาย Hall/เฟส | [SolidWorks: Nut_M24x1.5_t8; QS10_Rim_Motor_Shell; QS10_Shaft_D35_D28key_M24x1p5; Tyre_3.00-10_OD406] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026 (ผู้ใช้): มอเตอร์มาเป็นล้อครบชุด (ยาง น็อต M24 แหวน ลิ่ม) ไม่ต้องซื้อชิ้นส่วนมอเตอร์แยก — ใน BOM ใส่แค่ชิ้นที่เราทำมายึด (#50 #51 #52 #53 #122) (Claude)",
       "partNumber": "",
       "supplier": "",
       "unitWeightKg": 15.0
@@ -1676,38 +1660,6 @@
       "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: BTR05_Hold_Down_72V_M8_Z271; BTR06_Hold_Down_12V_M8_Z271] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude)",
       "partNumber": "M8x1000 ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
-    },
-    {
-      "id": "54",
-      "category": "ฮาร์ดแวร์/อื่นๆ",
-      "name": "แหวน DIN 125 M24 (25×44×4)",
-      "spec": "",
-      "qty": 2,
-      "unit": "ตัว",
-      "connection": "รองใต้น็อต M24×1.5 ของมอเตอร์",
-      "unitPrice": 15,
-      "link": "https://www.abpon.com/product/%E0%B9%81%E0%B8%AB%E0%B8%A7%E0%B8%99%E0%B9%80%E0%B8%AB%E0%B8%A5%E0%B9%87%E0%B8%81%E0%B8%A1%E0%B8%B4%E0%B8%A5-%E0%B8%8A%E0%B8%B8%E0%B8%9A%E0%B8%82%E0%B8%B2%E0%B8%A7-wfp-24-48/",
-      "status": "พบร้านแต่ไม่แสดงราคา",
-      "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: DIN125A M24 (ID25×OD44×T4) ขายแพ็ก 10 ไม่แสดงราคา; อ้างอิงแหวน M24 ร้านอื่น ~14–25 บาท/ตัว; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: Washer_DIN125_M24] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง 26 ต.ค. 2026 (Claude)",
-      "partNumber": "DIN 125 M24",
-      "supplier": "Abpon",
-      "unitWeightKg": null
-    },
-    {
-      "id": "55",
-      "category": "ฮาร์ดแวร์/อื่นๆ",
-      "name": "ลิ่ม DIN 6885 A 8×7×28",
-      "spec": "C45K",
-      "qty": 2,
-      "unit": "ตัว",
-      "connection": "เพลามอเตอร์ ↔ ตัวยึด",
-      "unitPrice": 30,
-      "link": "https://www.lazada.co.th/products/s45c-300-mm-2-3-4-5-6-7-8-8x7-9-10-10x8-12-12x8-12x10-14-14x9-14x10-15-1-i5130872735.html",
-      "status": "ตรวจว่ามากับมอเตอร์ QS หรือไม่",
-      "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: ค้นไม่พบร้านไทยที่แสดงราคา; ถ้าไม่มากับมอเตอร์ ซื้อเหล็กลิ่ม 8×7 จากร้านลูกปืน/อะไหล่เครื่องจักรแล้วตัดยาว 28 | [SolidWorks: Key_DIN6885A_8x7x28] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; ตัดจากลิ่มแท่ง S45C 8×7 ยาว 300 (ถ้าไม่มากับมอเตอร์ QS) 26 ต.ค. 2026 (Claude)",
-      "partNumber": "DIN 6885 A 8x7x28",
-      "supplier": "",
       "unitWeightKg": null
     },
     {
