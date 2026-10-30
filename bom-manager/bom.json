@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-30T20:55:45+00:00",
+  "updatedAt": "2026-10-30T21:10:36+00:00",
   "currency": "THB",
   "items": [
     {
@@ -358,7 +358,7 @@
     {
       "id": "52",
       "category": "เครื่องกล",
-      "name": "Crush sleeve QS10-AB-03, Ø18 / Ø10.5 × 50 mm (= real beam height)",
+      "name": "Crush sleeve QS10-AB-03, one size: OD 18 × ID 10.5 × L 50 mm (= real beam height)",
       "spec": "AISI 1020, ปลายปาดขนาน 0.05",
       "qty": 8,
       "unit": "ชิ้น",
@@ -374,7 +374,7 @@
     {
       "id": "86",
       "category": "เครื่องกล",
-      "name": "Crush sleeve Ø14 / Ø8.5 × 46 mm, zinc-plated steel",
+      "name": "Crush sleeve, one size: OD 14 × ID 8.5 × L 46 mm, zinc-plated steel (cabinet J5 ×3 + battery tray J7 ×6)",
       "spec": "ปลายปาดขนาน",
       "qty": 9,
       "unit": "ชิ้น",
@@ -390,7 +390,7 @@
     {
       "id": "126",
       "category": "เครื่องกล",
-      "name": "Crush sleeve Ø24 / Ø16.5 × 42 mm (crane base)",
+      "name": "Crush sleeve, one size: OD 24 × ID 16.5 × L 42 mm (crane base)",
       "spec": "",
       "qty": 4,
       "unit": "ตัว",
@@ -406,7 +406,7 @@
     {
       "id": "130",
       "category": "เครื่องกล",
-      "name": "Thick spacer washer Ø16 / Ø8.5 × 3 mm (cabinet lug J3)",
+      "name": "Thick spacer washer, one size: OD 16 × ID 8.5 × 3 mm (cabinet lug J3)",
       "spec": "",
       "qty": 4,
       "unit": "ตัว",
