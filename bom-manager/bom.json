@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-30T21:13:39+00:00",
+  "updatedAt": "2026-10-30T21:15:51+00:00",
   "currency": "THB",
   "items": [
     {
@@ -422,7 +422,7 @@
     {
       "id": "143",
       "category": "เครื่องกล",
-      "name": "Top rail M02, angle L 40×40×4 × 460 mm (left + right)",
+      "name": "Top rail M02, angle L 40×40×4 × 460 mm (same part used left and right)",
       "spec": "",
       "qty": 2,
       "unit": "ชิ้น",
@@ -430,7 +430,7 @@
       "unitPrice": 150.0,
       "link": "https://www.clmetal-laser.com/",
       "status": "ต้องขอใบเสนอราคา",
-      "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
+      "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude)",
       "partNumber": "",
       "supplier": "",
       "unitWeightKg": null
@@ -454,15 +454,31 @@
     {
       "id": "145",
       "category": "เครื่องกล",
-      "name": "Clip M04 (left) / M05 (right), angle L 40×40×4 × 80 mm",
+      "name": "Clip M04 (left hand), angle L 40×40×4 × 80 mm",
       "spec": "",
-      "qty": 2,
+      "qty": 1,
       "unit": "ชิ้น",
       "connection": "",
       "unitPrice": 150.0,
       "link": "https://www.clmetal-laser.com/",
       "status": "ต้องขอใบเสนอราคา",
-      "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
+      "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude) — M04 กับ M05 เป็นชิ้นซ้าย/ขวา (กลับด้าน) แยกแถว",
+      "partNumber": "",
+      "supplier": "",
+      "unitWeightKg": null
+    },
+    {
+      "id": "172",
+      "category": "เครื่องกล",
+      "name": "Clip M05 (right hand), angle L 40×40×4 × 80 mm",
+      "spec": "",
+      "qty": 1,
+      "unit": "ชิ้น",
+      "connection": "",
+      "unitPrice": 150.0,
+      "link": "https://www.clmetal-laser.com/",
+      "status": "ต้องขอใบเสนอราคา",
+      "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude) — M04 กับ M05 เป็นชิ้นซ้าย/ขวา (กลับด้าน) แยกแถว",
       "partNumber": "",
       "supplier": "",
       "unitWeightKg": null
@@ -1224,18 +1240,18 @@
     },
     {
       "category": "ตู้/กล่อง",
-      "name": "WCON26 console panel flanges (pair), SGCC 1.2 mm",
+      "name": "WCON26 console panel flange, SGCC 1.2 mm (same part, left and right)",
       "partNumber": "",
       "spec": "",
-      "qty": 1,
-      "unit": "ชุด",
-      "unitPrice": 150.0,
+      "qty": 2,
+      "unit": "ชิ้น",
+      "unitPrice": 75.0,
       "link": "",
       "connection": "ตั้งบนพื้นรถขวาข้างเครน หน้าเอียงหันออกข้างรถ (X 601..781 ไม่ยื่นเลยรถ) | ยึด M8×16 หัวกลม ×4 ทะลุพื้นตู้+พื้นรถเข้ารีเวทนัทในคานบนขวา (J17) | สายออกแกลนด์ M25 ×2 ผนังข้างด้านท้ายรถ",
       "status": "ตัวเลือกที่เลือก",
       "supplier": "",
       "unitWeightKg": null,
-      "notes": " | 30 ต.ค. 2026: แยกจากแถว #103 (WCON control console body (sloped front), self-made: body + panel flanges, galvanized SGCC 1.2 mm (floor 2 mm)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
+      "notes": " | 30 ต.ค. 2026: แยกจากแถว #103 (WCON control console body (sloped front), self-made: body + panel flanges, galvanized SGCC 1.2 mm (floor 2 mm)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude)",
       "id": "147"
     },
     {
@@ -1553,7 +1569,7 @@
     {
       "id": "77",
       "category": "ฮาร์ดแวร์/อื่นๆ",
-      "name": "Waterproof double-sided foam tape (e.g. 3M VHB) or EPDM strip, 8 mm × 1 m",
+      "name": "Double-sided waterproof foam tape 3M VHB, 8 mm wide, 1 m roll",
       "spec": "",
       "qty": 2,
       "unit": "ม้วน",
@@ -1561,7 +1577,7 @@
       "unitPrice": 230.0,
       "link": "https://factools.com/p/357",
       "status": "ตัวเลือกที่เลือก",
-      "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: 3M VHB V41 สีเทา 12 มม. × 5 ม. (สำหรับโลหะ); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ชื่อไทยเดิม: เทปโฟมกาวสองหน้ากันน้ำ (เช่น 3M VHB) หรือยาง EPDM กว้าง 8 มม. ยาว 1 ม.",
+      "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: 3M VHB V41 สีเทา 12 มม. × 5 ม. (สำหรับโลหะ); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ชื่อไทยเดิม: เทปโฟมกาวสองหน้ากันน้ำ (เช่น 3M VHB) หรือยาง EPDM กว้าง 8 มม. ยาว 1 ม. | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude)",
       "partNumber": "",
       "supplier": "FAC Tools",
       "unitWeightKg": null
