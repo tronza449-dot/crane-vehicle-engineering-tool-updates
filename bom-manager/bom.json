@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-31T10:16:30+00:00",
+  "updatedAt": "2026-10-31T10:23:17+00:00",
   "currency": "THB",
   "items": [
     {
@@ -18,7 +18,10 @@
       "supplier": "",
       "link": "https://www.onestockhome.com/th/items/61045370/galvanized-gi-rectangular-pipe-4x2-inch-100x50-mm-2-mm-6-m_pre-zinc-gi-pipes_onestockhome?srsltid=AU7gw4WQ41uubRVC7Fc4UHMsX_VbfCOShGwOzmum1WpwvV3Vd9eLrnPX",
       "connection": "",
-      "notes": "[SolidWorks: Rail_Bottom_Left_1500_RevH; Rail_Bottom_Right_1500_RevH; เหล็กคานบน 4x2 2มม ไม่มีร; เหล็กคานบน 4x2 2มม ไม่มีร_R_EstopStation; เหล็กแป๊บแบน กัลวาไนซ์ 4x2 นิ้ว 2 มม. ยาว760มม; เหล็กแป๊บแบน กัลวาไนซ์ 4x2 นิ้ว 2 มม. ยาว760มม_B6_Cabinet; เหล็กแป๊บแบน กัลวาไนซ์ 4x2 นิ้ว 2 มม. ยาว760มม_B7_BatteryTray] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: คิดจากชิ้นใน SolidWorks จริง, เส้นละ 6 ม., เผื่อรอยตัด 3 มม. (Claude) — 2 เส้นไม่พอ (ต้องใช้ 12.08 ม. > 12 ม.) | ชื่อไทยเดิม: เหล็กกล่องกัลวาไนซ์ 4x2 นิ้ว (100x50 มม.) หนา 2 มม. มอก. ยาว 6 ม."
+      "notes": "[SolidWorks: Rail_Bottom_Left_1500_RevH; Rail_Bottom_Right_1500_RevH; เหล็กคานบน 4x2 2มม ไม่มีร; เหล็กคานบน 4x2 2มม ไม่มีร_R_EstopStation; เหล็กแป๊บแบน กัลวาไนซ์ 4x2 นิ้ว 2 มม. ยาว760มม; เหล็กแป๊บแบน กัลวาไนซ์ 4x2 นิ้ว 2 มม. ยาว760มม_B6_Cabinet; เหล็กแป๊บแบน กัลวาไนซ์ 4x2 นิ้ว 2 มม. ยาว760มม_B7_BatteryTray] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: คิดจากชิ้นใน SolidWorks จริง, เส้นละ 6 ม., เผื่อรอยตัด 3 มม. (Claude) — 2 เส้นไม่พอ (ต้องใช้ 12.08 ม. > 12 ม.) | ชื่อไทยเดิม: เหล็กกล่องกัลวาไนซ์ 4x2 นิ้ว (100x50 มม.) หนา 2 มม. มอก. ยาว 6 ม.",
+      "section": "1. Frame + deck plates (โครงรถ)",
+      "side": "structure",
+      "type": "Steel tube & plate"
     },
     {
       "id": "14",
@@ -34,7 +37,10 @@
       "supplier": "",
       "link": "https://www.onestockhome.com/th/products/5193323/steel-square-pipe-3x3-inch_steel-tube-3-x-3-inch_onestockhome?srsltid=AU7gw4Xk7odJsz6XmHFHNtZddlmRm0SClxPSEb6Oil-q2iV76qFmAOfv&item_id=41979096",
       "connection": "",
-      "notes": "[SolidWorks: เหล็กกล่อง 3x3 นิ้ว หนา 4 มม.] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: คิดจากชิ้นใน SolidWorks จริง, เส้นละ 6 ม., เผื่อรอยตัด 3 มม. (Claude) | ชื่อไทยเดิม: เหล็กกล่อง 3x3 นิ้ว (75x75 มม.) หนา 4 มม. มอก. ยาว 6 ม."
+      "notes": "[SolidWorks: เหล็กกล่อง 3x3 นิ้ว หนา 4 มม.] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: คิดจากชิ้นใน SolidWorks จริง, เส้นละ 6 ม., เผื่อรอยตัด 3 มม. (Claude) | ชื่อไทยเดิม: เหล็กกล่อง 3x3 นิ้ว (75x75 มม.) หนา 4 มม. มอก. ยาว 6 ม.",
+      "section": "1. Frame + deck plates (โครงรถ)",
+      "side": "structure",
+      "type": "Steel tube & plate"
     },
     {
       "id": "58",
@@ -50,7 +56,10 @@
       "notes": "จากผลซิม: ระยะเผื่อท่อใต้เครน 1.08 → 2.28 (ดู Report_RevH_Fixes_TH.pdf); เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: ไม่พบหนา 4.0 มม. ในร้านออนไลน์ มีหนา 4.5 มม. (แนะนำใช้แทน หนักขึ้นเล็กน้อย) ราคาไม่แสดง ต้องโทรถาม; อ้างอิง onestockhome มีเหล็กดำ 100×50×4.5 JIS 6 ม. (57.4 กก.); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: เหล็กกล่อง กัลวาไนซ์ 4x2 นิ้ว หนา 4 มม. ยาว250มม (ใต้เครน); เหล็กกล่อง กัลวาไนซ์ 4x2 นิ้ว หนา 4 มม. ยาว760มม (ใต้เครน)] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคา) — เช็คในลิงก์ก่อนสั่ง 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: คิดจากชิ้นใน SolidWorks จริง, เส้นละ 6 ม., เผื่อรอยตัด 3 มม. (Claude) | ชื่อไทยเดิม: เหล็กกล่องกัลวาไนซ์ 4×2 นิ้ว (100×50 มม.) หนา 4 มม. ยาว 6 ม.",
       "partNumber": "",
       "supplier": "SPG วัสดุ (กัลวาไนซ์จุ่มร้อน)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "1. Frame + deck plates (โครงรถ)",
+      "side": "structure",
+      "type": "Steel tube & plate"
     },
     {
       "id": "26",
@@ -66,7 +75,10 @@
       "supplier": "ร้านสแตนเลสแผ่น/ตัดเลเซอร์ — ราคาประมาณ รอใบเสนอราคา",
       "link": "",
       "connection": "",
-      "notes": "[SolidWorks: แผ่นรองสเตนเลส960x800x2มม] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: แผ่นรองฝั่งเครน (960×700) เปลี่ยนเป็นเหล็กชุบสังกะสี แยกเป็นรายการ #137 (Claude) | 30 ต.ค. 2026: ราคาคิดเฉพาะแผ่นหน้า 1 แผ่น ≈ น้ำหนัก 12.3 กก. × ~230 บาท/กก. + ค่าตัด/เจาะ ~300 บาท (ราคาประมาณ ยังไม่ได้เช็กร้าน) (Claude) | 30 ต.ค. 2026: เปลี่ยน SUS316 → SUS304 ลดต้นทุน; ราคา ≈ 12.3 กก. × ~150 บาท/กก. + ค่าตัด/เจาะ ~300 บาท (ราคาประมาณ รอใบเสนอราคา) (Claude) | ชื่อไทยเดิม: แผ่นรองพื้นรถด้านหน้า — สแตนเลส SUS304 960×800×2 มม."
+      "notes": "[SolidWorks: แผ่นรองสเตนเลส960x800x2มม] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: แผ่นรองฝั่งเครน (960×700) เปลี่ยนเป็นเหล็กชุบสังกะสี แยกเป็นรายการ #137 (Claude) | 30 ต.ค. 2026: ราคาคิดเฉพาะแผ่นหน้า 1 แผ่น ≈ น้ำหนัก 12.3 กก. × ~230 บาท/กก. + ค่าตัด/เจาะ ~300 บาท (ราคาประมาณ ยังไม่ได้เช็กร้าน) (Claude) | 30 ต.ค. 2026: เปลี่ยน SUS316 → SUS304 ลดต้นทุน; ราคา ≈ 12.3 กก. × ~150 บาท/กก. + ค่าตัด/เจาะ ~300 บาท (ราคาประมาณ รอใบเสนอราคา) (Claude) | ชื่อไทยเดิม: แผ่นรองพื้นรถด้านหน้า — สแตนเลส SUS304 960×800×2 มม.",
+      "section": "1. Frame + deck plates (โครงรถ)",
+      "side": "structure",
+      "type": "Steel tube & plate"
     },
     {
       "id": "34",
@@ -81,7 +93,10 @@
       "supplier": "",
       "link": "https://www.homepro.co.th/p/276798",
       "connection": "",
-      "notes": "ราคาประมาณ 6,000–8,500 บาท: แผ่นเจาะรูสำเร็จ 304 1.5 มม. 4×8 ฟุต 1 แผ่น ~3,300, ตัดขอบ+พับ ~1,500, ท่อ 1\" + ดัด/บีบ ~800, แผ่นหู 6 มม. ~300, รางเสริม 2 มม. ~300, กลอน ISON 4\" 304 ×2 = 238 (ลิงก์), กุญแจสเตนเลส ~300, รีเวท/น็อต A2 ~350 | ต้องขอใบเสนอราคาร้านตัดพับจริง (ส่ง DXF ให้ร้านเดียวทำ) | ตะขอรับ ~123 กก. บนพื้นราบ K 1.6 ผ่าน | [SolidWorks: 12_Carcass_Basket\\Carcass_Basket.SLDASM, BSK01–BSK09] 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ตะกร้าใส่ซากสัตว์ สเตนเลส 304 50×50×50 ซม. (แบบ C ลดต้นทุน) — แผ่นเจาะรูสำเร็จ 1.5 มม. ฝาเลื่อนล็อกกลอน 2 ตัว หูหิ้วท่อ 1\""
+      "notes": "ราคาประมาณ 6,000–8,500 บาท: แผ่นเจาะรูสำเร็จ 304 1.5 มม. 4×8 ฟุต 1 แผ่น ~3,300, ตัดขอบ+พับ ~1,500, ท่อ 1\" + ดัด/บีบ ~800, แผ่นหู 6 มม. ~300, รางเสริม 2 มม. ~300, กลอน ISON 4\" 304 ×2 = 238 (ลิงก์), กุญแจสเตนเลส ~300, รีเวท/น็อต A2 ~350 | ต้องขอใบเสนอราคาร้านตัดพับจริง (ส่ง DXF ให้ร้านเดียวทำ) | ตะขอรับ ~123 กก. บนพื้นราบ K 1.6 ผ่าน | [SolidWorks: 12_Carcass_Basket\\Carcass_Basket.SLDASM, BSK01–BSK09] 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ตะกร้าใส่ซากสัตว์ สเตนเลส 304 50×50×50 ซม. (แบบ C ลดต้นทุน) — แผ่นเจาะรูสำเร็จ 1.5 มม. ฝาเลื่อนล็อกกลอน 2 ตัว หูหิ้วท่อ 1\"",
+      "section": "9. Carcass basket, off the car (ตะกร้า)",
+      "side": "structure",
+      "type": "Bought module / complete unit"
     },
     {
       "id": "27",
@@ -97,7 +112,10 @@
       "notes": "ยืนยันขนาดเพลา/ดุมและตำแหน่งติดตั้ง | ยังไม่มีลิงก์ซื้อ: ต้องยืนยันเพลา/ดุมและพิกัดรับน้ำหนัก | [SolidWorks: ล้อหน้า STEP: 00_Full_Assembly_Colored ×2 (Rim / Tire / Valve / Bearings / Bolt_1–4 virtual)] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ลูกล้อยางสูบลมสีดำ16นิ้ว ล้อยางลม ขนาดหน้าล้อมีขนาดกว้าง 75มม.",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "3. Front wheels (ล้อหน้า)",
+      "side": "structure",
+      "type": "Bought module / complete unit"
     },
     {
       "id": "50",
@@ -113,7 +131,10 @@
       "notes": "แบบ QS10_HubMotor_10in_1500W\\Drawings\\QS10-AB_ALL.pdf, STEP\\QS10-AB-01; เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: ส่งแบบ QS10-AB_ALL.pdf + STEP ขอราคา; ทางเลือก: maliev.com/cnc-machining, pongthongpepart.com; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: AXLE_Bracket_QS10_D28key] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ตัวยึดเพลาล้อหน้า QS10-AB-01 — กัดจากเหล็กก้อนเดียว S45C (ไม่เชื่อม)",
       "partNumber": "QS10-AB-01",
       "supplier": "โรงกลึงพีวัฒน์ (รับงานตามแบบ ไม่มีขั้นต่ำ)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "2. Drive wheels, hub motors (ล้อขับ)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "51",
@@ -129,7 +150,10 @@
       "notes": "แบบ QS10-AB-02-03; เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: ตัดเลเซอร์เหล็ก 6 มม. + เจาะ Ø11 ×4 ตาม QS10-AB-02; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: AXLE_Backing_Plate_100x100x6] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: แผ่นรองบนคาน QS10-AB-02 — 100×100×6 มม. AISI 1020",
       "partNumber": "QS10-AB-02",
       "supplier": "กุนเทอร์ (รับตัดเลเซอร์ ไม่มีขั้นต่ำ)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "2. Drive wheels, hub motors (ล้อขับ)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "57",
@@ -145,7 +169,10 @@
       "notes": "แทนไฟล์ปลอกล็อกเดิมที่รู Ø22 (ไม่พอดีเพลา Ø30); เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: รุ่น SC 30×50×15 อลูมิเนียม (โต 50 แคบกว่าแบบ 54 → ยิ่งพอดีช่องบล็อก ≤58); ทางเลือก Best Conveyor SCCAL-30x15 (ราคาไม่แสดง); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: Shaft_Collar_Clamp_D30_OD54_W15] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ปลอกล็อกเพลาแบบ clamp ชิ้นเดียว รู Ø30 โต 54 กว้าง 15 + สกรู M6",
       "partNumber": "Shaft collar D30 OD54 W15",
       "supplier": "ZoneMaker",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "3. Front wheels (ล้อหน้า)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "109",
@@ -161,7 +188,10 @@
       "notes": "[SolidWorks: Block; axie; sleeve; ปลอกคั่น] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ของเดิมที่มีอยู่แล้ว (โครงเดิม) — ไม่ต้องซื้อ 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ชุดเพลาล้อหน้า — เพลา axie + บล็อกยึด ×2 + ปลอก sleeve ×8 + ปลอกคั่น ×2 (โครงเดิม)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "3. Front wheels (ล้อหน้า)",
+      "side": "structure",
+      "type": "Bought module / complete unit"
     },
     {
       "id": "28",
@@ -177,7 +207,10 @@
       "notes": "น้ำหนักเครน พิกัดยก ระยะเอื้อม และจุดยึด | สั่งทำตามแบบ; ต้องกำหนดพิกัดยกและระยะเอื้อมก่อนทำแบบ | [SolidWorks: CT01_Crane_Turning_Outer_Tube_OD100_L142; เครน STEP: Orange_Crane_Horizontal_APPROX_Assembly (C01–C20 virtual)] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: เครน",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": 40.0
+      "unitWeightKg": 40.0,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Bought module / complete unit"
     },
     {
       "id": "112",
@@ -193,7 +226,10 @@
       "notes": "[SolidWorks: SD01A_Collar_Half_Front; SD01B_Collar_Half_Rear_Cam] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: SD01 ปลอกรัดท่อเครน 2 ซีก (SD01A หน้า สูง + รูโบลต์ M12, SD01B หลังมีตัวดันลิมิต) — กลึง/ตัดเหล็ก | 30 ต.ค. 2026: แยกจากแถว #112 (SD01 crane-post clamp collar, 2 halves (SD01A front, tall, M12 bolt hole; SD01B rear with limit cam), machined) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "138",
@@ -209,7 +245,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #112 (SD01 crane-post clamp collar, 2 halves (SD01A front, tall, M12 bolt hole; SD01B rear with limit cam), machined) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "113",
@@ -225,7 +264,10 @@
       "notes": "[SolidWorks: SD02A_Sprocket_48T_40_Split_Half_A; SD02B_Sprocket_48T_40_Split_Half_B] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ: ซื้อเฟืองแผ่นเรียบ #40 48 ฟัน แล้วให้ร้านกลึงผ่า 2 ซีก + เจาะรู — เช็คในลิงก์ 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: SD02 เฟืองโซ่ #40 48 ฟัน ผ่า 2 ซีก (SD02A + SD02B) | 30 ต.ค. 2026: แยกจากแถว #113 (SD02 split sprocket #40, 48 teeth, 2 halves (SD02A + SD02B)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "139",
@@ -241,7 +283,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #113 (SD02 split sprocket #40, 48 teeth, 2 halves (SD02A + SD02B)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "114",
@@ -257,7 +302,10 @@
       "notes": "[SolidWorks: SD03_Motor_Plate_t15_Clamp_on_Post_D83] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: SD03 แผ่นยึดมอเตอร์ หนา 15 มม. รัดเสาเครน Ø84",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "115",
@@ -273,7 +321,10 @@
       "notes": "[SolidWorks: SD04_Plate_Clamp_Cap_t15] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: SD04 ฝาประกบแผ่นยึดมอเตอร์ หนา 15 มม.",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "116",
@@ -289,7 +340,10 @@
       "notes": "[SolidWorks: SD06_Sprocket_12T_40_Bore14] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; SUMO แบบมีดุม 12 ฟัน คว้านรู 14 + ทำเกลียว M6 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: SD06 เฟืองโซ่ #40 12 ฟัน รู 14 + สกรูล็อก M6",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Drive train (sprocket, chain)"
     },
     {
       "id": "117",
@@ -305,7 +359,10 @@
       "notes": "[SolidWorks: SD07_Roller_Chain_40_Concept] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาจากหน้าร้าน DID #40 กล่อง 10 ฟุต + ข้อต่อ (ประกาศเก่า เช็คอีกที) 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: SD07 โซ่ #40 พร้อมข้อต่อโซ่",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Drive train (sprocket, chain)"
     },
     {
       "id": "118",
@@ -321,7 +378,10 @@
       "notes": "[SolidWorks: SD08_Limit_Switch_Post_L_t6] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: SD08 ขาตั้งลิมิตสวิตช์ เหล็กฉาก L หนา 6 มม.",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "83",
@@ -337,7 +397,10 @@
       "notes": "แบบ 04_Battery_Tray\\Parts; สั่งพร้อมงานตัดพับ #59 และ #79 ได้; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: BTR01_Battery_Tray_640x280x3_Folded; BTR05_Hold_Down_72V_M8_Z271; BTR06_Hold_Down_12V_M8_Z271] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ถาดแบต BTR01 เหล็ก 3 มม. พับขอบ 640×280 + แผ่นยึดฟิวส์ BTR02 200×150×3 + เหล็กแบนรัดแบต 30×4 ยาว 271 ×2 (ชุบกัลวาไนซ์) | 30 ต.ค. 2026: แยกจากแถว #83 (Battery tray BTR01, 3 mm steel, folded edges 640×280 + fuse plate BTR02 200×150×3 + 2 hold-down flat bars 30×4×271 (galvanized)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "BTR01/02/05/06",
       "supplier": "C.L. Metal (ตัด/พับ รับไฟล์ DXF)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "6. Battery tray + batteries (ถาดแบต)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "140",
@@ -353,7 +416,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #83 (Battery tray BTR01, 3 mm steel, folded edges 640×280 + fuse plate BTR02 200×150×3 + 2 hold-down flat bars 30×4×271 (galvanized)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "6. Battery tray + batteries (ถาดแบต)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "141",
@@ -369,7 +435,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #83 (Battery tray BTR01, 3 mm steel, folded edges 640×280 + fuse plate BTR02 200×150×3 + 2 hold-down flat bars 30×4×271 (galvanized)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "6. Battery tray + batteries (ถาดแบต)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "72",
@@ -385,7 +454,10 @@
       "notes": "ดูหัวข้อความร้อนใน Report_Control_Cabinet_TH.pdf; เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: อลูมิเนียม 5 มม. 120×115 + รู M4 ×4; สั่งพร้อม #76 และ #51; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_U5_Heat_Spreader_Al_120x115x5] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: แผ่นอลูมิเนียมระบายความร้อน VESC 120×115×5 มม. + แผ่นนำความร้อน | 30 ต.ค. 2026: แยกจากแถว #72 (VESC heat spreader, aluminium 120×115×5 mm + thermal pad) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "U5-HS",
       "supplier": "กุนเทอร์ (ตัดเลเซอร์อลูมิเนียม)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "142",
@@ -401,7 +473,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #72 (VESC heat spreader, aluminium 120×115×5 mm + thermal pad) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Glue, tape & labels"
     },
     {
       "id": "59",
@@ -417,7 +492,10 @@
       "notes": "แบบ Control_Cabinet\\Drawings\\CC-02; เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: ตัดเลเซอร์แผ่น 3 มม. + ตัดเหล็กฉาก 40×40×4 แล้วส่งชุบกัลวาไนซ์; ทางเลือก 29lasercut.com (ไม่มีขั้นต่ำ); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: M01_Back_Plate_540x450x3; M02_Top_Rail_L40x40x4_L460_Left; M03_Bottom_Angle_L40x40x4_L540; M04_Clip_L40x40x4_H80_Left; M05_Clip_L40x40x4_H80_Right] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: โครงยึดตู้ควบคุม M01–M05 — แผ่นหลัง 540×450×3 + เหล็กฉาก 40×40×4 (460 ×2, 540 ×1, ฉาก 80 ×2) ชุบกัลวาไนซ์ | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "M01-M05",
       "supplier": "C.L. Metal (ตัด/พับ รับไฟล์ DXF)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "143",
@@ -433,7 +511,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "144",
@@ -449,7 +530,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "145",
@@ -465,7 +549,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude) — M04 กับ M05 เป็นชิ้นซ้าย/ขวา (กลับด้าน) แยกแถว",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "172",
@@ -481,7 +568,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #59 (Control cabinet mounting frame M01–M05: back plate 540×450×3 + L 40×40×4 angles (460 ×2, 540 ×1, 80 ×2), galvanized) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude) — M04 กับ M05 เป็นชิ้นซ้าย/ขวา (กลับด้าน) แยกแถว",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "76",
@@ -497,7 +587,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: อลูมิเนียม 4 มม. 206×124 ช่องใน 188×106 + รู M4 ×4 (ส่ง DXF จาก CAB07); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: CAB07_Display_Clamp_Frame] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: กรอบกดยึดจอ CAB07 — อลูมิเนียม 206×124×4 มม. ช่องใน 188×106",
       "partNumber": "CAB07",
       "supplier": "กุนเทอร์ (ตัดเลเซอร์ ไม่มีขั้นต่ำ)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "52",
@@ -513,7 +606,10 @@
       "notes": "วัดความสูงคานจริงก่อนตัด ห้ามสั้นกว่า; เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: งานกลึงปลอก Ø18/Ø10.5 ×8 สั่งพร้อม #50; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: Crush_Sleeve_OD18_ID10p5_L50] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ปลอกกันคานยุบ QS10-AB-03 — Ø18 / Ø10.5 ยาว 50 มม. (= ความสูงคานจริง)",
       "partNumber": "QS10-AB-03",
       "supplier": "โรงกลึงพีวัฒน์",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "2. Drive wheels, hub motors (ล้อขับ)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "86",
@@ -529,7 +625,10 @@
       "notes": "สั่งพร้อมงานกลึง #52 ได้; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Crush_Sleeve_OD14_ID8.5_L46] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ปลอกกันคานยุบ Ø14 / Ø8.5 ยาว 46 มม. (เหล็ก ชุบซิงค์)",
       "partNumber": "FX_Crush_Sleeve_OD14_L46",
       "supplier": "โรงกลึงพีวัฒน์",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "1. Frame + deck plates (โครงรถ)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "126",
@@ -545,7 +644,10 @@
       "notes": "[SolidWorks: FX_Crush_Sleeve_OD24_ID16.5_L42] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ปลอกกันคานยุบ Ø24 / Ø16.5 ยาว 42 มม. (ฐานเครน)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "130",
@@ -561,7 +663,10 @@
       "notes": "[SolidWorks: FX_Spacer_OD16_ID8.5_L3] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ ค่าวัสดุ + ค่ากลึง/ตัด/พับ — ส่งแบบขอใบเสนอราคาจริง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: แหวนรองหนา Ø16 / Ø8.5 หนา 3 มม. (หูตู้ J3)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "4",
@@ -577,7 +682,10 @@
       "notes": "ความจุ Ah, กระแสต่อเนื่อง/พีก, รูปแบบแพ็ก และผู้ขาย | ยังไม่มีลิงก์ซื้อ: ต้องกำหนด Ah, discharge current และแพ็ก/ผู้ผลิตก่อน; เลือก BMS 50 A ให้ตรง schematic และเล่มคำนวณ (อัปเดตจากแบบ Cart_RevH_ALL: S2 ข้าง S1 + WC1 (Claude, 23 ต.ค. 2026)) | [SolidWorks: BT1_LiIon_72V_20Ah_230x180x196_ASSUMED] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: แบตเตอรี่ขับเคลื่อน — Li-ion 72 V 20Ah",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": 15.0
+      "unitWeightKg": 15.0,
+      "section": "6. Battery tray + batteries (ถาดแบต)",
+      "side": "electrical",
+      "type": "Batteries & chargers"
     },
     {
       "id": "23",
@@ -593,7 +701,10 @@
       "notes": "ชนิดแบต, Ah, กระแสจ่ายสูงสุดและการชาร์จ | ยังไม่มีลิงก์ซื้อ: ต้องกำหนดชนิดแบต 12 V, Ah และกระแสจ่ายสูงสุดให้ตรงวินช์ | [SolidWorks: BT2_LiFePO4_12V8_50Ah_229x205x138] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: แบตลิเธียม LiFePO4 12.8V 50Ah รุ่น LFP50-12",
       "partNumber": "",
       "unitWeightKg": 5.08,
-      "supplier": ""
+      "supplier": "",
+      "section": "6. Battery tray + batteries (ถาดแบต)",
+      "side": "electrical",
+      "type": "Batteries & chargers"
     },
     {
       "id": "46",
@@ -609,7 +720,10 @@
       "notes": "ให้ตรงกับจำนวนเซลล์และ BMS ของแพ็ก; เพิ่มตาม อ้างอิง schematic rev 3 (KiCad); ค้นแล้วไม่พบร้านไทยที่แสดงราคาชัดเจน: แนะนำถามร้านที่ขายแบตเดียวกัน (ให้ตรงกับ BMS) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือกรุ่น 84V 5A เต็มตัด หัวต่อตรงกับแบต 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ที่ชาร์จแบต Li-ion 72V (ชาร์จเต็ม 84V)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "10. Not on the car: remote + chargers",
+      "side": "electrical",
+      "type": "Batteries & chargers"
     },
     {
       "id": "47",
@@ -625,7 +739,10 @@
       "notes": "เพิ่มตาม อ้างอิง schematic rev 3 (KiCad); ค้นแล้วไม่พบร้านไทยที่แสดงราคาชัดเจน: แนะนำถามร้านที่ขายแบตเดียวกัน (ให้ตรงกับ BMS) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก 14.6V 10A 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ที่ชาร์จแบต LiFePO4 12.8V (ชาร์จเต็ม 14.6V)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "10. Not on the car: remote + chargers",
+      "side": "electrical",
+      "type": "Batteries & chargers"
     },
     {
       "id": "3",
@@ -641,7 +758,10 @@
       "notes": "ยืนยันเอกสารรุ่นมอเตอร์และลำดับสาย Hall/เฟส | [SolidWorks: Nut_M24x1.5_t8; QS10_Rim_Motor_Shell; QS10_Shaft_D35_D28key_M24x1p5; Tyre_3.00-10_OD406] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026 (ผู้ใช้): มอเตอร์มาเป็นล้อครบชุด (ยาง น็อต M24 แหวน ลิ่ม) ไม่ต้องซื้อชิ้นส่วนมอเตอร์แยก — ใน BOM ใส่แค่ชิ้นที่เราทำมายึด (#50 #51 #52 #53 #122) (Claude) | ชื่อไทยเดิม: Hub motor — QS 10 inch single-shaft, 1500 W, 72 V, 45H V2",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": 15.0
+      "unitWeightKg": 15.0,
+      "section": "2. Drive wheels, hub motors (ล้อขับ)",
+      "side": "electrical",
+      "type": "Motors & motor drives"
     },
     {
       "id": "2",
@@ -656,7 +776,10 @@
       "status": "เลือกรุ่นแล้ว; สั่งจากผู้ผลิต",
       "notes": "ยืนยันรุ่น/เฟิร์มแวร์/พิกัดกระแสและการต่อ UART ของ Dual | [SolidWorks: E_U5_Flipsky_Dual_75100_107x103x18.5] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ต่อกับ ESP32 ทาง UART ช่อง COMM (3.3V): IO25 TX -> COMM RX, IO26 RX <- COMM TX, GND; ขา 5V ของ COMM ไม่ต่อ; VESC Tool App = UART 115200 (ไลบรารี VescUart, มอเตอร์ตัวที่ 2 สั่งผ่านคำสั่ง forward ภายในบอร์ด Dual) ใช้ UART คุยกับ Flipsky 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: Flipsky Dual 75100 With Aluminum PCB Based on VESC For Electric Skateboard / Electric Scooter / Ebike Speed Controller",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Motors & motor drives"
     },
     {
       "id": "22",
@@ -672,7 +795,10 @@
       "notes": "กระแสใช้งาน/กระแสติดขัด, remote, duty cycle, เบรก | ยังไม่มีลิงก์ซื้อ: ร้านยังไม่ระบุรุ่น/กระแส stall/duty cycle ของวินช์ 12 V 1400 W; วินช์มาพร้อมชุดเครน ไม่คิดราคาแยก (ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026)) | ชื่อไทยเดิม: วินช์ DC — วินช์ 12 V, 1400 W ตามข้อมูลร้าน; รุ่นไม่ทราบ",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": 10.0
+      "unitWeightKg": 10.0,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "electrical",
+      "type": "Motors & motor drives"
     },
     {
       "category": "ไฟฟ้ากำลัง",
@@ -688,7 +814,10 @@
       "partNumber": "",
       "supplier": "",
       "unitWeightKg": null,
-      "id": "97"
+      "id": "97",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "electrical",
+      "type": "Motors & motor drives"
     },
     {
       "id": "25",
@@ -703,7 +832,10 @@
       "status": "ตัวเลือกที่เลือก",
       "notes": "ใช้ได้ทั้งมอเตอร์ 12 V และ 24 V; แนะนำแยก R_EN/L_EN ให้ลิมิตซ้าย/ขวาตัดทิศนั้นโดยตรง; ตรงกับ SolidWorks E_U8; ไม่ใช้ Cytron MDDS60 แล้ว; ราคา ณ 24 ต.ค. 2026 ยืนยันกับร้านก่อนสั่ง; ผู้ใช้เลือก BTS7960 24 ต.ค. 2026 (Claude); แก้ VCC เป็น 3.3V 25 ต.ค. 2026 (Claude) | [SolidWorks: E_U8_H-Bridge_BTS7960_50x50x43] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: U8 ไดรเวอร์มอเตอร์หมุนเครน BTS7960 43A (IBT-2) H-bridge",
       "partNumber": "BTS7960 IBT-2 43A",
-      "supplier": "Lazada (ร้านนนทบุรี ขายแล้ว 407 ชิ้น)"
+      "supplier": "Lazada (ร้านนนทบุรี ขายแล้ว 407 ชิ้น)",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Motors & motor drives"
     },
     {
       "id": "6",
@@ -718,7 +850,10 @@
       "status": "ตัวเลือกที่เลือก",
       "notes": "มอเตอร์ 2×1500 W ÷ 72 V ≈ 42 A (ลิมิตแบต VESC 50 A) × 1.25 = 52.5 A ≤ 63 A ≤ สาย 10 mm² (~65–75 A); ใช้เบรกเกอร์เพราะเป็นสวิตช์ตัดไฟหลักตอนซ่อม/จอดด้วย; ต่อตามขั้ว +/− บนตัว; ≥250 V DC; ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md; ราคา ณ 21 ต.ค. 2026 (ไทวัสดุ); ราคาจากผลค้นหา (หน้าเว็บบล็อกการเปิดอัตโนมัติ); ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_CB1_CB2_DC_Breaker_2P_36x85x72] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: เบรกเกอร์ DC 2 ขั้ว 63A (แบบโซลาร์) แทนฟิวส์หลัก",
       "supplier": "ไทวัสดุ",
-      "partNumber": "CT ELECTRIC DC 2P 63A 500V"
+      "partNumber": "CT ELECTRIC DC 2P 63A 500V",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power protection & switching"
     },
     {
       "id": "48",
@@ -734,7 +869,10 @@
       "notes": "ใช้เบรกเกอร์เพราะมอเตอร์เครนอาจติดขัดหรือชนปลายทางจนตัดบ่อย รีเซ็ตได้; ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md | [SolidWorks: E_CB2_DC_Breaker_1P_18x85x72] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: เบรกเกอร์ DC 1 ขั้ว C-curve แบบโซลาร์ ≥100 V DC (CB2 ไฟเลี้ยงเครน)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power protection & switching"
     },
     {
       "id": "44",
@@ -750,7 +888,10 @@
       "notes": "ผู้ใช้เลือกเบรกเกอร์แทนฟิวส์ (รีเซ็ตได้ + เป็นสวิตช์ตัดแบต แทน S2); ราคาเป็นราคาเริ่มต้นของหน้าสินค้า ต้องเช็คราคาตัวเลือก 1P 150A; ถ้าร้านไม่บอกค่า Icu ให้ใช้ฟิวส์ ANL 150A เดิม (PROPLUS ANL-1 ฿190 https://www.sirichaiaudio.com/product/47213-44442/) เพราะ LiFePO4 จ่ายกระแสลัดวงจรได้หลายพันแอมป์; ขนาดตัวในแบบเป็นค่าสมมติ 36×95×75 มม.; ราคา ณ 24 ต.ค. 2026; เบรกเกอร์ CB3 แทน F4 + ตัด S2 24 ต.ค. 2026 (Claude) | [SolidWorks: CB3_Winch_Breaker_DC_150A_1P_Risin_ASSUMED] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: CB3 เบรกเกอร์ DC 150A 1P (ระบบวินช์ 12V) — แทนฟิวส์ F4, ใช้ตัดไฟตอนซ่อมได้",
       "partNumber": "Risin MCB DC 1P 150A (12–125V DC) — เลือกตัวเลือก '1P 150A'",
       "supplier": "Lazada (Risin)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "8. 12 V winch cabinet (ตู้ 12V)",
+      "side": "electrical",
+      "type": "Power protection & switching"
     },
     {
       "id": "7",
@@ -765,7 +906,10 @@
       "status": "ตัวเลือกที่เลือก",
       "notes": "พิกัด DC, กระแส, แรงดันคอยล์ และวงจร pre-charge | ยังไม่มีลิงก์ซื้อ: ต้องกำหนดกระแส DC, coil voltage และ pre-charge ก่อน; ราคา ณ 21 ต.ค. 2026 (RS Components Thailand); คอยล์ 12 V 5.5 W, 1 ขั้ว NO 100 A, หน้าสัมผัส 1000 V DC → ผ่านเงื่อนไข ≥84 V; ราคารวม VAT จากผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_K2_TE_ECK100B_35x70x50_ASSUMED] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: คอนแทคเตอร์หลัก — TE ECK100B คอยล์ 12 V 5.5 W, 100 A, 1000 V DC",
       "supplier": "RS Components Thailand",
-      "partNumber": "TE Connectivity ECK100B (RS 018-1158)"
+      "partNumber": "TE Connectivity ECK100B (RS 018-1158)",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power protection & switching"
     },
     {
       "category": "ไฟฟ้ากำลัง",
@@ -781,7 +925,10 @@
       "notes": "ต้องเป็นแบบต่อเนื่องเท่านั้น (รีเลย์สตาร์ทรถคอยล์ไหม้ถ้าจ่ายค้าง) — ถามร้านยืนยันก่อนสั่ง; ≥ พิกัดฟิวส์ F4 150A; ราคา ณ 24 ต.ค. 2026; ผู้ใช้เลือก E-stop แยก 2 ปุ่ม 24 ต.ค. 2026 (Claude) | [SolidWorks: K3_Winch_Relay_12V_200A_Continuous_ASSUMED] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: K3 รีเลย์วินช์ 12V 200A แบบต่อเนื่อง (continuous duty)",
       "supplier": "Lazada",
       "unitWeightKg": null,
-      "id": "98"
+      "id": "98",
+      "section": "8. 12 V winch cabinet (ตู้ 12V)",
+      "side": "electrical",
+      "type": "Power protection & switching"
     },
     {
       "id": "9",
@@ -796,7 +943,10 @@
       "status": "เลือกตัวอย่างรุ่นไว้; ยืนยันรุ่น",
       "notes": "ตัวเลือกสินค้า: 5 V 3 A, input 9–120 VDC; 72 V Li-ion เต็มราว 84 V อยู่ในช่วง input ที่ระบุ. เป็น buck non-isolated; ตรวจพิกัดกระแสรวม/ความร้อนก่อนติดตั้ง. | [SolidWorks: E_U9_U10_U11_DCDC_72V_45x65x25_ASSUMED] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: DC-DC 72 V → 5 V — AllNewStep A5330, 9–120 VDC input, 5 V 3 A output",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power converters (DC-DC)"
     },
     {
       "id": "10",
@@ -811,7 +961,10 @@
       "status": "เลือก option 12 V 3 A; ตรวจสเปก/ร้านก่อนซื้อ",
       "notes": "เลือก option 12 V 3 A, input 16–120 V; non-isolated buck. ไฟเตือน 10 W ≈0.83 A nominal; ยืนยันกระแสเริ่มต้นและอุณหภูมิจริง. Relay contacts สวิตช์ +12 V; ห้ามป้อน 72 V เข้า relay/load branch. | [SolidWorks: E_U9_U10_U11_DCDC_72V_45x65x25_ASSUMED] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: DC-DC 72 V → 12 V — AEI.th variant 16–120 VDC input, 12 V 3 A output",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power converters (DC-DC)"
     },
     {
       "id": "36",
@@ -827,7 +980,10 @@
       "notes": "กระแสขาออกต้องพอกับคอยล์คอนแทคเตอร์ที่เลือก; เพิ่มตาม อ้างอิง schematic rev 3 (KiCad); ราคา ณ 21 ต.ค. 2026 (ร้านเดียวกับ DC-DC 12V (item 10)); รุ่นเดียวกับ DC-DC 12V ในรายการ 10 จ่ายคอยล์ 5.5 W ได้สบาย; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_U9_U10_U11_DCDC_72V_45x65x25_ASSUMED] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: Coil DC-DC 72 V → 12 V ขนาดเล็ก (Vin max ≥100 V) สำหรับคอยล์คอนแทคเตอร์",
       "partNumber": "ใช้รุ่นเดียวกับ item 10 (16–120 V → 12 V 3 A)",
       "supplier": "ร้านเดียวกับ DC-DC 12V (item 10)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power converters (DC-DC)"
     },
     {
       "id": "111",
@@ -843,7 +999,10 @@
       "notes": "[SolidWorks: E_U12_Crane_Supply_RESERVED_150x70x45] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: U12 แหล่งจ่ายไฟมอเตอร์หมุนเครน 72V→12/24V (ยังไม่เลือก — รอเลือก M3)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power converters (DC-DC)"
     },
     {
       "id": "43",
@@ -859,7 +1018,10 @@
       "notes": "สมมติฐาน: แบตต่ำสุด 60 V, DC-DC η 85%, เลือก ≥1.25×กระแสใช้งาน และ ≤ กระแสที่สายทนได้; ใช้ฟิวส์เพราะกระแสต่ำและขาดเฉพาะตอนโมดูลลัดวงจร; ขาดช้าเพื่อทนกระแสกระชากตอนคอนแทคเตอร์ต่อ; ห้ามใช้ฟิวส์รถยนต์ 32 V; F1 ยืนยันอีกครั้งเมื่อรู้วัตต์คอยล์คอนแทคเตอร์; ดูการคำนวณใน Downloads\\crane_schematic\\Protection_Calculation.md; ราคา ณ 21 ต.ค. 2026 (หจก.วันชัยการไฟฟ้า 2530); ราคา 398 บาท ระบุว่ายกกล่อง 10 ตัว แต่หน้าเว็บไม่ชัด ต้องถามร้าน; ใช้ 4 ตัว (F1, F2, F3, F9) ที่เหลือเป็นอะไหล่; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; F9 ใช้ไส้ 4A ตัวเดียวกัน (1A ขนาด 10×38 DC หาในไทยยาก) สายมิเตอร์ต้อง ≥ 0.75 mm² — F9 + รวมรูแบต G3 25 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ฟิวส์ทั้งรถใช้แบบเดียว 10×38 DC 4A + ฐาน NANO ราง DIN (ฟิวส์ใบมีดทน 32V ใช้กับ 72V ไม่ได้) (Claude) — F6/F7/F8 เดิม 2A/1A ใช้ 4A แทนได้ เพราะสาย 0.75 mm² ทน ~7A (สาย U14 ต้อง ≥0.75 mm²) | ชื่อไทยเดิม: ฟิวส์ 10×38 mm gPV 1000 V DC 4 A — F1, F2, F3, F6, F7, F8, F9 (ยกกล่อง 10 ตัว ใช้ 7 สำรอง 3)",
       "partNumber": "CCS 10x38 DC 1000V 4A",
       "supplier": "หจก.วันชัยการไฟฟ้า 2530",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power protection & switching"
     },
     {
       "id": "49",
@@ -875,7 +1037,10 @@
       "notes": "ราคา ณ 21 ต.ค. 2026 (เพื่อนช่าง อิเล็คทริค / pce-shop) ราคาจากผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_F_Fuse_Holder_10x38_18x81x58] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ฟิวส์ทั้งรถใช้แบบเดียว 10×38 DC 4A + ฐาน NANO ราง DIN (ฟิวส์ใบมีดทน 32V ใช้กับ 72V ไม่ได้) (Claude) | 30 ต.ค. 2026 (Claude, ผู้ใช้เลือก): ไฟโชว์ของฐานออกแบบให้ไฟ AC สูง ที่ 12V/72V DC อาจไม่ติด แต่ฐานใช้ได้ปกติ (ฟิวส์ gPV 1000V DC เป็นตัวตัดกระแส) | ชื่อไทยเดิม: ฐานฟิวส์ 10×38 RT18-32X ราง DIN 1 ขั้ว มีไฟโชว์ (ยกกล่อง 10 ตัว) — F1–F3, F6–F9",
       "partNumber": "NANO 10x38 DC 1P",
       "supplier": "PCP electric (Lazada, ส่งจากปทุมธานี) — ราคาหน้าร้าน 262.14 บาท ณ 30 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Power protection & switching"
     },
     {
       "id": "1",
@@ -889,7 +1054,10 @@
       "link": "https://www.modulemore.com/product/128/esp32-wroom-32-dev-board-wifi-bt-ble-mcu",
       "status": "เลือกบอร์ดแล้ว",
       "notes": "ผัง GPIO ล่าสุดตาม อ้างอิง schematic rev 3 (KiCad); ยืนยันว่าบอร์ดจริงเป็นแบบ 30 หรือ 38 ขา; ใช้รุ่น 38 ขาตาม schematic (ขา L1–L19 / R1–R19); จอ U3 อยู่ในตู้เดียวกันจึงใช้ ESP-NOW ได้โดยไม่ต้องมีเสาอากาศนอก — ทดสอบสัญญาณตอนปิดประตูตู้; ผู้ใช้เลือก 23 ต.ค. 2026: DevKitC 38 ขา / Alarm light 12 V / ตู้ IP44 (Claude) | [SolidWorks: E_U1_Control_PCB_ESP32_IMU_CAN_100x70x25] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | UART1 (IO25/IO26) คุยกับ Flipsky  ใช้ UART คุยกับ Flipsky 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: บอร์ดควบคุมหลัก — ESP32-DevKitC 38 ขา (โมดูล ESP32-WROOM-32 เสาอากาศบนบอร์ด)",
-      "partNumber": "ESP32-DevKitC 38-pin WROOM-32"
+      "partNumber": "ESP32-DevKitC 38-pin WROOM-32",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Controller & electronics"
     },
     {
       "id": "74",
@@ -905,7 +1073,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: แผ่นไข่ปลา 7×10 ซม. 20 บาท; เสารอง M3 ซื้อเพิ่ม; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_U1_Control_PCB_ESP32_IMU_CAN_100x70x25] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026 (Claude, ผู้ใช้เลือก) | ชื่อไทยเดิม: บอร์ดไข่ปลา 100×70 มม. + เสารอง M3 ×4 | 30 ต.ค. 2026: แยกจากแถว #74 (Perfboard 100×70 mm + 4 M3 standoffs) ให้ 1 แถว = 1 ขนาด; AB Maker 20 บาท (Claude)",
       "partNumber": "",
       "supplier": "AB Maker",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Enclosures & mounting"
     },
     {
       "id": "146",
@@ -921,7 +1092,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #74 (Perfboard 100×70 mm + 4 M3 standoffs) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Enclosures & mounting"
     },
     {
       "id": "12",
@@ -937,7 +1111,10 @@
       "notes": "ยืนยันรุ่น breakout, แรงดันจ่ายและชื่อขาจริง | [SolidWorks: E_U1_Control_PCB_ESP32_IMU_CAN_100x70x25] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: IMU — BNO086",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Controller & electronics"
     },
     {
       "id": "38",
@@ -953,7 +1130,10 @@
       "notes": "เพิ่มตาม อ้างอิง schematic rev 3 (KiCad); ราคา ณ 21 ต.ค. 2026 (ec-bot); ราคาต่อชิ้น จากผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_U1_Control_PCB_ESP32_IMU_CAN_100x70x25] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026 (Claude, ผู้ใช้เลือก): เปลี่ยนจาก PC817 ตัว IC ×2 เป็นโมดูลบอร์ด [SolidWorks: E_U6_PC817_Optocoupler_Module_2ch_38x29] | ชื่อไทยเดิม: โมดูล PC817 2 ช่อง แยกกราวด์ (Cybertice M1195) — ลิมิตซ้าย/ขวา",
       "partNumber": "PC817C DIP-4",
       "supplier": "Cybertice (ราคาหน้าเว็บ 40 บาท ณ 30 ต.ค. 2026)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Controller & electronics"
     },
     {
       "id": "37",
@@ -969,7 +1149,10 @@
       "notes": "ไม่ต้องใส่ถ้าคอนแทคเตอร์มีวงจรกันกระชากในตัว; เพิ่มตาม อ้างอิง schematic rev 3 (KiCad); ราคา ณ 21 ต.ค. 2026 (Mikroelec); ราคาต่อชิ้น จากผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ชื่อไทยเดิม: ไดโอด 1N4007",
       "partNumber": "1N4007",
       "supplier": "Mikroelec",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Controller & electronics"
     },
     {
       "id": "40",
@@ -985,7 +1168,10 @@
       "notes": "เพิ่มตาม อ้างอิง schematic rev 3 (KiCad); ราคา ณ 21 ต.ค. 2026 (modulemore); ขายแพ็กละ 10 ตัวต่อค่า ต้องระบุค่า 10kΩ ตอนสั่ง; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | 30 ต.ค. 2026 (Claude, ผู้ใช้เลือก) | ชื่อไทยเดิม: ตัวต้านทาน 10kΩ 1/4W",
       "partNumber": "Resistor 1/4W 1% 10kΩ (แพ็ก 10 ตัว)",
       "supplier": "modulemore",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Controller & electronics"
     },
     {
       "id": "41",
@@ -1001,7 +1187,10 @@
       "notes": "เพิ่มตาม อ้างอิง schematic rev 3 (KiCad); ราคา ณ 21 ต.ค. 2026 (modulemore); ขายแพ็กละ 10 ตัวต่อค่า ต้องระบุค่า 1kΩ ตอนสั่ง; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ชื่อไทยเดิม: ตัวต้านทาน 1kΩ 1/4W",
       "partNumber": "Resistor 1/4W 1% 1kΩ (แพ็ก 10 ตัว)",
       "supplier": "modulemore",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Controller & electronics"
     },
     {
       "id": "15",
@@ -1016,7 +1205,10 @@
       "status": "ตัวเลือกที่เลือก",
       "notes": "ยืนยันขั้ว VCC/GND/IN และ COM/NO ตาม silk-screen ของบอร์ดจริง; โหลด DC ไม่เกิน 30 V, 7 A/ช่อง; แยกกราวด์โหลดกับ logic หากต้องการคง optocoupler isolation | [SolidWorks: E_K1_Relay_2ch_5V_50x38x19] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | เปลี่ยนจากรุ่น active LOW (สั่งด้วย 3.3V แล้วอาจดับไม่สนิท) 26 ต.ค. 2026 (Claude); ร้านไม่ได้ยืนยัน 3.3V — ทดสอบกับ ESP32 ก่อนติดตั้ง; สำรอง: ModuleMore #2525 1 ช่อง ×2 (ระบุ control 3.3–5V) | ชื่อไทยเดิม: K1 รีเลย์ 2 ช่อง 5V แบบเลือก High/Low trigger (Cybertice M0172) — ตั้งจัมเปอร์ H ให้สั่งด้วย 3.3V จาก ESP32",
       "partNumber": "",
-      "supplier": "Cybertice"
+      "supplier": "Cybertice",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Controller & electronics"
     },
     {
       "id": "17",
@@ -1032,7 +1224,10 @@
       "notes": "buzzer เป็นรุ่น 5V: COM1 ต้องรับ +5V ห้ามใช้ +12V (แก้ใน schematic แล้ว) | [SolidWorks: E_BZ1_Buzzer_12x12x10] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Controller & electronics"
     },
     {
       "id": "18",
@@ -1047,7 +1242,10 @@
       "status": "ตัวเลือกที่แนะนำ; เลือกชุด FS-i6X + FS-iA6B",
       "notes": "ยืนยัน transmitter และ failsafe settings | ชื่อไทยเดิม: เครื่องส่ง RC — FlySky FS-i6X",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "section": "10. Not on the car: remote + chargers",
+      "side": "electrical",
+      "type": "Operator devices & sensors"
     },
     {
       "id": "19",
@@ -1062,7 +1260,10 @@
       "status": "ตัวเลือกที่แนะนำ; ยืนยันร้านส่งรุ่น FS-iA6B",
       "notes": "ตรวจว่า receiver มี iBUS output ที่ใช้ได้จริง, ตั้ง failsafe ให้ตัดคำสั่งขับเมื่อสัญญาณหาย และทดสอบ output level ก่อนต่อ ESP32 | [SolidWorks: E_J1_FS-iA10B_47x33x15] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ตัวรับ RC — FlySky FS-iA10B (เลือกเป็นชุดคู่กับ FS-i6X)",
       "partNumber": "",
-      "supplier": ""
+      "supplier": "",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Operator devices & sensors"
     },
     {
       "id": "20",
@@ -1078,7 +1279,10 @@
       "notes": "บอร์ดมี ESP32-S3 ในตัว; ต้องกำหนดวิธีส่งข้อมูลและทดสอบการเชื่อมต่อก่อนซื้อ; ตำแหน่ง: ติดหน้าประตูตู้ควบคุม (Claude, 23 ต.ค. 2026) — กระจกจอติดด้านในประตูด้วยเทปกันน้ำ ผ่านช่อง 172×100 มม. + กรอบกดยึด CAB07; เมื่ออยู่ในตู้ อาจต่อสาย UART กับ ESP32 บนรถแทนไร้สายได้ | [SolidWorks: E_U3_Waveshare_ESP32-S3-Touch-LCD-7B] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: บอร์ดจอ — Waveshare ESP32-S3-Touch-LCD-7B, 7-inch 1024×600",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "electrical",
+      "type": "Operator devices & sensors"
     },
     {
       "id": "21",
@@ -1094,7 +1298,10 @@
       "notes": "เป็นจอแสดงผลอย่างเดียว ไม่ส่งข้อมูลเข้า ESP32; ต่อหลังสวิตช์ตัดไฟเพื่อไม่ให้กินไฟแบตตอนจอดเก็บ; ตำแหน่ง: ติดหน้าประตูตู้ควบคุม (Claude, 23 ต.ค. 2026) — เจาะช่อง 58.5×28.5 มม. ×2 (ตัวซ้าย 72 V, ตัวขวา 12 V); ขนาด 61×33×15 ตามรุ่น 6133A ตรวจของจริง | [SolidWorks: E_U13_U14_Battery_Meter_8-100V_61x33] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: DIYMORE DC 8-100V ความแม่นยําสูง LCD Digital Display แรงดันไฟฟ้าและตัวบ่งชี้ไฟฟ้า Ternary/Lithium Iron/Acid แบตเตอรี่ Universal พร้อมจอแสดงผลอุณหภูมิ",
       "partNumber": "",
       "unitWeightKg": null,
-      "supplier": ""
+      "supplier": "",
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "electrical",
+      "type": "Operator devices & sensors"
     },
     {
       "id": "16",
@@ -1110,7 +1317,10 @@
       "notes": "ESP32 สั่งกระพริบผ่านรีเลย์ CH2 (GPIO18) เช่น ติด/ดับ 0.5 วินาที — โหลด 20 mA เล็กมาก หน้าสัมผัสรีเลย์ไม่สึก; ไม่ใช้ AD16-22SM เพราะมีเสียงซ้ำกับบัซเซอร์ BZ1 (#17); ทางเลือก SPE บ้านหม้อ AD16-22DS-BB แพ็ก 10 ตัว; แทนไฟหมุน DEXZON บนพื้นกระบะ (ยกเลิก); ราคา ณ 23 ต.ค. 2026 ยืนยันกับร้านก่อนสั่ง; ผู้ใช้เลือก 23 ต.ค. 2026: DevKitC 38 ขา / Alarm light 12 V / ตู้ IP44 (Claude) | [SolidWorks: HL1_AD16-22_12V_Flash_Lamp_Amber] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: HL1 ไฟเตือน Alarm light 22 มม. 12 V สีเหลือง AD16-22DS (ติดประตูแท่นควบคุม)",
       "partNumber": "AD16-22DS 12V yellow",
       "supplier": "Lazada (ร้าน AD16-22DS พร้อมส่งในไทย)",
-      "unitWeightKg": 0.03
+      "unitWeightKg": 0.03,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "electrical",
+      "type": "Operator devices & sensors"
     },
     {
       "id": "8",
@@ -1125,7 +1335,10 @@
       "status": "ตัวเลือกที่เลือก",
       "notes": "ชนิดหน้าสัมผัสและพิกัดวงจรคอยล์ | ยังไม่มีลิงก์ซื้อ: ต้องจับคู่หน้าสัมผัส E-stop กับคอยล์ contactor ที่เลือก; ราคา ณ 21 ต.ค. 2026 (modulemore); ร้านไม่ระบุชนิด/พิกัดหน้าสัมผัส: ตรวจว่ามี NC และทนกระแสคอยล์ 12 V DC (~0.5 A) ได้; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; S1 ตัดคอยล์ K2 → หยุดรถ + เครน (72V) เท่านั้น ไม่ตัดวินช์; ผู้ใช้เลือก E-stop แยก 2 ปุ่ม 24 ต.ค. 2026 (Claude) | รุ่นเดียวกับ S1 (#8) ดูลิงก์ใน #8; ติดป้าย 'WINCH STOP' ให้ต่างจาก S1; ผู้ใช้เลือก E-stop แยก 2 ปุ่ม 24 ต.ค. 2026 (Claude) | [SolidWorks: S_S1_E-STOP_Mushroom_D40] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: S1 / S3 ปุ่ม Emergency stop 22 mm แบบล็อกค้าง (LAY37) — S1 หยุดระบบรถ 72V, S3 ตัดวินช์",
       "supplier": "modulemore",
-      "partNumber": "LAY37 22 mm self-lock"
+      "partNumber": "LAY37 22 mm self-lock",
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "electrical",
+      "type": "Operator devices & sensors"
     },
     {
       "id": "13",
@@ -1140,7 +1353,10 @@
       "status": "เลือกรุ่นแล้ว; RS มีรายการขาย",
       "notes": "ปกติสวิตช์ปิด → LOW; กดหรือสายขาด → HIGH → หยุดเครน (fail-safe); ทดสอบทิศทางการกดบนตัวจริง; ราคา ณ 21 ต.ค. 2026 (Northpower); snap-action 1NC/1NO, ใช้ NC 11-12; ราคาต่อตัว จากผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; คำแนะนำ (23 ต.ค.): ใช้ D4N-112G ต่อ — สวิตช์นิรภัย NC แบบ direct opening, ตัวพลาสติก IP67 ไม่เป็นสนิม, คันโยกลูกล้อปรับยาวได้ให้ลูกเบี้ยวบนเสาเครนกด, รับโหลดต่ำสุด 1 mA @ 5 V (วงจร PC817 ใช้ ~8 mA ผ่าน); เกลียวสาย Pg13.5 ต้องใช้แกลนด์ Pg13.5 หรือถามรุ่นเกลียว M20 (รหัสขึ้นต้น D4N-4…); ทางเลือก WLCA2-2N ~1,404 บาท ตัวโลหะใหญ่ทนกว่าแต่ไม่ใช่ NC แบบนิรภัย | [SolidWorks: OMRON_D4N-1x2G] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ลิมิตสวิตช์ซ้าย-ขวา — OMRON D4N-112G",
       "supplier": "Northpower",
-      "partNumber": "OMRON D4N-112G"
+      "partNumber": "OMRON D4N-112G",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "electrical",
+      "type": "Operator devices & sensors"
     },
     {
       "id": "24",
@@ -1156,7 +1372,10 @@
       "notes": "มาพร้อมชุดเครน/วินช์ ไม่คิดราคาแยก; สายมอเตอร์ของกล่องสั้น (~0.9 ม.) จึงต้องต่อเพิ่ม; WC1 4 สาย + โบลต์ล็อก M12 25 ต.ค. 2026 (Claude) | [SolidWorks: WC1_Winch_Control_Box_12V_4wire_140x90x75_EST] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: WC1 กล่องควบคุมวินช์ 12 V (มากับวินช์) — 4 สาย + สวิตช์เข้า/ออกบนกล่อง",
       "partNumber": "WC1",
       "unitWeightKg": null,
-      "supplier": ""
+      "supplier": "",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "electrical",
+      "type": "Motors & motor drives"
     },
     {
       "id": "61",
@@ -1172,7 +1391,10 @@
       "notes": "ตัดสินใจใช้ตู้นี้ (IP44) — กันละอองน้ำ/น้ำสาดเท่านั้น ห้ามฉีดน้ำล้างโดนตู้ ติดป้าย 'ห้ามฉีดน้ำ' (#96); เลือกรุ่นราคาประหยัดตามที่ขอ (เดิมสเตนเลส 8,640 บาท); IP44 = กันละอองน้ำ/น้ำสาด แต่ไม่กันน้ำฉีด ห้ามฉีดน้ำล้างตรงตู้; ทางเลือกกันน้ำดีกว่า: KJL KBJQ0007 400×500×200 1,843 บาท (ร้านเดียวกัน); ตู้เหล็กบังสัญญาณ: ESP32 (#1) ต่อกับจอ #20 บนประตูด้วยสาย UART หรือ ESP-NOW ระยะใกล้ในตู้ได้ แต่สายอากาศตัวรับรีโมท #19 ต้องลอดแกลนด์ออกนอกตู้; ประตูไม่ต้องเจาะ (ย้ายไปแท่นควบคุม) · แบบ CC-01; ราคา ณ 22 ต.ค. 2026 (ลดจาก 1,390) ยืนยันกับร้านก่อนสั่ง; เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | [SolidWorks: CAB01_Enclosure_SS304_400x500x200_IP65; CAB02_Door_500x400; CAB03_Door_Lock_Handle; CAB04_Mounting_Plate_440x340x2] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ตู้เหล็กกันน้ำ ไม่มีหลังคา KJL KBVQ0007 เบอร์ 7 ขนาด 400×500×200 มม. (มีแผ่นติดตั้ง)",
       "partNumber": "KJL KBVQ0007",
       "supplier": "Sirichai Electric",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Enclosures & mounting"
     },
     {
       "id": "62",
@@ -1188,7 +1410,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: ราง DIN เหล็ก 35×7.5 ยาว 1 ม. (ตัดเหลือ 440); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: CAB05_DIN_Rail_TS35x7.5_L440] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ตัดเพิ่ม 45 มม. จากเส้นเดียวกันสำหรับ F7/F8 ในตู้ 12V [SolidWorks: WCAB04_DIN_Rail_TS35x7.5_L45] (Claude) | ชื่อไทยเดิม: ราง DIN TS35×7.5 (ตัดยาว 440 มม.)",
       "partNumber": "TS35",
       "supplier": "Rubicon Engineering",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Enclosures & mounting"
     },
     {
       "id": "63",
@@ -1204,7 +1429,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: BANDEX WD-2540-8 25×40 ยาว 2 ม. 1 เส้นพอตัด 440 ×2; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: CAB06_Wiring_Duct_25x40_L440] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: รางเดินสายแบบร่อง 25×40 มม. พร้อมฝา (ตัดยาว 440 มม.)",
       "partNumber": "",
       "supplier": "Electric Components (BANDEX)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Enclosures & mounting"
     },
     {
       "category": "ตู้/กล่อง",
@@ -1220,7 +1448,10 @@
       "notes": "แบบ SolidWorks: 09_12V_Winch_Cabinet\\Cabinet_12V.SLDASM; ไฟในตู้เป็น 12V อย่างเดียว; แท่นควบคุม + ตู้ 12V ข้างขวา 24 ต.ค. 2026 (Claude) | [SolidWorks: WCAB01_12V_Cabinet_Singto_STBS00_200x300x150; WCAB02_12V_Cabinet_Door_200x300; WCAB03_12V_Mounting_Plate_176x276x2] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: WCAB ตู้ 12V วินช์ — ตู้เหล็ก Singto STBS 00 IP55 20×30×15 ซม. (ไม่ใส่หลังคา เพราะติดใต้คาน)",
       "supplier": "Lazada (Singto)",
       "unitWeightKg": null,
-      "id": "100"
+      "id": "100",
+      "section": "8. 12 V winch cabinet (ตู้ 12V)",
+      "side": "structure",
+      "type": "Enclosures & mounting"
     },
     {
       "category": "ตู้/กล่อง",
@@ -1236,7 +1467,10 @@
       "supplier": "ร้านตัดเลเซอร์/พับเหล็ก (ราคาประมาณ)",
       "unitWeightKg": null,
       "notes": "ตู้คอนโทรลแบบ A ทำเอง 30 ต.ค. 2026 (Claude) แทนตู้ Singto STBW-0 | [SolidWorks: WCON21_Console_Body_Sloped_SGCC_t1.2; WCON26_Console_Panel_Flanges_SGCC_t1.2] | ราคาประมาณ (ยังไม่มีใบเสนอราคา) ต้องขอราคาจากร้านตัดเลเซอร์+พับเหล็ก | ชื่อไทยเดิม: WCON ตู้คอนโทรล (แท่นหน้าเอียง) ทำเอง — ตัวตู้ + ปีกรับแผงหน้า, เหล็กชุบสังกะสี SGCC 1.2 มม. (พื้น 2 มม.) | 30 ต.ค. 2026: แยกจากแถว #103 (WCON control console body (sloped front), self-made: body + panel flanges, galvanized SGCC 1.2 mm (floor 2 mm)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
-      "id": "103"
+      "id": "103",
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "category": "ตู้/กล่อง",
@@ -1252,7 +1486,10 @@
       "supplier": "",
       "unitWeightKg": null,
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #103 (WCON control console body (sloped front), self-made: body + panel flanges, galvanized SGCC 1.2 mm (floor 2 mm)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude)",
-      "id": "147"
+      "id": "147",
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "64",
@@ -1268,7 +1505,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: มีเทอร์มินอล UK ขนาด 16 mm² (BUK-16N) แต่ราคาในตารางอ่านไม่ชัด; ทางเลือก Phoenix UK 16 N 3006043 (เทา) / 3006056 (น้ำเงิน); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_X1_Terminals_72V_6x16mm2_72x50x47] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง 26 ต.ค. 2026 (Claude) | X1:1–3 +72V_SW, X1:4–6 GND (บริดจ์) ตามตารางเทอร์มินัล Terminal_Plan_TH.pdf 26 ต.ค. 2026 (Claude) | X1:1–3 +72V_SW (K2 OUT, Flipsky B+, F2, F3, CB2), X1:4–6 GND (CB1 OUT−, Flipsky B−, DC-DC VIN−, สายเชื่อมไป X2 GND) 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: เทอร์มินอลราง DIN 16 mm² (X1: +72V_SW ×3 เทา, GND ×3 น้ำเงิน) | 30 ต.ค. 2026: แยกจากแถว #64 (DIN terminal block 16 mm² (X1: +72V_SW ×3 grey, GND ×3 blue)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "UK16N type",
       "supplier": "เอสพีอี บ้านหม้อ",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "148",
@@ -1284,7 +1524,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #64 (DIN terminal block 16 mm² (X1: +72V_SW ×3 grey, GND ×3 blue)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "65",
@@ -1300,7 +1543,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: UK-5 (สาย ≤4 mm²) 6 บาท/ตัว — ตรวจว่ามีสีแดง/ส้ม/น้ำเงิน; ทางเลือก SPE บ้านหม้อ BUK-5N 25 บาท; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: E_X2_Terminals_12V_5V_10x4mm2_62x45x45] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ใช้ 9 ช่อง, X2:3 สำรอง ตามตารางเทอร์มินัล Terminal_Plan_TH.pdf 26 ต.ค. 2026 (Claude) | จุดรวมไฟ 12V/5V/GND แทนบัสบาร์ (GND ใช้ ferrule คู่ได้ถึง 4 สาย/ช่อง) 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: เทอร์มินอลราง DIN 4 mm² (X2: +12V ×2 แดง, +5V ×3 ส้ม, GND ×5 น้ำเงิน) | 30 ต.ค. 2026: แยกจากแถว #65 (DIN terminal block 4 mm² (X2: +12V ×2 red, +5V ×3 orange, GND ×5 blue)) ให้ 1 แถว = 1 ขนาด (Claude)",
       "partNumber": "UK5N type",
       "supplier": "EAK Electronic",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "149",
@@ -1316,7 +1562,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #65 (DIN terminal block 4 mm² (X2: +12V ×2 red, +5V ×3 orange, GND ×5 blue)) ให้ 1 แถว = 1 ขนาด (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "150",
@@ -1332,7 +1581,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #65 (DIN terminal block 4 mm² (X2: +12V ×2 red, +5V ×3 orange, GND ×5 blue)) ให้ 1 แถว = 1 ขนาด (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "67",
@@ -1348,7 +1600,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: ฝาปิดท้าย/ตัวกั้นปลายราง ซื้อพร้อมเทอร์มินอล; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ราคาจากหน้าร้าน ฝาปิดท้าย D-UK แพ็ค 26 ต.ค. 2026 (Claude) | เหลือเทอร์มินัล 2 แถว (X1, X2) 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ฝาปิดท้ายเทอร์มินอล + ตัวกั้นปลายราง + ป้ายชื่อ | 30 ต.ค. 2026: แยกจากแถว #67 (Terminal end covers + end stops + marker labels) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "เอสพีอี บ้านหม้อ",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "151",
@@ -1364,7 +1619,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #67 (Terminal end covers + end stops + marker labels) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "152",
@@ -1380,7 +1638,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #67 (Terminal end covers + end stops + marker labels) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "153",
@@ -1396,7 +1657,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #67 (Terminal end covers + end stops + marker labels) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "68",
@@ -1412,7 +1676,25 @@
       "notes": "ตรวจขนาดสายมอเตอร์ QS จริง; เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: CG-M25-B พลาสติก IP68 รับสาย 12–15 มม. — วัดสายมอเตอร์ QS ก่อน (ถ้าใหญ่กว่า ใช้รุ่นช่วงสายถัดไป); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: G_Cable_Gland_M25_IP68] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: เคเบิลแกลนด์ M25 IP68 (สาย 13–18 มม.)",
       "partNumber": "",
       "supplier": "วิลล์ เอ็นจิเนียริ่ง ซัพพลาย",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "electrical",
+          "qty": 3
+        },
+        {
+          "section": "7. Control console (แท่นคอนโทรล)",
+          "side": "electrical",
+          "qty": 2
+        },
+        {
+          "section": "8. 12 V winch cabinet (ตู้ 12V)",
+          "side": "electrical",
+          "qty": 4
+        }
+      ],
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "69",
@@ -1428,7 +1710,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: CG-M20-B พลาสติก IP68 รับสาย 6–11 มม.; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: G_Cable_Gland_M20_IP68] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: เคเบิลแกลนด์ M20 IP68 (สาย 6–12 มม.)",
       "partNumber": "",
       "supplier": "วิลล์ เอ็นจิเนียริ่ง ซัพพลาย",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "70",
@@ -1444,7 +1729,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: CG-M16-W พลาสติก IP68 รับสาย 4–8.5 มม. (สีขาว); G8 แบบซีลหลายรูต้องถามร้าน; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: G_Cable_Gland_M16_IP68] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: เคเบิลแกลนด์ M16 IP68 (1 ตัวเป็นแบบซีลหลายรูสำหรับสายอากาศ) | 30 ต.ค. 2026: แยกจากแถว #70 (Cable gland M16 IP68 (1 multi-hole seal for the antenna)) ให้ 1 แถว = 1 ขนาด (Claude)",
       "partNumber": "",
       "supplier": "วิลล์ เอ็นจิเนียริ่ง ซัพพลาย",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "154",
@@ -1460,7 +1748,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #70 (Cable gland M16 IP68 (1 multi-hole seal for the antenna)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "31",
@@ -1473,7 +1764,10 @@
       "unitPrice": 40,
       "link": "https://shopee.co.th/-2-%E0%B9%80%E0%B8%A1%E0%B8%95%E0%B8%A3-JSL-239-%E0%B8%AA%E0%B8%B2%E0%B8%A2%E0%B9%84%E0%B8%9F%E0%B8%84%E0%B8%B9%E0%B9%88-%E0%B8%94%E0%B8%B3-%E0%B9%81%E0%B8%94%E0%B8%87-2Cx18AWG-UL2468-Twin-Cable-Dynaom-%E0%B8%AA%E0%B8%B2%E0%B8%A2%E0%B8%97%E0%B8%AD%E0%B8%87%E0%B9%81%E0%B8%97%E0%B9%89-%E0%B9%84%E0%B8%9FDC-%E0%B8%95%E0%B9%88%E0%B8%AD%E0%B8%A5%E0%B8%B3%E0%B9%82%E0%B8%9E%E0%B8%87-%E0%B8%82%E0%B8%99%E0%B8%B2%E0%B8%94-18-AWG-0.75-sq.mm-8...-i.95326684.25421059661",
       "status": "ตัวเลือกที่เลือก",
-      "notes": "เลือกความยาวตามระยะติดตั้ง; บริเวณโดนน้ำ/สั่นสะเทือนใช้สายยานยนต์และปลอกป้องกัน | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: Twin cable 2C×18 AWG (0.75 mm²), copper, 2 m"
+      "notes": "เลือกความยาวตามระยะติดตั้ง; บริเวณโดนน้ำ/สั่นสะเทือนใช้สายยานยนต์และปลอกป้องกัน | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: Twin cable 2C×18 AWG (0.75 mm²), copper, 2 m",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "32",
@@ -1486,7 +1780,10 @@
       "unitPrice": 45,
       "link": "https://www.allnewstep.com/product/136/%E0%B8%AA%E0%B8%B2%E0%B8%A2%E0%B9%84%E0%B8%9F-%E0%B8%88%E0%B8%B1%E0%B8%A1%E0%B9%80%E0%B8%9B%E0%B8%AD%E0%B8%A3%E0%B9%8C-%E0%B8%9C%E0%B8%B9%E0%B9%89-%E0%B9%80%E0%B8%A1%E0%B8%B5%E0%B8%A2-jumper-wire-%E0%B8%AA%E0%B8%B2%E0%B8%A2%E0%B9%81%E0%B8%9E-%E0%B8%9C%E0%B8%B9%E0%B9%89-%E0%B9%80%E0%B8%A1%E0%B8%B5%E0%B8%A2-%E0%B8%A2%E0%B8%B2%E0%B8%A7-20cm-40-%E0%B9%80%E0%B8%AA%E0%B9%89%E0%B8%99",
       "status": "ตัวเลือกที่เลือก",
-      "notes": "เลือกหัว male/female ตามขั้ว header ของ relay board จริง; jumper ใช้เฉพาะ signal ไม่ใช้เดินกระแส beacon | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง 26 ต.ค. 2026 (Claude)"
+      "notes": "เลือกหัว male/female ตามขั้ว header ของ relay board จริง; jumper ใช้เฉพาะ signal ไม่ใช้เดินกระแส beacon | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง 26 ต.ค. 2026 (Claude)",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "33",
@@ -1500,7 +1797,10 @@
       "link": "https://www.thianthong.com/2-pin-quick-wire-connector-for-car-led-wiring-18-20-awg-low-coltage-dc-12v-24v.html",
       "status": "อุปกรณ์เสริม",
       "notes": "เลือกคู่ปลั๊กให้ครบ และยืนยันพิกัดกระแส/การป้องกันน้ำก่อนติดตั้ง; ราคา ณ 21 ต.ค. 2026 (Thianthong); ราคาต่อชิ้น (50 ชิ้นขึ้นไป 4 บาท); ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ชื่อไทยเดิม: 2-pin automotive quick connector for 18–20 AWG (optional)",
-      "supplier": "Thianthong"
+      "supplier": "Thianthong",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "category": "สายไฟ/ขั้วต่อ",
@@ -1516,7 +1816,10 @@
       "supplier": "",
       "unitWeightKg": null,
       "notes": "ต่อด้วยหางปลาย้ำ + ปลอกหดกาว หรือขั้วต่อ Anderson; ห้ามพันเทปเฉยๆ; WC1 4 สาย + โบลต์ล็อก M12 25 ต.ค. 2026 (Claude) | ราคาประมาณจาก Yazaki THW(f) 16 mm² ตัด 10 ม. 2,330 บาท = ~233/ม. × 2 ม. + หางปลา 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: สายต่อเพิ่มมอเตอร์วินช์ แดง + ดำ ขนาดเท่าสายเดิมของวินช์ + หางปลา + ปลอกหด | 30 ต.ค. 2026: แยกจากแถว #105 (Winch motor extension cable red + black (same size as the winch cable) + lugs + heat-shrink) ให้ 1 แถว = 1 ขนาด; ราคาประมาณจาก Yazaki THW(f) 16 mm² ~233 บาท/ม. (Claude)",
-      "id": "105"
+      "id": "105",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "category": "สายไฟ/ขั้วต่อ",
@@ -1532,7 +1835,10 @@
       "supplier": "",
       "unitWeightKg": null,
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #105 (Winch motor extension cable red + black (same size as the winch cable) + lugs + heat-shrink) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ ~233 บาท/ม. (Claude)",
-      "id": "155"
+      "id": "155",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "category": "สายไฟ/ขั้วต่อ",
@@ -1548,7 +1854,10 @@
       "supplier": "HomePro — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
       "unitWeightKg": null,
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #105 (Winch motor extension cable red + black (same size as the winch cable) + lugs + heat-shrink) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — TLUG R16-8 ขายแพ็ก 10 ตัว ใช้ 4 ตัว เหลือ 6",
-      "id": "156"
+      "id": "156",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "category": "สายไฟ/ขั้วต่อ",
@@ -1564,7 +1873,10 @@
       "supplier": "HomePro — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
       "unitWeightKg": null,
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #105 (Winch motor extension cable red + black (same size as the winch cable) + lugs + heat-shrink) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — TAKAMURA 10 มม. ยาว 2 ม. สีเขียว (สีอื่นดำ/แดงมีในร้าน ราคาใกล้กัน)",
-      "id": "157"
+      "id": "157",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "77",
@@ -1580,7 +1892,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: 3M VHB V41 สีเทา 12 มม. × 5 ม. (สำหรับโลหะ); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ชื่อไทยเดิม: เทปโฟมกาวสองหน้ากันน้ำ (เช่น 3M VHB) หรือยาง EPDM กว้าง 8 มม. ยาว 1 ม. | 30 ต.ค. 2026: แก้ชื่อให้สั่งผลิตถูก 1 แถว = 1 ชิ้นแบบ (Claude)",
       "partNumber": "",
       "supplier": "FAC Tools",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Glue, tape & labels"
     },
     {
       "id": "96",
@@ -1596,7 +1911,10 @@
       "notes": "ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: CAB11_Label_12V_BATT; CAB11_Label_72V_BATT; CAB11_Label_ALARM] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; ร้านสติกเกอร์/ป้ายแกะสลักใกล้บ้าน 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ป้ายหน้าตู้ 72V BATT / ALARM / 12V BATT + ป้ายเตือน 'ห้ามฉีดน้ำ' | 30 ต.ค. 2026: แยกจากแถว #96 (Panel labels 72V BATT / ALARM / 12V BATT + 'no water jet' warning) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "CAB11",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Glue, tape & labels"
     },
     {
       "id": "158",
@@ -1612,7 +1930,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #96 (Panel labels 72V BATT / ALARM / 12V BATT + 'no water jet' warning) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Glue, tape & labels"
     },
     {
       "id": "159",
@@ -1628,7 +1949,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #96 (Panel labels 72V BATT / ALARM / 12V BATT + 'no water jet' warning) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Glue, tape & labels"
     },
     {
       "id": "160",
@@ -1644,7 +1968,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #96 (Panel labels 72V BATT / ALARM / 12V BATT + 'no water jet' warning) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Glue, tape & labels"
     },
     {
       "id": "108",
@@ -1660,7 +1987,10 @@
       "status": "ยังไม่เลือก",
       "supplier": "",
       "unitWeightKg": null,
-      "notes": "กาวอุดร่องระหว่างสาย 2 เส้น ให้แกลนด์รัดได้แนบ กันน้ำ; F9 + รวมรูแบต G3 25 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือกแบบมีกาว 3:1 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ท่อหดแบบมีกาวใน (adhesive heat-shrink) Ø25–30 มม. สำหรับรวมสาย + / − ลอดแกลนด์"
+      "notes": "กาวอุดร่องระหว่างสาย 2 เส้น ให้แกลนด์รัดได้แนบ กันน้ำ; F9 + รวมรูแบต G3 25 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือกแบบมีกาว 3:1 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: ท่อหดแบบมีกาวใน (adhesive heat-shrink) Ø25–30 มม. สำหรับรวมสาย + / − ลอดแกลนด์",
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "87",
@@ -1676,7 +2006,10 @@
       "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Bolt_M8x30_DIN933_8.8_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: สลักเกลียว M8×30 ชุบขาว",
       "partNumber": "M8x30 ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "129",
@@ -1692,7 +2025,10 @@
       "notes": "[SolidWorks: FX_Bolt_M8x45_DIN933_8.8_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M8×45 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริงหน้าเว็บ — ร้านไม่ระบุเกรด (ชุบขาวทั่วไป) (Claude) | ชื่อไทยเดิม: สลักเกลียว M8×45 เกรด 8.8 (หูปลอกรัด SD01)",
       "partNumber": "",
       "supplier": "JSP Store — น็อตหัวเหลี่ยมขาว M8x45 — ราคาหน้าเว็บ ณ 30 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "88",
@@ -1708,7 +2044,20 @@
       "notes": "หน้าร้านไม่ระบุเกรด ถ้าต้องการ 8.8 ใช้เหล็กดำแข็ง 9 บาท (https://www.jspstore.com/product/40829-36780/); ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Bolt_M8x70_DIN933_8.8_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: สลักเกลียว M8×70 ชุบขาว",
       "partNumber": "M8x70 ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "structure",
+          "qty": 3
+        },
+        {
+          "section": "6. Battery tray + batteries (ถาดแบต)",
+          "side": "structure",
+          "qty": 6
+        }
+      ],
+      "type": "Bolts & screws"
     },
     {
       "id": "89",
@@ -1724,7 +2073,20 @@
       "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Nut_M8_DIN985_Nylock_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: หัวน็อตล็อกไนลอน M8 สแตนเลส",
       "partNumber": "M8 nylock A2",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "structure",
+          "qty": 7
+        },
+        {
+          "section": "6. Battery tray + batteries (ถาดแบต)",
+          "side": "structure",
+          "qty": 14
+        }
+      ],
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "90",
@@ -1740,7 +2102,30 @@
       "notes": "ใช้รุ่นหนาแทนแผ่นรอง 3 มม. ในแบบได้; ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Washer_M8_DIN125_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: แหวนอีแปะ M8 ชุบขาว หนา 4 มม. (8.4-23-4)",
       "partNumber": "Washer M8 23x4 ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "structure",
+          "qty": 18
+        },
+        {
+          "section": "6. Battery tray + batteries (ถาดแบต)",
+          "side": "structure",
+          "qty": 20
+        },
+        {
+          "section": "7. Control console (แท่นคอนโทรล)",
+          "side": "structure",
+          "qty": 4
+        },
+        {
+          "section": "8. 12 V winch cabinet (ตู้ 12V)",
+          "side": "structure",
+          "qty": 4
+        }
+      ],
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "91",
@@ -1756,7 +2141,25 @@
       "notes": "แบบใช้หัวเรียบ (flush); หัวแบน 1.6 มม. ใช้ได้ถ้าช่องใต้แผ่นพื้นพอ — วัดก่อน; ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Rivnut_M8_Flush_D11_L15] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: รีเวทนัท M8 เหล็กชุบ หัวแบน",
       "partNumber": "Rivnut M8 ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "structure",
+          "qty": 4
+        },
+        {
+          "section": "7. Control console (แท่นคอนโทรล)",
+          "side": "structure",
+          "qty": 4
+        },
+        {
+          "section": "8. 12 V winch cabinet (ตู้ 12V)",
+          "side": "structure",
+          "qty": 4
+        }
+      ],
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "92",
@@ -1772,7 +2175,25 @@
       "notes": "ไม่พบหัวจมกลม M8×16 ในหน้าร้าน; หัวจมเตี้ยสแตนเลส M8×16 11 บาท หัวสูง 5 มม. — ระยะเหลือเหนือขอบประตูเหลือ ~1 มม.; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Bolt_M8x16_ISO7380_Button_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M8×16 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: สกรูหัวจมกลม M8×16 (button head ISO 7380)",
       "partNumber": "M8x16 ISO7380",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "structure",
+          "qty": 4
+        },
+        {
+          "section": "7. Control console (แท่นคอนโทรล)",
+          "side": "structure",
+          "qty": 4
+        },
+        {
+          "section": "8. 12 V winch cabinet (ตู้ 12V)",
+          "side": "structure",
+          "qty": 4
+        }
+      ],
+      "type": "Bolts & screws"
     },
     {
       "id": "93",
@@ -1788,7 +2209,20 @@
       "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Bolt_M6x20_DIN933_8.8_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: สลักเกลียว M6×20 ชุบขาว",
       "partNumber": "M6x20 ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "structure",
+          "qty": 11
+        },
+        {
+          "section": "7. Control console (แท่นคอนโทรล)",
+          "side": "structure",
+          "qty": 4
+        }
+      ],
+      "type": "Bolts & screws"
     },
     {
       "id": "128",
@@ -1804,7 +2238,10 @@
       "notes": "[SolidWorks: FX_Bolt_M6x16_DIN933_8.8_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; M6×16 เกรด 8.8 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริงหน้าเว็บ — ร้านไม่มี M6x16 ชุบขาว ใช้เกรด 12.9 สีดำ (แข็งกว่า 8.8) (Claude) | ชื่อไทยเดิม: สลักเกลียว M6×16 เกรด 8.8 (ยึดเฟืองผ่าเข้ากับปลอก + มอเตอร์)",
       "partNumber": "",
       "supplier": "JSP Store — น็อตเหลี่ยมดำแข็ง M6x16 เกรด 12.9 เกลียวตลอด — ราคาหน้าเว็บ ณ 30 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "94",
@@ -1820,7 +2257,20 @@
       "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Nut_M6_DIN985_Nylock_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: หัวน็อตล็อกไนลอน M6 เหล็กชุบ",
       "partNumber": "M6 nylock ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "structure",
+          "qty": 11
+        },
+        {
+          "section": "7. Control console (แท่นคอนโทรล)",
+          "side": "structure",
+          "qty": 4
+        }
+      ],
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "95",
@@ -1836,7 +2286,20 @@
       "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Washer_M6_DIN125_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: แหวนอีแปะ M6 ชุบขาว (6.4-17-3)",
       "partNumber": "Washer M6 17x3 ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+          "side": "structure",
+          "qty": 22
+        },
+        {
+          "section": "7. Control console (แท่นคอนโทรล)",
+          "side": "structure",
+          "qty": 8
+        }
+      ],
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "category": "ฮาร์ดแวร์/อื่นๆ",
@@ -1852,7 +2315,10 @@
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
       "unitWeightKg": null,
       "notes": "แท่นควบคุม + ตู้ 12V ข้างขวา 24 ต.ค. 2026 (Claude) | [SolidWorks: FX_Bolt_M5x16_DIN933_8.8_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; สแตนเลส M5×16 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) — แท่นคอนโทรลเปลี่ยนเป็น M8×16 หัวกลม (#92) | ชื่อไทยเดิม: สลักเกลียว M5×16 (DIN 933) — ขาตั้งลิมิตสวิตช์เครน S5 | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — ใช้น็อตหัวเหลี่ยมติดจานสแตนเลส M5x16 แทน DIN 933 ชุบซิงค์ (JSP ไม่มี M5x16 หัวเหลี่ยมธรรมดา)",
-      "id": "104"
+      "id": "104",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "82",
@@ -1868,7 +2334,10 @@
       "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; อัปเดตจากแบบ Cart_RevH_ALL: S2 ข้าง S1 + WC1 (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Washer_M5_DIN125_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: แหวนอีแปะสแตนเลส M5 (5.1×16×1.2) — ใช้กับ M5×12 และ M5×16",
       "partNumber": "Washer M5 16 SS",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "78",
@@ -1884,7 +2353,10 @@
       "notes": "ใช้แหวนยางด้านนอกเพื่อกันน้ำ; เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: สกรูหัวร่มแฉก SS304 M4×12 3.50 บาท/ตัว; แหวนยาง + น็อต M4 สแตนเลสซื้อเพิ่ม; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ชื่อไทยเดิม: สกรู M4×12 สเตนเลส + แหวนยาง + น็อต (ยึดกรอบจอทะลุประตู) | 30 ต.ค. 2026: แยกจากแถว #78 (Screw M4×12 stainless + rubber washer + nut (display frame)) ให้ 1 แถว = 1 ขนาด (Claude)",
       "partNumber": "M4x12 A2",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "161",
@@ -1900,7 +2372,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #78 (Screw M4×12 stainless + rubber washer + nut (display frame)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — แหวนเหล็กมียางกันซึม M4 (4.6-7.0-1.3) ไม่ใช่ยางล้วน",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "162",
@@ -1916,7 +2391,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #78 (Screw M4×12 stainless + rubber washer + nut (display frame)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — สแตนเลส A2-70 (304)",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "127",
@@ -1932,7 +2410,10 @@
       "notes": "[SolidWorks: FX_Bolt_M4x30_DIN933_8.8_ZP; FX_Washer_M4_DIN125_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; M4×30 + แหวน 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: สลักเกลียว M4×30 + แหวน M4 (ยึดลิมิตสวิตช์) | 30 ต.ค. 2026: แยกจากแถว #127 (Hex bolt M4×30 + M4 washer (limit switch mounting)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — ใช้น็อตหัวเหลี่ยมติดจานสแตนเลส M4x30 เกลียวตลอด (JSP ไม่มีหัวเหลี่ยมธรรมดา M4x30 เกลียวขวา); แหวน M4 อยู่แถว #163",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "163",
@@ -1948,7 +2429,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #127 (Hex bolt M4×30 + M4 washer (limit switch mounting)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — แหวน M4 ชุบซิงค์ 4.4-9-0.9",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "53",
@@ -1964,7 +2448,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: มี M10×75 เกรด 8.8 หัวหกเหลี่ยมดำ เกลียว 28 มม. (พอสำหรับงานนี้) แต่หน้าเว็บไม่แสดงราคา; แหวน M10 ซื้อร้านเดียวกัน; ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | [SolidWorks: ISO4017_M10x75] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M10×75 (แพ็ค 2 ตัว) 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริงหน้าเว็บ — ร้านไม่ระบุเกรด (ชุบขาวทั่วไป) (Claude) | ชื่อไทยเดิม: สกรูหัวหกเหลี่ยม ISO 4017 M10×75 เกรด 8.8 ชุบซิงค์ (ยึดเพลาล้อขับ QS10)",
       "partNumber": "ISO 4017 M10x75 8.8",
       "supplier": "JSP Store — น็อตหัวเหลี่ยมขาว M10x75 — ราคาหน้าเว็บ ณ 30 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "2. Drive wheels, hub motors (ล้อขับ)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "120",
@@ -1980,7 +2467,10 @@
       "notes": "[SolidWorks: FX_Bolt_M10x80_DIN933_8.8_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M10×80 (แพ็ค 2 ตัว) 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: สลักเกลียว M10×80 เกรด 8.8 ชุบขาว (ฝาประกบ SD04) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — ใช้เกรด 10.9 เกลียวตลอด (สูงกว่า 8.8, JSP ไม่มี M10x80 เกรด 8.8)",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "121",
@@ -1996,7 +2486,10 @@
       "notes": "[SolidWorks: FX_Nut_M10_DIN985_Nylock_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; DIN985 M10 (แพ็ค 5 ตัว) 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริงหน้าเว็บ (Claude) | ชื่อไทยเดิม: หัวน็อตล็อกไนลอน M10 ชุบขาว",
       "partNumber": "",
       "supplier": "JSP Store — หัวน็อตล็อคกันคลาย (ไนลอน) M10x1.5 — ราคาหน้าเว็บ ณ 30 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "122",
@@ -2012,7 +2505,20 @@
       "notes": "[SolidWorks: ISO7089_10_Washer; FX_Washer_M10_DIN125_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; ชุบขาว M10 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริงหน้าเว็บ — ขอบโต 28 มม. (ใหญ่กว่า DIN125) ใช้แทนได้ (Claude) | ชื่อไทยเดิม: แหวนอีแปะ M10 ชุบขาว (DIN 125 = ISO 7089) — ล้อขับ QS10 ×8 + ฝาประกบ SD04 ×4",
       "partNumber": "",
       "supplier": "JSP Store — แหวนอีแปะ M10 ชุบซิงค์ขาว รุ่นหนา 10.5-28-4 — ราคาหน้าเว็บ ณ 30 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "sectionSplit": [
+        {
+          "section": "2. Drive wheels, hub motors (ล้อขับ)",
+          "side": "structure",
+          "qty": 8
+        },
+        {
+          "section": "4. Crane + slew drive (เครน)",
+          "side": "structure",
+          "qty": 4
+        }
+      ],
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "123",
@@ -2028,7 +2534,10 @@
       "notes": "[SolidWorks: FX_Bolt_M16x90_DIN933_8.8_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M16×90 เกลียว 2.0 (สีดำ เกรด 8.8) 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: สลักเกลียว M16×90 เกรด 8.8 ชุบขาว (ฐานเครน) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — ใช้เกรด 12.9 เหล็กดำ เกลียวตลอด (สูงกว่า 8.8)",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "124",
@@ -2044,7 +2553,10 @@
       "notes": "[SolidWorks: FX_Nut_M16_DIN985_Nylock_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; ร้านนี้ไม่มี M16 ไนลอน — หาคำว่า DIN985 M16 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริงหน้าเว็บ (Claude) | ชื่อไทยเดิม: หัวน็อตล็อกไนลอน M16 ชุบขาว (ฐานเครน)",
       "partNumber": "",
       "supplier": "JSP Store — หัวน็อตล็อคกันคลาย (ไนลอน) M16x2.0 — ราคาหน้าเว็บ ณ 30 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "125",
@@ -2060,7 +2572,10 @@
       "notes": "[SolidWorks: FX_Washer_M16_DIN125_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริงหน้าเว็บ (Claude) | ชื่อไทยเดิม: แหวนอีแปะ M16 ชุบขาว (ฐานเครน)",
       "partNumber": "",
       "supplier": "JSP Store — แหวนอีแปะ M16 ชุบซิงค์ 16.65-40-3.4 — ราคาหน้าเว็บ ณ 30 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "category": "ฮาร์ดแวร์/อื่นๆ",
@@ -2076,7 +2591,10 @@
       "supplier": "JSP Store — น็อตหัวเหลี่ยมขาว M12x1.75x20 เกลียวตลอด — ราคาหน้าเว็บ ณ 30 ต.ค. 2026",
       "unitWeightKg": null,
       "notes": "รูอยู่สูงจากขอบล่างท่อ 55 มม. (ผู้ใช้วัด 25 ต.ค. 2026); ทาน้ำยาล็อกเกลียว 243; WC1 4 สาย + โบลต์ล็อก M12 25 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; M12 เกลียว 1.75 (เกรด 10.9 แข็งกว่า ใช้ได้) 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริงหน้าเว็บ (Claude) | ชื่อไทยเดิม: สลักเกลียว M12×20 เกรด 8.8 (ล็อกปลอกเฟืองกับท่อเครน) — ไม่ใส่แหวน",
-      "id": "106"
+      "id": "106",
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "84",
@@ -2092,7 +2610,10 @@
       "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: BTR05_Hold_Down_72V_M8_Z271; BTR06_Hold_Down_12V_M8_Z271] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: สตัดเกลียวตลอดเหล็กชุบ M8 ยาว 1 ม. (ตัดเป็นเกลียวรัดแบต 4 เส้น)",
       "partNumber": "M8x1000 ZP",
       "supplier": "JSP Store",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "6. Battery tray + batteries (ถาดแบต)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "119",
@@ -2108,7 +2629,10 @@
       "notes": "[SolidWorks: SD09_Dowel_Pin_D6x12_ISO8734_x4] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; Ø6×12 ชุบแข็ง 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: SD09 สลัก Ø6×12 ISO 8734 (ล็อกเฟืองผ่ากับปลอก)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "4. Crane + slew drive (เครน)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "id": "110",
@@ -2124,7 +2648,10 @@
       "notes": "[SolidWorks: Toolbox: hex bolt_am ×8, hex flange nut_am ×8, flat washer narrow_am ×8, flat washer regular_am ×2, prevailing torque hex nut_am ×2] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; น็อตชุดล้อหน้า ทั้งชุด 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: น็อตชุดล้อหน้า (ANSI metric Toolbox) — hex bolt ×8, flange nut ×8, แหวน narrow ×8, แหวน regular ×2, nut ล็อก ×2 | 30 ต.ค. 2026: แยกจากแถว #110 (Front wheel fastener set: hex bolt ×8, flange nut ×8, narrow washer ×8, washer ×2, lock nut ×2) ให้ 1 แถว = 1 ขนาด; JSP Store — ราคาหน้าเว็บ 29 บาท ณ 30 ต.ค. 2026; SolidWorks Toolbox B18.2.3.5M M12x1.75x80 (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "3. Front wheels (ล้อหน้า)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "164",
@@ -2140,7 +2667,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #110 (Front wheel fastener set: hex bolt ×8, flange nut ×8, narrow washer ×8, washer ×2, lock nut ×2) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — Flange Hex Nut Steel M12x1.75; ถ้าอยากแข็งกว่าใช้เกรด 10 ราคา 22 บาท: https://www.jspstore.com/product/49857-47351/",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "3. Front wheels (ล้อหน้า)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "165",
@@ -2156,7 +2686,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #110 (Front wheel fastener set: hex bolt ×8, flange nut ×8, narrow washer ×8, washer ×2, lock nut ×2) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "3. Front wheels (ล้อหน้า)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "166",
@@ -2172,7 +2705,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #110 (Front wheel fastener set: hex bolt ×8, flange nut ×8, narrow washer ×8, washer ×2, lock nut ×2) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — แหวนชุบซิงค์ 24.5-45-2 (หนา 2 มม. บางกว่า DIN 125 ที่ 4 มม.); ถ้าต้องหนา มีรุ่น 25-60-8 ราคา 61 บาท: https://www.jspstore.com/product/50641-48179/",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "3. Front wheels (ล้อหน้า)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "167",
@@ -2188,7 +2724,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #110 (Front wheel fastener set: hex bolt ×8, flange nut ×8, narrow washer ×8, washer ×2, lock nut ×2) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude) | 31 ต.ค. 2026: ใส่ลิงก์ร้านไทย + ราคาจริง (Claude) — หัวน็อตล็อคไนลอน M24x3.0 (เกลียวหยาบมาตรฐาน)",
       "partNumber": "",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "3. Front wheels (ล้อหน้า)",
+      "side": "structure",
+      "type": "Nuts, washers & rivet nuts"
     },
     {
       "id": "56",
@@ -2204,7 +2743,10 @@
       "notes": "เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026) | แหล่งซื้อ: ชุด = Loctite 243 10 มล. 310 บาท (ไทวัสดุ) + Loctite 638 50 มล. 965 บาท (https://www.lazada.co.th/products/loctite-638-retaining-compound-50-ml-loctite638-tss-i295258989.html); ราคา ณ 22 ต.ค. 2026 จากหน้าร้าน/ผลค้นหา; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง | ชื่อไทยเดิม: น้ำยาล็อกเกลียว Loctite 243 + กาวยึดปลอก Loctite 638 | 30 ต.ค. 2026: แยกจากแถว #56 (Threadlocker Loctite 243 + retaining compound Loctite 638) ให้ 1 แถว = 1 ขนาด; ไทวัสดุ — ราคา 310 บาท (22 ต.ค. 2026) (Claude)",
       "partNumber": "Loctite 243 / 638",
       "supplier": "ไทวัสดุ (243) + Lazada TSS (638)",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "2. Drive wheels, hub motors (ล้อขับ)",
+      "side": "structure",
+      "type": "Glue, tape & labels"
     },
     {
       "id": "168",
@@ -2220,7 +2762,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #56 (Threadlocker Loctite 243 + retaining compound Loctite 638) ให้ 1 แถว = 1 ขนาด; Lazada TSS — ราคา 965 บาท (22 ต.ค. 2026) (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "2. Drive wheels, hub motors (ล้อขับ)",
+      "side": "structure",
+      "type": "Glue, tape & labels"
     },
     {
       "id": "132",
@@ -2236,7 +2781,10 @@
       "notes": "ราคาประมาณ ตามตารางเทอร์มินัล Terminal_Plan_TH.pdf 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: แผ่นจั๊มเปอร์บริดจ์เทอร์มินัล (FBS) — X1:1–3, X1:4–6 (UK16N) และ X2:1–2, X2:3–5, X2:6–10 (UK5N) | 30 ต.ค. 2026: แยกจากแถว #132 (Terminal jumper bridges (FBS): X1:1–3, X1:4–6 (UK16N); X2:1–2, X2:3–5, X2:6–10 (UK5N)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "169",
@@ -2252,7 +2800,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #132 (Terminal jumper bridges (FBS): X1:1–3, X1:4–6 (UK16N); X2:1–2, X2:3–5, X2:6–10 (UK5N)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "170",
@@ -2268,7 +2819,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #132 (Terminal jumper bridges (FBS): X1:1–3, X1:4–6 (UK16N); X2:1–2, X2:3–5, X2:6–10 (UK5N)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "id": "171",
@@ -2284,7 +2838,10 @@
       "notes": " | 30 ต.ค. 2026: แยกจากแถว #132 (Terminal jumper bridges (FBS): X1:1–3, X1:4–6 (UK16N); X2:1–2, X2:3–5, X2:6–10 (UK5N)) ให้ 1 แถว = 1 ขนาด; ราคาประมาณ — แยกจากรายการเดิม รอใบเสนอราคา/เช็คร้าน (Claude)",
       "partNumber": "",
       "supplier": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+      "side": "electrical",
+      "type": "Wiring, terminals & glands"
     },
     {
       "category": "ตู้/กล่อง",
@@ -2300,7 +2857,10 @@
       "status": "ตัวเลือกที่เลือก",
       "supplier": "ร้านตัดเลเซอร์/พับเหล็ก — ราคาประมาณ รอใบเสนอราคา",
       "link": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "category": "ตู้/กล่อง",
@@ -2316,7 +2876,10 @@
       "status": "ตัวเลือกที่เลือก",
       "supplier": "ร้านตัดเลเซอร์/พับเหล็ก — ราคาประมาณ รอใบเสนอราคา",
       "link": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Machined / fabricated parts"
     },
     {
       "category": "ฮาร์ดแวร์/อื่นๆ",
@@ -2332,7 +2895,10 @@
       "status": "ตัวเลือกที่เลือก",
       "supplier": "",
       "link": "",
-      "unitWeightKg": null
+      "unitWeightKg": null,
+      "section": "7. Control console (แท่นคอนโทรล)",
+      "side": "structure",
+      "type": "Bolts & screws"
     },
     {
       "id": "137",
@@ -2348,7 +2914,10 @@
       "supplier": "ร้านเหล็กแผ่น/ตัดเลเซอร์ — ราคาประมาณ รอใบเสนอราคา",
       "link": "",
       "connection": "พื้นรถครึ่งหลัง (ใต้เครน) บนคานบน, แทนสเตนเลส",
-      "notes": "เปลี่ยนจากสเตนเลส 30 ต.ค. 2026 ตามผู้ใช้ (Claude) | [SolidWorks: แผ่นรองสเตนเลสหนา2มม] (ชื่อไฟล์เดิม วัสดุในแบบเป็น Galvanized Steel แล้ว) | ราคาประมาณ ค่าแผ่น ~10.6 กก. + ค่าตัด/เจาะ | ชื่อไทยเดิม: แผ่นรองพื้นรถฝั่งเครน — เหล็กชุบสังกะสี (SGCC/GI) 960×700×2 มม."
+      "notes": "เปลี่ยนจากสเตนเลส 30 ต.ค. 2026 ตามผู้ใช้ (Claude) | [SolidWorks: แผ่นรองสเตนเลสหนา2มม] (ชื่อไฟล์เดิม วัสดุในแบบเป็น Galvanized Steel แล้ว) | ราคาประมาณ ค่าแผ่น ~10.6 กก. + ค่าตัด/เจาะ | ชื่อไทยเดิม: แผ่นรองพื้นรถฝั่งเครน — เหล็กชุบสังกะสี (SGCC/GI) 960×700×2 มม.",
+      "section": "1. Frame + deck plates (โครงรถ)",
+      "side": "structure",
+      "type": "Steel tube & plate"
     }
   ],
   "purchases": [
@@ -3048,5 +3617,66 @@
       "notes": "คานขวางบนที่รับท่อใต้ฐานเครน; น้ำหนักอ้างอิงคำนวณ 8.9 กก./ม. (ยืนยันกับร้าน); เพิ่มจากแบบ Cart_RevH_ALL (Claude, 23 ต.ค. 2026)",
       "material": "กัลวาไนซ์"
     }
-  ]
+  ],
+  "sectionLayout": {
+    "sections": [
+      {
+        "name": "1. Frame + deck plates (โครงรถ)",
+        "assembly": "Assemcar_RevH (01_Frame)"
+      },
+      {
+        "name": "2. Drive wheels, hub motors (ล้อขับ)",
+        "assembly": "WheelModule_RevH ×2"
+      },
+      {
+        "name": "3. Front wheels (ล้อหน้า)",
+        "assembly": "00_Full_Assembly_Colored ×2"
+      },
+      {
+        "name": "4. Crane + slew drive (เครน)",
+        "assembly": "Orange_Crane + Crane_Slew_Drive"
+      },
+      {
+        "name": "5. 72 V control cabinet (ตู้ควบคุม 72V)",
+        "assembly": "Control_Cabinet"
+      },
+      {
+        "name": "6. Battery tray + batteries (ถาดแบต)",
+        "assembly": "Battery_Tray"
+      },
+      {
+        "name": "7. Control console (แท่นคอนโทรล)",
+        "assembly": "Control_Console"
+      },
+      {
+        "name": "8. 12 V winch cabinet (ตู้ 12V)",
+        "assembly": "Cabinet_12V"
+      },
+      {
+        "name": "9. Carcass basket, off the car (ตะกร้า)",
+        "assembly": "Carcass_Basket"
+      },
+      {
+        "name": "10. Not on the car: remote + chargers",
+        "assembly": "-"
+      }
+    ],
+    "types": [
+      "Steel tube & plate",
+      "Bought module / complete unit",
+      "Machined / fabricated parts",
+      "Enclosures & mounting",
+      "Drive train (sprocket, chain)",
+      "Bolts & screws",
+      "Nuts, washers & rivet nuts",
+      "Glue, tape & labels",
+      "Batteries & chargers",
+      "Motors & motor drives",
+      "Power protection & switching",
+      "Power converters (DC-DC)",
+      "Controller & electronics",
+      "Operator devices & sensors",
+      "Wiring, terminals & glands"
+    ]
+  }
 }
