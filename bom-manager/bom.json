@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-31T15:12:19+00:00",
+  "updatedAt": "2026-10-31T18:19:36+00:00",
   "currency": "THB",
   "items": [
     {
@@ -1982,13 +1982,13 @@
       "category": "ฮาร์ดแวร์/อื่นๆ",
       "name": "Rivet nut M8, zinc-plated steel, flat head",
       "spec": "รูเจาะ 11 มม.",
-      "qty": 12,
+      "qty": 24,
       "unit": "ตัว",
-      "connection": "J1 ตู้ 72V ×4 + J15 ตู้ 12V ×4 (ผนังล่างคานบนขวา) + J17 แท่นคอนโทรล ×4 (ผนังบนคานบนขวา)",
+      "connection": "J1 ตู้ 72V ×4 + J15 ตู้ 12V ×4 (ผนังล่างคานบนขวา) + J17 แท่นคอนโทรล ×4 (ผนังบนคานบนขวา) + ที่เลื่อนตะกร้า ×12 (คานขวางบน 12/14 ผนังบน)",
       "unitPrice": 4.0,
       "link": "https://www.jspstore.com/product/36706-31881/",
       "status": "ตัวเลือกที่เลือก",
-      "notes": "แบบใช้หัวเรียบ (flush); หัวแบน 1.6 มม. ใช้ได้ถ้าช่องใต้แผ่นพื้นพอ — วัดก่อน; ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Rivnut_M8_Flush_D11_L15] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: รีเวทนัท M8 เหล็กชุบ หัวแบน",
+      "notes": "แบบใช้หัวเรียบ (flush); หัวแบน 1.6 มม. ใช้ได้ถ้าช่องใต้แผ่นพื้นพอ — วัดก่อน; ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Rivnut_M8_Flush_D11_L15] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: รีเวทนัท M8 เหล็กชุบ หัวแบน | 31 ต.ค. 2026: +12 สำหรับที่เลื่อนตะกร้าหน้ารถ (Claude)",
       "partNumber": "Rivnut M8 ZP",
       "supplier": "JSP Store",
       "unitWeightKg": null,
@@ -2007,6 +2007,11 @@
           "section": "8. 12 V winch cabinet (ตู้ 12V)",
           "side": "structure",
           "qty": 4
+        },
+        {
+          "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+          "side": "structure",
+          "qty": 12
         }
       ],
       "type": "Nuts, washers & rivet nuts"
@@ -2016,13 +2021,13 @@
       "category": "ฮาร์ดแวร์/อื่นๆ",
       "name": "Button head screw M8×15, stainless A2 (ISO 7380 type)",
       "spec": "หัวสูง ~4.4–4.5 มม. (ร้านไม่มี M8×16)",
-      "qty": 12,
+      "qty": 14,
       "unit": "ตัว",
-      "connection": "J1 ตู้ 72V ×4 + J15 ตู้ 12V ×4 + J17 แท่นคอนโทรล ×4 เข้ารีเวทนัท M8",
+      "connection": "J1 ตู้ 72V ×4 + J15 ตู้ 12V ×4 + J17 แท่นคอนโทรล ×4 เข้ารีเวทนัท M8 + ที่เลื่อนตะกร้า ×2 (แท็บกันเลื่อนใต้ถาด)",
       "unitPrice": 13.0,
       "link": "https://www.jspstore.com/product/29936-24432/",
       "status": "ตัวเลือกที่เลือก",
-      "notes": "ไม่พบหัวจมกลม M8×16 ในหน้าร้าน; หัวจมเตี้ยสแตนเลส M8×16 11 บาท หัวสูง 5 มม. — ระยะเหลือเหนือขอบประตูเหลือ ~1 มม.; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Bolt_M8x16_ISO7380_Button_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M8×16 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: สกรูหัวจมกลม M8×16 (button head ISO 7380) | 31 ต.ค. 2026: เปลี่ยนเป็นของที่มีขายในไทย + แก้แบบ SolidWorks (Claude) — เดิม M8×16 ร้านไม่มี ใช้ M8×15 (รับเกลียวในรีเวทนัท 10 มม. ยังพอ) แก้แบบ J1/J15/J17 เป็น M8×15 แล้ว",
+      "notes": "ไม่พบหัวจมกลม M8×16 ในหน้าร้าน; หัวจมเตี้ยสแตนเลส M8×16 11 บาท หัวสูง 5 มม. — ระยะเหลือเหนือขอบประตูเหลือ ~1 มม.; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Bolt_M8x16_ISO7380_Button_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M8×16 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: สกรูหัวจมกลม M8×16 (button head ISO 7380) | 31 ต.ค. 2026: เปลี่ยนเป็นของที่มีขายในไทย + แก้แบบ SolidWorks (Claude) — เดิม M8×16 ร้านไม่มี ใช้ M8×15 (รับเกลียวในรีเวทนัท 10 มม. ยังพอ) แก้แบบ J1/J15/J17 เป็น M8×15 แล้ว | 31 ต.ค. 2026: +2 สำหรับที่เลื่อนตะกร้าหน้ารถ (Claude)",
       "partNumber": "M8x16 ISO7380",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
       "unitWeightKg": null,
@@ -2041,6 +2046,11 @@
           "section": "8. 12 V winch cabinet (ตู้ 12V)",
           "side": "structure",
           "qty": 4
+        },
+        {
+          "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+          "side": "structure",
+          "qty": 2
         }
       ],
       "type": "Bolts & screws"
@@ -2673,6 +2683,101 @@
       "section": "1. Frame + deck plates (โครงรถ)",
       "side": "structure",
       "type": "Steel tube & plate"
+    },
+    {
+      "id": "173",
+      "category": "เครื่องกล",
+      "name": "Black steel equal angle 40×40×3 mm, 6 m bar (TMT)",
+      "partNumber": "",
+      "spec": "ใช้ 1.32 ม.: ยาว 662 ×2 (รางซ้าย/ขวา) → 1 เส้น (เหลือ ~4.7 ม.); ทาสีกันสนิมก่อนประกอบ",
+      "qty": 1,
+      "unit": "เส้น (6 ม.)",
+      "connection": "FBS01L/R รางเลื่อน ยึดลงคานขวางบน 12 และ 14 ด้วยหัวจมเตเปอร์ M8×30 4 ตัว/ข้าง",
+      "unitPrice": 375.0,
+      "link": "https://www.homepro.co.th/p/1109879",
+      "status": "ตัวเลือกที่เลือก",
+      "supplier": "HomePro — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
+      "notes": "รางขวาเจาะต๊าป M12 สำหรับสลักล็อก | [SolidWorks: FBS01L_Guide_Angle_40x40x3_L662_Steel_Painted; FBS01R_Guide_Angle_40x40x3_L662_Steel_Painted] | 31 ต.ค. 2026: เพิ่มสำหรับที่เลื่อนตะกร้าหน้ารถ 13_Front_Basket_Slide (Claude)",
+      "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+      "side": "structure",
+      "type": "Steel tube & plate",
+      "unitWeightKg": null
+    },
+    {
+      "id": "174",
+      "category": "เครื่องกล",
+      "name": "PE (HDPE, Superlene) bar 15×50×1000 mm, white",
+      "partNumber": "",
+      "spec": "ตัด 662 มม. เป็นแผ่นรองลื่น 2 เส้น; เศษ 338 มม. ตัดเป็นตัวกันเลื่อน 100 มม. ×3 (แท็บใต้ถาด 1 + บล็อกกันชน 2)",
+      "qty": 2,
+      "unit": "เส้น (1 ม.)",
+      "connection": "FBS02L/R แผ่นรองลื่นบนราง + FBS05 แท็บกันเลื่อนใต้ถาด + FBS06 บล็อกกันชน ×2",
+      "unitPrice": 240.0,
+      "link": "https://www.lazada.co.th/products/pdp-i5874053822.html",
+      "status": "ตัวเลือกที่เลือก",
+      "supplier": "Lazada (ขนาด 15x50x1000mm.) — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
+      "notes": "แท็บใต้ถาดต๊าปเกลียว M8 ในพลาสติก (รับแรงเฉือนตอนชนเท่านั้น) | [SolidWorks: FBS02L_PE_Strip_50x15_L662; FBS02R_PE_Strip_50x15_L662; FBS05_Stop_Tab_PE_50x15_L100_M8; FBS06_Stop_Block_PE_50x15_L100] | 31 ต.ค. 2026: เพิ่มสำหรับที่เลื่อนตะกร้าหน้ารถ 13_Front_Basket_Slide (Claude)",
+      "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+      "side": "structure",
+      "type": "Machined / fabricated parts",
+      "unitWeightKg": null
+    },
+    {
+      "id": "175",
+      "category": "เครื่องกล",
+      "name": "Stainless 304 sheet 2 mm, 60×60 cm (2B)",
+      "partNumber": "",
+      "spec": "ถาดรองตะกร้า: ตัด 554×544 แล้วพับขอบขึ้น 20 มม. ทั้ง 4 ด้าน → ถาด 514×504×22; เจาะรูแท็บ Ø9 ×2 + รูสลัก Ø8.5 ×2 ที่ผนังขวา",
+      "qty": 1,
+      "unit": "แผ่น",
+      "connection": "FBS03 ถาดเลื่อน วางบนแผ่นรองลื่น",
+      "unitPrice": 1415.0,
+      "link": "https://www.lazada.co.th/products/pdp-i2763972013.html",
+      "status": "ตัวเลือกที่เลือก",
+      "supplier": "Lazada — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
+      "notes": "ร้านรับตัด/พับ/เจาะ — ค่าพับยังไม่รวม ถามร้านก่อนสั่ง | [SolidWorks: FBS03_Tray_Pan_514x504x22_SS304_t2] | 31 ต.ค. 2026: เพิ่มสำหรับที่เลื่อนตะกร้าหน้ารถ 13_Front_Basket_Slide (Claude)",
+      "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+      "side": "structure",
+      "type": "Machined / fabricated parts",
+      "unitWeightKg": null
+    },
+    {
+      "id": "176",
+      "category": "ฮาร์ดแวร์/อื่นๆ",
+      "name": "Countersunk screw M8×30, stainless (DIN 7991 hex socket)",
+      "partNumber": "",
+      "spec": "หัวจมเตเปอร์ ฝังเรียบในแผ่นพลาสติก",
+      "qty": 12,
+      "unit": "ตัว",
+      "connection": "รางเลื่อน 8 ตัว (ผ่านแผ่นรองลื่น + ราง + แผ่นพื้น) + บล็อกกันชน 4 ตัว → รีเวทนัท M8 ในคานขวาง 12/14",
+      "unitPrice": 14.0,
+      "link": "https://www.jspstore.com/product/30081/",
+      "status": "ตัวเลือกที่เลือก",
+      "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
+      "notes": "[SolidWorks: FX_Bolt_M8x30_DIN7991_Countersunk_A2] | 31 ต.ค. 2026: เพิ่มสำหรับที่เลื่อนตะกร้าหน้ารถ 13_Front_Basket_Slide (Claude)",
+      "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+      "side": "structure",
+      "type": "Bolts & screws",
+      "unitWeightKg": null
+    },
+    {
+      "id": "177",
+      "category": "เครื่องกล",
+      "name": "Spring index plunger M12 with pull knob, Elesa 51572 (RS 918-5270)",
+      "partNumber": "",
+      "spec": "ดึงปุ่ม เลื่อนถาด ปล่อยให้สลักล็อก (ตำแหน่งดึงออก / ดันเข้า); แบบเผื่อสลัก Ø8 + น็อตล็อก — เช็คขนาดสลักและน็อตล็อกในหน้า RS ก่อนสั่ง",
+      "qty": 1,
+      "unit": "ตัว",
+      "connection": "FBS07 ขันเข้ารางขวา (ต๊าป M12) สลักเข้ารูผนังถาด",
+      "unitPrice": 816.16,
+      "link": "https://th.rs-online.com/web/p/spring-plungers-indexing-plungers/9185270",
+      "status": "ตัวเลือกที่เลือก",
+      "supplier": "RS Components Thailand (รวม VAT) — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
+      "notes": "ทางเลือกประหยัด: น็อตมือหมุน M8 แทน (ต้องหมุนเข้า-ออกทุกครั้ง) | [SolidWorks: FBS07_Index_Plunger_M12_Pin8_Knob] | 31 ต.ค. 2026: เพิ่มสำหรับที่เลื่อนตะกร้าหน้ารถ 13_Front_Basket_Slide (Claude)",
+      "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+      "side": "structure",
+      "type": "Machined / fabricated parts",
+      "unitWeightKg": null
     }
   ],
   "purchases": [
@@ -3414,6 +3519,10 @@
       {
         "name": "10. Not on the car: remote + chargers",
         "assembly": "-"
+      },
+      {
+        "name": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+        "assembly": "Front_Basket_Slide (13_Front_Basket_Slide)"
       }
     ],
     "types": [
