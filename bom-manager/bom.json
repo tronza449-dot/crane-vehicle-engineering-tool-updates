@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "project": "รถไฟฟ้าพร้อมเครน",
-  "updatedAt": "2026-10-31T19:58:16+00:00",
+  "updatedAt": "2026-10-31T21:19:25+00:00",
   "currency": "THB",
   "items": [
     {
@@ -1914,13 +1914,13 @@
       "category": "ฮาร์ดแวร์/อื่นๆ",
       "name": "Nylon lock nut M8, stainless",
       "spec": "",
-      "qty": 31,
+      "qty": 34,
       "unit": "ตัว",
       "connection": "J3 ×4, J5 ×3, J7 ×6, J9 รัดแบต ×8 + ล้อที่เลื่อนตะกร้า ×10",
       "unitPrice": 7.0,
       "link": "https://www.jspstore.com/product/28079-22560/",
       "status": "ตัวเลือกที่เลือก",
-      "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Nut_M8_DIN985_Nylock_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: หัวน็อตล็อกไนลอน M8 สแตนเลส | 31 ต.ค. 2026: +10 สำหรับที่เลื่อนตะกร้าหน้ารถ (แบบล้อ) (Claude)",
+      "notes": "ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Nut_M8_DIN985_Nylock_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ชื่อไทยเดิม: หัวน็อตล็อกไนลอน M8 สแตนเลส | 31 ต.ค. 2026: +10 สำหรับที่เลื่อนตะกร้าหน้ารถ (แบบล้อ) (Claude) | 31 ต.ค. 2026: ตัวกันชนเปลี่ยนเป็นน็อต + ปลอก (Claude) — หมวด 11 ใช้ 13",
       "partNumber": "M8 nylock A2",
       "supplier": "JSP Store",
       "unitWeightKg": null,
@@ -1938,7 +1938,7 @@
         {
           "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
           "side": "structure",
-          "qty": 10
+          "qty": 13
         }
       ],
       "type": "Nuts, washers & rivet nuts"
@@ -1987,13 +1987,13 @@
       "category": "ฮาร์ดแวร์/อื่นๆ",
       "name": "Rivet nut M8, zinc-plated steel, flat head",
       "spec": "รูเจาะ 11 มม.",
-      "qty": 24,
+      "qty": 21,
       "unit": "ตัว",
       "connection": "J1 ตู้ 72V ×4 + J15 ตู้ 12V ×4 (ผนังล่างคานบนขวา) + J17 แท่นคอนโทรล ×4 (ผนังบนคานบนขวา) + ที่เลื่อนตะกร้า ×12 (คานขวางบน 12/14 ผนังบน)",
       "unitPrice": 4.0,
       "link": "https://www.jspstore.com/product/36706-31881/",
       "status": "ตัวเลือกที่เลือก",
-      "notes": "แบบใช้หัวเรียบ (flush); หัวแบน 1.6 มม. ใช้ได้ถ้าช่องใต้แผ่นพื้นพอ — วัดก่อน; ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Rivnut_M8_Flush_D11_L15] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: รีเวทนัท M8 เหล็กชุบ หัวแบน | 31 ต.ค. 2026: +12 สำหรับที่เลื่อนตะกร้าหน้ารถ (Claude)",
+      "notes": "แบบใช้หัวเรียบ (flush); หัวแบน 1.6 มม. ใช้ได้ถ้าช่องใต้แผ่นพื้นพอ — วัดก่อน; ราคา ณ 23 ต.ค. 2026 จากหน้าร้าน; ยืนยันราคา/สต็อกกับร้านก่อนสั่ง; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Rivnut_M8_Flush_D11_L15] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: รีเวทนัท M8 เหล็กชุบ หัวแบน | 31 ต.ค. 2026: +12 สำหรับที่เลื่อนตะกร้าหน้ารถ (Claude) | 31 ต.ค. 2026: ตัวกันชนเปลี่ยนเป็นน็อต + ปลอก (Claude) — หมวด 11 ใช้ 9",
       "partNumber": "Rivnut M8 ZP",
       "supplier": "JSP Store",
       "unitWeightKg": null,
@@ -2016,7 +2016,7 @@
         {
           "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
           "side": "structure",
-          "qty": 12
+          "qty": 9
         }
       ],
       "type": "Nuts, washers & rivet nuts"
@@ -2026,13 +2026,13 @@
       "category": "ฮาร์ดแวร์/อื่นๆ",
       "name": "Button head screw M8×15, stainless A2 (ISO 7380 type)",
       "spec": "หัวสูง ~4.4–4.5 มม. (ร้านไม่มี M8×16)",
-      "qty": 22,
+      "qty": 20,
       "unit": "ตัว",
       "connection": "J1 ตู้ 72V ×4 + J15 ตู้ 12V ×4 + J17 แท่นคอนโทรล ×4 เข้ารีเวทนัท M8 + ที่เลื่อนตะกร้า ×2 (แท็บกันเลื่อนใต้ถาด) + รางที่เลื่อนตะกร้า ×8 (แทนหัวจมเตเปอร์)",
       "unitPrice": 13.0,
       "link": "https://www.jspstore.com/product/29936-24432/",
       "status": "ตัวเลือกที่เลือก",
-      "notes": "ไม่พบหัวจมกลม M8×16 ในหน้าร้าน; หัวจมเตี้ยสแตนเลส M8×16 11 บาท หัวสูง 5 มม. — ระยะเหลือเหนือขอบประตูเหลือ ~1 มม.; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Bolt_M8x16_ISO7380_Button_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M8×16 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: สกรูหัวจมกลม M8×16 (button head ISO 7380) | 31 ต.ค. 2026: เปลี่ยนเป็นของที่มีขายในไทย + แก้แบบ SolidWorks (Claude) — เดิม M8×16 ร้านไม่มี ใช้ M8×15 (รับเกลียวในรีเวทนัท 10 มม. ยังพอ) แก้แบบ J1/J15/J17 เป็น M8×15 แล้ว | 31 ต.ค. 2026: +2 สำหรับที่เลื่อนตะกร้าหน้ารถ (Claude) | 31 ต.ค. 2026: +8 สำหรับที่เลื่อนตะกร้าหน้ารถ (แบบล้อ) (Claude)",
+      "notes": "ไม่พบหัวจมกลม M8×16 ในหน้าร้าน; หัวจมเตี้ยสแตนเลส M8×16 11 บาท หัวสูง 5 มม. — ระยะเหลือเหนือขอบประตูเหลือ ~1 มม.; ตรงกับแบบ Cart_RevH_ALL ฉบับเสร็จ (Claude, 23 ต.ค. 2026) | [SolidWorks: FX_Bolt_M8x16_ISO7380_Button_ZP] เลข BOM ตรงกับ SolidWorks 26 ต.ค. 2026 (Claude) | ราคาประมาณ (ร้านไม่แสดงราคาให้สคริปต์) — เช็คในลิงก์ก่อนสั่ง; เลือก M8×16 26 ต.ค. 2026 (Claude) | 30 ต.ค. 2026: ปรับน็อตตู้ทุกใบให้ใช้แค่ M8 (ยึดลงรถ) และ M6 (ในตู้) (Claude) | ชื่อไทยเดิม: สกรูหัวจมกลม M8×16 (button head ISO 7380) | 31 ต.ค. 2026: เปลี่ยนเป็นของที่มีขายในไทย + แก้แบบ SolidWorks (Claude) — เดิม M8×16 ร้านไม่มี ใช้ M8×15 (รับเกลียวในรีเวทนัท 10 มม. ยังพอ) แก้แบบ J1/J15/J17 เป็น M8×15 แล้ว | 31 ต.ค. 2026: +2 สำหรับที่เลื่อนตะกร้าหน้ารถ (Claude) | 31 ต.ค. 2026: +8 สำหรับที่เลื่อนตะกร้าหน้ารถ (แบบล้อ) (Claude) | 31 ต.ค. 2026: ตัวกันชนเปลี่ยนเป็นน็อต + ปลอก (Claude) — หมวด 11 ใช้ 8",
       "partNumber": "M8x16 ISO7380",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
       "unitWeightKg": null,
@@ -2055,7 +2055,7 @@
         {
           "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
           "side": "structure",
-          "qty": 10
+          "qty": 8
         }
       ],
       "type": "Bolts & screws"
@@ -2709,25 +2709,6 @@
       "unitWeightKg": null
     },
     {
-      "id": "174",
-      "category": "เครื่องกล",
-      "name": "PE (HDPE, Superlene) bar 20×50×1000 mm, white",
-      "partNumber": "",
-      "spec": "ตัด 100 มม. ×3: แท็บกันเลื่อนใต้ถาด 1 + บล็อกกันชน 2 (หนา 20 ให้ชนกันได้ 14 มม.)",
-      "qty": 1,
-      "unit": "เส้น (1 ม.)",
-      "connection": "FBS05 แท็บกันเลื่อนใต้ถาด + FBS06 บล็อกกันชน ×2",
-      "unitPrice": 320.0,
-      "link": "https://www.lazada.co.th/products/superlene-pe-15-30-50x1000-i5874053822-s25027554405.html",
-      "status": "ตัวเลือกที่เลือก",
-      "supplier": "Lazada (ขนาด 20x50x1000mm.) — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "notes": "แท็บใต้ถาดต๊าปเกลียว M8 ในพลาสติก (รับแรงเฉือนตอนชนเท่านั้น) | [SolidWorks: FBS05_Stop_Tab_PE_50x20_L100_M8; FBS06_Stop_Block_PE_50x20_L100] | 31 ต.ค. 2026: เพิ่มสำหรับที่เลื่อนตะกร้าหน้ารถ 13_Front_Basket_Slide (Claude) | 31 ต.ค. 2026: เปลี่ยนเป็นแบบล้อลูกปืน + ถาดทรงกล่อง (Claude) — ไม่มีแผ่นรองลื่นแล้ว ถาดวิ่งบนลูกปืน",
-      "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
-      "side": "structure",
-      "type": "Machined / fabricated parts",
-      "unitWeightKg": null
-    },
-    {
       "id": "175",
       "category": "เครื่องกล",
       "name": "Stainless 304 sheet 2 mm, 60×70 cm",
@@ -2744,25 +2725,6 @@
       "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
       "side": "structure",
       "type": "Machined / fabricated parts",
-      "unitWeightKg": null
-    },
-    {
-      "id": "176",
-      "category": "ฮาร์ดแวร์/อื่นๆ",
-      "name": "Countersunk screw M8×30, stainless (DIN 7991 hex socket)",
-      "partNumber": "",
-      "spec": "หัวจมเตเปอร์ ฝังเรียบในแผ่นพลาสติก",
-      "qty": 4,
-      "unit": "ตัว",
-      "connection": "บล็อกกันชน 2 ตัว ×2 → รีเวทนัท M8 ในคานขวาง 12/14 (รางยึดด้วยน็อตหัวกลม #92 แทนแล้ว)",
-      "unitPrice": 14.0,
-      "link": "https://www.jspstore.com/product/30081/",
-      "status": "ตัวเลือกที่เลือก",
-      "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "notes": "[SolidWorks: FX_Bolt_M8x30_DIN7991_Countersunk_A2] | 31 ต.ค. 2026: เพิ่มสำหรับที่เลื่อนตะกร้าหน้ารถ 13_Front_Basket_Slide (Claude) | 31 ต.ค. 2026: เปลี่ยนเป็นแบบล้อลูกปืน + ถาดทรงกล่อง (Claude)",
-      "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
-      "side": "structure",
-      "type": "Bolts & screws",
       "unitWeightKg": null
     },
     {
@@ -2809,14 +2771,14 @@
       "name": "Round spacer M8, stainless 304, OD 12 × 10 mm",
       "partNumber": "",
       "spec": "ประกบลูกปืนสองข้าง กดแค่วงใน (แหวนธรรมดาจะถูซีลยาง)",
-      "qty": 20,
+      "qty": 26,
       "unit": "ชิ้น",
-      "connection": "ล้อละ 2 ชิ้น: ระหว่างราง–ลูกปืน และ ลูกปืน–หัวน็อตล็อก",
+      "connection": "ล้อละ 2 ชิ้น ×10 + เสากันชนหน้า 1 + น็อตกันชนใต้ถาด 1 + ตัวกันชนหลัง 2 ตัว ×2",
       "unitPrice": 17.0,
       "link": "https://www.lazada.co.th/products/i5342672364-s22708408669.html",
       "status": "ตัวเลือกที่เลือก",
       "supplier": "Lazada (M8 12x10) — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "notes": "[SolidWorks: FX_Spacer_M8_OD12_L10_SS304] | 31 ต.ค. 2026: ล้อของที่เลื่อนตะกร้าหน้ารถ (Claude)",
+      "notes": "[SolidWorks: FX_Spacer_M8_OD12_L10_SS304] | 31 ต.ค. 2026: ล้อของที่เลื่อนตะกร้าหน้ารถ (Claude) | 31 ต.ค. 2026: ตัวกันชนเปลี่ยนเป็นน็อต + ปลอก (Claude)",
       "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
       "side": "structure",
       "type": "Machined / fabricated parts",
@@ -2828,14 +2790,33 @@
       "name": "Hex bolt M8×40, stainless 304",
       "partNumber": "",
       "spec": "แกนล้อ",
-      "qty": 10,
+      "qty": 12,
       "unit": "ตัว",
-      "connection": "หัวอยู่นอกราง ทะลุขาตั้งเหล็กฉาก + ปลอก + ลูกปืน + ปลอก + หัวน็อตล็อก M8 (#89)",
+      "connection": "แกนล้อ ×10 + ตัวกันชนหลัง ×2 (ทะลุขาตั้งราง + ปลอก 2 + หัวน็อตล็อก)",
       "unitPrice": 9.0,
       "link": "https://www.jspstore.com/product/30907-25766/",
       "status": "ตัวเลือกที่เลือก",
       "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
-      "notes": "[SolidWorks: FX_Bolt_M8x40_DIN933_8.8_ZP] | 31 ต.ค. 2026: ล้อของที่เลื่อนตะกร้าหน้ารถ (Claude)",
+      "notes": "[SolidWorks: FX_Bolt_M8x40_DIN933_8.8_ZP] | 31 ต.ค. 2026: ล้อของที่เลื่อนตะกร้าหน้ารถ (Claude) | 31 ต.ค. 2026: ตัวกันชนเปลี่ยนเป็นน็อต + ปลอก (Claude)",
+      "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
+      "side": "structure",
+      "type": "Bolts & screws",
+      "unitWeightKg": null
+    },
+    {
+      "id": "181",
+      "category": "ฮาร์ดแวร์/อื่นๆ",
+      "name": "Hex bolt M8×25, stainless 304",
+      "partNumber": "BHSM8x25",
+      "spec": "ตัวกันชน",
+      "qty": 2,
+      "unit": "ตัว",
+      "connection": "เสากันชนหน้า (ปลอก 12×10 + รีเวทนัทในคานขวาง 12) 1 + น็อตกันชนห้อยใต้ถาด (ปลอก 12×10 + หัวน็อตล็อก) 1",
+      "unitPrice": 6.5,
+      "link": "https://www.jspstore.com/product/30904-25763/",
+      "status": "ตัวเลือกที่เลือก",
+      "supplier": "JSP Store — ราคาหน้าเว็บ ณ 31 ต.ค. 2026",
+      "notes": "[SolidWorks: FX_Bolt_M8x25_DIN933_8.8_ZP] | 31 ต.ค. 2026: ตัวกันชนของที่เลื่อนตะกร้า (Claude)",
       "section": "11. Front basket slide (ที่เลื่อนตะกร้าหน้ารถ)",
       "side": "structure",
       "type": "Bolts & screws",
